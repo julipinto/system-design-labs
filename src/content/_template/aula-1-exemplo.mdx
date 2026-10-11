@@ -1,0 +1,47 @@
+---
+title: "Título da aula"
+order: 1
+min: 2
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+{/* O número, o título, o tempo de leitura e o botão "Entendi" vêm do <Lesson> na página do módulo. */}
+
+<OneLiner>a ideia da aula numa frase só.</OneLiner>
+
+<DoIt>
+  <p>Uma ação curta para fazer antes de ler (clicar no widget, anotar algo).</p>
+</DoIt>
+
+<Widget name="exemplo" title="Nome do laboratório" hint="O que clicar e o que observar." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Primeiro passo, com <strong>o termo-chave</strong> em negrito.</li>
+  <li>Segundo passo.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Onde isso aparece num sistema de verdade.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <p>O texto longo, que fica fechado por padrão.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o tema", href: "https://fidelissauro.dev/" },
+    { label: "Livro sem link" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Pergunta para responder de cabeça?",
+    a: "Resposta curta. Aceita <strong>HTML</strong> simples." },
+]} />

@@ -5,10 +5,27 @@ a partir dos artigos públicos de Matheus Fidelis (https://fidelissauro.dev). Tu
 Não citar curso nem marca de terceiros no site; não reproduzir títulos/durações de aulas pagas; crédito só ao blog público, com "sem vínculo".
 
 ## Forma
-- Site estático, sem framework e sem etapa de build no navegador. Abre com duplo clique ou com `npx serve .`.
-- `index.html` lista os módulos. Cada módulo fica em `labs/<slug>/index.html`.
-- Figuras isométricas interativas são feitas com a skill `anatomy`. O script `build.mjs` do módulo gera o HTML final.
-- `shared/sdlabs.css` guarda os tokens de cor (claro/escuro) usados por todas as páginas.
+- Site estático feito com Astro (sem framework de UI: nada de React, Vue ou Solid). Publicado em
+  https://julipinto.github.io/system-design-labs/ (`base: '/system-design-labs'` no `astro.config.mjs`).
+- Links internos sempre com `withBase('...')` de `src/lib/url.js` (nunca `/labs/...` cru, senão quebra no Pages).
+- Onde fica cada coisa:
+  - `src/pages/index.astro`: home com os cards dos módulos.
+  - `src/pages/labs/<slug>/index.astro`: página do módulo; lê a collection e põe cada aula num `<Lesson>`.
+  - `src/content/<slug>/*.mdx`: uma aula por arquivo (content collection, registrada em `src/content.config.js`).
+    Nome do arquivo = âncora da aula. Frontmatter: `title`, `order`, `min`. Texto é HTML dentro do MDX.
+  - `src/content/_template/`: aula de exemplo e passo a passo para criar `labs/<novo-modulo>`.
+  - `src/layouts/BaseLayout.astro` (head, tokens, tema) e `ModuleLayout.astro` (topo, barra fixa de progresso, índice, modo foco).
+  - `src/components/`: `Lesson`, `OneLiner`, `DoIt`, `HowItWorks`, `WhyItMatters`, `Deep`, `Sources`, `Flashcards`,
+    `DoneButton`, `Widget` (lugar com `data-widget`) e `OsiFigure2D`.
+  - `src/scripts/focus-mode.js`: modo foco, barra de estado, "Entendi" (localStorage `sdl-<módulo>:`) e flashcards.
+  - `src/scripts/<slug>/widgets.js`: JS puro dos widgets do módulo (cada um se monta em `[data-widget="<nome>"]`).
+  - `src/styles/lesson.css` (base das aulas), `module.css` (topo/rodapé do módulo), `<slug>.css` (widgets do módulo).
+  - `public/shared/sdlabs.css`: tokens de cor (claro/escuro, segue prefers-color-scheme; `data-theme` força).
+  - `src/figures/`: figuras. `anatomy/iso-kit.mjs` (kit da skill anatomy), `osi/` (figura 2D: `osi-figure.mjs`,
+    `osi-data.js`, `osi-data.css`), `osi-3d/` (build da 3D + `fig3d.js`). `tools/iso-glow/gallery-3d.html` é o modelo 3D.
+  - `public/labs/protocolos-de-rede/quiz/`: quiz standalone (HTML/JS puro, sem build).
+- Figuras isométricas interativas são feitas com a skill `anatomy`. A 2D entra na página em tempo de build
+  (`OsiFigure2D.astro` chama `buildOsiFigure()` e injeta css/html/script).
 
 ## Modelos neste andar
 | Papel | Modelo | Por quê |
@@ -25,10 +42,12 @@ Como isso é automático:
 - Subagentes: o `model:` no frontmatter de `.claude/agents/*.md` decide.
 
 ## Build e verificação
-- Módulo Protocolos de Rede: `node labs/protocolos-de-rede/build.mjs` gera `labs/protocolos-de-rede/index.html`
-  a partir de `content.html` + `content.css` + `content.js` + `osi-figure.mjs` (a figura entra no marcador `<!--FIG-OSI-->`).
-- Testar só a figura: `node labs/protocolos-de-rede/osi-figure.mjs [--light]` gera `osi-figure(-light).html`.
-- O kit isométrico está copiado em `tools/anatomy/iso-kit.mjs` (vem da skill anatomy).
-- Piloto 3D (skill iso-glow, MIT): `node labs/protocolos-de-rede/osi-3d/build.mjs` gera `osi-3d/index.html` a partir de `tools/iso-glow/gallery-3d.html` + `osi-3d/fig3d.js`. Usa o mesmo roteiro (STAGES) e o mesmo painel `osi-data.js`/`osi-data.css`.
-- Screenshots: `CHROME_PATH=~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome node ~/.claude/skills/anatomy/scripts/capture.mjs <página> --width 390|1280`.
+- `npm install` uma vez. `npm run dev` (dev server), `npm run build` (gera `dist/`), `npm run preview` (serve o `dist/`).
+- `npm run build:3d` gera `public/labs/protocolos-de-rede/osi-3d/index.html` (não versionado) a partir de
+  `tools/iso-glow/gallery-3d.html` + `src/figures/osi-3d/fig3d.js` + os STAGES e o painel de `src/figures/osi/`.
+  `dev` e `build` já rodam esse passo antes.
+- Testar só a figura 2D: `node src/figures/osi/osi-figure.mjs [--light]` gera `src/figures/osi/osi-figure(-light).html`.
+- Deploy: `.github/workflows/deploy.yml` (withastro/action + deploy-pages) em push na main. Exige Pages com Source: GitHub Actions.
+- Screenshots: `CHROME_PATH=~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome node ~/.claude/skills/anatomy/scripts/capture.mjs <url> --width 390|1280 --select body --theme light|dark`
+  com o `npm run preview` rodando (http://localhost:4321/system-design-labs/...).
 - Sempre conferir em 390px e 1280px, temas claro e escuro, console sem erros e sem scroll horizontal.
