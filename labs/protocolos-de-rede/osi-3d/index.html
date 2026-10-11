@@ -71,6 +71,9 @@
 .o3-dv summary{cursor:pointer;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:4px 0}
 .o3-dv .dv{margin-top:6px}.o3-dv .dv-cap{font-size:13px}.o3-dv .dv-box{min-width:84px}
 .o3-mode{display:flex;gap:6px;margin:10px 0 2px}.o3-mode button{all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font:600 11.5px ui-monospace,monospace;color:var(--dim)}.o3-mode button[aria-pressed="true"]{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.o3-mode button:focus-visible{outline:2px solid var(--accent)}
+.o3-story{font-size:14px;line-height:1.6;color:var(--ink)}
+.o3-key{display:grid;gap:2px;padding:8px 10px;border-left:3px solid var(--accent);background:rgba(127,127,127,.06);border-radius:0 8px 8px 0}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.o3-dv .dv-cap{display:none}
 .o3-back{position:fixed;left:16px;top:58px;z-index:5;font:12px ui-monospace,monospace;color:var(--dim);text-decoration:none;pointer-events:auto}
 .o3-back:hover{color:var(--ink)}
 @media (max-width:640px){
@@ -2832,7 +2835,7 @@ Content-Length: 7680000</span>
 FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   const g0 = new THREE.Group(); g0.visible = false; scene.add(g0);
   const first = twMeshes.length;
-  const OX = 40, OY = 34, SW = 170, SD = 116, SH = 6, GAP = 40, Z0 = 20, LIFT = 64;
+  const OX = 40, OY = 34, SW = 170, SD = 116, SH = 6, GAP = 40, Z0 = 20, PULL = 132;   // PULL: quanto a camada ativa sai da pilha, como gaveta
   const SXS = { sp: OX, tk: OX + 460 };
   const zL = L => Z0 + (L - 1) * GAP;
   const COL = { sp: SXS.sp + SW + 52, tk: SXS.tk - 52 };
@@ -2866,7 +2869,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     const rim = loopL(sh.getPoints(10).map(p => W(p.x, -p.y, z + SH + 0.06)), accentLineMat); rim.visible = false; grp.add(rim);
     const cv = faceCanvas('top', x, OY, z + SH, SW, SD, 4, grp, true);
     slitsUV(frontUV(x, OY + SD, z + SH), SW - 46, SW - 12, 3, 1.4, SH - 1.4, grp);
-    const s = { grp, mat, rim, lift: 0, key: null, draw(state, chat) {
+    const s = { grp, mat, rim, pull: 0, key: null, draw(state, chat) {
       const k = state + '|' + chat; if (s.key === k && !s.force) return; s.key = k; s.force = false;
       const { x: c, P } = cv, C = pal3(), A_ = '#' + accent.getHexString(), on = state === 'on', hot = state === 'hot';
       c.clearRect(0, 0, cv.c.width, cv.c.height); c.lineWidth = 0.25 * P;
@@ -2969,38 +2972,58 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     { mode: 'cipher', f: 0.55, lock: 1 }, { mode: 'cipher', f: 0.55, lock: 1, sess: 1 }, { mode: 'photo', f: 1 }, { mode: 'none' },
   ];
   const cur = { x: SXS.sp + SW / 2, z: zL(7) + SH, a: 1, f: 1, tile: 1 };
-  let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0, mode = 'tcp';
+  let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0, mode = 'tcp', followT = 1.6;
 
   function readout() { if (active !== 'osi') return; const t = ST[s];
     document.getElementById('read').textContent = `passo ${s + 1}/16 · ` + (s === 0 ? 'início' : s === 8 ? 'roteadores' : (t.side === 'sp' ? 'lena' : 'irmão') + ` · ${t.L} ${t.name.toLowerCase()}`); }
   const LOOK3D = [
-    'Pilha da esquerda (Lena): a placa 7 é a tela do chat e a foto do gato está sobre ela. Ainda é só a imagem, sem nada de rede.',
-    'Camada 7 acesa: em cima da foto aparece o pedido HTTP (POST /v1/fotos) que o app montou.',
-    'Camada 6: a foto encolhe (compressão) e vira ruído (cifrada). O selo TLS · AES-256 mostra que ninguém no caminho consegue ver o gato.',
-    'Camada 5: acende a linha da sessão entre as duas camadas 5. Os bytes não mudam.',
-    'Camada 4: o bloco cifrado se quebra em fatias numeradas (#1, #2, #3…). A fatia #1 vem para a frente e ganha a primeira caixa: o cabeçalho TCP (número 1, seq 1).',
-    'Camada 3: uma caixa maior envolve a do TCP: o cabeçalho IP, com o endereço final (para 198.51.100.7). É o rótulo que os roteadores leem.',
-    'Camada 2: a terceira caixa, o cabeçalho MAC, com o endereço só do próximo salto (o roteador de casa). Pacote dentro de pacote dentro de pacote: isso é encapsulamento.',
-    'Camada 1: as fatias viram sinal; os pontos de luz saem pelo cabo.',
-    'Os pontos de luz são os bits. Cada roteador pisca quando eles passam: abre até o IP, troca o MAC e manda adiante.',
-    'Pilha da direita (irmão), camada 1: as fatias reaparecem com o quadro completo.',
-    'Camada 2: sai a caixa do MAC (o FCS conferiu: nenhum bit corrompido).',
-    'Camada 3: sai a caixa do IP (o destino era ele).',
-    'Camada 4: sai a caixa do TCP e as 215 fatias se juntam, na ordem, no bloco cifrado de novo.',
-    'Camada 5: a linha da sessão acende de novo: é a mesma conversa.',
-    'Camada 6: o bloco é decifrado e volta ao tamanho original: o gato aparece.',
-    'Camada 7: a foto chega ao chat do irmão.',
+    'A placa 7 (a tela do chat) saiu da pilha; o gato está em cima dela.',
+    'Em cima da foto apareceu o rótulo do pedido HTTP.',
+    'A foto encolheu e virou ruído; o selo diz TLS · AES-256.',
+    'Uma linha acesa liga as camadas 5 das duas pilhas.',
+    'O bloco virou 20 cubinhos numerados; o #1 saiu para o lado dentro da caixa TCP.',
+    'O #1 ganhou uma segunda caixa por fora: IP.',
+    'Terceira caixa por fora: MAC. Três caixas, uma dentro da outra.',
+    'Os cubinhos somem da gaveta e os pontos de luz saem pelo cabo.',
+    'Siga os pontos de luz no cabo; cada roteador (R1, R2, R3) pisca quando eles passam.',
+    'A placa 1 do irmão saiu da pilha com o quadro completo.',
+    'A caixa de fora (MAC) sumiu.',
+    'A caixa do IP sumiu; só resta a do TCP.',
+    'A última caixa sumiu e os cubinhos se juntaram no bloco cifrado.',
+    'A linha da sessão acende de novo entre as camadas 5.',
+    'O ruído virou gato de novo.',
+    'A foto entrou no chat do irmão (placa 7).',
+  ];
+
+  // a história, passo a passo (cada passo continua o anterior) e o conceito para guardar
+  const STORY = [
+    ['São Paulo, 21h. A Lena tira uma foto do gato e abre a conversa com o irmão, que mora em Tóquio. Ela toca em enviar. Daqui pra frente a foto vai descer as 7 camadas do celular dela, cruzar o planeta e subir as 7 camadas do celular dele, em cerca de 1 segundo.', 'Cada camada faz um único trabalho e entrega o resultado para a camada de baixo.'],
+    ['Primeiro o app precisa dizer o que quer. Ele escreve um pedido HTTP, "POST /v1/fotos", com a foto no corpo. (Um pouco antes, o DNS já tinha descoberto o IP do servidor de mensagens.)', 'Camada 7 é onde o app fala: HTTP, DNS, gRPC.'],
+    ['Mandar 7,68 MB seria lento, e qualquer um no caminho poderia ver o gato. Então a foto é comprimida para 313 KB e cifrada com TLS. Para quem interceptar, agora é só ruído.', 'Camada 6 cuida de formato, compressão e criptografia.'],
+    ['Antes de mandar, os dois lados precisam estar na mesma conversa. A sessão marca quem fala com quem e de onde retomar se a conexão cair no meio.', 'Camada 5 abre, mantém e fecha a conversa.'],
+    ['Só que 313 KB não cabem num pacote: cada um leva no máximo uns 1.460 bytes. O TCP corta o bloco em 215 fatias, numera cada uma e põe nela o primeiro cabeçalho, com as portas e o número de sequência.', 'Camada 4 corta, numera e garante a entrega (TCP).'],
+    ['Cada fatia precisa saber para onde vai. Por fora do TCP entra o cabeçalho IP, com o endereço final: 198.51.100.7. É esse rótulo que todos os roteadores vão ler até Tóquio.', 'Camada 3 dá o endereço final e escolhe o caminho (IP).'],
+    ['Mas o primeiro trecho é curtinho: do celular até o roteador de casa. Por fora do IP entra o cabeçalho MAC, com o endereço desse roteador, e um FCS no fim para detectar bits estragados. Pacote dentro de pacote dentro de pacote: isso é encapsulamento.', 'Camada 2 entrega só até o próximo salto (MAC).'],
+    ['Fim da descida. O quadro vira sinal: ondas de rádio até o roteador, pulsos elétricos no cobre e luz na fibra.', 'Camada 1 é o meio físico: aqui só existem bits.'],
+    ['Os bits cruzam o planeta pelo cabo submarino. Em cada roteador o quadro é aberto até o IP: ele lê o destino, escolhe o próximo salto, troca o MAC e manda adiante. O IP de destino nunca muda no caminho.', 'Roteadores trabalham até a camada 3.'],
+    ['Tóquio. O celular do irmão recebe o sinal e remonta os bits do quadro. Agora a mesma escada é percorrida ao contrário, de baixo para cima, e cada camada tira o cabeçalho que a camada equivalente da Lena colocou.', 'Desencapsular: cada camada tira o seu próprio cabeçalho.'],
+    ['O enlace confere o FCS (nenhum bit estragou no caminho) e vê que o MAC de destino é o dele. Sai a caixa do MAC.', 'Camada 2 confere a integridade e o endereço local.'],
+    ['O IP de destino também é o dele. Sai a caixa do IP.', 'Camada 3 confirma que o pacote chegou ao destino certo.'],
+    ['O TCP junta as 215 fatias pela numeração, pede de novo as que faltaram e confirma o recebimento para a Lena. Sai o TCP, e o bloco cifrado fica inteiro de novo.', 'Camada 4 põe em ordem, completa e confirma.'],
+    ['A sessão confere que esses dados são da mesma conversa com a Lena.', 'Camada 5 sabe a qual conversa cada dado pertence.'],
+    ['O TLS decifra e a imagem é descomprimida: o ruído volta a ser o gato.', 'Camada 6 desfaz a criptografia e a compressão.'],
+    ['O app mostra a foto no chat. Para o irmão foi instantâneo, mas a foto passou por 14 camadas e vários roteadores em cerca de 1 segundo.', 'Cada camada pôs um envelope na ida, e a mesma camada o tirou na volta.'],
   ];
   const UDP_TXT = {
-    0: ['Lena liga para o irmão (chamada de vídeo)', 'Agora o dado não é uma foto pronta: é voz e vídeo ao vivo, em fluxo, dezenas de pedaços por segundo. Aqui atrasar é pior do que perder um pedacinho.', 'A placa 7 mostra a chamada e, sobre ela, o vídeo ao vivo (câmera e som).'],
-    1: ['7 · Aplicação: o app abre a chamada', 'O app de chamada (WebRTC) captura áudio e vídeo e manda em fluxo contínuo. Não é um pedido HTTP com tudo de uma vez.', 'Camada 7 acesa: o fluxo de mídia começa a sair.'],
-    2: ['6 · Apresentação: codifica e cifra', 'Um codec (Opus para voz, VP8 para vídeo) comprime cada pedacinho e o SRTP cifra. Cada pedaço é pequeno e independente.', 'Camada 6: o vídeo vira ruído cifrado (SRTP).'],
-    3: ['5 · Sessão: a chamada está aberta', 'A sessão é a própria chamada: quem fala com quem, com que codec, há quanto tempo.', 'Camada 5: a linha da sessão (a chamada) acende entre os dois lados.'],
-    4: ['4 · Transporte: UDP, sem esperar ninguém', 'O UDP põe só portas, tamanho e checksum (8 bytes). Não abre conexão, não confirma, não reenvia. O app até numera os pedaços (RTP), mas ninguém para a fila esperando um que sumiu.', 'Camada 4: a fatia #1 ganha uma caixa fina, o UDP (8 bytes, sem seq e sem ACK).'],
-    8: ['Salto a salto: um pedaço se perde', 'No caminho um datagrama se perde (fila cheia num roteador, Wi-Fi ruim). Com UDP ninguém avisa e ninguém reenvia.', 'Um dos pontos de luz some no meio do cabo: é o pedaço perdido. Ninguém manda de novo.'],
-    12: ['4 · Transporte: segue sem o pedaço que faltou', 'Chegou quase tudo. O que se perdeu fica de fora: a imagem dá uma travadinha de milissegundos e a chamada continua. Esperar o reenvio deixaria a conversa atrasada.', 'As fatias se juntam com um buraco: falta uma. A chamada segue mesmo assim.'],
-    14: ['6 · Apresentação: decifra e decodifica', 'O SRTP decifra e o codec remonta voz e imagem, mesmo com um pedacinho a menos.', 'Camada 6: o bloco é decifrado e o vídeo volta.'],
-    15: ['7 · Aplicação: a chamada continua', 'Para voz e vídeo ao vivo, chegar agora importa mais que chegar completo. Por isso chamadas, jogos e transmissões usam UDP (ou QUIC, que também roda sobre UDP).', 'Camada 7: a chamada aparece na tela do irmão.'],
+    0: ['Lena liga para o irmão (chamada de vídeo)', 'Agora a Lena não manda uma foto: ela liga para o irmão por vídeo. O dado não está pronto, ele nasce a cada instante na câmera e no microfone, dezenas de pedaços por segundo. Numa conversa ao vivo, atrasar é pior do que perder um pedacinho.', 'A placa 7 mostra a chamada e, sobre ela, o vídeo ao vivo.', 'Voz e vídeo ao vivo têm pressa: chegar agora vale mais que chegar completo.'],
+    1: ['7 · Aplicação: o app abre a chamada', 'O app de chamada (WebRTC) não faz um pedido e espera a resposta. Ele abre um fluxo e manda pedaços de áudio e vídeo sem parar.', 'Camada 7 acesa: o fluxo de mídia começa a sair.', 'Camada 7: o app decide o que enviar (aqui, um fluxo de mídia).'],
+    2: ['6 · Apresentação: codifica e cifra', 'Cada pedacinho passa por um codec (Opus para voz, VP8 para vídeo), que comprime, e pelo SRTP, que cifra. Cada pedaço é pequeno e independente dos outros.', 'Camada 6: o vídeo vira ruído cifrado (SRTP).', 'Camada 6: compressão e criptografia, agora em tempo real.'],
+    3: ['5 · Sessão: a chamada está aberta', 'A sessão aqui é a própria chamada: quem fala com quem, com que codec e há quanto tempo.', 'Camada 5: a linha da sessão (a chamada) acende entre os dois lados.', 'Camada 5 mantém a conversa aberta.'],
+    4: ['4 · Transporte: UDP, sem esperar ninguém', 'Aqui está a grande diferença. Em vez do TCP, entra o UDP: só portas, tamanho e checksum (8 bytes). Sem abrir conexão, sem confirmar, sem reenviar. Se um pedaço se perder, ninguém para a fila esperando por ele.', 'A fatia #1 ganha uma caixa fina: o UDP (8 bytes, sem seq e sem ACK).', 'UDP troca garantia por velocidade.'],
+    8: ['Salto a salto: um pedaço se perde', 'No caminho um pedaço se perde (fila cheia num roteador, Wi-Fi ruim). Com UDP ninguém avisa e ninguém reenvia. Os outros seguem em frente.', 'Um dos pontos de luz some no meio do cabo: é o pedaço perdido.', 'Perder pacote é normal na internet; o UDP simplesmente segue.'],
+    12: ['4 · Transporte: segue sem o pedaço que faltou', 'Chegou quase tudo. O pedaço que se perdeu fica de fora: a imagem dá uma travadinha de milissegundos e a chamada continua. Se fosse esperar o reenvio, a conversa ficaria atrasada.', 'As fatias se juntam com um buraco: falta uma. A chamada segue mesmo assim.', 'TCP espera o que faltou; UDP pula e continua.'],
+    14: ['6 · Apresentação: decifra e decodifica', 'O SRTP decifra e o codec remonta voz e imagem, mesmo com um pedacinho a menos.', 'Camada 6: o bloco é decifrado e o vídeo volta.', 'Camada 6 desfaz a criptografia e a compressão.'],
+    15: ['7 · Aplicação: a chamada continua', 'O irmão vê e ouve a Lena ao vivo, com uma travadinha que ele nem percebeu. Por isso chamadas, jogos e transmissões ao vivo usam UDP (ou QUIC, que também roda sobre UDP).', 'Camada 7: a chamada aparece na tela do irmão.', 'Foto: TCP. Ligação ao vivo: UDP.'],
   };
   const cmpHtml = () => (s === 4 || s === 12) ? `<div class="dv-cmp"><div class="${mode === 'tcp' ? 'is-here' : ''}"><b>Foto · TCP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">#7?</span><span>#8</span></div>espera o #7 chegar de novo (reenvio)</div><div class="${mode === 'udp' ? 'is-here' : ''}"><b>Ligação · UDP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">–</span><span>#8</span></div>pula o #7: uma travadinha e segue</div></div>` : '';
   function panelHtml() {
@@ -3010,8 +3033,9 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
       <div class="o3-bar"><i style="width:${((s + 1) / 16 * 100).toFixed(1)}%"></i></div>
       <div class="o3-mode" role="group" aria-label="Cenário"><button data-mode="tcp" aria-pressed="${mode === 'tcp'}">Foto · TCP</button><button data-mode="udp" aria-pressed="${mode === 'udp'}">Ligação · UDP</button></div>
       <h2>${u ? u[0] : t.title}</h2>
-      <p class="o3-look"><b>No desenho</b>${u ? u[2] : LOOK3D[s]}</p>
-      <p>${u ? u[1] : t.body}</p>${cmpHtml()}
+      <p class="o3-story">${u ? u[1] : STORY[s][0]}</p>
+      <p class="o3-look"><b>Olhe no desenho</b>${u ? u[2] : LOOK3D[s]}</p>
+      <p class="o3-key"><b>Em uma frase</b>${u ? u[3] : STORY[s][1]}</p>${cmpHtml()}
       <details class="o3-dv"${innerWidth < 640 ? '' : ' open'}><summary>O dado agora</summary><div class="dv">${osiDataView(s, false, mode)}</div></details>`;
   }
   function render() {
@@ -3032,7 +3056,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     const info = document.getElementById('info'); if (active === 'osi' && info) { info.innerHTML = panelHtml(); info.scrollTop = 0; }
     readout();
   }
-  function go(i) { s = (i + 16) % 16; dwell = 0; bitsT = s === 7 || s === 8 ? 0 : -1;
+  function go(i) { s = (i + 16) % 16; dwell = 0; followT = 1.8; bitsT = s === 7 || s === 8 ? 0 : -1;
     if (s === 0) { cur.x = SXS.sp + SW / 2; cur.z = zL(7) + SH; } render(); SFX.bit(1); return true; }
   const next = () => go(s + 1), prev = () => go(Math.max(0, s - 1)), reset = () => go(0);
   const auto = () => { playing = !playing; dwell = 0; return true; };
@@ -3046,17 +3070,19 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   function tick(now) {
     const dt = last ? Math.min((now - last) / 1000, 0.25) : 0; last = now;
     const w = where(s), d = DST[s], k = 1 - Math.exp(-dt / 0.35), kk = 1 - Math.exp(-dt / 0.5);
-    // a camada ativa abre espaço: as de cima sobem
+    // a camada ativa sai da pilha para a frente, como uma gaveta, e fica inteira à vista
+    let pullNow = 0;
     for (const side of ['sp', 'tk']) for (let L = 1; L <= 7; L++) {
-      const sl = slabs[side][L], want = w.side === side && L > w.L && s !== 0 ? LIFT : 0;
-      sl.lift += (want - sl.lift) * kk; sl.grp.position.copy(W(0, 0, sl.lift));
+      const sl = slabs[side][L], want = w.side === side && L === w.L && w.side !== 'x' ? PULL : 0;
+      sl.pull += (want - sl.pull) * kk; sl.grp.position.copy(W(0, sl.pull, 0));
+      if (w.side === side && L === w.L) pullNow = sl.pull;
     }
     // o dado vai para o centro da camada ativa
     const tx = (w.side === 'tk' ? SXS.tk : SXS.sp) + SW / 2, tz = zL(w.L) + SH + 0.5;
     cur.x += (tx - cur.x) * k; cur.z += (tz - cur.z) * k;
     const show = d.mode !== 'none' && !d.fade ? 1 : 0; cur.a += (show - cur.a) * k;
     cur.f += ((d.f || 1) - cur.f) * k; cur.tile += ((d.mode === 'photo' || d.mode === 'cipher' ? 1 : 0) - cur.tile) * k;
-    D.position.copy(W(cur.x, PY + 4, cur.z)); D.visible = cur.a > 0.04;
+    D.position.copy(W(cur.x, PY + 4 + pullNow, cur.z)); D.visible = cur.a > 0.04;
     tile.scale.setScalar(Math.max(0.001, cur.f * cur.tile * cur.a)); tile.visible = cur.tile > 0.02;
     const cubesOn = d.mode === 'cubes' ? cur.a : 0;
     cubes.forEach((c, n) => { const gap = mode === 'udp' && n === 6 && s >= 9; c.s += ((gap ? 0 : cubesOn) - c.s) * (1 - Math.exp(-dt / (0.25 + n * 0.012)));
@@ -3076,10 +3102,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
       if (s === 8) routers.forEach(r => { if (!r.hit && bitsT / T >= r.t) { r.hit = true; flash(r.g, 320); SFX.bit(1); } });
       if (bitsT > T + 1.4) bitsT = s === 7 ? 0 : -1; }
     else { beads.forEach(b => b.material.uniforms.intensity.value = 0); routers.forEach(r => r.hit = false); }
-    // no celular a câmera desliza até a pilha da vez
-    if (innerWidth < 640 && dt > 0) {
-      const fx = w.side === 'tk' ? SXS.tk + SW / 2 - 30 : w.side === 'x' ? (COL.sp + COL.tk) / 2 : SXS.sp + SW / 2 + 30;
-      const want = W(fx, w.side === 'x' ? WY : 150, w.side === 'x' ? -110 : 30), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
+    // depois de cada passo a câmera desliza até a camada da vez (no desktop, à direita do painel)
+    followT -= dt;
+    if (followT > 0 && dt > 0) {
+      const mob = innerWidth < 640, off = mob ? 30 : -150;
+      const fx = w.side === 'tk' ? SXS.tk + SW / 2 + (mob ? -30 : off) : w.side === 'x' ? (COL.sp + COL.tk) / 2 + (mob ? 0 : -120) : SXS.sp + SW / 2 + off;
+      const want = W(fx, w.side === 'x' ? WY : 150 + PULL * 0.6, w.side === 'x' ? (mob ? -110 : -40) : (mob ? 30 : zL(w.L) - 20)), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
       if (dd.lengthSq() > 1e-8) { controls.target.add(dd); camera.position.add(dd); }
     }
     if (playing) { dwell += dt; if (dwell >= (s === 8 ? 6 : 6.5)) next(); }
@@ -3098,7 +3126,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   drawTile('photo', true); render();
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
     panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Foto ⇄ Ligação', 'U', toggleMode]],
-    view: innerWidth < 640 ? { target: W(SXS.sp + SW / 2 + 30, 150, 30), dist: 7 } : { target: W(250, 160, 120), dist: 13.5 },
+    view: innerWidth < 640 ? { target: W(SXS.sp + SW / 2 + 30, 150 + PULL * 0.6, 30), dist: 7 } : { target: W(250, 200, 110), dist: 14 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · clique numa camada · arraste para girar' };
 })() });
