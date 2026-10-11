@@ -3,19 +3,22 @@
 // (a carga vira uma pirâmide de degraus = encapsulamento). Embaixo vira bits num cabo com 3 roteadores.
 // Subindo do outro lado, cada andar tira o seu envelope.
 //
-//   node osi-figure.mjs            -> escreve osi-figure.html (página de teste, tema escuro)
-//   node osi-figure.mjs --light    -> osi-figure-light.html
-//   import { buildOsiFigure } from "./osi-figure.mjs" -> { css, html, script } para a página do módulo
+//   node src/figures/osi/osi-figure.mjs          -> escreve osi-figure.html (página de teste, tema escuro)
+//   node src/figures/osi/osi-figure.mjs --light  -> osi-figure-light.html
+//   import { buildOsiFigure } from "./osi-figure.mjs" -> { css, html, script } (usado por src/components/OsiFigure2D.astro)
 
-import { writeFileSync, readFileSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as k from "../../tools/anatomy/iso-kit.mjs";
+import * as k from "../anatomy/iso-kit.mjs";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+// No build do Astro este módulo é empacotado pelo Vite e import.meta.url deixa de apontar para src/figures/osi.
+// Nesse caso os arquivos são lidos a partir da raiz do projeto (o build sempre roda na raiz).
+const SELF = dirname(fileURLToPath(import.meta.url));
+const HERE = existsSync(join(SELF, "osi-data.js")) ? SELF : join(process.cwd(), "src/figures/osi");
 const DATA_SRC = readFileSync(join(HERE, "osi-data.js"), "utf8");
 const DATA_CSS = readFileSync(join(HERE, "osi-data.css"), "utf8");
-const KIT_SRC = readFileSync(join(HERE, "../../tools/anatomy/iso-kit.mjs"), "utf8").replace(/^export /gm, "");
+const KIT_SRC = readFileSync(join(HERE, "../anatomy/iso-kit.mjs"), "utf8").replace(/^export /gm, "");
 
 const WIDTH = 760;
 const HEIGHT = 540;

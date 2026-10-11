@@ -1,9 +1,10 @@
-// Gera osi-3d/index.html: modelo 3D do iso-glow + figura OSI (fig3d.js) + roteiro e painel "O dado agora".
-//   node labs/protocolos-de-rede/osi-3d/build.mjs
-import { readFileSync, writeFileSync } from "node:fs";
+// Gera public/labs/protocolos-de-rede/osi-3d/index.html: modelo 3D do iso-glow + figura OSI (fig3d.js)
+// + roteiro e painel "O dado agora". Roda antes do astro build (npm run build:3d).
+//   node src/figures/osi-3d/build.mjs
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { STAGES } from "../osi-figure.mjs";
+import { STAGES } from "../osi/osi-figure.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(HERE, p), "utf8");
@@ -37,16 +38,18 @@ const css = `
   #ctl-osi button:nth-child(2){order:-1}
   #ctl-osi button:nth-child(n+3),#ctl-osi .sep{display:none!important}
 }
-${read("../osi-data.css")}
+${read("../osi/osi-data.css")}
 `;
 const reps = [
   ["<title>Iso 3D</title>", "<title>Modelo OSI em 3D · SDLabs</title>"],
   ["<i></i>Iso 3D</div>", "<i></i>Modelo OSI · 3D</div>"],
   ["</style>", css + "</style>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../index.html#aula-2-modelo-osi">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
-  ["/* paste 3D figure modules here */", `const OSI_STAGES = ${JSON.stringify(stages)};\n${read("../osi-data.js")}\n${read("fig3d.js")}`],
+  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-2-modelo-osi">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ["/* paste 3D figure modules here */", `const OSI_STAGES = ${JSON.stringify(stages)};\n${read("../osi/osi-data.js")}\n${read("fig3d.js")}`],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }
 s = s.replace('<html lang="en">', '<html lang="pt-BR">');
-writeFileSync(join(HERE, "index.html"), s);
-console.log("wrote", join(HERE, "index.html"), (s.length / 1024).toFixed(0) + " KB");
+const OUT = join(HERE, "../../../public/labs/protocolos-de-rede/osi-3d");
+mkdirSync(OUT, { recursive: true });
+writeFileSync(join(OUT, "index.html"), s);
+console.log("wrote", join(OUT, "index.html"), (s.length / 1024).toFixed(0) + " KB");
