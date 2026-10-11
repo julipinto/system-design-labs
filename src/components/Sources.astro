@@ -1,0 +1,7 @@
+---
+// Lista "Fontes". Item com href vira link externo; sem href, texto puro.
+interface Item { label: string; href?: string }
+interface Props { items: Item[] }
+const { items } = Astro.props;
+---
+<div class="sources"><h4>Fontes</h4><ul>{items.map((s) => <li>{s.href ? <a href={s.href} target="_blank" rel="noopener">{s.label}</a> : s.label}</li>)}</ul></div>

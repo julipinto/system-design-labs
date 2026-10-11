@@ -1,0 +1,9 @@
+---
+// Lugar de um widget interativo. O JS do módulo procura [data-widget="<name>"] e monta o resto aqui dentro.
+interface Props { name: string; title: string; hint: string }
+const { name, title, hint } = Astro.props;
+---
+<div class="widget" data-widget={name}>
+  <p class="widget-title">{title}</p>
+  <p class="widget-hint">{hint}</p>
+</div>

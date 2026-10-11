@@ -1,0 +1,11 @@
+---
+// Fim da aula: botão "Entendi" (estado salvo pelo focus-mode.js), mensagem e navegação anterior/próxima.
+interface NavLink { href: string; label?: string; primary?: boolean }
+interface Props { prev?: string; next?: string; final?: NavLink }
+const { prev, next, final } = Astro.props;
+---
+<div class="lesson-end">
+  <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+  <p class="done-msg" role="status" aria-live="polite"></p>
+  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev">← Aula anterior</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">Próxima aula →</a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{final.label}</a>}</div>
+</div>

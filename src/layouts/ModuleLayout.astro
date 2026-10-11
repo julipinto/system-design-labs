@@ -1,0 +1,61 @@
+---
+// Página de módulo: topo "← SDLabs", título, barra fixa de progresso com índice e o modo foco
+// (src/scripts/focus-mode.js). As aulas (<Lesson>) entram no slot, dentro de <main class="sdl-content">.
+import BaseLayout from './BaseLayout.astro';
+import { withBase } from '../lib/url.js';
+import '../styles/lesson.css';
+import '../styles/module.css';
+
+interface LessonRef { id: string; title: string }
+interface Props {
+  title: string;          // <title> da página
+  description: string;
+  module: string;         // slug do módulo: chave do localStorage (sdl-<module>:...)
+  heading: string;        // h1 e nome na barra fixa
+  lead: string;           // frase abaixo do h1
+  lessons: LessonRef[];   // na ordem, para o índice
+  quizHref?: string;      // link do quiz no painel (opcional)
+}
+const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
+const label = `${heading} · ${lessons.length} tópicos`;
+---
+<BaseLayout title={title} description={description}>
+  <Fragment slot="head">
+    <slot name="head" />
+    <!-- módulos são deferidos: no head rodam antes do script da figura, como no site antigo -->
+    <script>
+      import '../scripts/focus-mode.js';
+    </script>
+  </Fragment>
+  <div class="sdl-top"><a href={withBase('')}>← SDLabs</a><span>Módulo · {heading}</span></div>
+  <header class="sdl-hero">
+    <h1>{heading}</h1>
+    <p>{lead}</p>
+  </header>
+  <main class="sdl-content" data-module={module}>
+    <div class="sdl-progress">
+      <div class="pg-row">
+        <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior">‹</button>
+        <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">{label}</span><span class="pg-caret" aria-hidden="true">▾</span></button>
+        <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula">›</button>
+      </div>
+      <div class="pg-meter">
+        <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
+        <span class="pg-count">0/{lessons.length} ✓</span>
+      </div>
+      <div class="pg-panel" id="sdl-panel">
+        {quizHref && <a class="btn big primary pg-quiz" href={quizHref} style="display:flex;justify-content:center;margin-bottom:10px">Fazer o quiz do módulo →</a>}
+        <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
+        <nav class="toc" aria-label="Aulas do módulo">
+          <p class="toc-title">{label}</p>
+          <ol>
+            {lessons.map((l, i) => <li><a href={`#${l.id}`}><span>{i + 1}</span> {l.title}</a></li>)}
+          </ol>
+        </nav>
+      </div>
+    </div>
+    <noscript><style is:inline>.sdl-content .fc-a[hidden]{display:block}</style></noscript>
+    <slot />
+  </main>
+  <footer class="sdl-credit">Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
+</BaseLayout>

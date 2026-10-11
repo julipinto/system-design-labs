@@ -1,0 +1,8 @@
+/* Topo, título e rodapé das páginas de módulo (ModuleLayout) */
+.sdl-top{max-width:960px;margin:0 auto;padding:20px 16px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;font:12px/1.4 var(--mono);color:var(--muted)}
+.sdl-top a{color:var(--muted);text-decoration:none}.sdl-top a:hover{color:var(--fg)}
+.sdl-hero{max-width:960px;margin:0 auto;padding:28px 16px 0}
+.sdl-hero h1{margin:0 0 8px;font-size:clamp(30px,7vw,46px);line-height:1.1;letter-spacing:-.02em}
+.sdl-hero p{margin:0;max-width:640px;color:var(--muted);font-size:17px}
+.sdl-credit{max-width:960px;margin:0 auto;padding:0 16px 48px;font:12px/1.6 var(--mono);color:var(--muted)}
+.sdl-credit a{color:var(--muted)}

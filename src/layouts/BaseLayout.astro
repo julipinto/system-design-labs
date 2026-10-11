@@ -1,0 +1,21 @@
+---
+// Casca de toda página: head, tokens de cor (public/shared/sdlabs.css) e tema.
+// O tema segue prefers-color-scheme; data-theme="light|dark" no <html> força um dos dois.
+import { withBase } from '../lib/url.js';
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content={description}>
+<link rel="stylesheet" href={withBase('shared/sdlabs.css')}>
+<slot name="head" />
+</head>
+<body>
+<slot />
+</body>
+</html>

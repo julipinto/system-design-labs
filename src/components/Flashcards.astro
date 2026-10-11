@@ -1,0 +1,14 @@
+---
+// "Pra não esquecer": pergunta vira botão, resposta abre ao clicar (focus-mode.js liga os cliques).
+// `a` aceita HTML curto (<strong>, <sup>).
+interface Card { q: string; a: string }
+interface Props { cards: Card[] }
+const { cards } = Astro.props;
+---
+<div class="cards">
+  <h3 class="sec">Pra não esquecer</h3>
+  <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+  <ul class="fc-list">
+    {cards.map((c) => <li><button type="button" class="fc-q" aria-expanded="false">{c.q}</button><div class="fc-a" hidden set:html={c.a}></div></li>)}
+  </ul>
+</div>

@@ -1,0 +1,9 @@
+---
+// <details> "Aprofundar (N min)": o texto longo, fechado por padrão.
+interface Props { min: number }
+const { min } = Astro.props;
+---
+<details class="deep">
+  <summary>Aprofundar ({min} min)</summary>
+  <slot />
+</details>
