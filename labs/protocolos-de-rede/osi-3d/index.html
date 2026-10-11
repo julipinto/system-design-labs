@@ -2938,8 +2938,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   const beads = Array.from({ length: 7 }, () => { const b = glowPoints([W(...wirePts[0])], 0.2); g0.add(b); return b; });
 
   // ── sessão: uma linha entre as camadas 5 das duas pilhas ──
-  const sess = polyLine([[SXS.sp + SW, OY + 20, zL(5) + 3], [SXS.tk, OY + 20, zL(5) + 3]], lineMat, g0); sess.visible = false;
-  const sessLbl = label('SESSÃO 9f3a · aberta', 80, 9, 6, onTop((SXS.sp + SW + SXS.tk) / 2, OY + 26, zL(5) + 4), g0); sessLbl.visible = false;
+  // uma ponte de luz entre as duas camadas 5 (acompanha a gaveta), com dois pontos indo e voltando: a conversa
+  const sessMat = new THREE.MeshBasicMaterial({ color: accent.clone(), transparent: true, opacity: 0.85, toneMapped: false });
+  const sess = new THREE.Mesh(new THREE.CylinderGeometry(2.2 * TS, 2.2 * TS, 1, 16), sessMat); sess.visible = false; g0.add(sess);
+  const sessBeads = [0, 1].map(() => { const b = glowPoints([W(0, 0, 0)], 0.32); g0.add(b); return b; });
+  const sessLbl = label('SESSÃO ABERTA · conversa 9f3a', 120, 12, 8, onTop(0, 0, 0), g0); sessLbl.visible = false;
+  const sessEnds = () => [[SXS.sp + SW, PY + slabs.sp[5].pull, zL(5) + SH / 2], [SXS.tk, PY + slabs.tk[5].pull, zL(5) + SH / 2]];
 
   // ── o dado: um grupo que fica sobre a camada ativa ──
   const D = new THREE.Group(); g0.add(D); const DS = 2; D.scale.setScalar(DS);
@@ -3004,7 +3008,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     'A placa 7 (a tela do chat) saiu da pilha; o gato está em cima dela.',
     'Em cima da foto apareceu o rótulo do pedido HTTP.',
     'A foto encolheu e virou ruído; o selo diz TLS · AES-256.',
-    'Uma linha acesa liga as camadas 5 das duas pilhas.',
+    'Uma ponte de luz liga as camadas 5 das duas pilhas; os pontos indo e voltando são a conversa.',
     'O bloco virou 20 cubinhos numerados; o #1 saiu para o lado dentro da caixa TCP.',
     'O #1 ganhou uma segunda caixa por fora: IP.',
     'Terceira caixa por fora: MAC. Três caixas, uma dentro da outra.',
@@ -3014,7 +3018,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     'A caixa de fora (MAC) sumiu.',
     'A caixa do IP sumiu; só resta a do TCP.',
     'A última caixa sumiu e os cubinhos se juntaram no bloco cifrado.',
-    'A linha da sessão acende de novo entre as camadas 5.',
+    'A ponte da sessão acende de novo entre as camadas 5: é a mesma conversa.',
     'O ruído virou gato de novo.',
     'A foto entrou no chat do irmão (placa 7).',
   ];
@@ -3074,7 +3078,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     }
     const d = DST[s];
     wire.material = s === 7 || s === 8 || s === 9 ? accentLineMat : majorMat;
-    sess.material = accentLineMat; sess.visible = !!d.sess; sessLbl.visible = !!d.sess;
+    sess.visible = !!d.sess; sessLbl.visible = !!d.sess;
     httpLbl.visible = !!d.http; lockLbl.visible = !!d.lock && d.mode !== 'cubes';
     drawTile(d.mode === 'photo' ? (mode === 'udp' ? 'call' : 'photo') : 'cipher');
     const info = document.getElementById('info'); if (active === 'osi' && info) { info.innerHTML = panelHtml(); info.scrollTop = 0; }
@@ -3119,6 +3123,14 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     { const c = cubes[0], pull = d.tcp && d.mode === 'cubes' ? 1 : 0; c.pull = (c.pull || 0) + (pull - (c.pull || 0)) * k;
       const t = c.s, side = where(s).side === 'tk' ? -1 : 1, px = c.home[0] * t * (1 - c.pull) + side * PIECE_X * c.pull, py = c.home[1] * t * (1 - c.pull);
       c.g.position.copy(W(px, py, 0)); c.g.scale.setScalar(Math.max(0.001, t * (1 + (PIECE_S - 1) * c.pull))); c.mat.emissiveIntensity = 0.35 * c.pull; }
+    // ponte da sessão: reposiciona entre as camadas 5 (que podem estar na gaveta) e anima a conversa
+    if (sess.visible) {
+      const [A, B] = sessEnds(), a3 = W(...A), b3 = W(...B), dir = b3.clone().sub(a3), len = dir.length();
+      sess.position.copy(a3.clone().add(b3).multiplyScalar(0.5)); sess.scale.set(1, len, 1);
+      sess.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); sessMat.color.copy(accent);
+      const mid = A.map((v, i) => (v + B[i]) / 2); sessLbl.position.copy(W(mid[0] + 50, mid[1] - 16, mid[2] + 16));
+      sessBeads.forEach((bd, n) => { const t = 0.5 + 0.5 * Math.sin(now / 700 + n * Math.PI); moveGlow(bd, A.map((v, i) => v + (B[i] - v) * t), 0.9); });
+    } else sessBeads.forEach(bd => bd.material.uniforms.intensity.value = 0);
     // bits: vários pontos de luz em fila pelo cabo
     if (bitsT >= 0) { bitsT += dt; const T = s === 7 ? 1.2 : 4.2;
       beads.forEach((b, n) => { const t = (bitsT - n * 0.18) / T; if (t < 0 || t > 1 || (mode === 'udp' && s === 8 && n === 3 && t > 0.45)) { b.material.uniforms.intensity.value = 0; return; }
@@ -3130,7 +3142,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     followT -= dt;
     if (followT > 0 && dt > 0) {
       const mob = innerWidth < 640, off = mob ? 30 : -150;
-      const fx = w.side === 'tk' ? SXS.tk + SW / 2 + (mob ? -30 : off) : w.side === 'x' ? (COL.sp + COL.tk) / 2 + (mob ? 0 : -120) : SXS.sp + SW / 2 + off;
+      const fx = d.sess ? (SXS.sp + SW + SXS.tk) / 2 + (mob ? 0 : -170) : w.side === 'tk' ? SXS.tk + SW / 2 + (mob ? -30 : off) : w.side === 'x' ? (COL.sp + COL.tk) / 2 + (mob ? 0 : -120) : SXS.sp + SW / 2 + off;
       const want = W(fx, w.side === 'x' ? WY : 150 + PULL * 0.6, w.side === 'x' ? (mob ? -110 : -40) : (mob ? 30 : zL(w.L) - 20)), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
       if (dd.lengthSq() > 1e-8) { controls.target.add(dd); camera.position.add(dd); }
     }
