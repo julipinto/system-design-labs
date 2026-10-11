@@ -1,0 +1,92 @@
+---
+title: "HTTP/1.1, HTTP/2 e HTTP/3"
+order: 8
+min: 2
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>o HTTP é o protocolo de requisição e resposta da web, e cada versão ataca o mesmo problema: o head-of-line blocking, quando uma resposta travada segura as que vêm atrás.</OneLiner>
+
+<DoIt>
+  <p>Clique em <strong>Reproduzir</strong>, depois em <strong>Perder um pacote</strong>, e compare quais recursos ficam listrados em cada versão.</p>
+</DoIt>
+<Widget name="http" title="Carregando 6 recursos" hint="Cada coluna é um instante (tick). Experimente perder um pacote. Valores são ilustrativos." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>HTTP é da <strong>camada 7</strong> e segue o modelo <strong>pedido e resposta</strong>.</li>
+  <li><strong>HTTP/1.1:</strong> uma resposta por vez em cada conexão. Uma resposta lenta bloqueia as seguintes (<strong>head-of-line blocking</strong>, HOL).</li>
+  <li><strong>HTTP/2:</strong> <strong>multiplexação</strong>, várias requisições na mesma conexão TCP. Mas um pacote perdido ainda segura todos os fluxos (HOL no TCP).</li>
+  <li><strong>HTTP/3:</strong> troca o TCP pelo <strong>QUIC, sobre UDP</strong>. Fluxos independentes: perda num não trava os outros.</li>
+  <li><strong>Connection ID</strong> no lugar de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A versão do HTTP muda quantas conexões, quantos handshakes e quanto uma perda dói.</li>
+  <li>Em redes móveis e instáveis, o HTTP/3 ganha. Entre serviços num datacenter, HTTP/2 ou gRPC com poucas conexões longas é o comum.</li>
+  <li>Terminar HTTP/3 num CDN ou load balancer é a forma mais simples de adotar.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <h4 class="deep-h">Anatomia de uma mensagem</h4>
+  <p>Cada requisição tem uma resposta (no HTTP/1.1, uma de cada vez por conexão; no 2 e no 3, várias em paralelo). Uma mensagem tem <strong>Headers</strong> (metadados como <code>Content-Type</code>, <code>Authorization</code>, <code>Cache-Control</code>), <strong>Body</strong> (os dados), <strong>Cookies</strong> (estado de sessão) e um <strong>Status Code</strong>:</p>
+  <ul>
+    <li><code>1xx</code> informativo</li>
+    <li><code>2xx</code> sucesso</li>
+    <li><code>3xx</code> redirecionamento</li>
+    <li><code>4xx</code> erro do cliente</li>
+    <li><code>5xx</code> erro do servidor</li>
+  </ul>
+  <h4 class="deep-h">As três versões</h4>
+  <div class="versions">
+    <article>
+      <h4>HTTP/1.1 (1997)</h4>
+      <ul>
+        <li>Conexões persistentes: reaproveita o TCP em vez de abrir um por requisição.</li>
+        <li>Pipelining existe, mas na prática uma resposta lenta bloqueia as seguintes: <strong>head-of-line blocking</strong>.</li>
+        <li>Navegadores contornam abrindo ~6 conexões por origem.</li>
+      </ul>
+    </article>
+    <article>
+      <h4>HTTP/2 (2015)</h4>
+      <ul>
+        <li><strong>Multiplexação:</strong> várias requisições e respostas ao mesmo tempo, na mesma conexão TCP.</li>
+        <li>Priorização de recursos e compressão de headers. Server push existiu, mas caiu em desuso.</li>
+        <li>Mas ainda há HOL <strong>no TCP</strong>: um pacote perdido segura todos os fluxos até ser retransmitido.</li>
+      </ul>
+    </article>
+    <article>
+      <h4>HTTP/3 (QUIC)</h4>
+      <ul>
+        <li>Troca o TCP pelo <strong>QUIC, sobre UDP</strong>. O handshake de transporte e o TLS 1.3 acontecem juntos.</li>
+        <li>Fluxos independentes: perda num não trava os outros.</li>
+        <li><strong>Connection ID</strong> em vez de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
+      </ul>
+    </article>
+  </div>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 9110: semântica do HTTP", href: "https://www.rfc-editor.org/rfc/rfc9110" },
+    { label: "RFC 9113: HTTP/2", href: "https://www.rfc-editor.org/rfc/rfc9113" },
+    { label: "RFC 9114: HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9114" },
+    { label: "Cloudflare: um ano de uso do HTTP/3", href: "https://blog.cloudflare.com/http3-usage-one-year-on" },
+    { label: "http.cat: códigos de status para lembrar", href: "https://http.cat/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Como o HTTP/1.1 e o HTTP/2 reagem a uma perda?",
+    a: "1.1: um de cada vez por conexão, HOL na aplicação. 2: multiplexa, mas o TCP ainda bloqueia tudo." },
+  { q: "O que muda no HTTP/3?",
+    a: "QUIC sobre UDP, fluxos independentes e handshake combinado." },
+  { q: "Para que serve o Connection ID?",
+    a: "Manter a sessão ao trocar de rede." },
+]} />

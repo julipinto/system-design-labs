@@ -1,12 +1,10 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SDLabs</title>
-<meta name="description" content="Laboratórios visuais e interativos de System Design.">
-<link rel="stylesheet" href="shared/sdlabs.css">
-<style>
+---
+// Home: lista os módulos.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../lib/url.js';
+---
+<BaseLayout title="SDLabs" description="Laboratórios visuais e interativos de System Design.">
+<style is:global>
 main{max-width:960px;margin:0 auto;padding:56px 16px 80px}
 h1{margin:0 0 10px;font-size:clamp(36px,9vw,60px);line-height:1;letter-spacing:-.03em}
 .lead{margin:0 0 40px;max-width:600px;color:var(--muted);font-size:18px}
@@ -20,18 +18,16 @@ a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none}
 .card.soon .n{color:var(--muted)}
 footer{margin-top:48px;font:12px var(--mono);color:var(--faint)}
 </style>
-</head>
-<body>
 <main>
   <h1>SDLabs</h1>
   <p class="lead">Laboratórios de System Design para mexer e não esquecer mais.</p>
   <div class="grid">
-    <a class="card" href="labs/protocolos-de-rede/index.html">
+    <a class="card" href={withBase('labs/protocolos-de-rede/')}>
       <span class="n">Módulo · 9 aulas</span>
       <h2>Protocolos de Rede</h2>
       <p>OSI numa figura interativa, IP, TCP e UDP, TLS, DNS, DHCP, HTTP/1.1 a HTTP/3 e tempo de resposta.</p>
     </a>
-    <a class="card" href="labs/protocolos-de-rede/quiz/index.html">
+    <a class="card" href={withBase('labs/protocolos-de-rede/quiz/')}>
       <span class="n">Quiz · 76 perguntas</span>
       <h2>Quiz de Protocolos de Rede</h2>
       <p>Rodadas curtas por tópico, resposta na hora com explicação e "revisar só as que errei".</p>
@@ -44,5 +40,4 @@ footer{margin-top:48px;font:12px var(--mono);color:var(--faint)}
   </div>
   <footer>Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
 </main>
-</body>
-</html>
+</BaseLayout>

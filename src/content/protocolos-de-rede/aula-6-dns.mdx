@@ -1,0 +1,59 @@
+---
+title: "DNS"
+order: 6
+min: 2
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>o DNS é a lista telefônica da internet: transforma <code>demo.fidelissauro.dev</code> em um endereço IP, perguntando a servidores cada vez mais específicos.</OneLiner>
+
+<DoIt>
+  <p>Com <strong>Sem cache</strong> marcado, clique em <strong>Próximo</strong> até o autoritativo responder; depois marque <strong>Cache no resolver</strong> e repita.</p>
+</DoIt>
+<Widget name="dns" title="Resolvendo demo.fidelissauro.dev" hint="Escolha o cache e avance. IP e tempos são exemplos." />
+
+<HowItWorks>
+<p>Humanos lembram nomes, máquinas precisam de IP. O <strong>resolver</strong> (geralmente do provedor, ou 8.8.8.8, 1.1.1.1) faz esta sequência de perguntas:</p>
+<ol class="flow steps">
+  <li><strong>Cache:</strong> o navegador, o sistema e o resolver olham se já sabem a resposta.</li>
+  <li><strong>Servidor raiz:</strong> não sabe o IP, mas sabe quem cuida do <code>.dev</code>.</li>
+  <li><strong>Servidor TLD do .dev:</strong> não sabe o IP, mas sabe quem é o servidor de nomes de <code>fidelissauro.dev</code>.</li>
+  <li><strong>Servidor autoritativo:</strong> tem a palavra final e responde o IP de <code>demo.fidelissauro.dev</code>.</li>
+  <li>O resolver devolve a resposta e <strong>guarda em cache</strong> pelo tempo do TTL. O navegador conecta ao IP.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>DNS é a primeira etapa de toda requisição e também um ponto único de falha.</li>
+  <li>O <strong>TTL</strong> é o equilíbrio: alto dá menos consultas, mas atrasa um failover. Baixo troca de IP rápido, mas gera mais consultas.</li>
+  <li>DNS também serve para balancear carga e rotear por região.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>Os servidores raiz são 13 conjuntos, de <code>a.root-servers.net</code> a <code>m.root-servers.net</code>.</p>
+  <p>Registros comuns: <code>A</code> (IPv4), <code>AAAA</code> (IPv6), <code>CNAME</code> (apelido para outro nome), <code>NS</code> (quem é autoritativo), <code>MX</code> (e-mail) e <code>TXT</code>.</p>
+  <p>O cache em vários níveis existe para reduzir latência e tráfego.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 1034: DNS, conceitos", href: "https://www.rfc-editor.org/rfc/rfc1034" },
+    { label: "RFC 1035: DNS, implementação", href: "https://www.rfc-editor.org/rfc/rfc1035" },
+    { label: "IANA: servidores raiz", href: "https://www.iana.org/domains/root/servers" },
+    { label: "root-servers.org: mapa dos servidores raiz", href: "https://root-servers.org/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Qual a cadeia de uma resolução sem cache?",
+    a: "Cache, resolver, raiz, TLD (.dev), autoritativo." },
+  { q: "Quem dá o IP: a raiz, o TLD ou o autoritativo?",
+    a: "O autoritativo. Raiz e TLD só indicam o próximo servidor." },
+  { q: "Por que quase toda consulta custa pouco?",
+    a: "Cache e TTL: custa zero ou poucos ms." },
+]} />

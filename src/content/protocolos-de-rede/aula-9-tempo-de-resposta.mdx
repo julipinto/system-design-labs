@@ -1,0 +1,75 @@
+---
+title: "Tempo de resposta"
+order: 9
+min: 2
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>o tempo de resposta é a soma de várias esperas (DNS, handshakes, servidor, download), e a maioria delas é feita de RTTs, não de largura de banda.</OneLiner>
+
+<DoIt>
+  <p>Na calculadora, marque <strong>Conexão reutilizada (keep-alive)</strong> e veja quais fatias da barra somem.</p>
+</DoIt>
+<Widget name="latency" title="Calculadora de tempo de resposta" hint="Modelo simplificado: ignora slow start e perdas. Valores são exemplos." />
+
+<HowItWorks>
+<p>Uma requisição HTTPS nova, do ponto de vista do usuário, passa por:</p>
+<ol class="flow steps">
+  <li><strong>DNS lookup:</strong> descobrir o IP (zero se estiver em cache).</li>
+  <li><strong>TCP handshake:</strong> 1 RTT.</li>
+  <li><strong>TLS handshake:</strong> 2 RTTs no TLS 1.2, 1 RTT no TLS 1.3.</li>
+  <li><strong>Espera pelo primeiro byte:</strong> 1 RTT para o pedido ir e a resposta voltar, mais o processamento do servidor.</li>
+  <li><strong>Download:</strong> baixar o conteúdo, limitado pela largura de banda.</li>
+</ol>
+<p><strong>RTT</strong> (round-trip time) é o tempo de uma ida e volta entre cliente e servidor. Em respostas pequenas, quase todo o tempo é RTT.</p>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Ordem de ataque: eliminar RTTs (keep-alive, cache de DNS, TLS 1.3, HTTP/3, CDN perto do usuário), depois reduzir o tempo do servidor, e só então comprar banda.</li>
+  <li>Em respostas pequenas, dobrar a banda quase não muda nada. Cortar um RTT muda tudo.</li>
+  <li>Meça percentis (p95, p99), não só a média.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>Os navegadores chamam de <strong>TTFB</strong> o tempo desde o início da navegação até o primeiro byte da resposta, então ele já inclui os passos 1 a 3.</p>
+  <p>O RTT é dominado pela <strong>latência</strong> (distância e velocidade da luz). A <strong>largura de banda</strong> é quantos bits passam por segundo.</p>
+  <p>Estrada: latência é o tamanho da estrada; banda é o número de pistas. Mais pistas não encurtam a estrada.</p>
+  <h4 class="deep-h">Quantos RTTs até a requisição poder sair</h4>
+  <div class="rtt-table-wrap">
+  <table class="rtt-table">
+    <thead><tr><th>Cenário</th><th>RTTs antes da requisição</th><th>Primeiro byte da resposta</th></tr></thead>
+    <tbody>
+      <tr><td>HTTPS, TCP + TLS 1.2</td><td>3 (1 TCP + 2 TLS)</td><td>4 RTTs</td></tr>
+      <tr><td>HTTPS, TCP + TLS 1.3</td><td>2 (1 TCP + 1 TLS)</td><td>3 RTTs</td></tr>
+      <tr><td>HTTP/3 (QUIC), conexão nova</td><td>1</td><td>2 RTTs</td></tr>
+      <tr><td>HTTP/3, retomada com 0-RTT</td><td>0</td><td>1 RTT</td></tr>
+      <tr><td>Conexão reutilizada (keep-alive)</td><td>0</td><td>1 RTT</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Some a isso o DNS quando não há cache, o tempo do servidor e o download.</p>
+  <Sources items={[
+    { label: "MDN: latência", href: "https://developer.mozilla.org/en-US/docs/Glossary/Latency" },
+    { label: "MDN: TTFB", href: "https://developer.mozilla.org/en-US/docs/Glossary/Time_to_first_byte" },
+    { label: "MDN: largura de banda", href: "https://developer.mozilla.org/en-US/docs/Glossary/Bandwidth" },
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Quais parcelas compõem o tempo de resposta?",
+    a: "DNS + TCP + TLS + espera pelo servidor (RTT + processamento) + download." },
+  { q: "Latência é o mesmo que banda?",
+    a: "Não. Para respostas pequenas, o RTT manda." },
+  { q: "Quantos RTTs soma cada protocolo?",
+    a: "TCP 1, TLS 1.2 2, TLS 1.3 1, QUIC 1 (ou 0)." },
+  { q: "Qual o jeito mais barato de ganhar tempo?",
+    a: "Não repetir handshakes." },
+]} />

@@ -1,0 +1,104 @@
+---
+title: "TCP e UDP"
+order: 4
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>TCP é o entregador que exige assinatura e confirma cada pacote; UDP é o que joga a correspondência debaixo do portão e segue para a próxima.</OneLiner>
+
+<DoIt>
+  <p>Clique em <strong>Próximo</strong> até o passo 7 e olhe o painel <strong>O segmento agora</strong>: o buffer do servidor fica com um buraco nos bytes 201–300. Depois clique em <strong>Comparar com UDP</strong>.</p>
+</DoIt>
+<Widget name="tcp" title="Stepper do TCP" hint="Avance passo a passo. Os números de sequência são exemplos." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>UDP:</strong> envia datagramas independentes, sem conexão, sem ordem, sem confirmação. Rápido e leve.</li>
+  <li><strong>TCP</strong> abre com o <strong>three-way handshake</strong>: SYN, SYN-ACK, ACK (1 RTT).</li>
+  <li>Transfere <strong>segmentos numerados</strong>. O receptor reordena o que chega fora de ordem e manda ACK.</li>
+  <li>O que não for confirmado a tempo é <strong>retransmitido</strong>.</li>
+  <li>Fecha com o <strong>four-way close</strong>: cada lado manda FIN e recebe um ACK.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O handshake é custo fixo por conexão: por isso existem <strong>keep-alive</strong> e pools de conexões.</li>
+  <li>A retransmissão explica picos de latência quando há perda.</li>
+  <li>Dado que perde valor rápido (voz, posição num jogo): UDP. Dado que não pode faltar (pagamento, banco de dados): TCP.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">UDP: sem conexão, sem garantias</h4>
+  <p>Quase não tem burocracia, então é rápido e leve. Serve para o que tolera perda ou onde o dado velho já não vale nada: chamadas de voz e vídeo, jogos online, DNS, NTP.</p>
+  <h4 class="deep-h">TCP: orientado a conexão</h4>
+  <p>Abre, mantém, verifica e encerra a conexão. Entrega íntegro e na ordem.</p>
+  <p>No handshake, cada lado escolhe um <strong>ISN</strong> (Initial Sequence Number) e o outro confirma. O ACK é cumulativo: "recebi tudo até aqui, espero o número X".</p>
+  <p>A confiabilidade do TCP custa burocracia, e por isso ele é mais lento que o UDP. Mesmo assim, a maioria dos protocolos de serviço usa TCP.</p>
+  <h4 class="deep-h">Cabeçalhos lado a lado</h4>
+  <div class="hdr-pair">
+    <figure class="hdr">
+      <figcaption>UDP · 8 bytes</figcaption>
+      <div class="hdr-grid">
+        <div class="hdr-c both">Porta de origem<small>16 bits</small></div>
+        <div class="hdr-c both">Porta de destino<small>16 bits</small></div>
+        <div class="hdr-c">Tamanho<small>16 bits</small></div>
+        <div class="hdr-c both">Checksum<small>16 bits</small></div>
+      </div>
+    </figure>
+    <figure class="hdr">
+      <figcaption>TCP · 20 bytes no mínimo</figcaption>
+      <div class="hdr-grid">
+        <div class="hdr-c both">Porta de origem<small>16 bits</small></div>
+        <div class="hdr-c both">Porta de destino<small>16 bits</small></div>
+        <div class="hdr-c w2">Número de sequência<small>32 bits</small></div>
+        <div class="hdr-c w2">Número de confirmação (ACK)<small>32 bits</small></div>
+        <div class="hdr-c">Tamanho do cabeçalho e flags (SYN, ACK, FIN)<small>16 bits</small></div>
+        <div class="hdr-c">Janela<small>16 bits</small></div>
+        <div class="hdr-c both">Checksum<small>16 bits</small></div>
+        <div class="hdr-c">Ponteiro urgente<small>16 bits</small></div>
+        <div class="hdr-c w2 opt">Opções (de 0 a 40 bytes)</div>
+      </div>
+    </figure>
+  </div>
+  <p class="hdr-key">Em azul, o que os dois têm: portas e checksum. O TCP gasta o resto para controlar ordem, confirmação e janela.</p>
+  <h4 class="deep-h">Fluxo e congestionamento</h4>
+  <ul>
+    <li><strong>Controle de fluxo (janela deslizante):</strong> o receptor informa quantos bytes ainda cabem no buffer dele, e o emissor não manda mais que isso.</li>
+    <li><strong>Controle de congestionamento:</strong> o emissor também limita o envio pela capacidade estimada da rede: começa devagar e aumenta enquanto não há perda.</li>
+  </ul>
+  <h4 class="deep-h">Outros transportes</h4>
+  <ul>
+    <li><strong>SCTP:</strong> mensagens com <em>multi-streaming</em> (vários fluxos independentes na mesma associação) e <em>multihoming</em> (vários IPs por ponta, com troca se um cair).</li>
+    <li><strong>DCCP:</strong> parecido com o UDP, sem garantia de entrega, mas com controle de congestionamento. Quase não é usado.</li>
+    <li><strong>QUIC:</strong> roda sobre UDP e reúne conexão, fluxos independentes e TLS 1.3. É a base do HTTP/3 (aula 8).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 9293: TCP", href: "https://www.rfc-editor.org/rfc/rfc9293" },
+    { label: "RFC 768: UDP", href: "https://www.rfc-editor.org/rfc/rfc768" },
+    { label: "RFC 9000: QUIC", href: "https://www.rfc-editor.org/rfc/rfc9000" },
+    { label: "RFC 9260: SCTP", href: "https://www.rfc-editor.org/rfc/rfc9260" },
+    { label: "Microsoft Learn: three-way handshake do TCP/IP", href: "https://learn.microsoft.com/pt-br/troubleshoot/windows-server/networking/three-way-handshake-via-tcpip" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "TCP e UDP, na analogia do entregador?",
+    a: "TCP: assinatura, foto e confirmação. UDP: debaixo do portão." },
+  { q: "Como o TCP abre e fecha a conexão?",
+    a: "Abrir = SYN, SYN-ACK, ACK. Fechar = FIN, ACK, FIN, ACK." },
+  { q: "O que é o ACK cumulativo?",
+    a: "\"Recebi tudo até aqui, espero o número X.\"" },
+  { q: "O que acontece quando o UDP perde um datagrama?",
+    a: "Perde em silêncio. Quem quiser garantias precisa construí-las por cima." },
+  { q: "Quantos bytes tem o cabeçalho do UDP? E o do TCP?",
+    a: "UDP: 8 bytes fixos. TCP: 20 bytes no mínimo, mais opções." },
+]} />

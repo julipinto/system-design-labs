@@ -1,0 +1,168 @@
+---
+title: "Modelo OSI"
+order: 2
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import OsiFigure2D from '../../components/OsiFigure2D.astro';
+import { withBase } from '../../lib/url.js';
+
+<OneLiner>o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</OneLiner>
+
+<DoIt>
+  <p>Na figura abaixo, clique em ▶ (próxima etapa) e veja a foto da Lena descer andar por andar.</p>
+</DoIt>
+
+<p class="try3d" style="margin:14px 0 0"><a class="btn big" href={withBase('labs/protocolos-de-rede/osi-3d/')}>Ver a mesma figura em 3D (piloto) →</a> <span style="color:var(--muted);font-size:14px">dá para girar, os nomes ficam nas camadas</span></p>
+<OsiFigure2D />
+
+<HowItWorks>
+<p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele.</p>
+<ol class="flow steps">
+  <li><strong>7 Aplicação, 6 Apresentação, 5 Sessão:</strong> o programa. O que se diz, em que formato (ou cifrado) e qual conversa está aberta.</li>
+  <li><strong>4 Transporte:</strong> leva os dados de um processo a outro, pela <strong>porta</strong>. TCP ou UDP.</li>
+  <li><strong>3 Rede:</strong> endereça com <strong>IP</strong> e roteia, salto a salto.</li>
+  <li><strong>2 Enlace:</strong> entrega ao vizinho na mesma rede local, pelo <strong>MAC</strong>. O <strong>ARP</strong>, que descobre o MAC de um IP, fica aqui.</li>
+  <li><strong>1 Física:</strong> vira <strong>bits</strong>: luz, tensão ou rádio.</li>
+</ol>
+<div class="callout why" role="note">
+  <h3>SDU, PCI e PDU</h3>
+  <p>Na figura, o cabeçalho que entra a cada andar é a <strong>PCI</strong> daquela camada: o controle que ela acrescenta. O que veio de cima, sem mexer, é a <strong>SDU</strong>. Juntas formam a <strong>PDU</strong>: PDU = PCI + SDU.</p>
+</div>
+<div class="mnemonic" role="note">
+  <h3>Mnemônico: a foto da Lena</h3>
+  <p class="mn-line"><span class="mn-dir">De baixo para cima (Física até Aplicação):</span>
+    <strong class="mn-phrase"><b>F</b>oto <b>E</b>nviada <b>R</b>apidinho, <b>T</b>óquio <b>S</b>orriu, <b>A</b>plaudiu <b>A</b>lto.</strong></p>
+  <p class="mn-line"><span class="mn-dir">De cima para baixo (Aplicação até Física): leia a frase de trás para frente.</span>
+    <strong class="mn-phrase"><b>A</b>lto <b>A</b>plaudiu, <b>S</b>orriu <b>T</b>óquio, <b>R</b>apidinho <b>E</b>nviada <b>F</b>oto.</strong></p>
+  <p class="mn-key">F-E-R-T-S-A-A = <b>F</b>ísica, <b>E</b>nlace, <b>R</b>ede, <b>T</b>ransporte, <b>S</b>essão, <b>A</b>presentação, <b>A</b>plicação.</p>
+</div>
+</HowItWorks>
+
+<h3 class="sec">Quem decide em qual camada?</h3>
+<Widget name="equip" title="Equipamentos e camadas" hint="Clique em um equipamento e veja até onde ele abre o pacote e onde decide." />
+
+<WhyItMatters>
+  <li>As camadas dão vocabulário para diagnosticar: a primeira pergunta é <strong>em que camada o pedido morreu?</strong></li>
+  <li><strong>Load balancer L4</strong> decide por IP e porta. <strong>L7</strong> lê o HTTP e roteia por caminho ou header.</li>
+  <li>Alta disponibilidade e troubleshooting começam por localizar a camada.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <p>A primeira edição da norma ISO 7498 saiu em 1984 (o ITU publicou o mesmo modelo como X.200). A revisão de 1994 é a que se chama ISO/IEC 7498-1, equivalente à X.200 de 1994. Hoje o OSI é um <strong>mapa conceitual</strong>: serve para saber onde cada protocolo mora e para fazer troubleshooting.</p>
+  <h4 class="deep-h">As 7 camadas, de cima para baixo</h4>
+  <p><strong>PDU</strong> (Protocol Data Unit) é o nome que o "pacote de dados" recebe em cada camada (PCI + SDU, explicado mais abaixo).</p>
+  <div class="layers">
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">7</span><h4>Aplicação</h4><span class="pdu">PDU: dados</span></div>
+      <p><strong>O que faz:</strong> é a interface entre a rede e o programa. Define o que as aplicações dizem umas às outras (pedidos, respostas, comandos).</p>
+      <p><strong>Exemplos:</strong> HTTP, HTTPS, gRPC, WebSockets, SSH, FTP, DNS, DHCP.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> a conexão funcionar mas a resposta vir errada: 404, 500, API devolvendo erro, timeout da aplicação.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">6</span><h4>Apresentação</h4><span class="pdu">PDU: dados</span></div>
+      <p><strong>O que faz:</strong> traduz. Cuida de formato, compressão e criptografia. O Fidelis a chama de "camada de tradução".</p>
+      <p><strong>Exemplos:</strong> TLS/SSL, JPEG, PNG, gzip, UTF-8, JSON.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> erro de certificado, falha no handshake TLS, texto com caracteres quebrados ou arquivo que não abre.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">5</span><h4>Sessão</h4><span class="pdu">PDU: dados</span></div>
+      <p><strong>O que faz:</strong> abre, mantém e encerra o diálogo entre duas aplicações, inclusive conexões autenticadas de longa duração. Na prática, essa camada costuma ser implementada dentro da aplicação.</p>
+      <p><strong>Exemplos:</strong> sessões de login, RPC, sessões do SSH, tokens de sessão.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> a sessão cair do nada, ter que logar de novo, conexão longa que não se recupera após uma queda.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">4</span><h4>Transporte</h4><span class="pdu">PDU: segmento (TCP) / datagrama (UDP)</span></div>
+      <p><strong>O que faz:</strong> leva os dados de um processo a outro (por <strong>porta</strong>). Fatia em segmentos, numera, controla fluxo e, no TCP, garante entrega e ordem.</p>
+      <p><strong>Exemplos:</strong> TCP, UDP, QUIC (sobre UDP).</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> <code>connection refused</code> (porta fechada), timeout na conexão, muitas retransmissões, lentidão sem erro.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">3</span><h4>Rede</h4><span class="pdu">PDU: pacote</span></div>
+      <p><strong>O que faz:</strong> endereçamento lógico (IP) e roteamento: decide por onde o pacote vai, salto a salto, até outra rede. É a camada da internet.</p>
+      <p><strong>Exemplos:</strong> IPv4, IPv6, ICMP (o <code>ping</code>), roteadores. O ARP, que descobre o MAC de um IP na rede local, fica na fronteira com o enlace (camada 2/3); aqui o tratamos como camada 2.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> <code>ping</code> sem resposta, <code>no route to host</code>, rota errada, pacote que morre por TTL.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">2</span><h4>Enlace</h4><span class="pdu">PDU: quadro (frame)</span></div>
+      <p><strong>O que faz:</strong> entrega entre dois nós vizinhos na mesma rede local, usando endereços <strong>MAC</strong>. Detecta erros no quadro.</p>
+      <p><strong>Exemplos:</strong> Ethernet, Wi-Fi (802.11), PPP, switches, VLAN, ARP.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> ficar sem IP ou sem alcançar nem o roteador de casa, só alguns aparelhos da LAN conversam, VLAN errada.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">1</span><h4>Física</h4><span class="pdu">PDU: bits</span></div>
+      <p><strong>O que faz:</strong> transmite bits pelo meio: pulsos de luz na fibra, tensão no cobre, ondas de rádio no Wi-Fi.</p>
+      <p><strong>Exemplos:</strong> cabo de cobre, fibra óptica, cabo submarino, rádio Wi-Fi e 5G.</p>
+      <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> sem sinal, cabo desconectado, Wi-Fi fraco, perda de pacote por ruído.</p>
+    </article>
+  </div>
+  <h4 class="deep-h">Encapsulamento e desencapsulamento</h4>
+  <p>Quem envia <strong>encapsula</strong>: a cada camada que desce, o dado ganha um cabeçalho (e, no enlace, também um rodapé) com as informações daquela camada. É como colocar a carta num envelope, o envelope numa caixa, a caixa num caminhão.</p>
+  <ol class="flow">
+    <li><strong>Aplicação (7):</strong> a foto vira um pedido HTTP com o conteúdo (dados).</li>
+    <li><strong>Apresentação (6) e Sessão (5):</strong> a apresentação comprime e cifra (TLS), e o conteúdo continua sendo "dados". A sessão marca a conversa aberta entre os dois apps (na prática, isso costuma ficar dentro da aplicação).</li>
+    <li><strong>Transporte (4):</strong> ganha cabeçalho com portas e números de sequência (segmento).</li>
+    <li><strong>Rede (3):</strong> ganha cabeçalho com IP de origem e destino (pacote).</li>
+    <li><strong>Enlace (2) e Física (1):</strong> o enlace ganha MAC de origem e destino do próximo salto (quadro). A física vira sinal elétrico, luz ou rádio (bits).</li>
+  </ol>
+  <p>No meio do caminho, roteadores desencapsulam só até a camada 3, leem o IP de destino, reescrevem o quadro com o MAC do próximo salto e mandam adiante. Quem recebe no destino faz o <strong>desencapsulamento</strong>: tira cada cabeçalho de baixo para cima até sobrar a foto para o app.</p>
+  <h4 class="deep-h">SDU, PCI e PDU, com mais calma</h4>
+  <p>A camada N recebe uma SDU da camada de cima, coloca a sua PCI e entrega a PDU. Essa PDU vira a SDU da camada de baixo. A PCI costuma ser um cabeçalho, mas o enlace também põe um trailer: é o FCS que a figura mostra no fim do quadro.</p>
+  <h4 class="deep-h">OSI x TCP/IP x modelo de 5 camadas</h4>
+  <p>O que roda na internet de verdade é a pilha <strong>TCP/IP</strong>, com 4 camadas. O OSI tem 7. Nos livros de ensino, o modelo de 5 camadas é o meio-termo mais usado.</p>
+  <div class="rtt-table-wrap">
+  <table class="rtt-table">
+    <thead><tr><th>OSI (7)</th><th>TCP/IP (4)</th><th>Didático (5)</th></tr></thead>
+    <tbody>
+      <tr><td>7 Aplicação, 6 Apresentação, 5 Sessão</td><td>Aplicação</td><td>Aplicação</td></tr>
+      <tr><td>4 Transporte</td><td>Transporte</td><td>Transporte</td></tr>
+      <tr><td>3 Rede</td><td>Internet</td><td>Rede</td></tr>
+      <tr><td>2 Enlace</td><td rowspan="2">Acesso à rede</td><td>Enlace</td></tr>
+      <tr><td>1 Física</td><td>Física</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Por que o OSI não dominou</h4>
+  <ul>
+    <li><strong>Chegou tarde:</strong> quando as normas ficaram prontas, o TCP/IP já rodava em muitos sistemas.</li>
+    <li><strong>Era complexo:</strong> 7 camadas, com sessão e apresentação quase sem uso próprio e funções repetidas em vários níveis.</li>
+    <li><strong>Implementações ruins:</strong> as primeiras eram lentas e burocráticas, enquanto o TCP/IP já tinha código funcionando.</li>
+  </ul>
+  <h4 class="deep-h">Por que ainda é útil</h4>
+  <ul>
+    <li><strong>Serviço, interface e protocolo:</strong> serviço é o que a camada oferece, interface é como pedir, protocolo é como as duas pontas combinam entre si. Dá para trocar o protocolo sem mudar a interface.</li>
+    <li><strong>Troubleshooting:</strong> a pergunta "em que camada o pedido morreu?" encurta o diagnóstico.</li>
+  </ul>
+  <h4 class="deep-h">Peers, SAP e primitivas</h4>
+  <ul>
+    <li><strong>Peers (entidades pares):</strong> as duas pontas da mesma camada, em máquinas diferentes, que conversam pelo protocolo dela.</li>
+    <li><strong>SAP (ponto de acesso ao serviço):</strong> a porta pela qual a camada de cima pede serviço à de baixo.</li>
+    <li><strong>Primitivas:</strong> request (pedir), indication (avisar o destino), response (o destino responde) e confirm (confirmar a quem pediu).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "ITU-T X.200 (equivale à ISO/IEC 7498-1:1994), o modelo de referência OSI", href: "https://www.itu.int/rec/T-REC-X.200-199407-I/en" },
+    { label: "osi-model.com: camada de sessão", href: "https://osi-model.com/session-layer/" },
+    { label: "Livro \"Redes de Computadores\", de Andrew Tanenbaum" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Qual a ordem das camadas, de baixo para cima?",
+    a: "Física, Enlace, Rede, Transporte, Sessão, Apresentação, Aplicação. Mnemônico: <strong>Foto Enviada Rapidinho, Tóquio Sorriu, Aplaudiu Alto</strong>." },
+  { q: "Quais os PDUs, de cima para baixo?",
+    a: "Dados, dados, dados, segmento, pacote, quadro, bits." },
+  { q: "O que é encapsular?",
+    a: "Descer as camadas, cada uma pondo o seu cabeçalho. Subir é desencapsular." },
+  { q: "Em que camada trabalham roteador e switch?",
+    a: "Roteador na 3, switch na 2. O TCP/IP junta 7-6-5 numa só e 2-1 noutra." },
+  { q: "O que são SDU, PCI e PDU?",
+    a: "SDU: o que veio de cima. PCI: o cabeçalho da camada. PDU = PCI + SDU." },
+]} />

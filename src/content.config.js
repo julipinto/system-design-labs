@@ -1,0 +1,17 @@
+import { defineCollection } from 'astro:content';
+import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
+
+// Uma aula por arquivo MDX. O nome do arquivo vira o id da seção (âncora #aula-...).
+const lesson = z.object({
+  title: z.string(),   // título da aula (h2, índice e barra fixa)
+  order: z.number(),   // posição no módulo, a partir de 1
+  min: z.number(),     // tempo de leitura em minutos
+});
+
+const protocolosDeRede = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/protocolos-de-rede' }),
+  schema: lesson,
+});
+
+export const collections = { 'protocolos-de-rede': protocolosDeRede };

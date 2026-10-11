@@ -1,0 +1,73 @@
+---
+title: "O que é um protocolo"
+order: 1
+min: 2
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>protocolo é um acordo sobre o formato e a ordem das mensagens, para que dois sistemas que nunca se viram consigam conversar.</OneLiner>
+
+<DoIt>
+  <p>Anote 3 coisas que dois programas precisam combinar antes de conversar, depois confira nos passos abaixo.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Os dois combinam <strong>quem fala primeiro</strong>.</li>
+  <li>Combinam o <strong>formato</strong> das mensagens e o que significa cada campo.</li>
+  <li>Combinam o que fazer quando <strong>algo dá errado</strong>.</li>
+  <li>Esse combinado é o <strong>protocolo</strong>. Sem ele, os bytes chegam e ninguém sabe o que são.</li>
+  <li>Protocolos se <strong>empilham</strong>: cada um resolve um pedaço e entrega o resultado ao de cima.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Como a internet chegou até aqui</h3>
+<Widget name="timeline" title="Linha do tempo" hint="Clique em cada marco para ler uma frase. Cada um resolveu um problema do anterior." />
+
+<WhyItMatters>
+  <li>Escolher protocolo é escolher trade-offs de <strong>performance</strong> e <strong>resiliência</strong>.</li>
+  <li>Confiabilidade custa idas e vindas, e idas e vindas custam <strong>latência</strong>.</li>
+  <li>Cada decisão (gRPC ou REST, TCP ou UDP, uma conexão ou várias) é uma decisão de protocolo.</li>
+  <li>Dividir em camadas deixa trocar uma tecnologia (cobre por fibra, HTTP/2 por HTTP/3) sem refazer o resto.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <p>O HTTP não sabe como o sinal viaja no cabo. O IP não sabe o que é uma página web. Essa divisão em camadas é o assunto da aula 2.</p>
+  <p>O módulo segue uma ordem: o mapa (modelo OSI), depois quem endereça (IP), quem transporta (TCP e UDP), quem protege (TLS), quem traduz nomes (DNS), quem configura a rede (DHCP), quem carrega a web (HTTP) e, no fim, quanto tempo tudo isso custa.</p>
+  <h4 class="deep-h">Por que dividir em camadas</h4>
+  <ul>
+    <li><strong>Independência:</strong> cada camada oferece serviços à de cima e usa os da de baixo, sem conhecer o funcionamento interno delas.</li>
+    <li><strong>Troca de tecnologia:</strong> dá para trocar o cabo de cobre por fibra, na camada física, sem mexer na aplicação.</li>
+    <li><strong>Interoperabilidade:</strong> equipamentos e programas de fabricantes diferentes conversam porque seguem a mesma regra em cada nível.</li>
+  </ul>
+  <h4 class="deep-h">Linha do tempo, com mais detalhe</h4>
+  <ul>
+    <li>A rede telefônica usava comutação de circuitos, centralizada e frágil. Baran propôs uma rede distribuída, tolerante a falhas, que manda dados em pacotes roteados de forma independente.</li>
+    <li>Nos primeiros nós da ARPANET (1969), os IMPs faziam o papel do que hoje seria o roteador.</li>
+    <li>No CSMA/CD, quem tem algo a enviar escuta o meio, transmite se estiver livre e, se detectar colisão, espera um tempo aleatório e tenta de novo.</li>
+    <li>O dia 1º de janeiro de 1983 ficou conhecido como o dia da virada: a ARPANET deixou de aceitar os protocolos anteriores.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "MDN: protocolo", href: "https://developer.mozilla.org/en-US/docs/Glossary/Protocol" },
+    { label: "MDN: pacote", href: "https://developer.mozilla.org/en-US/docs/Glossary/Packet" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que um protocolo define?",
+    a: "Formato + ordem + regras de erro." },
+  { q: "Como os protocolos se organizam?",
+    a: "Em pilhas: cada camada usa a de baixo e serve a de cima." },
+  { q: "Qual o preço de mais garantias?",
+    a: "Mais mensagens trocadas, logo mais tempo." },
+  { q: "Por que dividir em camadas?",
+    a: "Independência, troca de uma tecnologia sem afetar as outras e interoperabilidade." },
+]} />

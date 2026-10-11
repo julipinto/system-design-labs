@@ -1,0 +1,56 @@
+---
+title: "DHCP"
+order: 7
+min: 1
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>o DHCP entrega automaticamente IP, máscara, gateway e DNS para quem acabou de entrar na rede, num ritual de 4 mensagens chamado DORA.</OneLiner>
+
+<DoIt>
+  <p>Clique em <strong>Próximo</strong> quatro vezes e veja o aparelho sair sem IP e terminar com um.</p>
+</DoIt>
+<Widget name="dhcp" title="Stepper DORA" hint="Veja o aparelho sair sem IP e terminar com um." />
+
+<HowItWorks>
+<p>A sigla <strong>DORA</strong> reúne as 4 etapas: Discover, Offer, Request, Acknowledgment.</p>
+<ol class="flow steps">
+  <li><strong>Discover:</strong> o cliente ainda não tem IP, então grita em <strong>broadcast</strong> sobre UDP (portas 68 e 67): "tem servidor DHCP aí?"</li>
+  <li><strong>Offer:</strong> o servidor oferece IP, máscara, gateway, DNS e tempo de lease.</li>
+  <li><strong>Request:</strong> o cliente escolhe uma oferta e a pede, também em broadcast.</li>
+  <li><strong>Acknowledgment:</strong> o servidor confirma. O IP é do cliente pelo tempo do <strong>lease</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Instâncias, containers e dispositivos entram na rede sem configuração manual, com IPs reaproveitados.</li>
+  <li>Pool de endereços esgotado ou servidor DHCP fora do ar deixa novos dispositivos sem rede.</li>
+  <li>Sintoma clássico: IP <code>169.254.x.x</code>.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>Sem DHCP, cada dispositivo precisaria de configuração manual, com risco de conflito de IP.</p>
+  <p>O servidor DHCP (em casa, o roteador Wi-Fi) mantém um conjunto de endereços e os <strong>aluga</strong> por um tempo (lease). Quando o aparelho sai, o endereço volta para o conjunto.</p>
+  <p>O IP é renovado antes de vencer. Na nuvem pública isso costuma vir abstraído.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 2131: DHCP", href: "https://www.rfc-editor.org/rfc/rfc2131" },
+    { label: "GeeksforGeeks: como o DORA funciona", href: "https://www.geeksforgeeks.org/how-dora-works/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que significa DORA?",
+    a: "Discover, Offer, Request, Acknowledgment." },
+  { q: "Por que Discover e Request vão em broadcast?",
+    a: "Porque o cliente ainda não tem IP." },
+  { q: "O IP do DHCP é de quem?",
+    a: "Emprestado (lease) e renovado antes de vencer." },
+]} />
