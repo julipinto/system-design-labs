@@ -14,6 +14,7 @@ import * as k from "../../tools/anatomy/iso-kit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA_SRC = readFileSync(join(HERE, "osi-data.js"), "utf8");
+const DATA_CSS = readFileSync(join(HERE, "osi-data.css"), "utf8");
 const KIT_SRC = readFileSync(join(HERE, "../../tools/anatomy/iso-kit.mjs"), "utf8").replace(/^export /gm, "");
 
 const WIDTH = 760;
@@ -562,57 +563,7 @@ export function buildOsiFigure() {
 .osi-tools{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
 .osi-fault{font:12px/1.4 var(--anatomy-mono);color:var(--anatomy-muted);display:flex;gap:8px;align-items:center}
 .osi-fault select{font:inherit;color:var(--anatomy-strong);background:var(--anatomy-card);border:1px solid var(--anatomy-lo);border-radius:8px;padding:6px 8px;min-width:0;max-width:100%}
-.dv{margin-top:12px;display:grid;gap:12px}
-.dv-cap{margin:0;color:var(--anatomy-text);font-size:15px;line-height:1.6}
-.dv-cap b{color:var(--anatomy-strong)}
-.dv-cap code{font:12px var(--anatomy-mono);color:var(--anatomy-strong)}
-.dv-bad{color:var(--anatomy-red)}
-.dv-row{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch}
-.dv-box{position:relative;flex:0 0 auto;min-width:96px;display:grid;align-content:start;gap:2px;padding:20px 9px 8px;border-radius:8px;border:1px solid var(--anatomy-lo);background:var(--anatomy-face);font:11px/1.35 var(--anatomy-mono);color:var(--anatomy-text)}
-.dv-box b{color:var(--anatomy-strong);font-size:12px}
-.dv-box small{font-size:10.5px;color:var(--anatomy-text);white-space:nowrap}
-.dv-box small span{color:var(--anatomy-muted)}
-.dv-box em{font-style:normal;color:var(--anatomy-muted);font-size:10px;margin-top:2px}
-.dv-l{position:absolute;top:5px;left:8px;font:700 10px/1 var(--anatomy-mono);color:var(--anatomy-muted)}
-.dv-l::before{content:"camada "}
-.dv-pay{flex:1 1 140px;min-width:140px;border-style:dashed}
-.dv-pay .dv-mono{white-space:normal;word-break:break-all;color:var(--anatomy-muted)}
-.dv-note{font-style:normal;font-weight:700;font-size:10.5px;color:var(--anatomy-strong);margin-top:4px}
-.dv-box.is-new{border-color:var(--anatomy-strong);box-shadow:0 0 0 1px var(--anatomy-strong);animation:dv-in .55s var(--anatomy-ease) both}
-.dv-box.is-new .dv-l::after{content:" · entrou";color:var(--anatomy-strong)}
-.dv-box.is-out{opacity:.55;border-style:dashed;animation:dv-out .6s var(--anatomy-ease) both}
-.dv-box.is-out b{text-decoration:line-through}
-.dv-box.is-out .dv-l::after{content:" · sai";color:var(--anatomy-strong)}
-.dv-box.is-ok{border-color:var(--anatomy-mid)}
-@keyframes dv-in{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
-@keyframes dv-out{from{opacity:1}to{opacity:.55}}
-.dv-text{margin:0;padding:12px 14px;border-radius:10px;border:1px solid var(--anatomy-lo);background:var(--anatomy-face);font:12px/1.55 var(--anatomy-mono);color:var(--anatomy-text);white-space:pre-wrap;word-break:break-word}
-.dv-text.is-new{border-color:var(--anatomy-strong);animation:dv-in .55s var(--anatomy-ease) both}
-.dv-hl{color:var(--anatomy-strong)}
-.dv-dim{color:var(--anatomy-muted)}
-.dv-photo{display:flex;gap:14px;align-items:center;padding:12px 14px;border-radius:10px;border:1px solid var(--anatomy-strong);background:var(--anatomy-face);font:12px/1.4 var(--anatomy-mono)}
-.dv-photo b{display:block;color:var(--anatomy-strong);font-size:14px}
-.dv-photo small{color:var(--anatomy-muted)}
-.dv-photo.is-new{animation:dv-in .6s var(--anatomy-ease) both}
-.dv-cat{fill:var(--anatomy-strong);flex:none}
-.dv-sizes{display:grid;gap:6px}
-.dv-size{display:grid;grid-template-columns:90px 1fr 64px;gap:8px;align-items:center;font:11px var(--anatomy-mono);color:var(--anatomy-muted)}
-.dv-size i{height:10px;border-radius:99px;background:var(--anatomy-mid);transition:width .9s var(--anatomy-ease)}
-.dv-size.is-on i{background:var(--anatomy-strong)}
-.dv-size b{color:var(--anatomy-strong);text-align:right}
-.dv-badge{justify-self:start;font:700 12px/1 var(--anatomy-mono);padding:8px 12px;border-radius:999px;border:1px solid var(--anatomy-strong);color:var(--anatomy-strong)}
-.dv-badge.is-new{animation:dv-in .55s var(--anatomy-ease) both}
-.dv-badge.is-out{opacity:.6;border-style:dashed}
-.dv-slices{display:grid;grid-template-columns:repeat(43,1fr);gap:2px}
-.dv-slices i{height:9px;border-radius:2px;background:var(--anatomy-lo)}
-.dv-slices i.is-first{background:var(--anatomy-strong)}
-.dv-slices i.is-ok{background:var(--anatomy-mid)}
-.dv-bits{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:12px var(--anatomy-mono);color:var(--anatomy-muted)}
-.dv-bits code{color:var(--anatomy-strong);font:inherit}
-.dv-wave{width:100%;height:44px;fill:none;stroke:var(--anatomy-strong);stroke-width:1.6;vector-effect:non-scaling-stroke}
-.dv-media{display:flex;flex-wrap:wrap;gap:6px}
-.dv-media span{font:11px/1 var(--anatomy-mono);padding:5px 8px;border-radius:999px;border:1px solid var(--anatomy-lo);color:var(--anatomy-text)}
-@media (prefers-reduced-motion:reduce){.dv-box,.dv-text,.dv-photo,.dv-badge{animation:none!important}}
+${DATA_CSS}
 @media (max-width:560px){
   .dv-slices{grid-template-columns:repeat(27,1fr)}
   .osi-figure .iso-plate{overflow:hidden}

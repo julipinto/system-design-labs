@@ -29,5 +29,6 @@ Como isso é automático:
   a partir de `content.html` + `content.css` + `content.js` + `osi-figure.mjs` (a figura entra no marcador `<!--FIG-OSI-->`).
 - Testar só a figura: `node labs/protocolos-de-rede/osi-figure.mjs [--light]` gera `osi-figure(-light).html`.
 - O kit isométrico está copiado em `tools/anatomy/iso-kit.mjs` (vem da skill anatomy).
+- Piloto 3D (skill iso-glow, MIT): `node labs/protocolos-de-rede/osi-3d/build.mjs` gera `osi-3d/index.html` a partir de `tools/iso-glow/gallery-3d.html` + `osi-3d/fig3d.js`. Usa o mesmo roteiro (STAGES) e o mesmo painel `osi-data.js`/`osi-data.css`.
 - Screenshots: `CHROME_PATH=~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome node ~/.claude/skills/anatomy/scripts/capture.mjs <página> --width 390|1280`.
 - Sempre conferir em 390px e 1280px, temas claro e escuro, console sem erros e sem scroll horizontal.
