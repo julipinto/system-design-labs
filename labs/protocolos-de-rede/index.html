@@ -239,6 +239,13 @@
 .dv-media{display:flex;flex-wrap:wrap;gap:6px}
 .dv-media span{font:11px/1 var(--anatomy-mono);padding:5px 8px;border-radius:999px;border:1px solid var(--anatomy-lo);color:var(--anatomy-text)}
 @media (prefers-reduced-motion:reduce){.dv-box,.dv-text,.dv-photo,.dv-badge{animation:none!important}}
+.dv-slices i.is-gap{background:transparent;outline:1px dashed var(--anatomy-red)}
+.dv-cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dv-cmp>div{border:1px solid var(--anatomy-lo);border-radius:8px;padding:8px 10px;font:11px/1.45 var(--anatomy-mono);color:var(--anatomy-text)}
+.dv-cmp>div.is-here{border-color:var(--anatomy-strong);box-shadow:0 0 0 1px var(--anatomy-strong)}
+.dv-cmp b{display:block;color:var(--anatomy-strong);margin-bottom:4px}
+.dv-chips{display:flex;gap:3px;margin:4px 0}.dv-chips span{padding:2px 5px;border-radius:4px;border:1px solid var(--anatomy-lo)}
+.dv-chips span.miss{border-style:dashed;border-color:var(--anatomy-red);color:var(--anatomy-red)}
 
 @media (max-width:560px){
   .dv-slices{grid-template-columns:repeat(27,1fr)}
@@ -1805,7 +1812,10 @@ const osiDataView = (() => {
 
   const eth = (st, note) => box(2, "Enlace", [`de ${PHONE_MAC}`, `para ${HOME_MAC}`, `<span>(o roteador de casa)</span>`], "14 B", st, note);
   const ip = (st, note, ttl = 64) => box(3, "IP", [`de ${SRC_IP}`, `para ${DST_IP}`, `TTL ${ttl}`], "20 B", st, note);
-  const tcp = (st, note) => box(4, "TCP", ["porta 51234 → 443", "seq 1 · fatia 1 de 215"], "20 B", st, note);
+  let UDP = false;   // cenário "ligação": UDP no lugar do TCP
+  const tcp = (st, note) => UDP
+    ? box(4, "UDP", ["porta 50000 → 3478", "tamanho · checksum", "sem seq, sem ACK"], "8 B", st, note && note.replace(/215 de 215, em ordem/, "chegou o que deu"))
+    : box(4, "TCP", ["porta 51234 → 443", "seq 1 · fatia 1 de 215"], "20 B", st, note);
   const tls = (st) => box(6, "TLS", ["17 03 03 = dados cifrados"], "5 B", st);
   const tag = (st) => box(6, "TLS tag", ["prova que ninguém mexeu"], "16 B", st);
   const fcs = (st, note) => box(2, "FCS", ["CRC-32 do quadro"], "4 B", st, note);
@@ -1828,7 +1838,7 @@ Content-Length: 7680000</span>
 
   const slices = (done) => {
     let r = "";
-    for (let i = 0; i < 215; i++) r += `<i class="${i === 0 ? "is-first" : ""} ${done ? "is-ok" : ""}"></i>`;
+    for (let i = 0; i < 215; i++) r += `<i class="${i === 0 ? "is-first" : ""} ${done ? (UDP && i === 6 ? "is-gap" : "is-ok") : ""}"></i>`;
     return `<div class="dv-slices" aria-label="215 fatias">${r}</div>`;
   };
 
@@ -1861,7 +1871,21 @@ Content-Length: 7680000</span>
     () => `<div class="dv-photo is-new">${cat(true)}<div><b>foto.jpg</b><small>7,68 MB · aparece no app</small></div></div>` + cap("O app lê o HTTP e mostra a <b>foto</b>. Cada cabeçalho foi tirado pela mesma camada que o colocou."),
   ];
 
-  return (s, halted) => (halted ? `<p class="dv-cap dv-bad">A viagem parou aqui. Do outro lado nada chega: nenhum byte deste passo em diante.</p>` : "") + VIEWS[s]();
+  const call = (st) => `<div class="dv-photo ${st || ""}"><svg class="dv-cat" viewBox="0 0 60 48" width="60" height="48" aria-hidden="true"><rect x="2" y="10" width="38" height="28" rx="5"/><path d="M42 18 L58 10 L58 38 L42 30 Z"/></svg><div><b>chamada de vídeo</b><small>voz e imagem ao vivo, ~50 pedaços por segundo</small></div></div>`;
+  const UDP_VIEWS = {
+    0: () => call() + cap("Agora o dado não é uma foto pronta: é <b>voz e vídeo ao vivo</b>, saindo em fluxo. Aqui chegar atrasado é pior do que perder um pedacinho."),
+    1: () => `<pre class="dv-text is-new"><span class="dv-hl">WebRTC · fluxo de mídia
+áudio: Opus · vídeo: VP8</span>
+<span class="dv-dim">(nada de pedir e esperar resposta: os pedaços saem sem parar)</span></pre>` + cap("O app de chamada não manda um pedido HTTP com tudo de uma vez: ele abre um <b>fluxo</b> e manda pedaços o tempo todo."),
+    2: () => row(box(6, "SRTP", ["mídia cifrada"], "~10 B", "is-new"), pay("quadro de vídeo cifrado", `${hex(12)} …`, "~1 KB", "is-new")) + cap("O <b>codec</b> comprime cada pedacinho de voz e imagem e o <b>SRTP</b> cifra. Cada pedaço é pequeno e independente."),
+    3: () => `<div class="dv-badge is-new">chamada aberta · 00:03</div>` + cap("A <b>sessão</b> é a própria chamada: quem fala com quem, com que codec, há quanto tempo."),
+    4: () => slices(false) + row(tcp("is-new"), pay("~1.200 B de mídia cifrada", `${hex(10)} …`, "")) + cap("Cada pedaço de mídia vai num datagrama com o <b>cabeçalho UDP</b>: só portas, tamanho e checksum. Sem número de sequência na rede, sem confirmação, sem reenvio."),
+    12: () => slices(true) + row(tcp("is-out", "✓ chegou o que deu"), pay("pedaços de mídia", "#5 #6 · · #8 #9", "")) + cap("Faltou o <b>#7</b>. O UDP não espera e não pede de novo: a imagem dá uma travadinha de milissegundos e a chamada segue."),
+    14: () => call("is-ok") + cap("O SRTP decifra e o codec monta voz e imagem de novo, mesmo com um pedacinho a menos."),
+    15: () => call("is-new") + cap("A chamada continua ao vivo. Para voz, vídeo e jogos, <b>chegar agora</b> importa mais que <b>chegar completo</b>."),
+  };
+  return (s, halted, mode) => { UDP = mode === "udp"; const v = UDP && UDP_VIEWS[s] ? UDP_VIEWS[s] : VIEWS[s];
+    return (halted ? `<p class="dv-cap dv-bad">A viagem parou aqui. Do outro lado nada chega: nenhum byte deste passo em diante.</p>` : "") + v(); };
 })();
 
 const P = {"origin":[392.4319234414229,372.323378310372],"scale":1.092033160325976,"azimuth":60,"elevation":30};

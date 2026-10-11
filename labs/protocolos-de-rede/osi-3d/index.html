@@ -70,6 +70,7 @@
 .o3-look b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .o3-dv summary{cursor:pointer;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:4px 0}
 .o3-dv .dv{margin-top:6px}.o3-dv .dv-cap{font-size:13px}.o3-dv .dv-box{min-width:84px}
+.o3-mode{display:flex;gap:6px;margin:10px 0 2px}.o3-mode button{all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font:600 11.5px ui-monospace,monospace;color:var(--dim)}.o3-mode button[aria-pressed="true"]{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.o3-mode button:focus-visible{outline:2px solid var(--accent)}
 .o3-back{position:fixed;left:16px;top:58px;z-index:5;font:12px ui-monospace,monospace;color:var(--dim);text-decoration:none;pointer-events:auto}
 .o3-back:hover{color:var(--ink)}
 @media (max-width:640px){
@@ -132,6 +133,13 @@
 .dv-media{display:flex;flex-wrap:wrap;gap:6px}
 .dv-media span{font:11px/1 var(--anatomy-mono);padding:5px 8px;border-radius:999px;border:1px solid var(--anatomy-lo);color:var(--anatomy-text)}
 @media (prefers-reduced-motion:reduce){.dv-box,.dv-text,.dv-photo,.dv-badge{animation:none!important}}
+.dv-slices i.is-gap{background:transparent;outline:1px dashed var(--anatomy-red)}
+.dv-cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dv-cmp>div{border:1px solid var(--anatomy-lo);border-radius:8px;padding:8px 10px;font:11px/1.45 var(--anatomy-mono);color:var(--anatomy-text)}
+.dv-cmp>div.is-here{border-color:var(--anatomy-strong);box-shadow:0 0 0 1px var(--anatomy-strong)}
+.dv-cmp b{display:block;color:var(--anatomy-strong);margin-bottom:4px}
+.dv-chips{display:flex;gap:3px;margin:4px 0}.dv-chips span{padding:2px 5px;border-radius:4px;border:1px solid var(--anatomy-lo)}
+.dv-chips span.miss{border-style:dashed;border-color:var(--anatomy-red);color:var(--anatomy-red)}
 
 </style>
 <script type="importmap">
@@ -2741,7 +2749,10 @@ const osiDataView = (() => {
 
   const eth = (st, note) => box(2, "Enlace", [`de ${PHONE_MAC}`, `para ${HOME_MAC}`, `<span>(o roteador de casa)</span>`], "14 B", st, note);
   const ip = (st, note, ttl = 64) => box(3, "IP", [`de ${SRC_IP}`, `para ${DST_IP}`, `TTL ${ttl}`], "20 B", st, note);
-  const tcp = (st, note) => box(4, "TCP", ["porta 51234 → 443", "seq 1 · fatia 1 de 215"], "20 B", st, note);
+  let UDP = false;   // cenário "ligação": UDP no lugar do TCP
+  const tcp = (st, note) => UDP
+    ? box(4, "UDP", ["porta 50000 → 3478", "tamanho · checksum", "sem seq, sem ACK"], "8 B", st, note && note.replace(/215 de 215, em ordem/, "chegou o que deu"))
+    : box(4, "TCP", ["porta 51234 → 443", "seq 1 · fatia 1 de 215"], "20 B", st, note);
   const tls = (st) => box(6, "TLS", ["17 03 03 = dados cifrados"], "5 B", st);
   const tag = (st) => box(6, "TLS tag", ["prova que ninguém mexeu"], "16 B", st);
   const fcs = (st, note) => box(2, "FCS", ["CRC-32 do quadro"], "4 B", st, note);
@@ -2764,7 +2775,7 @@ Content-Length: 7680000</span>
 
   const slices = (done) => {
     let r = "";
-    for (let i = 0; i < 215; i++) r += `<i class="${i === 0 ? "is-first" : ""} ${done ? "is-ok" : ""}"></i>`;
+    for (let i = 0; i < 215; i++) r += `<i class="${i === 0 ? "is-first" : ""} ${done ? (UDP && i === 6 ? "is-gap" : "is-ok") : ""}"></i>`;
     return `<div class="dv-slices" aria-label="215 fatias">${r}</div>`;
   };
 
@@ -2797,7 +2808,21 @@ Content-Length: 7680000</span>
     () => `<div class="dv-photo is-new">${cat(true)}<div><b>foto.jpg</b><small>7,68 MB · aparece no app</small></div></div>` + cap("O app lê o HTTP e mostra a <b>foto</b>. Cada cabeçalho foi tirado pela mesma camada que o colocou."),
   ];
 
-  return (s, halted) => (halted ? `<p class="dv-cap dv-bad">A viagem parou aqui. Do outro lado nada chega: nenhum byte deste passo em diante.</p>` : "") + VIEWS[s]();
+  const call = (st) => `<div class="dv-photo ${st || ""}"><svg class="dv-cat" viewBox="0 0 60 48" width="60" height="48" aria-hidden="true"><rect x="2" y="10" width="38" height="28" rx="5"/><path d="M42 18 L58 10 L58 38 L42 30 Z"/></svg><div><b>chamada de vídeo</b><small>voz e imagem ao vivo, ~50 pedaços por segundo</small></div></div>`;
+  const UDP_VIEWS = {
+    0: () => call() + cap("Agora o dado não é uma foto pronta: é <b>voz e vídeo ao vivo</b>, saindo em fluxo. Aqui chegar atrasado é pior do que perder um pedacinho."),
+    1: () => `<pre class="dv-text is-new"><span class="dv-hl">WebRTC · fluxo de mídia
+áudio: Opus · vídeo: VP8</span>
+<span class="dv-dim">(nada de pedir e esperar resposta: os pedaços saem sem parar)</span></pre>` + cap("O app de chamada não manda um pedido HTTP com tudo de uma vez: ele abre um <b>fluxo</b> e manda pedaços o tempo todo."),
+    2: () => row(box(6, "SRTP", ["mídia cifrada"], "~10 B", "is-new"), pay("quadro de vídeo cifrado", `${hex(12)} …`, "~1 KB", "is-new")) + cap("O <b>codec</b> comprime cada pedacinho de voz e imagem e o <b>SRTP</b> cifra. Cada pedaço é pequeno e independente."),
+    3: () => `<div class="dv-badge is-new">chamada aberta · 00:03</div>` + cap("A <b>sessão</b> é a própria chamada: quem fala com quem, com que codec, há quanto tempo."),
+    4: () => slices(false) + row(tcp("is-new"), pay("~1.200 B de mídia cifrada", `${hex(10)} …`, "")) + cap("Cada pedaço de mídia vai num datagrama com o <b>cabeçalho UDP</b>: só portas, tamanho e checksum. Sem número de sequência na rede, sem confirmação, sem reenvio."),
+    12: () => slices(true) + row(tcp("is-out", "✓ chegou o que deu"), pay("pedaços de mídia", "#5 #6 · · #8 #9", "")) + cap("Faltou o <b>#7</b>. O UDP não espera e não pede de novo: a imagem dá uma travadinha de milissegundos e a chamada segue."),
+    14: () => call("is-ok") + cap("O SRTP decifra e o codec monta voz e imagem de novo, mesmo com um pedacinho a menos."),
+    15: () => call("is-new") + cap("A chamada continua ao vivo. Para voz, vídeo e jogos, <b>chegar agora</b> importa mais que <b>chegar completo</b>."),
+  };
+  return (s, halted, mode) => { UDP = mode === "udp"; const v = UDP && UDP_VIEWS[s] ? UDP_VIEWS[s] : VIEWS[s];
+    return (halted ? `<p class="dv-cap dv-bad">A viagem parou aqui. Do outro lado nada chega: nenhum byte deste passo em diante.</p>` : "") + v(); };
 })();
 
 // Figura OSI em 3D (iso-glow): duas pilhas explodidas de 7 placas (celular da Lena e do irmão).
@@ -2857,7 +2882,8 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
         c.textAlign = 'left'; c.fillStyle = ink; c.font = `600 ${5.5 * P}px ${MONO3}`;
         c.fillText(side === 'sp' ? 'Irmão · Tóquio' : 'Lena · São Paulo', (bx + 4) * P, (by + 8) * P);
         c.fillStyle = sub; c.font = `${5 * P}px ${MONO3}`;
-        if (chat === 'recv') { c.fillText('Lena enviou uma foto', (bx + 4) * P, (by + 15) * P); drawCat(c, (bx + 60) * P, (by + 7) * P, 24 * P, A_, theme === 'light' ? '#fbfbfa' : '#141516'); }
+        if (chat === 'call') { c.fillText('chamada de vídeo · 00:03', (bx + 4) * P, (by + 15) * P); }
+        else if (chat === 'recv') { c.fillText('Lena enviou uma foto', (bx + 4) * P, (by + 15) * P); drawCat(c, (bx + 60) * P, (by + 7) * P, 24 * P, A_, theme === 'light' ? '#fbfbfa' : '#141516'); }
         else c.fillText(chat === 'send' ? 'olha o gato! ▸ enviar' : 'como vai o gatinho?', (bx + 4) * P, (by + 15) * P);
         c.beginPath(); c.roundRect((bx + 4) * P, (by + bh - 9) * P, (bw - 8) * P, 5 * P, 2 * P); c.stroke();
       }
@@ -2896,7 +2922,10 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   let tileMode = null;
   const drawTile = (mode, force) => { if (tileMode === mode && !force) return; tileMode = mode;
     const { x, P } = tcv, C = pal3(), A_ = '#' + accent.getHexString(), S = 56 * P;
-    if (mode === 'photo') { const bgc = theme === 'light' ? '#f3ede6' : '#1d1712'; x.fillStyle = bgc; x.fillRect(0, 0, S, S); drawCat(x, 4 * P, 4 * P, 48 * P, A_, bgc); }
+    if (mode === 'call') { const bgc = theme === 'light' ? '#f3ede6' : '#1d1712'; x.fillStyle = bgc; x.fillRect(0, 0, S, S); x.fillStyle = A_;
+      x.beginPath(); x.roundRect(8 * P, 16 * P, 28 * P, 22 * P, 4 * P); x.fill(); x.beginPath(); x.moveTo(38 * P, 22 * P); x.lineTo(50 * P, 16 * P); x.lineTo(50 * P, 38 * P); x.lineTo(38 * P, 32 * P); x.fill();
+      x.strokeStyle = A_; x.lineWidth = 1.4 * P; x.beginPath(); for (let i = 0; i < 9; i++) { const xx = (10 + i * 4.4) * P, hh = [3, 6, 9, 5, 8, 4, 7, 3, 5][i] * P; x.moveTo(xx, 47 * P - hh); x.lineTo(xx, 47 * P + hh); } x.stroke(); }
+    else if (mode === 'photo') { const bgc = theme === 'light' ? '#f3ede6' : '#1d1712'; x.fillStyle = bgc; x.fillRect(0, 0, S, S); drawCat(x, 4 * P, 4 * P, 48 * P, A_, bgc); }
     else drawNoise(x, 0, 0, S, theme === 'light' ? ['#c9ccd0', '#9aa0a6', '#e3e5e7', '#7d848b'] : ['#39414b', '#8d99a8', '#20252b', '#c7cfd9', '#5d6774'], 7);
     x.strokeStyle = A_; x.lineWidth = P * 1.2; x.strokeRect(P / 2, P / 2, S - P, S - P); tcv.tex.needsUpdate = true; };
   const httpLbl = label('POST /v1/fotos · HTTP', 60, 8, 4.8, onTop(0, 33, 4), D);
@@ -2914,12 +2943,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   const boxEdges = (w, d, h) => { const x0 = -w / 2, x1 = w / 2, y0 = -d / 2, y1 = d / 2, P8 = [[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0], [x0, y0, h], [x1, y0, h], [x1, y1, h], [x0, y1, h]];
     return [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].map(([i, j]) => [P8[i], P8[j]]); };
   const parts = {};
-  [['tcp', 'TCP · fatia #1, seq 1', 28, 26], ['ip', 'IP · para 198.51.100.7', 40, 34], ['mac', 'MAC · para o roteador', 52, 42]].forEach(([id, txt, w, h]) => {
+  [['tcp', 'TCP · fatia #1, seq 1', 28, 26], ['udp', 'UDP · 8 B, sem seq/ACK', 28, 26], ['ip', 'IP · para 198.51.100.7', 40, 34], ['mac', 'MAC · para o roteador', 52, 42]].forEach(([id, txt, w, h]) => {
     const g = new THREE.Group(); D.add(g);
     const fillMat = new THREE.MeshBasicMaterial({ color: accent.clone(), transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide });
     const fill = new THREE.Mesh(new THREE.BoxGeometry(w * TS, h * TS, w * TS), fillMat); fill.position.copy(W(0, 0, h / 2)); g.add(fill);
     seg(boxEdges(w, w, h), g, accentLineMat);
-    const tz = { tcp: 16, ip: 27, mac: 38 }[id], R = new THREE.Group(), Lf = new THREE.Group(); g.add(R); g.add(Lf);
+    const tz = { tcp: 16, udp: 16, ip: 27, mac: 38 }[id], R = new THREE.Group(), Lf = new THREE.Group(); g.add(R); g.add(Lf);
     seg([[[w / 2, w / 2, tz], [w / 2, 26.2, tz]], [[w / 2, 26.2, tz], [37, 26.2, tz]]], R, lineMat);
     label(txt, 62, 7, 4.4, onFront(70, 26.2, tz), R, { align: 'left' });
     seg([[[-w / 2, w / 2, tz], [-w / 2, 26.2, tz]], [[-w / 2, 26.2, tz], [-37, 26.2, tz]]], Lf, lineMat);
@@ -2940,7 +2969,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     { mode: 'cipher', f: 0.55, lock: 1 }, { mode: 'cipher', f: 0.55, lock: 1, sess: 1 }, { mode: 'photo', f: 1 }, { mode: 'none' },
   ];
   const cur = { x: SXS.sp + SW / 2, z: zL(7) + SH, a: 1, f: 1, tile: 1 };
-  let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0;
+  let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0, mode = 'tcp';
 
   function readout() { if (active !== 'osi') return; const t = ST[s];
     document.getElementById('read').textContent = `passo ${s + 1}/16 · ` + (s === 0 ? 'início' : s === 8 ? 'roteadores' : (t.side === 'sp' ? 'lena' : 'irmão') + ` · ${t.L} ${t.name.toLowerCase()}`); }
@@ -2962,14 +2991,28 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     'Camada 6: o bloco é decifrado e volta ao tamanho original: o gato aparece.',
     'Camada 7: a foto chega ao chat do irmão.',
   ];
+  const UDP_TXT = {
+    0: ['Lena liga para o irmão (chamada de vídeo)', 'Agora o dado não é uma foto pronta: é voz e vídeo ao vivo, em fluxo, dezenas de pedaços por segundo. Aqui atrasar é pior do que perder um pedacinho.', 'A placa 7 mostra a chamada e, sobre ela, o vídeo ao vivo (câmera e som).'],
+    1: ['7 · Aplicação: o app abre a chamada', 'O app de chamada (WebRTC) captura áudio e vídeo e manda em fluxo contínuo. Não é um pedido HTTP com tudo de uma vez.', 'Camada 7 acesa: o fluxo de mídia começa a sair.'],
+    2: ['6 · Apresentação: codifica e cifra', 'Um codec (Opus para voz, VP8 para vídeo) comprime cada pedacinho e o SRTP cifra. Cada pedaço é pequeno e independente.', 'Camada 6: o vídeo vira ruído cifrado (SRTP).'],
+    3: ['5 · Sessão: a chamada está aberta', 'A sessão é a própria chamada: quem fala com quem, com que codec, há quanto tempo.', 'Camada 5: a linha da sessão (a chamada) acende entre os dois lados.'],
+    4: ['4 · Transporte: UDP, sem esperar ninguém', 'O UDP põe só portas, tamanho e checksum (8 bytes). Não abre conexão, não confirma, não reenvia. O app até numera os pedaços (RTP), mas ninguém para a fila esperando um que sumiu.', 'Camada 4: a fatia #1 ganha uma caixa fina, o UDP (8 bytes, sem seq e sem ACK).'],
+    8: ['Salto a salto: um pedaço se perde', 'No caminho um datagrama se perde (fila cheia num roteador, Wi-Fi ruim). Com UDP ninguém avisa e ninguém reenvia.', 'Um dos pontos de luz some no meio do cabo: é o pedaço perdido. Ninguém manda de novo.'],
+    12: ['4 · Transporte: segue sem o pedaço que faltou', 'Chegou quase tudo. O que se perdeu fica de fora: a imagem dá uma travadinha de milissegundos e a chamada continua. Esperar o reenvio deixaria a conversa atrasada.', 'As fatias se juntam com um buraco: falta uma. A chamada segue mesmo assim.'],
+    14: ['6 · Apresentação: decifra e decodifica', 'O SRTP decifra e o codec remonta voz e imagem, mesmo com um pedacinho a menos.', 'Camada 6: o bloco é decifrado e o vídeo volta.'],
+    15: ['7 · Aplicação: a chamada continua', 'Para voz e vídeo ao vivo, chegar agora importa mais que chegar completo. Por isso chamadas, jogos e transmissões usam UDP (ou QUIC, que também roda sobre UDP).', 'Camada 7: a chamada aparece na tela do irmão.'],
+  };
+  const cmpHtml = () => (s === 4 || s === 12) ? `<div class="dv-cmp"><div class="${mode === 'tcp' ? 'is-here' : ''}"><b>Foto · TCP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">#7?</span><span>#8</span></div>espera o #7 chegar de novo (reenvio)</div><div class="${mode === 'udp' ? 'is-here' : ''}"><b>Ligação · UDP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">–</span><span>#8</span></div>pula o #7: uma travadinha e segue</div></div>` : '';
   function panelHtml() {
+    const u = mode === 'udp' ? UDP_TXT[s] : null;
     const t = ST[s], wh = t.side === 'sp' ? 'São Paulo · celular da Lena' : t.side === 'tk' ? 'Tóquio · celular do irmão' : 'No caminho · roteadores';
     return `<div class="o3-head"><span>Passo ${s + 1} de 16 · ${wh}</span><span>PDU: ${t.pdu}</span></div>
       <div class="o3-bar"><i style="width:${((s + 1) / 16 * 100).toFixed(1)}%"></i></div>
-      <h2>${t.title}</h2>
-      <p class="o3-look"><b>No desenho</b>${LOOK3D[s]}</p>
-      <p>${t.body}</p>
-      <details class="o3-dv"${innerWidth < 640 ? '' : ' open'}><summary>O dado agora</summary><div class="dv">${osiDataView(s, false)}</div></details>`;
+      <div class="o3-mode" role="group" aria-label="Cenário"><button data-mode="tcp" aria-pressed="${mode === 'tcp'}">Foto · TCP</button><button data-mode="udp" aria-pressed="${mode === 'udp'}">Ligação · UDP</button></div>
+      <h2>${u ? u[0] : t.title}</h2>
+      <p class="o3-look"><b>No desenho</b>${u ? u[2] : LOOK3D[s]}</p>
+      <p>${u ? u[1] : t.body}</p>${cmpHtml()}
+      <details class="o3-dv"${innerWidth < 640 ? '' : ' open'}><summary>O dado agora</summary><div class="dv">${osiDataView(s, false, mode)}</div></details>`;
   }
   function render() {
     const w = where(s);
@@ -2978,14 +3021,14 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
       if (w.side === side && w.L === L && s !== 0) state = 'on';
       else if (side === 'sp' && s >= 1 && s <= 8 && L > (s === 8 ? 0 : 8 - s)) state = 'hot';
       else if (side === 'tk' && s >= 9 && L < w.L) state = 'hot';
-      const chat = L === 7 ? (side === 'sp' ? (s <= 1 ? 'send' : 'sent') : (s === 15 ? 'recv' : 'idle')) : '';
+      const chat = L === 7 ? (mode === 'udp' ? 'call' : side === 'sp' ? (s <= 1 ? 'send' : 'sent') : (s === 15 ? 'recv' : 'idle')) : '';
       slabs[side][L].draw(state, chat);
     }
     const d = DST[s];
     wire.material = s === 7 || s === 8 || s === 9 ? accentLineMat : majorMat;
     sess.material = accentLineMat; sess.visible = !!d.sess; sessLbl.visible = !!d.sess;
     httpLbl.visible = !!d.http; lockLbl.visible = !!d.lock && d.mode !== 'cubes';
-    drawTile(d.mode === 'photo' ? 'photo' : 'cipher');
+    drawTile(d.mode === 'photo' ? (mode === 'udp' ? 'call' : 'photo') : 'cipher');
     const info = document.getElementById('info'); if (active === 'osi' && info) { info.innerHTML = panelHtml(); info.scrollTop = 0; }
     readout();
   }
@@ -2993,9 +3036,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     if (s === 0) { cur.x = SXS.sp + SW / 2; cur.z = zL(7) + SH; } render(); SFX.bit(1); return true; }
   const next = () => go(s + 1), prev = () => go(Math.max(0, s - 1)), reset = () => go(0);
   const auto = () => { playing = !playing; dwell = 0; return true; };
+  const setMode = m => { mode = m; for (const side of ['sp', 'tk']) slabs[side][7].force = true; tileMode = null; render(); return true; };
+  const toggleMode = () => setMode(mode === 'tcp' ? 'udp' : 'tcp');
+  document.getElementById('info')?.addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && active === 'osi') setMode(b.dataset.mode); });
   // a peça que acabou de entrar fica acesa
   const NEW = { 4: 'tcp', 5: 'ip', 6: 'mac' };
-  const newPart = id => NEW[s] === id;
+  const newPart = id => NEW[s] === (id === 'udp' ? 'tcp' : id);
 
   function tick(now) {
     const dt = last ? Math.min((now - last) / 1000, 0.25) : 0; last = now;
@@ -3013,9 +3059,10 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     D.position.copy(W(cur.x, PY + 4, cur.z)); D.visible = cur.a > 0.04;
     tile.scale.setScalar(Math.max(0.001, cur.f * cur.tile * cur.a)); tile.visible = cur.tile > 0.02;
     const cubesOn = d.mode === 'cubes' ? cur.a : 0;
-    cubes.forEach((c, n) => { c.s += (cubesOn - c.s) * (1 - Math.exp(-dt / (0.25 + n * 0.012)));
+    cubes.forEach((c, n) => { const gap = mode === 'udp' && n === 6 && s >= 9; c.s += ((gap ? 0 : cubesOn) - c.s) * (1 - Math.exp(-dt / (0.25 + n * 0.012)));
       const t = c.s; c.g.visible = t > 0.02; c.g.scale.setScalar(Math.max(0.001, t)); c.g.position.copy(W(c.home[0] * t, c.home[1] * t, 0)); });
-    for (const [id, p] of Object.entries(parts)) { const want = d[id] && d.mode === 'cubes' ? cur.a : 0; p.s += (want - p.s) * k;
+    for (const [id, p] of Object.entries(parts)) { const key = id === 'udp' ? 'tcp' : id, use = id === 'udp' ? mode === 'udp' : id === 'tcp' ? mode === 'tcp' : true;
+      const want = use && d[key] && d.mode === 'cubes' ? cur.a : 0; p.s += (want - p.s) * k;
       p.g.visible = p.s > 0.02; p.g.scale.setScalar(Math.max(0.001, 0.6 + 0.4 * p.s)); p.g.position.copy(W((where(s).side === 'tk' ? -1 : 1) * PIECE_X, 0, 0));
       p.fillMat.opacity = newPart(id) ? 0.02 * p.s : 0; p.fill.visible = newPart(id); p.R.visible = w.side !== 'tk'; p.Lf.visible = w.side === 'tk'; p.g.traverse(o => { if (o.material && o.material !== p.fillMat && o.material.opacity !== undefined && o.isMesh) o.material.opacity = p.s; }); }
     // a fatia #1 sai da grade para a frente e cresce: é ela que recebe os cabeçalhos
@@ -3024,7 +3071,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
       c.g.position.copy(W(px, py, 0)); c.g.scale.setScalar(Math.max(0.001, t * (1 + (PIECE_S - 1) * c.pull))); c.mat.emissiveIntensity = 0.35 * c.pull; }
     // bits: vários pontos de luz em fila pelo cabo
     if (bitsT >= 0) { bitsT += dt; const T = s === 7 ? 1.2 : 4.2;
-      beads.forEach((b, n) => { const t = (bitsT - n * 0.18) / T; if (t < 0 || t > 1) { b.material.uniforms.intensity.value = 0; return; }
+      beads.forEach((b, n) => { const t = (bitsT - n * 0.18) / T; if (t < 0 || t > 1 || (mode === 'udp' && s === 8 && n === 3 && t > 0.45)) { b.material.uniforms.intensity.value = 0; return; }
         moveGlow(b, alongPts(wirePts, wcum, s === 7 ? t * 0.08 : t), 0.95); });
       if (s === 8) routers.forEach(r => { if (!r.hit && bitsT / T >= r.t) { r.hit = true; flash(r.g, 320); SFX.bit(1); } });
       if (bitsT > T + 1.4) bitsT = s === 7 ? 0 : -1; }
@@ -3043,13 +3090,14 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') return prev();
     if (e.key === 'Home' || e.key === 'r') return reset();
     if (e.key === ' ') return auto();
+    if (e.key === 'u' || e.key === 'U') return toggleMode();
     return false;
   }
   function click(hit) { let o = hit?.object; while (o && o.userData.stage === undefined) o = o.parent; if (o) go(o.userData.stage); }
   themeHooks.push(() => { for (const side of ['sp', 'tk']) for (let L = 1; L <= 7; L++) slabs[side][L].force = true; drawTile(tileMode || 'photo', true); render(); });
   drawTile('photo', true); render();
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Foto ⇄ Ligação', 'U', toggleMode]],
     view: innerWidth < 640 ? { target: W(SXS.sp + SW / 2 + 30, 150, 30), dist: 7 } : { target: W(250, 160, 120), dist: 13.5 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · clique numa camada · arraste para girar' };
