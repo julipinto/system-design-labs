@@ -1,0 +1,6 @@
+.maestri/
+node_modules/
+# páginas de teste geradas
+labs/*/osi-figure.html
+labs/*/osi-figure-light.html
+labs/*/preview.html

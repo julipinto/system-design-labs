@@ -1,0 +1,676 @@
+<div class="sdl-progress">
+  <div class="pg-row">
+    <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior">‹</button>
+    <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">Protocolos de Rede · 9 tópicos</span><span class="pg-caret" aria-hidden="true">▾</span></button>
+    <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula">›</button>
+  </div>
+  <div class="pg-meter">
+    <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax="9" aria-valuenow="0"></div>
+    <span class="pg-count">0/9 ✓</span>
+  </div>
+  <div class="pg-panel" id="sdl-panel">
+    <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
+    <nav class="toc" aria-label="Aulas do módulo">
+      <p class="toc-title">Protocolos de Rede · 9 tópicos</p>
+      <ol>
+        <li><a href="#aula-1-introducao-a-protocolos"><span>1</span> O que é um protocolo</a></li>
+        <li><a href="#aula-2-modelo-osi"><span>2</span> Modelo OSI</a></li>
+        <li><a href="#aula-3-ip-ipv4-ipv6"><span>3</span> IP, IPv4 e IPv6</a></li>
+        <li><a href="#aula-4-tcp-e-udp"><span>4</span> TCP e UDP</a></li>
+        <li><a href="#aula-5-ssl-e-tls"><span>5</span> TLS</a></li>
+        <li><a href="#aula-6-dns"><span>6</span> DNS</a></li>
+        <li><a href="#aula-7-dhcp"><span>7</span> DHCP</a></li>
+        <li><a href="#aula-8-http"><span>8</span> HTTP/1.1, HTTP/2 e HTTP/3</a></li>
+        <li><a href="#aula-9-tempo-de-resposta"><span>9</span> Tempo de resposta</a></li>
+      </ol>
+    </nav>
+  </div>
+</div>
+<noscript><style>.sdl-content .fc-a[hidden]{display:block}</style></noscript>
+
+
+<!-- ===================== AULA 1 ===================== -->
+<section class="lesson" id="aula-1-introducao-a-protocolos" data-min="1">
+  <header>
+    <span class="lesson-n">Aula 1 de 9</span>
+    <h2>O que é um protocolo</h2>
+    <p class="lesson-meta"><span>Leitura ~1 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> protocolo é um acordo sobre o formato e a ordem das mensagens, para que dois sistemas que nunca se viram consigam conversar.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Anote 3 coisas que dois programas precisam combinar antes de conversar, depois confira nos passos abaixo.</p>
+  </div>
+  
+  <h3 class="sec">Como funciona</h3>
+  <ol class="flow steps">
+    <li>Os dois combinam <strong>quem fala primeiro</strong>.</li>
+    <li>Combinam o <strong>formato</strong> das mensagens e o que significa cada campo.</li>
+    <li>Combinam o que fazer quando <strong>algo dá errado</strong>.</li>
+    <li>Esse combinado é o <strong>protocolo</strong>. Sem ele, os bytes chegam e ninguém sabe o que são.</li>
+    <li>Protocolos se <strong>empilham</strong>: cada um resolve um pedaço e entrega o resultado ao de cima.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>Escolher protocolo é escolher trade-offs de <strong>performance</strong> e <strong>resiliência</strong>.</li>
+    <li>Confiabilidade custa idas e vindas, e idas e vindas custam <strong>latência</strong>.</li>
+    <li>Cada decisão (gRPC ou REST, TCP ou UDP, uma conexão ou várias) é uma decisão de protocolo.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>O HTTP não sabe como o sinal viaja no cabo. O IP não sabe o que é uma página web. Essa divisão em camadas é o assunto da aula 2.</p>
+    <p>O módulo segue uma ordem: o mapa (modelo OSI), depois quem endereça (IP), quem transporta (TCP e UDP), quem protege (TLS), quem traduz nomes (DNS), quem configura a rede (DHCP), quem carrega a web (HTTP) e, no fim, quanto tempo tudo isso custa.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">O que um protocolo define?</button><div class="fc-a" hidden>Formato + ordem + regras de erro.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Como os protocolos se organizam?</button><div class="fc-a" hidden>Em pilhas: cada camada usa a de baixo e serve a de cima.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Qual o preço de mais garantias?</button><div class="fc-a" hidden>Mais mensagens trocadas, logo mais tempo.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-2-modelo-osi" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 2 ===================== -->
+<section class="lesson" id="aula-2-modelo-osi" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 2 de 9</span>
+    <h2>Modelo OSI</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Na figura abaixo, clique em ▶ (próxima etapa) e veja a foto da Lena descer andar por andar.</p>
+  </div>
+  
+  <!--FIG-OSI-->
+
+  <h3 class="sec">Como funciona</h3>
+  <p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele.</p>
+  <ol class="flow steps">
+    <li><strong>7 Aplicação, 6 Apresentação, 5 Sessão:</strong> o programa. O que se diz, em que formato (ou cifrado) e qual conversa está aberta.</li>
+    <li><strong>4 Transporte:</strong> leva os dados de um processo a outro, pela <strong>porta</strong>. TCP ou UDP.</li>
+    <li><strong>3 Rede:</strong> endereça com <strong>IP</strong> e roteia, salto a salto.</li>
+    <li><strong>2 Enlace:</strong> entrega ao vizinho na mesma rede local, pelo <strong>MAC</strong>. O <strong>ARP</strong>, que descobre o MAC de um IP, fica aqui.</li>
+    <li><strong>1 Física:</strong> vira <strong>bits</strong>: luz, tensão ou rádio.</li>
+  </ol>
+  <div class="mnemonic" role="note">
+    <h3>Mnemônico: a foto da Lena</h3>
+    <p class="mn-line"><span class="mn-dir">De baixo para cima (Física até Aplicação):</span>
+      <strong class="mn-phrase"><b>F</b>oto <b>E</b>nviada <b>R</b>apidinho, <b>T</b>óquio <b>S</b>orriu, <b>A</b>plaudiu <b>A</b>lto.</strong></p>
+    <p class="mn-line"><span class="mn-dir">De cima para baixo (Aplicação até Física): leia a frase de trás para frente.</span>
+      <strong class="mn-phrase"><b>A</b>lto <b>A</b>plaudiu, <b>S</b>orriu <b>T</b>óquio, <b>R</b>apidinho <b>E</b>nviada <b>F</b>oto.</strong></p>
+    <p class="mn-key">F-E-R-T-S-A-A = <b>F</b>ísica, <b>E</b>nlace, <b>R</b>ede, <b>T</b>ransporte, <b>S</b>essão, <b>A</b>presentação, <b>A</b>plicação.</p>
+  </div>
+
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>As camadas dão vocabulário para diagnosticar: a primeira pergunta é <strong>em que camada o pedido morreu?</strong></li>
+    <li><strong>Load balancer L4</strong> decide por IP e porta. <strong>L7</strong> lê o HTTP e roteia por caminho ou header.</li>
+    <li>Alta disponibilidade e troubleshooting começam por localizar a camada.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (4 min)</summary>
+    <p>O OSI foi criado pela ISO nos anos 1980 para padronizar as funções de rede. Hoje é um <strong>mapa conceitual</strong>: serve para saber onde cada protocolo mora e para fazer troubleshooting.</p>
+    <h4 class="deep-h">As 7 camadas, de cima para baixo</h4>
+    <p><strong>PDU</strong> (Protocol Data Unit) é o nome que o "pacote de dados" recebe em cada camada.</p>
+    <div class="layers">
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">7</span><h4>Aplicação</h4><span class="pdu">PDU: dados</span></div>
+        <p><strong>O que faz:</strong> é a interface entre a rede e o programa. Define o que as aplicações dizem umas às outras (pedidos, respostas, comandos).</p>
+        <p><strong>Exemplos:</strong> HTTP, HTTPS, gRPC, WebSockets, SSH, FTP, DNS, DHCP.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> a conexão funcionar mas a resposta vir errada: 404, 500, API devolvendo erro, timeout da aplicação.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">6</span><h4>Apresentação</h4><span class="pdu">PDU: dados</span></div>
+        <p><strong>O que faz:</strong> traduz. Cuida de formato, compressão e criptografia. O Fidelis a chama de "camada de tradução".</p>
+        <p><strong>Exemplos:</strong> TLS/SSL, JPEG, PNG, gzip, UTF-8, JSON.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> erro de certificado, falha no handshake TLS, texto com caracteres quebrados ou arquivo que não abre.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">5</span><h4>Sessão</h4><span class="pdu">PDU: dados</span></div>
+        <p><strong>O que faz:</strong> abre, mantém e encerra o diálogo entre duas aplicações, inclusive conexões autenticadas de longa duração. Na prática, essa camada costuma ser implementada dentro da aplicação.</p>
+        <p><strong>Exemplos:</strong> sessões de login, RPC, sessões do SSH, tokens de sessão.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> a sessão cair do nada, ter que logar de novo, conexão longa que não se recupera após uma queda.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">4</span><h4>Transporte</h4><span class="pdu">PDU: segmento (TCP) / datagrama (UDP)</span></div>
+        <p><strong>O que faz:</strong> leva os dados de um processo a outro (por <strong>porta</strong>). Fatia em segmentos, numera, controla fluxo e, no TCP, garante entrega e ordem.</p>
+        <p><strong>Exemplos:</strong> TCP, UDP, QUIC (sobre UDP).</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> <code>connection refused</code> (porta fechada), timeout na conexão, muitas retransmissões, lentidão sem erro.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">3</span><h4>Rede</h4><span class="pdu">PDU: pacote</span></div>
+        <p><strong>O que faz:</strong> endereçamento lógico (IP) e roteamento: decide por onde o pacote vai, salto a salto, até outra rede. É a camada da internet.</p>
+        <p><strong>Exemplos:</strong> IPv4, IPv6, ICMP (o <code>ping</code>), roteadores. O ARP, que descobre o MAC de um IP na rede local, fica na fronteira com o enlace (camada 2/3); aqui o tratamos como camada 2.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> <code>ping</code> sem resposta, <code>no route to host</code>, rota errada, pacote que morre por TTL.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">2</span><h4>Enlace</h4><span class="pdu">PDU: quadro (frame)</span></div>
+        <p><strong>O que faz:</strong> entrega entre dois nós vizinhos na mesma rede local, usando endereços <strong>MAC</strong>. Detecta erros no quadro.</p>
+        <p><strong>Exemplos:</strong> Ethernet, Wi-Fi (802.11), PPP, switches, VLAN, ARP.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> ficar sem IP ou sem alcançar nem o roteador de casa, só alguns aparelhos da LAN conversam, VLAN errada.</p>
+      </article>
+      <article class="layer">
+        <div class="layer-h"><span class="layer-n">1</span><h4>Física</h4><span class="pdu">PDU: bits</span></div>
+        <p><strong>O que faz:</strong> transmite bits pelo meio: pulsos de luz na fibra, tensão no cobre, ondas de rádio no Wi-Fi.</p>
+        <p><strong>Exemplos:</strong> cabo de cobre, fibra óptica, cabo submarino, rádio Wi-Fi e 5G.</p>
+        <p class="symptom"><strong>Quando dá problema aqui, o sintoma é</strong> sem sinal, cabo desconectado, Wi-Fi fraco, perda de pacote por ruído.</p>
+      </article>
+    </div>
+    <h4 class="deep-h">Encapsulamento e desencapsulamento</h4>
+    <p>Quem envia <strong>encapsula</strong>: a cada camada que desce, o dado ganha um cabeçalho (e, no enlace, também um rodapé) com as informações daquela camada. É como colocar a carta num envelope, o envelope numa caixa, a caixa num caminhão.</p>
+    <ol class="flow">
+      <li><strong>Aplicação (7):</strong> a foto vira um pedido HTTP com o conteúdo (dados).</li>
+      <li><strong>Apresentação (6) e Sessão (5):</strong> a apresentação comprime e cifra (TLS), e o conteúdo continua sendo "dados". A sessão marca a conversa aberta entre os dois apps (na prática, isso costuma ficar dentro da aplicação).</li>
+      <li><strong>Transporte (4):</strong> ganha cabeçalho com portas e números de sequência (segmento).</li>
+      <li><strong>Rede (3):</strong> ganha cabeçalho com IP de origem e destino (pacote).</li>
+      <li><strong>Enlace (2) e Física (1):</strong> o enlace ganha MAC de origem e destino do próximo salto (quadro). A física vira sinal elétrico, luz ou rádio (bits).</li>
+    </ol>
+    <p>No meio do caminho, roteadores desencapsulam só até a camada 3, leem o IP de destino, reescrevem o quadro com o MAC do próximo salto e mandam adiante. Quem recebe no destino faz o <strong>desencapsulamento</strong>: tira cada cabeçalho de baixo para cima até sobrar a foto para o app.</p>
+    <h4 class="deep-h">OSI x TCP/IP</h4>
+    <p>O que roda na internet de verdade é a pilha <strong>TCP/IP</strong>, com 4 camadas. O OSI é o modelo didático e de troubleshooting; o TCP/IP é o que foi implementado.</p>
+    <div class="map" role="table" aria-label="Correspondência entre OSI e TCP/IP">
+      <div class="map-row" role="row"><div class="map-osi" role="cell">7 Aplicação<br>6 Apresentação<br>5 Sessão</div><div class="map-tcp" role="cell"><b>Aplicação</b><br>HTTP, DNS, TLS, gRPC</div></div>
+      <div class="map-row" role="row"><div class="map-osi" role="cell">4 Transporte</div><div class="map-tcp" role="cell"><b>Transporte</b><br>TCP, UDP</div></div>
+      <div class="map-row" role="row"><div class="map-osi" role="cell">3 Rede</div><div class="map-tcp" role="cell"><b>Internet</b><br>IP, ICMP</div></div>
+      <div class="map-row" role="row"><div class="map-osi" role="cell">2 Enlace<br>1 Física</div><div class="map-tcp" role="cell"><b>Acesso à rede</b><br>Ethernet, Wi-Fi</div></div>
+    </div>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">Qual a ordem das camadas, de baixo para cima?</button><div class="fc-a" hidden>Física, Enlace, Rede, Transporte, Sessão, Apresentação, Aplicação. Mnemônico: <strong>Foto Enviada Rapidinho, Tóquio Sorriu, Aplaudiu Alto</strong>.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quais os PDUs, de cima para baixo?</button><div class="fc-a" hidden>Dados, dados, dados, segmento, pacote, quadro, bits.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que é encapsular?</button><div class="fc-a" hidden>Descer as camadas, cada uma pondo o seu cabeçalho. Subir é desencapsular.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Em que camada trabalham roteador e switch?</button><div class="fc-a" hidden>Roteador na 3, switch na 2. O TCP/IP junta 7-6-5 numa só e 2-1 noutra.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-1-introducao-a-protocolos" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-3-ip-ipv4-ipv6" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 3 ===================== -->
+<section class="lesson" id="aula-3-ip-ipv4-ipv6" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 3 de 9</span>
+    <h2>IP, IPv4 e IPv6</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o IP dá a cada dispositivo um endereço lógico na camada 3 para os pacotes saberem aonde chegar, e o IPv6 existe porque os 32 bits do IPv4 acabaram.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Clique no chip <code>10.0.0.5</code>, depois em <code>8.8.8.8</code>, e compare os bits e o veredito (privado ou público).</p>
+  </div>
+  <div class="widget" data-widget="ip">
+    <p class="widget-title">Visualizador de endereços</p>
+    <p class="widget-hint">Digite um IPv4 para ver os 32 bits e saber se é privado.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <ol class="flow steps">
+    <li>O IP é o "CEP + número" do dispositivo, na <strong>camada 3</strong>.</li>
+    <li><strong>Roteadores</strong> olham só o IP de destino e empurram o pacote ao próximo salto. O IP <strong>não garante</strong> entrega nem ordem: isso é do TCP.</li>
+    <li><strong>IPv4:</strong> 32 bits em 4 octetos (<code>192.168.1.10</code>), cerca de 4,3 bilhões de endereços. Acabou.</li>
+    <li><strong>IPv6:</strong> 128 bits em 8 grupos hexadecimais (<code>2001:db8::1</code>). Espaço praticamente ilimitado.</li>
+    <li><strong>Dual stack:</strong> o dispositivo fala IPv4 e IPv6 e escolhe conforme o destino.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>IP privado dentro da VPC, IP público só no que precisa.</li>
+    <li>O <strong>NAT</strong> esconde instâncias, mas esgota portas sob muita conexão saindo.</li>
+    <li>IPv6 reduz a dependência de NAT, e o dual stack aparece em load balancers e DNS (registros A e AAAA).</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>O IPv4 acabou e foi contornado com <strong>IPs privados</strong> e <strong>NAT</strong>: milhares de aparelhos atrás de um único IP público.</p>
+    <p>O IPv6 tem cabeçalho mais simples para os roteadores e IPsec nativo. O dual stack é uma transição simples, mas exige suporte dos dois lados.</p>
+    <p>Faixas privadas (não roteadas na internet):</p>
+    <ul>
+      <li><code>10.0.0.0/8</code></li>
+      <li><code>172.16.0.0/12</code></li>
+      <li><code>192.168.0.0/16</code></li>
+    </ul>
+    <p>É por isso que o IP da sua máquina (192.168.x.x) não é o IP que o mundo vê.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">Quantos bits têm o IPv4 e o IPv6?</button><div class="fc-a" hidden>IPv4 = 32 bits (~4,3 bi). IPv6 = 128 bits (~3,4 × 10<sup>38</sup>).</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quais as faixas privadas?</button><div class="fc-a" hidden>10/8, 172.16/12 e 192.168/16. Quem sai para a internet passa por NAT.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que o IP entrega, e o que fica para a porta?</button><div class="fc-a" hidden>O IP leva o pacote até a máquina certa. Quem escolhe o programa é a porta (camada 4).</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-2-modelo-osi" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-4-tcp-e-udp" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 4 ===================== -->
+<section class="lesson" id="aula-4-tcp-e-udp" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 4 de 9</span>
+    <h2>TCP e UDP</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> TCP é o entregador que exige assinatura e confirma cada pacote; UDP é o que joga a correspondência debaixo do portão e segue para a próxima.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Clique em <strong>Próximo</strong> até o passo 7 e olhe o painel <strong>O segmento agora</strong>: o buffer do servidor fica com um buraco nos bytes 201–300. Depois clique em <strong>Comparar com UDP</strong>.</p>
+  </div>
+  <div class="widget" data-widget="tcp">
+    <p class="widget-title">Stepper do TCP</p>
+    <p class="widget-hint">Avance passo a passo. Os números de sequência são exemplos.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <ol class="flow steps">
+    <li><strong>UDP:</strong> envia datagramas independentes, sem conexão, sem ordem, sem confirmação. Rápido e leve.</li>
+    <li><strong>TCP</strong> abre com o <strong>three-way handshake</strong>: SYN, SYN-ACK, ACK (1 RTT).</li>
+    <li>Transfere <strong>segmentos numerados</strong>. O receptor reordena o que chega fora de ordem e manda ACK.</li>
+    <li>O que não for confirmado a tempo é <strong>retransmitido</strong>.</li>
+    <li>Fecha com o <strong>four-way close</strong>: cada lado manda FIN e recebe um ACK.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>O handshake é custo fixo por conexão: por isso existem <strong>keep-alive</strong> e pools de conexões.</li>
+    <li>A retransmissão explica picos de latência quando há perda.</li>
+    <li>Dado que perde valor rápido (voz, posição num jogo): UDP. Dado que não pode faltar (pagamento, banco de dados): TCP.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <h4 class="deep-h">UDP: sem conexão, sem garantias</h4>
+    <p>Quase não tem burocracia, então é rápido e leve. Serve para o que tolera perda ou onde o dado velho já não vale nada: chamadas de voz e vídeo, jogos online, DNS, NTP.</p>
+    <h4 class="deep-h">TCP: orientado a conexão</h4>
+    <p>Abre, mantém, verifica e encerra a conexão. Entrega íntegro e na ordem.</p>
+    <p>No handshake, cada lado escolhe um <strong>ISN</strong> (Initial Sequence Number) e o outro confirma. O ACK é cumulativo: "recebi tudo até aqui, espero o número X".</p>
+    <p>A confiabilidade do TCP custa burocracia, e por isso ele é mais lento que o UDP. Mesmo assim, a maioria dos protocolos de serviço usa TCP.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">TCP e UDP, na analogia do entregador?</button><div class="fc-a" hidden>TCP: assinatura, foto e confirmação. UDP: debaixo do portão.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Como o TCP abre e fecha a conexão?</button><div class="fc-a" hidden>Abrir = SYN, SYN-ACK, ACK. Fechar = FIN, ACK, FIN, ACK.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que é o ACK cumulativo?</button><div class="fc-a" hidden>"Recebi tudo até aqui, espero o número X."</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que acontece quando o UDP perde um datagrama?</button><div class="fc-a" hidden>Perde em silêncio. Quem quiser garantias precisa construí-las por cima.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-3-ip-ipv4-ipv6" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-5-ssl-e-tls" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 5 ===================== -->
+<section class="lesson" id="aula-5-ssl-e-tls" data-min="1">
+  <header>
+    <span class="lesson-n">Aula 5 de 9</span>
+    <h2>TLS</h2>
+    <p class="lesson-meta"><span>Leitura ~1 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> TLS (sucessor do SSL) criptografa a conversa para garantir privacidade e integridade, e o handshake dele serve para chegar a uma chave de sessão única.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Clique em <strong>Próximo</strong> e compare quantos RTTs o TLS 1.2 e o TLS 1.3 gastam antes do HTTP.</p>
+  </div>
+  <div class="widget" data-widget="tls">
+    <p class="widget-title">TLS 1.2 x TLS 1.3, contando RTTs</p>
+    <p class="widget-hint">Cada rodada é uma ida e volta (1 RTT). O TCP vem antes de qualquer TLS.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <ol class="flow steps">
+    <li>Cliente e servidor <strong>negociam</strong> versão e algoritmos.</li>
+    <li>O servidor prova quem é com um <strong>certificado</strong>.</li>
+    <li>Os dois derivam uma <strong>chave de sessão</strong> simétrica.</li>
+    <li>Essa chave criptografa o resto da conversa: <strong>assimétrica na negociação, simétrica nos dados</strong>.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>Cada RTT do handshake é tempo antes do primeiro byte útil.</li>
+    <li>TLS 1.3, conexões reutilizadas e TLS terminado perto do usuário (CDN, load balancer na borda) baixam a latência.</li>
+    <li>Certificado expirado é uma causa clássica de indisponibilidade.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>Hoje as versões em uso são o <strong>TLS 1.2</strong> e o <strong>TLS 1.3</strong>. A 1.3 é mais segura e tem um handshake mais ágil: 1 ida e volta em vez de 2.</p>
+    <p>Na retomada de sessão, a 1.3 permite ainda o 0-RTT (com ressalvas de segurança, como replay).</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">O que o TLS garante?</button><div class="fc-a" hidden>Privacidade (criptografia) e integridade (ninguém altera no caminho).</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Onde termina o handshake?</button><div class="fc-a" hidden>Numa chave de sessão única.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quantos RTTs antes de a requisição sair, com TCP + TLS 1.2? E com 1.3?</button><div class="fc-a" hidden>3 RTTs com TLS 1.2. 2 RTTs com TLS 1.3.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-4-tcp-e-udp" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-6-dns" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 6 ===================== -->
+<section class="lesson" id="aula-6-dns" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 6 de 9</span>
+    <h2>DNS</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o DNS é a lista telefônica da internet: transforma <code>demo.fidelissauro.dev</code> em um endereço IP, perguntando a servidores cada vez mais específicos.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Com <strong>Sem cache</strong> marcado, clique em <strong>Próximo</strong> até o autoritativo responder; depois marque <strong>Cache no resolver</strong> e repita.</p>
+  </div>
+  <div class="widget" data-widget="dns">
+    <p class="widget-title">Resolvendo demo.fidelissauro.dev</p>
+    <p class="widget-hint">Escolha o cache e avance. IP e tempos são exemplos.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <p>Humanos lembram nomes, máquinas precisam de IP. O <strong>resolver</strong> (geralmente do provedor, ou 8.8.8.8, 1.1.1.1) faz esta sequência de perguntas:</p>
+  <ol class="flow steps">
+    <li><strong>Cache:</strong> o navegador, o sistema e o resolver olham se já sabem a resposta.</li>
+    <li><strong>Servidor raiz:</strong> não sabe o IP, mas sabe quem cuida do <code>.dev</code>.</li>
+    <li><strong>Servidor TLD do .dev:</strong> não sabe o IP, mas sabe quem é o servidor de nomes de <code>fidelissauro.dev</code>.</li>
+    <li><strong>Servidor autoritativo:</strong> tem a palavra final e responde o IP de <code>demo.fidelissauro.dev</code>.</li>
+    <li>O resolver devolve a resposta e <strong>guarda em cache</strong> pelo tempo do TTL. O navegador conecta ao IP.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>DNS é a primeira etapa de toda requisição e também um ponto único de falha.</li>
+    <li>O <strong>TTL</strong> é o equilíbrio: alto dá menos consultas, mas atrasa um failover. Baixo troca de IP rápido, mas gera mais consultas.</li>
+    <li>DNS também serve para balancear carga e rotear por região.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>Os servidores raiz são 13 conjuntos, de <code>a.root-servers.net</code> a <code>m.root-servers.net</code>.</p>
+    <p>Registros comuns: <code>A</code> (IPv4), <code>AAAA</code> (IPv6), <code>CNAME</code> (apelido para outro nome), <code>NS</code> (quem é autoritativo), <code>MX</code> (e-mail) e <code>TXT</code>.</p>
+    <p>O cache em vários níveis existe para reduzir latência e tráfego.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">Qual a cadeia de uma resolução sem cache?</button><div class="fc-a" hidden>Cache, resolver, raiz, TLD (.dev), autoritativo.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quem dá o IP: a raiz, o TLD ou o autoritativo?</button><div class="fc-a" hidden>O autoritativo. Raiz e TLD só indicam o próximo servidor.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Por que quase toda consulta custa pouco?</button><div class="fc-a" hidden>Cache e TTL: custa zero ou poucos ms.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-5-ssl-e-tls" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-7-dhcp" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 7 ===================== -->
+<section class="lesson" id="aula-7-dhcp" data-min="1">
+  <header>
+    <span class="lesson-n">Aula 7 de 9</span>
+    <h2>DHCP</h2>
+    <p class="lesson-meta"><span>Leitura ~1 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o DHCP entrega automaticamente IP, máscara, gateway e DNS para quem acabou de entrar na rede, num ritual de 4 mensagens chamado DORA.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Clique em <strong>Próximo</strong> quatro vezes e veja o aparelho sair sem IP e terminar com um.</p>
+  </div>
+  <div class="widget" data-widget="dhcp">
+    <p class="widget-title">Stepper DORA</p>
+    <p class="widget-hint">Veja o aparelho sair sem IP e terminar com um.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <p>A sigla <strong>DORA</strong> reúne as 4 etapas: Discover, Offer, Request, Acknowledgment.</p>
+  <ol class="flow steps">
+    <li><strong>Discover:</strong> o cliente ainda não tem IP, então grita em <strong>broadcast</strong> sobre UDP (portas 68 e 67): "tem servidor DHCP aí?"</li>
+    <li><strong>Offer:</strong> o servidor oferece IP, máscara, gateway, DNS e tempo de lease.</li>
+    <li><strong>Request:</strong> o cliente escolhe uma oferta e a pede, também em broadcast.</li>
+    <li><strong>Acknowledgment:</strong> o servidor confirma. O IP é do cliente pelo tempo do <strong>lease</strong>.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>Instâncias, containers e dispositivos entram na rede sem configuração manual, com IPs reaproveitados.</li>
+    <li>Pool de endereços esgotado ou servidor DHCP fora do ar deixa novos dispositivos sem rede.</li>
+    <li>Sintoma clássico: IP <code>169.254.x.x</code>.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>Sem DHCP, cada dispositivo precisaria de configuração manual, com risco de conflito de IP.</p>
+    <p>O servidor DHCP (em casa, o roteador Wi-Fi) mantém um conjunto de endereços e os <strong>aluga</strong> por um tempo (lease). Quando o aparelho sai, o endereço volta para o conjunto.</p>
+    <p>O IP é renovado antes de vencer. Na nuvem pública isso costuma vir abstraído.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">O que significa DORA?</button><div class="fc-a" hidden>Discover, Offer, Request, Acknowledgment.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Por que Discover e Request vão em broadcast?</button><div class="fc-a" hidden>Porque o cliente ainda não tem IP.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O IP do DHCP é de quem?</button><div class="fc-a" hidden>Emprestado (lease) e renovado antes de vencer.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-6-dns" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-8-http" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 8 ===================== -->
+<section class="lesson" id="aula-8-http" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 8 de 9</span>
+    <h2>HTTP/1.1, HTTP/2 e HTTP/3</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o HTTP é o protocolo de requisição e resposta da web, e cada versão ataca o mesmo problema: o head-of-line blocking, quando uma resposta travada segura as que vêm atrás.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Clique em <strong>Reproduzir</strong>, depois em <strong>Perder um pacote</strong>, e compare quais recursos ficam listrados em cada versão.</p>
+  </div>
+  <div class="widget" data-widget="http">
+    <p class="widget-title">Carregando 6 recursos</p>
+    <p class="widget-hint">Cada coluna é um instante (tick). Experimente perder um pacote. Valores são ilustrativos.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <ol class="flow steps">
+    <li>HTTP é da <strong>camada 7</strong> e segue o modelo <strong>pedido e resposta</strong>.</li>
+    <li><strong>HTTP/1.1:</strong> uma resposta por vez em cada conexão. Uma resposta lenta bloqueia as seguintes (<strong>head-of-line blocking</strong>, HOL).</li>
+    <li><strong>HTTP/2:</strong> <strong>multiplexação</strong>, várias requisições na mesma conexão TCP. Mas um pacote perdido ainda segura todos os fluxos (HOL no TCP).</li>
+    <li><strong>HTTP/3:</strong> troca o TCP pelo <strong>QUIC, sobre UDP</strong>. Fluxos independentes: perda num não trava os outros.</li>
+    <li><strong>Connection ID</strong> no lugar de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
+  </ol>
+  
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>A versão do HTTP muda quantas conexões, quantos handshakes e quanto uma perda dói.</li>
+    <li>Em redes móveis e instáveis, o HTTP/3 ganha. Entre serviços num datacenter, HTTP/2 ou gRPC com poucas conexões longas é o comum.</li>
+    <li>Terminar HTTP/3 num CDN ou load balancer é a forma mais simples de adotar.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <h4 class="deep-h">Anatomia de uma mensagem</h4>
+    <p>Cada requisição tem uma resposta (no HTTP/1.1, uma de cada vez por conexão; no 2 e no 3, várias em paralelo). Uma mensagem tem <strong>Headers</strong> (metadados como <code>Content-Type</code>, <code>Authorization</code>, <code>Cache-Control</code>), <strong>Body</strong> (os dados), <strong>Cookies</strong> (estado de sessão) e um <strong>Status Code</strong>:</p>
+    <ul>
+      <li><code>1xx</code> informativo</li>
+      <li><code>2xx</code> sucesso</li>
+      <li><code>3xx</code> redirecionamento</li>
+      <li><code>4xx</code> erro do cliente</li>
+      <li><code>5xx</code> erro do servidor</li>
+    </ul>
+    <h4 class="deep-h">As três versões</h4>
+    <div class="versions">
+      <article>
+        <h4>HTTP/1.1 (1997)</h4>
+        <ul>
+          <li>Conexões persistentes: reaproveita o TCP em vez de abrir um por requisição.</li>
+          <li>Pipelining existe, mas na prática uma resposta lenta bloqueia as seguintes: <strong>head-of-line blocking</strong>.</li>
+          <li>Navegadores contornam abrindo ~6 conexões por origem.</li>
+        </ul>
+      </article>
+      <article>
+        <h4>HTTP/2 (2015)</h4>
+        <ul>
+          <li><strong>Multiplexação:</strong> várias requisições e respostas ao mesmo tempo, na mesma conexão TCP.</li>
+          <li>Priorização de recursos e compressão de headers. Server push existiu, mas caiu em desuso.</li>
+          <li>Mas ainda há HOL <strong>no TCP</strong>: um pacote perdido segura todos os fluxos até ser retransmitido.</li>
+        </ul>
+      </article>
+      <article>
+        <h4>HTTP/3 (QUIC)</h4>
+        <ul>
+          <li>Troca o TCP pelo <strong>QUIC, sobre UDP</strong>. O handshake de transporte e o TLS 1.3 acontecem juntos.</li>
+          <li>Fluxos independentes: perda num não trava os outros.</li>
+          <li><strong>Connection ID</strong> em vez de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
+        </ul>
+      </article>
+    </div>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">Como o HTTP/1.1 e o HTTP/2 reagem a uma perda?</button><div class="fc-a" hidden>1.1: um de cada vez por conexão, HOL na aplicação. 2: multiplexa, mas o TCP ainda bloqueia tudo.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que muda no HTTP/3?</button><div class="fc-a" hidden>QUIC sobre UDP, fluxos independentes e handshake combinado.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Para que serve o Connection ID?</button><div class="fc-a" hidden>Manter a sessão ao trocar de rede.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-7-dhcp" data-nav="prev">← Aula anterior</a><a class="btn big" href="#aula-9-tempo-de-resposta" data-nav="next">Próxima aula →</a></div>
+  </div>
+</section>
+
+<!-- ===================== AULA 9 ===================== -->
+<section class="lesson" id="aula-9-tempo-de-resposta" data-min="2">
+  <header>
+    <span class="lesson-n">Aula 9 de 9</span>
+    <h2>Tempo de resposta</h2>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+  </header>
+  <p class="oneliner"><strong>Em uma frase:</strong> o tempo de resposta é a soma de várias esperas (DNS, handshakes, servidor, download), e a maioria delas é feita de RTTs, não de largura de banda.</p>
+
+  <div class="doit">
+    <h3>Faça agora</h3>
+    <p>Na calculadora, marque <strong>Conexão reutilizada (keep-alive)</strong> e veja quais fatias da barra somem.</p>
+  </div>
+  <div class="widget" data-widget="latency">
+    <p class="widget-title">Calculadora de tempo de resposta</p>
+    <p class="widget-hint">Modelo simplificado: ignora slow start e perdas. Valores são exemplos.</p>
+  </div>
+
+  <h3 class="sec">Como funciona</h3>
+  <p>Uma requisição HTTPS nova, do ponto de vista do usuário, passa por:</p>
+  <ol class="flow steps">
+    <li><strong>DNS lookup:</strong> descobrir o IP (zero se estiver em cache).</li>
+    <li><strong>TCP handshake:</strong> 1 RTT.</li>
+    <li><strong>TLS handshake:</strong> 2 RTTs no TLS 1.2, 1 RTT no TLS 1.3.</li>
+    <li><strong>Espera pelo primeiro byte:</strong> 1 RTT para o pedido ir e a resposta voltar, mais o processamento do servidor.</li>
+    <li><strong>Download:</strong> baixar o conteúdo, limitado pela largura de banda.</li>
+  </ol>
+  <p><strong>RTT</strong> (round-trip time) é o tempo de uma ida e volta entre cliente e servidor. Em respostas pequenas, quase todo o tempo é RTT.</p>
+
+  <h3 class="sec">Por que importa em System Design</h3>
+  <ul class="why-list">
+    <li>Ordem de ataque: eliminar RTTs (keep-alive, cache de DNS, TLS 1.3, HTTP/3, CDN perto do usuário), depois reduzir o tempo do servidor, e só então comprar banda.</li>
+    <li>Em respostas pequenas, dobrar a banda quase não muda nada. Cortar um RTT muda tudo.</li>
+    <li>Meça percentis (p95, p99), não só a média.</li>
+  </ul>
+
+  <details class="deep">
+    <summary>Aprofundar (1 min)</summary>
+    <p>Os navegadores chamam de <strong>TTFB</strong> o tempo desde o início da navegação até o primeiro byte da resposta, então ele já inclui os passos 1 a 3.</p>
+    <p>O RTT é dominado pela <strong>latência</strong> (distância e velocidade da luz). A <strong>largura de banda</strong> é quantos bits passam por segundo.</p>
+    <p>Estrada: latência é o tamanho da estrada; banda é o número de pistas. Mais pistas não encurtam a estrada.</p>
+    <h4 class="deep-h">Quantos RTTs até a requisição poder sair</h4>
+    <div class="rtt-table-wrap">
+    <table class="rtt-table">
+      <thead><tr><th>Cenário</th><th>RTTs antes da requisição</th><th>Primeiro byte da resposta</th></tr></thead>
+      <tbody>
+        <tr><td>HTTPS, TCP + TLS 1.2</td><td>3 (1 TCP + 2 TLS)</td><td>4 RTTs</td></tr>
+        <tr><td>HTTPS, TCP + TLS 1.3</td><td>2 (1 TCP + 1 TLS)</td><td>3 RTTs</td></tr>
+        <tr><td>HTTP/3 (QUIC), conexão nova</td><td>1</td><td>2 RTTs</td></tr>
+        <tr><td>HTTP/3, retomada com 0-RTT</td><td>0</td><td>1 RTT</td></tr>
+        <tr><td>Conexão reutilizada (keep-alive)</td><td>0</td><td>1 RTT</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Some a isso o DNS quando não há cache, o tempo do servidor e o download.</p>
+  </details>
+
+  <div class="cards">
+    <h3 class="sec">Pra não esquecer</h3>
+    <p class="fc-hint">Tente responder de cabeça. Depois clique na pergunta para conferir.</p>
+    <ul class="fc-list">
+      <li><button type="button" class="fc-q" aria-expanded="false">Quais parcelas compõem o tempo de resposta?</button><div class="fc-a" hidden>DNS + TCP + TLS + espera pelo servidor (RTT + processamento) + download.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Latência é o mesmo que banda?</button><div class="fc-a" hidden>Não. Para respostas pequenas, o RTT manda.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quantos RTTs soma cada protocolo?</button><div class="fc-a" hidden>TCP 1, TLS 1.2 2, TLS 1.3 1, QUIC 1 (ou 0).</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Qual o jeito mais barato de ganhar tempo?</button><div class="fc-a" hidden>Não repetir handshakes.</div></li>
+    </ul>
+  </div>
+
+  <div class="lesson-end">
+    <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+    <p class="done-msg" role="status" aria-live="polite"></p>
+    <div class="lesson-nav"><a class="btn big" href="#aula-8-http" data-nav="prev">← Aula anterior</a></div>
+  </div>
+</section>
