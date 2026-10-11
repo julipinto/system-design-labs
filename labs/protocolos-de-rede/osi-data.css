@@ -56,3 +56,32 @@
 .dv-cmp b{display:block;color:var(--anatomy-strong);margin-bottom:4px}
 .dv-chips{display:flex;gap:3px;margin:4px 0}.dv-chips span{padding:2px 5px;border-radius:4px;border:1px solid var(--anatomy-lo)}
 .dv-chips span.miss{border-style:dashed;border-color:var(--anatomy-red);color:var(--anatomy-red)}
+/* faixa na ordem do fio */
+.dv-strip{display:flex;gap:3px;align-items:stretch;min-width:0}
+.dv-seg{flex:0 0 auto;min-width:44px;display:grid;align-content:center;gap:1px;padding:7px 6px;border:1px solid var(--anatomy-lo);border-radius:7px;background:var(--anatomy-face);text-align:center;font:11px/1.25 var(--anatomy-mono);color:var(--anatomy-text)}
+.dv-seg b{color:var(--anatomy-strong);font-size:12px}
+.dv-seg small{color:var(--anatomy-muted);font-size:10px}
+.dv-seg.p{flex:1 1 auto;min-width:0;border-style:dashed;text-align:left;padding-left:10px}
+.dv-seg.p b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dv-seg.t{border-radius:7px 12px 12px 7px}
+.dv-seg.is-new{border-color:var(--anatomy-strong);box-shadow:0 0 0 1px var(--anatomy-strong);animation:dv-in .5s var(--anatomy-ease) both}
+.dv-seg.is-out{opacity:.4;border-style:dashed}.dv-seg.is-out b{text-decoration:line-through}
+.dv-seg.is-ok{border-color:var(--anatomy-mid)}
+.dv-legend{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;margin-top:-6px;font:10.5px/1.4 var(--anatomy-mono);color:var(--anatomy-muted)}
+.dv-card{border:1px solid var(--anatomy-lo);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.5;color:var(--anatomy-text)}
+.dv-card.is-new{border-color:var(--anatomy-strong)}
+.dv-card.is-out{border-style:dashed}
+.dv-card-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin-bottom:4px}
+.dv-card-h span{font:700 10px/1.2 var(--anatomy-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--anatomy-muted)}
+.dv-card.is-new .dv-card-h span{color:var(--anatomy-strong)}
+.dv-card-h b{color:var(--anatomy-strong);font-size:14px}
+.dv-card-h em{font:normal 11px var(--anatomy-mono);color:var(--anatomy-muted)}
+.dv-card p{margin:0 0 4px}
+.dv-card ul{margin:0;padding-left:18px;font:12px/1.55 var(--anatomy-mono)}
+.dv-note2{margin:0;font-size:13.5px;line-height:1.55;color:var(--anatomy-text)}
+.dv-cat .dv-cat-in,.dv-cat .dv-cat-wh{fill:var(--anatomy-face);stroke:var(--anatomy-face)}
+.dv-cat .dv-cat-wh{fill:none;stroke-width:1.8}
+.dv-cat .dv-cat-pu{fill:var(--anatomy-strong)}
+.dv-wave{width:100%;height:auto;max-height:70px;fill:none;stroke:var(--anatomy-strong);stroke-width:1.8}
+.dv-wave text{fill:var(--anatomy-muted);stroke:none;font:11px var(--anatomy-mono)}
+.dv-wave .dv-wave-sep{stroke:var(--anatomy-lo);stroke-dasharray:3 3;stroke-width:1}
