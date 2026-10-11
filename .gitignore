@@ -1,6 +1,9 @@
 .maestri/
 node_modules/
-# páginas de teste geradas
-labs/*/osi-figure.html
-labs/*/osi-figure-light.html
-labs/*/preview.html
+dist/
+.astro/
+# gerado por npm run build:3d (roda antes do dev e do build)
+public/labs/protocolos-de-rede/osi-3d/
+# páginas de teste da figura 2D (node src/figures/osi/osi-figure.mjs [--light])
+src/figures/osi/osi-figure.html
+src/figures/osi/osi-figure-light.html

@@ -1,0 +1,18 @@
+{
+  "name": "system-design-labs",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:3d": "node src/figures/osi-3d/build.mjs",
+    "dev": "npm run build:3d && astro dev",
+    "build": "npm run build:3d && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/markdown-satteri": "^0.4.3",
+    "@astrojs/mdx": "^8.0.3",
+    "astro": "^7.3.8"
+  }
+}
