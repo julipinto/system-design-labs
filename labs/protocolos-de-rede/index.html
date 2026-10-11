@@ -275,6 +275,7 @@
     <span class="pg-count">0/9 ✓</span>
   </div>
   <div class="pg-panel" id="sdl-panel">
+    <a class="btn big primary pg-quiz" href="quiz/index.html" style="display:flex;justify-content:center;margin-bottom:10px">Fazer o quiz do módulo →</a>
     <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
     <nav class="toc" aria-label="Aulas do módulo">
       <p class="toc-title">Protocolos de Rede · 9 tópicos</p>
@@ -296,11 +297,11 @@
 
 
 <!-- ===================== AULA 1 ===================== -->
-<section class="lesson" id="aula-1-introducao-a-protocolos" data-min="1">
+<section class="lesson" id="aula-1-introducao-a-protocolos" data-min="2">
   <header>
     <span class="lesson-n">Aula 1 de 9</span>
     <h2>O que é um protocolo</h2>
-    <p class="lesson-meta"><span>Leitura ~1 min</span></p>
+    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
   </header>
   <p class="oneliner"><strong>Em uma frase:</strong> protocolo é um acordo sobre o formato e a ordem das mensagens, para que dois sistemas que nunca se viram consigam conversar.</p>
 
@@ -318,17 +319,38 @@
     <li>Protocolos se <strong>empilham</strong>: cada um resolve um pedaço e entrega o resultado ao de cima.</li>
   </ol>
   
+  <h3 class="sec">Como a internet chegou até aqui</h3>
+  <div class="widget" data-widget="timeline">
+    <p class="widget-title">Linha do tempo</p>
+    <p class="widget-hint">Clique em cada marco para ler uma frase. Cada um resolveu um problema do anterior.</p>
+  </div>
+
   <h3 class="sec">Por que importa em System Design</h3>
   <ul class="why-list">
     <li>Escolher protocolo é escolher trade-offs de <strong>performance</strong> e <strong>resiliência</strong>.</li>
     <li>Confiabilidade custa idas e vindas, e idas e vindas custam <strong>latência</strong>.</li>
     <li>Cada decisão (gRPC ou REST, TCP ou UDP, uma conexão ou várias) é uma decisão de protocolo.</li>
+    <li>Dividir em camadas deixa trocar uma tecnologia (cobre por fibra, HTTP/2 por HTTP/3) sem refazer o resto.</li>
   </ul>
 
   <details class="deep">
-    <summary>Aprofundar (1 min)</summary>
+    <summary>Aprofundar (3 min)</summary>
     <p>O HTTP não sabe como o sinal viaja no cabo. O IP não sabe o que é uma página web. Essa divisão em camadas é o assunto da aula 2.</p>
     <p>O módulo segue uma ordem: o mapa (modelo OSI), depois quem endereça (IP), quem transporta (TCP e UDP), quem protege (TLS), quem traduz nomes (DNS), quem configura a rede (DHCP), quem carrega a web (HTTP) e, no fim, quanto tempo tudo isso custa.</p>
+    <h4 class="deep-h">Por que dividir em camadas</h4>
+    <ul>
+      <li><strong>Independência:</strong> cada camada oferece serviços à de cima e usa os da de baixo, sem conhecer o funcionamento interno delas.</li>
+      <li><strong>Troca de tecnologia:</strong> dá para trocar o cabo de cobre por fibra, na camada física, sem mexer na aplicação.</li>
+      <li><strong>Interoperabilidade:</strong> equipamentos e programas de fabricantes diferentes conversam porque seguem a mesma regra em cada nível.</li>
+    </ul>
+    <h4 class="deep-h">Linha do tempo, com mais detalhe</h4>
+    <ul>
+      <li>A rede telefônica usava comutação de circuitos, centralizada e frágil. Baran propôs uma rede distribuída, tolerante a falhas, que manda dados em pacotes roteados de forma independente.</li>
+      <li>Nos primeiros nós da ARPANET (1969), os IMPs faziam o papel do que hoje seria o roteador.</li>
+      <li>No CSMA/CD, quem tem algo a enviar escuta o meio, transmite se estiver livre e, se detectar colisão, espera um tempo aleatório e tenta de novo.</li>
+      <li>O dia 1º de janeiro de 1983 ficou conhecido como o dia da virada: a ARPANET deixou de aceitar os protocolos anteriores.</li>
+    </ul>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Protocol" target="_blank" rel="noopener">MDN: protocolo</a></li><li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Packet" target="_blank" rel="noopener">MDN: pacote</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -338,6 +360,7 @@
       <li><button type="button" class="fc-q" aria-expanded="false">O que um protocolo define?</button><div class="fc-a" hidden>Formato + ordem + regras de erro.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">Como os protocolos se organizam?</button><div class="fc-a" hidden>Em pilhas: cada camada usa a de baixo e serve a de cima.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">Qual o preço de mais garantias?</button><div class="fc-a" hidden>Mais mensagens trocadas, logo mais tempo.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Por que dividir em camadas?</button><div class="fc-a" hidden>Independência, troca de uma tecnologia sem afetar as outras e interoperabilidade.</div></li>
     </ul>
   </div>
 
@@ -349,11 +372,11 @@
 </section>
 
 <!-- ===================== AULA 2 ===================== -->
-<section class="lesson" id="aula-2-modelo-osi" data-min="2">
+<section class="lesson" id="aula-2-modelo-osi" data-min="3">
   <header>
     <span class="lesson-n">Aula 2 de 9</span>
     <h2>Modelo OSI</h2>
-    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+    <p class="lesson-meta"><span>Leitura ~3 min</span></p>
   </header>
   <p class="oneliner"><strong>Em uma frase:</strong> o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</p>
 
@@ -409,6 +432,10 @@
     <li><strong>2 Enlace:</strong> entrega ao vizinho na mesma rede local, pelo <strong>MAC</strong>. O <strong>ARP</strong>, que descobre o MAC de um IP, fica aqui.</li>
     <li><strong>1 Física:</strong> vira <strong>bits</strong>: luz, tensão ou rádio.</li>
   </ol>
+  <div class="callout why" role="note">
+    <h3>SDU, PCI e PDU</h3>
+    <p>Na figura, o cabeçalho que entra a cada andar é a <strong>PCI</strong> daquela camada: o controle que ela acrescenta. O que veio de cima, sem mexer, é a <strong>SDU</strong>. Juntas formam a <strong>PDU</strong>: PDU = PCI + SDU.</p>
+  </div>
   <div class="mnemonic" role="note">
     <h3>Mnemônico: a foto da Lena</h3>
     <p class="mn-line"><span class="mn-dir">De baixo para cima (Física até Aplicação):</span>
@@ -416,6 +443,12 @@
     <p class="mn-line"><span class="mn-dir">De cima para baixo (Aplicação até Física): leia a frase de trás para frente.</span>
       <strong class="mn-phrase"><b>A</b>lto <b>A</b>plaudiu, <b>S</b>orriu <b>T</b>óquio, <b>R</b>apidinho <b>E</b>nviada <b>F</b>oto.</strong></p>
     <p class="mn-key">F-E-R-T-S-A-A = <b>F</b>ísica, <b>E</b>nlace, <b>R</b>ede, <b>T</b>ransporte, <b>S</b>essão, <b>A</b>presentação, <b>A</b>plicação.</p>
+  </div>
+
+  <h3 class="sec">Quem decide em qual camada?</h3>
+  <div class="widget" data-widget="equip">
+    <p class="widget-title">Equipamentos e camadas</p>
+    <p class="widget-hint">Clique em um equipamento e veja até onde ele abre o pacote e onde decide.</p>
   </div>
 
   <h3 class="sec">Por que importa em System Design</h3>
@@ -426,10 +459,10 @@
   </ul>
 
   <details class="deep">
-    <summary>Aprofundar (4 min)</summary>
-    <p>O OSI foi criado pela ISO nos anos 1980 para padronizar as funções de rede. Hoje é um <strong>mapa conceitual</strong>: serve para saber onde cada protocolo mora e para fazer troubleshooting.</p>
+    <summary>Aprofundar (7 min)</summary>
+    <p>A primeira edição da norma ISO 7498 saiu em 1984 (o ITU publicou o mesmo modelo como X.200). A revisão de 1994 é a que se chama ISO/IEC 7498-1, equivalente à X.200 de 1994. Hoje o OSI é um <strong>mapa conceitual</strong>: serve para saber onde cada protocolo mora e para fazer troubleshooting.</p>
     <h4 class="deep-h">As 7 camadas, de cima para baixo</h4>
-    <p><strong>PDU</strong> (Protocol Data Unit) é o nome que o "pacote de dados" recebe em cada camada.</p>
+    <p><strong>PDU</strong> (Protocol Data Unit) é o nome que o "pacote de dados" recebe em cada camada (PCI + SDU, explicado mais abaixo).</p>
     <div class="layers">
       <article class="layer">
         <div class="layer-h"><span class="layer-n">7</span><h4>Aplicação</h4><span class="pdu">PDU: dados</span></div>
@@ -484,14 +517,40 @@
       <li><strong>Enlace (2) e Física (1):</strong> o enlace ganha MAC de origem e destino do próximo salto (quadro). A física vira sinal elétrico, luz ou rádio (bits).</li>
     </ol>
     <p>No meio do caminho, roteadores desencapsulam só até a camada 3, leem o IP de destino, reescrevem o quadro com o MAC do próximo salto e mandam adiante. Quem recebe no destino faz o <strong>desencapsulamento</strong>: tira cada cabeçalho de baixo para cima até sobrar a foto para o app.</p>
-    <h4 class="deep-h">OSI x TCP/IP</h4>
-    <p>O que roda na internet de verdade é a pilha <strong>TCP/IP</strong>, com 4 camadas. O OSI é o modelo didático e de troubleshooting; o TCP/IP é o que foi implementado.</p>
-    <div class="map" role="table" aria-label="Correspondência entre OSI e TCP/IP">
-      <div class="map-row" role="row"><div class="map-osi" role="cell">7 Aplicação<br>6 Apresentação<br>5 Sessão</div><div class="map-tcp" role="cell"><b>Aplicação</b><br>HTTP, DNS, TLS, gRPC</div></div>
-      <div class="map-row" role="row"><div class="map-osi" role="cell">4 Transporte</div><div class="map-tcp" role="cell"><b>Transporte</b><br>TCP, UDP</div></div>
-      <div class="map-row" role="row"><div class="map-osi" role="cell">3 Rede</div><div class="map-tcp" role="cell"><b>Internet</b><br>IP, ICMP</div></div>
-      <div class="map-row" role="row"><div class="map-osi" role="cell">2 Enlace<br>1 Física</div><div class="map-tcp" role="cell"><b>Acesso à rede</b><br>Ethernet, Wi-Fi</div></div>
+    <h4 class="deep-h">SDU, PCI e PDU, com mais calma</h4>
+    <p>A camada N recebe uma SDU da camada de cima, coloca a sua PCI e entrega a PDU. Essa PDU vira a SDU da camada de baixo. A PCI costuma ser um cabeçalho, mas o enlace também põe um trailer: é o FCS que a figura mostra no fim do quadro.</p>
+    <h4 class="deep-h">OSI x TCP/IP x modelo de 5 camadas</h4>
+    <p>O que roda na internet de verdade é a pilha <strong>TCP/IP</strong>, com 4 camadas. O OSI tem 7. Nos livros de ensino, o modelo de 5 camadas é o meio-termo mais usado.</p>
+    <div class="rtt-table-wrap">
+    <table class="rtt-table">
+      <thead><tr><th>OSI (7)</th><th>TCP/IP (4)</th><th>Didático (5)</th></tr></thead>
+      <tbody>
+        <tr><td>7 Aplicação, 6 Apresentação, 5 Sessão</td><td>Aplicação</td><td>Aplicação</td></tr>
+        <tr><td>4 Transporte</td><td>Transporte</td><td>Transporte</td></tr>
+        <tr><td>3 Rede</td><td>Internet</td><td>Rede</td></tr>
+        <tr><td>2 Enlace</td><td rowspan="2">Acesso à rede</td><td>Enlace</td></tr>
+        <tr><td>1 Física</td><td>Física</td></tr>
+      </tbody>
+    </table>
     </div>
+    <h4 class="deep-h">Por que o OSI não dominou</h4>
+    <ul>
+      <li><strong>Chegou tarde:</strong> quando as normas ficaram prontas, o TCP/IP já rodava em muitos sistemas.</li>
+      <li><strong>Era complexo:</strong> 7 camadas, com sessão e apresentação quase sem uso próprio e funções repetidas em vários níveis.</li>
+      <li><strong>Implementações ruins:</strong> as primeiras eram lentas e burocráticas, enquanto o TCP/IP já tinha código funcionando.</li>
+    </ul>
+    <h4 class="deep-h">Por que ainda é útil</h4>
+    <ul>
+      <li><strong>Serviço, interface e protocolo:</strong> serviço é o que a camada oferece, interface é como pedir, protocolo é como as duas pontas combinam entre si. Dá para trocar o protocolo sem mudar a interface.</li>
+      <li><strong>Troubleshooting:</strong> a pergunta "em que camada o pedido morreu?" encurta o diagnóstico.</li>
+    </ul>
+    <h4 class="deep-h">Peers, SAP e primitivas</h4>
+    <ul>
+      <li><strong>Peers (entidades pares):</strong> as duas pontas da mesma camada, em máquinas diferentes, que conversam pelo protocolo dela.</li>
+      <li><strong>SAP (ponto de acesso ao serviço):</strong> a porta pela qual a camada de cima pede serviço à de baixo.</li>
+      <li><strong>Primitivas:</strong> request (pedir), indication (avisar o destino), response (o destino responde) e confirm (confirmar a quem pediu).</li>
+    </ul>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.itu.int/rec/T-REC-X.200-199407-I/en" target="_blank" rel="noopener">ITU-T X.200 (equivale à ISO/IEC 7498-1:1994), o modelo de referência OSI</a></li><li><a href="https://osi-model.com/session-layer/" target="_blank" rel="noopener">osi-model.com: camada de sessão</a></li><li>Livro "Redes de Computadores", de Andrew Tanenbaum</li></ul></div>
   </details>
 
   <div class="cards">
@@ -502,6 +561,7 @@
       <li><button type="button" class="fc-q" aria-expanded="false">Quais os PDUs, de cima para baixo?</button><div class="fc-a" hidden>Dados, dados, dados, segmento, pacote, quadro, bits.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">O que é encapsular?</button><div class="fc-a" hidden>Descer as camadas, cada uma pondo o seu cabeçalho. Subir é desencapsular.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">Em que camada trabalham roteador e switch?</button><div class="fc-a" hidden>Roteador na 3, switch na 2. O TCP/IP junta 7-6-5 numa só e 2-1 noutra.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">O que são SDU, PCI e PDU?</button><div class="fc-a" hidden>SDU: o que veio de cima. PCI: o cabeçalho da camada. PDU = PCI + SDU.</div></li>
     </ul>
   </div>
 
@@ -513,11 +573,11 @@
 </section>
 
 <!-- ===================== AULA 3 ===================== -->
-<section class="lesson" id="aula-3-ip-ipv4-ipv6" data-min="2">
+<section class="lesson" id="aula-3-ip-ipv4-ipv6" data-min="3">
   <header>
     <span class="lesson-n">Aula 3 de 9</span>
     <h2>IP, IPv4 e IPv6</h2>
-    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+    <p class="lesson-meta"><span>Leitura ~3 min</span></p>
   </header>
   <p class="oneliner"><strong>Em uma frase:</strong> o IP dá a cada dispositivo um endereço lógico na camada 3 para os pacotes saberem aonde chegar, e o IPv6 existe porque os 32 bits do IPv4 acabaram.</p>
 
@@ -544,10 +604,11 @@
     <li>IP privado dentro da VPC, IP público só no que precisa.</li>
     <li>O <strong>NAT</strong> esconde instâncias, mas esgota portas sob muita conexão saindo.</li>
     <li>IPv6 reduz a dependência de NAT, e o dual stack aparece em load balancers e DNS (registros A e AAAA).</li>
+    <li><code>ping</code> e <code>traceroute</code> usam o ICMP: quando algo falha no caminho, a rede avisa onde.</li>
   </ul>
 
   <details class="deep">
-    <summary>Aprofundar (1 min)</summary>
+    <summary>Aprofundar (3 min)</summary>
     <p>O IPv4 acabou e foi contornado com <strong>IPs privados</strong> e <strong>NAT</strong>: milhares de aparelhos atrás de um único IP público.</p>
     <p>O IPv6 tem cabeçalho mais simples para os roteadores e IPsec nativo. O dual stack é uma transição simples, mas exige suporte dos dois lados.</p>
     <p>Faixas privadas (não roteadas na internet):</p>
@@ -557,6 +618,17 @@
       <li><code>192.168.0.0/16</code></li>
     </ul>
     <p>É por isso que o IP da sua máquina (192.168.x.x) não é o IP que o mundo vê.</p>
+    <h4 class="deep-h">ICMP: o canal de avisos do IP</h4>
+    <p>O <strong>ICMP</strong> viaja dentro de pacotes IP. O <code>ping</code> manda um <em>echo request</em> e espera o <em>echo reply</em>. Muitos firewalls bloqueiam ICMP, então ping sem resposta nem sempre significa máquina fora do ar.</p>
+    <ul>
+      <li><strong>Destination unreachable:</strong> o pacote não tem como chegar (rede, máquina ou porta sem destino).</li>
+      <li><strong>Time exceeded:</strong> o TTL chegou a zero e o roteador descartou o pacote.</li>
+    </ul>
+    <p>O <code>traceroute</code> aproveita isso: manda pacotes com TTL 1, 2, 3 e assim por diante. Cada roteador que zera o TTL responde "time exceeded" e, sem querer, se apresenta, e assim o caminho aparece salto a salto.</p>
+    <h4 class="deep-h">ARP: na fronteira entre 2 e 3</h4>
+    <p>O <strong>ARP</strong> descobre o MAC de um IP na rede local: pergunta em broadcast "quem tem o IP X?" e o dono responde com o seu MAC. O quadro ARP vai direto dentro do Ethernet, sem cabeçalho IP, por isso alguns materiais o põem na camada 3 e outros na 2.</p>
+    <p>Neste módulo seguimos a convenção da figura da aula 2: camada 2/3, tratado como camada 2. No IPv6, esse papel é do NDP, que usa ICMPv6.</p>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc791" target="_blank" rel="noopener">RFC 791: IP</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc8200" target="_blank" rel="noopener">RFC 8200: IPv6</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc792" target="_blank" rel="noopener">RFC 792: ICMP</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc826" target="_blank" rel="noopener">RFC 826: ARP</a></li><li><a href="https://ipv6.br/post/enderecamento/" target="_blank" rel="noopener">ipv6.br: endereçamento</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -566,6 +638,7 @@
       <li><button type="button" class="fc-q" aria-expanded="false">Quantos bits têm o IPv4 e o IPv6?</button><div class="fc-a" hidden>IPv4 = 32 bits (~4,3 bi). IPv6 = 128 bits (~3,4 × 10<sup>38</sup>).</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">Quais as faixas privadas?</button><div class="fc-a" hidden>10/8, 172.16/12 e 192.168/16. Quem sai para a internet passa por NAT.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">O que o IP entrega, e o que fica para a porta?</button><div class="fc-a" hidden>O IP leva o pacote até a máquina certa. Quem escolhe o programa é a porta (camada 4).</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Como o traceroute descobre o caminho?</button><div class="fc-a" hidden>Manda pacotes com TTL 1, 2, 3... Cada roteador que zera o TTL responde "time exceeded".</div></li>
     </ul>
   </div>
 
@@ -577,11 +650,11 @@
 </section>
 
 <!-- ===================== AULA 4 ===================== -->
-<section class="lesson" id="aula-4-tcp-e-udp" data-min="2">
+<section class="lesson" id="aula-4-tcp-e-udp" data-min="3">
   <header>
     <span class="lesson-n">Aula 4 de 9</span>
     <h2>TCP e UDP</h2>
-    <p class="lesson-meta"><span>Leitura ~2 min</span></p>
+    <p class="lesson-meta"><span>Leitura ~3 min</span></p>
   </header>
   <p class="oneliner"><strong>Em uma frase:</strong> TCP é o entregador que exige assinatura e confirma cada pacote; UDP é o que joga a correspondência debaixo do portão e segue para a próxima.</p>
 
@@ -611,13 +684,52 @@
   </ul>
 
   <details class="deep">
-    <summary>Aprofundar (1 min)</summary>
+    <summary>Aprofundar (4 min)</summary>
     <h4 class="deep-h">UDP: sem conexão, sem garantias</h4>
     <p>Quase não tem burocracia, então é rápido e leve. Serve para o que tolera perda ou onde o dado velho já não vale nada: chamadas de voz e vídeo, jogos online, DNS, NTP.</p>
     <h4 class="deep-h">TCP: orientado a conexão</h4>
     <p>Abre, mantém, verifica e encerra a conexão. Entrega íntegro e na ordem.</p>
     <p>No handshake, cada lado escolhe um <strong>ISN</strong> (Initial Sequence Number) e o outro confirma. O ACK é cumulativo: "recebi tudo até aqui, espero o número X".</p>
     <p>A confiabilidade do TCP custa burocracia, e por isso ele é mais lento que o UDP. Mesmo assim, a maioria dos protocolos de serviço usa TCP.</p>
+    <h4 class="deep-h">Cabeçalhos lado a lado</h4>
+    <div class="hdr-pair">
+      <figure class="hdr">
+        <figcaption>UDP · 8 bytes</figcaption>
+        <div class="hdr-grid">
+          <div class="hdr-c both">Porta de origem<small>16 bits</small></div>
+          <div class="hdr-c both">Porta de destino<small>16 bits</small></div>
+          <div class="hdr-c">Tamanho<small>16 bits</small></div>
+          <div class="hdr-c both">Checksum<small>16 bits</small></div>
+        </div>
+      </figure>
+      <figure class="hdr">
+        <figcaption>TCP · 20 bytes no mínimo</figcaption>
+        <div class="hdr-grid">
+          <div class="hdr-c both">Porta de origem<small>16 bits</small></div>
+          <div class="hdr-c both">Porta de destino<small>16 bits</small></div>
+          <div class="hdr-c w2">Número de sequência<small>32 bits</small></div>
+          <div class="hdr-c w2">Número de confirmação (ACK)<small>32 bits</small></div>
+          <div class="hdr-c">Tamanho do cabeçalho e flags (SYN, ACK, FIN)<small>16 bits</small></div>
+          <div class="hdr-c">Janela<small>16 bits</small></div>
+          <div class="hdr-c both">Checksum<small>16 bits</small></div>
+          <div class="hdr-c">Ponteiro urgente<small>16 bits</small></div>
+          <div class="hdr-c w2 opt">Opções (de 0 a 40 bytes)</div>
+        </div>
+      </figure>
+    </div>
+    <p class="hdr-key">Em azul, o que os dois têm: portas e checksum. O TCP gasta o resto para controlar ordem, confirmação e janela.</p>
+    <h4 class="deep-h">Fluxo e congestionamento</h4>
+    <ul>
+      <li><strong>Controle de fluxo (janela deslizante):</strong> o receptor informa quantos bytes ainda cabem no buffer dele, e o emissor não manda mais que isso.</li>
+      <li><strong>Controle de congestionamento:</strong> o emissor também limita o envio pela capacidade estimada da rede: começa devagar e aumenta enquanto não há perda.</li>
+    </ul>
+    <h4 class="deep-h">Outros transportes</h4>
+    <ul>
+      <li><strong>SCTP:</strong> mensagens com <em>multi-streaming</em> (vários fluxos independentes na mesma associação) e <em>multihoming</em> (vários IPs por ponta, com troca se um cair).</li>
+      <li><strong>DCCP:</strong> parecido com o UDP, sem garantia de entrega, mas com controle de congestionamento. Quase não é usado.</li>
+      <li><strong>QUIC:</strong> roda sobre UDP e reúne conexão, fluxos independentes e TLS 1.3. É a base do HTTP/3 (aula 8).</li>
+    </ul>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9293" target="_blank" rel="noopener">RFC 9293: TCP</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc768" target="_blank" rel="noopener">RFC 768: UDP</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9000" target="_blank" rel="noopener">RFC 9000: QUIC</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9260" target="_blank" rel="noopener">RFC 9260: SCTP</a></li><li><a href="https://learn.microsoft.com/pt-br/troubleshoot/windows-server/networking/three-way-handshake-via-tcpip" target="_blank" rel="noopener">Microsoft Learn: three-way handshake do TCP/IP</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -628,6 +740,7 @@
       <li><button type="button" class="fc-q" aria-expanded="false">Como o TCP abre e fecha a conexão?</button><div class="fc-a" hidden>Abrir = SYN, SYN-ACK, ACK. Fechar = FIN, ACK, FIN, ACK.</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">O que é o ACK cumulativo?</button><div class="fc-a" hidden>"Recebi tudo até aqui, espero o número X."</div></li>
       <li><button type="button" class="fc-q" aria-expanded="false">O que acontece quando o UDP perde um datagrama?</button><div class="fc-a" hidden>Perde em silêncio. Quem quiser garantias precisa construí-las por cima.</div></li>
+      <li><button type="button" class="fc-q" aria-expanded="false">Quantos bytes tem o cabeçalho do UDP? E o do TCP?</button><div class="fc-a" hidden>UDP: 8 bytes fixos. TCP: 20 bytes no mínimo, mais opções.</div></li>
     </ul>
   </div>
 
@@ -675,6 +788,7 @@
     <summary>Aprofundar (1 min)</summary>
     <p>Hoje as versões em uso são o <strong>TLS 1.2</strong> e o <strong>TLS 1.3</strong>. A 1.3 é mais segura e tem um handshake mais ágil: 1 ida e volta em vez de 2.</p>
     <p>Na retomada de sessão, a 1.3 permite ainda o 0-RTT (com ressalvas de segurança, como replay).</p>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc8446" target="_blank" rel="noopener">RFC 8446: TLS 1.3</a></li><li><a href="https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security" target="_blank" rel="noopener">MDN: Transport Layer Security</a></li><li><a href="https://aws.amazon.com/pt/what-is/ssl-certificate/" target="_blank" rel="noopener">AWS: o que é um certificado SSL</a></li><li><a href="https://aws.amazon.com/pt/compare/the-difference-between-ssl-and-tls/" target="_blank" rel="noopener">AWS: diferença entre SSL e TLS</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -734,6 +848,7 @@
     <p>Os servidores raiz são 13 conjuntos, de <code>a.root-servers.net</code> a <code>m.root-servers.net</code>.</p>
     <p>Registros comuns: <code>A</code> (IPv4), <code>AAAA</code> (IPv6), <code>CNAME</code> (apelido para outro nome), <code>NS</code> (quem é autoritativo), <code>MX</code> (e-mail) e <code>TXT</code>.</p>
     <p>O cache em vários níveis existe para reduzir latência e tráfego.</p>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc1034" target="_blank" rel="noopener">RFC 1034: DNS, conceitos</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc1035" target="_blank" rel="noopener">RFC 1035: DNS, implementação</a></li><li><a href="https://www.iana.org/domains/root/servers" target="_blank" rel="noopener">IANA: servidores raiz</a></li><li><a href="https://root-servers.org/" target="_blank" rel="noopener">root-servers.org: mapa dos servidores raiz</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -792,6 +907,7 @@
     <p>Sem DHCP, cada dispositivo precisaria de configuração manual, com risco de conflito de IP.</p>
     <p>O servidor DHCP (em casa, o roteador Wi-Fi) mantém um conjunto de endereços e os <strong>aluga</strong> por um tempo (lease). Quando o aparelho sai, o endereço volta para o conjunto.</p>
     <p>O IP é renovado antes de vencer. Na nuvem pública isso costuma vir abstraído.</p>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc2131" target="_blank" rel="noopener">RFC 2131: DHCP</a></li><li><a href="https://www.geeksforgeeks.org/how-dora-works/" target="_blank" rel="noopener">GeeksforGeeks: como o DORA funciona</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -883,6 +999,7 @@
         </ul>
       </article>
     </div>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9110" target="_blank" rel="noopener">RFC 9110: semântica do HTTP</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9113" target="_blank" rel="noopener">RFC 9113: HTTP/2</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9114" target="_blank" rel="noopener">RFC 9114: HTTP/3</a></li><li><a href="https://blog.cloudflare.com/http3-usage-one-year-on" target="_blank" rel="noopener">Cloudflare: um ano de uso do HTTP/3</a></li><li><a href="https://http.cat/" target="_blank" rel="noopener">http.cat: códigos de status para lembrar</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -957,6 +1074,7 @@
     </table>
     </div>
     <p>Some a isso o DNS quando não há cache, o tempo do servidor e o download.</p>
+    <div class="sources"><h4>Fontes</h4><ul><li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Latency" target="_blank" rel="noopener">MDN: latência</a></li><li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Time_to_first_byte" target="_blank" rel="noopener">MDN: TTFB</a></li><li><a href="https://developer.mozilla.org/en-US/docs/Glossary/Bandwidth" target="_blank" rel="noopener">MDN: largura de banda</a></li><li><a href="https://fidelissauro.dev/protocolos-de-rede/" target="_blank" rel="noopener">Artigo público de Matheus Fidelis sobre protocolos de rede</a></li></ul></div>
   </details>
 
   <div class="cards">
@@ -973,7 +1091,7 @@
   <div class="lesson-end">
     <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
     <p class="done-msg" role="status" aria-live="polite"></p>
-    <div class="lesson-nav"><a class="btn big" href="#aula-8-http" data-nav="prev">← Aula anterior</a></div>
+    <div class="lesson-nav"><a class="btn big" href="#aula-8-http" data-nav="prev">← Aula anterior</a><a class="btn big primary" href="quiz/index.html">Teste o que aprendeu: quiz →</a></div>
   </div>
 </section>
 

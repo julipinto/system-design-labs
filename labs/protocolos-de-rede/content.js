@@ -616,7 +616,89 @@
     calc();
   }
 
-  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency };
+  /* =============== AULA 1: linha do tempo =============== */
+  function wTimeline(root) {
+    var T = [
+      { y: 'Anos 1960', t: 'Comutação de pacotes', s: 'Paul Baran (EUA) e Donald Davies (Reino Unido) propõem cortar a mensagem em pacotes pequenos que viajam sozinhos, por rotas diferentes, em vez de reservar uma linha inteira para cada conversa.' },
+      { y: '1969', t: 'ARPANET', s: 'A primeira rede de pacotes entra no ar ligando 4 instituições dos EUA (UCLA, SRI, UCSB e Utah), cada uma por um minicomputador chamado IMP.' },
+      { y: '1973', t: 'ALOHAnet e Ethernet', s: 'A ALOHAnet, no Havaí, mostrou como dividir um meio compartilhado (rádio). Bob Metcalfe usou a ideia na Ethernet: escutar antes de falar e detectar colisão (CSMA/CD).' },
+      { y: '1º/01/1983', t: 'TCP/IP oficial', s: 'A ARPANET passa a usar o TCP/IP como protocolo oficial. É a data em que a pilha vira o idioma comum das redes interligadas.' },
+      { y: 'Anos 1980', t: 'NSFNET', s: 'A NSFNET liga centros de supercomputação por backbones rápidos, sobre TCP/IP, e leva a internet para universidades e pesquisa em todo o país.' },
+      { y: '1989 a 1993', t: 'A Web', s: 'Tim Berners-Lee cria a Web no CERN (proposta em 1989, no ar em 1991). O navegador Mosaic (1993) a torna fácil para o público geral.' }
+    ];
+    var list = el('ol', { class: 'tl-list', 'aria-label': 'Marcos da história das redes' });
+    var note = el('div', { class: 'note-box', 'aria-live': 'polite' });
+    var btns = [];
+    function pick(i) {
+      btns.forEach(function (b, k) { b.setAttribute('aria-pressed', k === i ? 'true' : 'false'); });
+      clear(note);
+      note.appendChild(el('b', { text: T[i].y + ' · ' + T[i].t + '. ' }));
+      note.appendChild(document.createTextNode(T[i].s));
+    }
+    T.forEach(function (m, i) {
+      var b = el('button', { type: 'button', class: 'tl-b', 'aria-pressed': 'false' }, [
+        el('span', { class: 'tl-y', text: m.y }),
+        el('span', { class: 'tl-t', text: m.t })
+      ]);
+      b.addEventListener('click', function () { pick(i); });
+      btns.push(b);
+      list.appendChild(el('li', null, [b]));
+    });
+    root.appendChild(list);
+    root.appendChild(note);
+    pick(0);
+  }
+
+  /* =============== AULA 2: quem decide em qual camada =============== */
+  function wEquip(root) {
+    var ROWS = [
+      ['7-5', 'Aplicação', 'caminho da URL, header, cookie'],
+      ['4', 'Transporte', 'porta TCP ou UDP'],
+      ['3', 'Rede', 'endereço IP'],
+      ['2', 'Enlace', 'endereço MAC'],
+      ['1', 'Física', 'sinal elétrico, luz, rádio']
+    ];
+    var TAG = { skip: 'não olha', read: 'abre e lê', decide: 'decide aqui', base: 'recebe o sinal', pass: 'só repete o sinal' };
+    var DEV = [
+      { n: 'Hub ou repetidor', l: 'camada 1', st: ['skip', 'skip', 'skip', 'skip', 'pass'], d: 'Não olha cabeçalho nenhum: limpa o sinal e o repete em todas as portas.' },
+      { n: 'Switch ou bridge', l: 'camada 2', st: ['skip', 'skip', 'skip', 'decide', 'base'], d: 'Lê o MAC de destino do quadro e consulta a tabela de MACs. Manda só pela porta onde aquele MAC mora.' },
+      { n: 'Roteador ou switch L3', l: 'camada 3', st: ['skip', 'skip', 'decide', 'read', 'base'], d: 'Abre o quadro, lê o IP de destino e consulta a tabela de rotas. Escolhe o próximo salto e monta um quadro novo.' },
+      { n: 'Load balancer L4', l: 'camada 4', st: ['skip', 'decide', 'read', 'read', 'base'], d: 'Decide por IP e porta, sem ler o conteúdo. É rápido e serve para qualquer protocolo sobre TCP ou UDP.' },
+      { n: 'Proxy, gateway de aplicação ou load balancer L7', l: 'camadas 4 a 7', st: ['decide', 'read', 'read', 'read', 'base'], d: 'Abre a conversa até o conteúdo e decide por caminho, header ou cookie. É o mais flexível e o que mais custa processamento.' }
+    ];
+    var bar = el('div', { class: 'w-row', role: 'group', 'aria-label': 'Equipamentos de rede' });
+    var stack = el('div', { class: 'eq-stack' });
+    var note = el('div', { class: 'note-box', 'aria-live': 'polite' });
+    var btns = [];
+    function pick(i) {
+      var d = DEV[i];
+      btns.forEach(function (b, k) { b.setAttribute('aria-pressed', k === i ? 'true' : 'false'); });
+      clear(stack);
+      ROWS.forEach(function (r, k) {
+        var s = d.st[k];
+        stack.appendChild(el('div', { class: 'eq-row is-' + s }, [
+          el('span', { class: 'eq-n', text: r[0] }),
+          el('span', { class: 'eq-what' }, [el('b', { text: r[1] }), ' · ' + r[2]]),
+          el('span', { class: 'eq-tag', text: TAG[s] })
+        ]));
+      });
+      clear(note);
+      note.appendChild(el('b', { text: d.n + ' (' + d.l + '). ' }));
+      note.appendChild(document.createTextNode(d.d));
+    }
+    DEV.forEach(function (d, i) {
+      var b = btn(d.n, '', function () { pick(i); });
+      b.setAttribute('aria-pressed', 'false');
+      btns.push(b);
+      bar.appendChild(b);
+    });
+    root.appendChild(bar);
+    root.appendChild(stack);
+    root.appendChild(note);
+    pick(2);
+  }
+
+  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency, timeline: wTimeline, equip: wEquip };
   function init() {
     var nodes = document.querySelectorAll('[data-widget]');
     Array.prototype.forEach.call(nodes, function (n) {

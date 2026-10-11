@@ -18,6 +18,12 @@ Não citar curso nem marca de terceiros no site; não reproduzir títulos/duraç
 | `sdlabs-researcher` (buscar fontes, conferir fatos) | Haiku 5.5 | Busca e leitura rápidas e baratas |
 | `sdlabs-reviewer` (revisar exatidão técnica) | Sonnet 5.5 | Precisa de bom critério sem o custo do Opus |
 
+Como isso é automático:
+- Padrão global (`~/.claude/settings.json`): Opus.
+- Sessões abertas dentro de `sdlabs/` usam Sonnet (`sdlabs/.claude/settings.json`).
+- O maestro em `system-design/.maestri/` usa Opus (`.maestri/.claude/settings.json`).
+- Subagentes: o `model:` no frontmatter de `.claude/agents/*.md` decide.
+
 ## Build e verificação
 - Módulo Protocolos de Rede: `node labs/protocolos-de-rede/build.mjs` gera `labs/protocolos-de-rede/index.html`
   a partir de `content.html` + `content.css` + `content.js` + `osi-figure.mjs` (a figura entra no marcador `<!--FIG-OSI-->`).
