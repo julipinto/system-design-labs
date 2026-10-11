@@ -27,3 +27,9 @@ O kit isométrico em `src/figures/anatomy/` e o modelo 3D em `tools/iso-glow/` s
 O workflow `.github/workflows/deploy.yml` já builda e publica a cada push na `main`. Falta um passo, feito à mão
 no GitHub: **Settings → Pages → Source: GitHub Actions** (hoje está em "Deploy from a branch"). Depois disso,
 o merge da branch `astro` na `main` publica o site novo nas mesmas URLs.
+
+## Publicar (hoje)
+`npm run deploy` gera o site e envia `dist/` para a branch `gh-pages`, que é a que o GitHub Pages serve.
+Para trocar por deploy automático (GitHub Actions): `gh auth refresh -h github.com -u julipinto -s workflow`,
+depois `git cherry-pick` do commit da branch local `astro-workflow` (adiciona `.github/workflows/deploy.yml`),
+push na main e Settings → Pages → Source: GitHub Actions.
