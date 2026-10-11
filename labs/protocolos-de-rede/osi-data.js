@@ -37,7 +37,8 @@ Host: api.chat.exemplo
 Content-Type: image/jpeg
 Content-Length: 7680000</span>
 
-ÿØÿà JFIF … <span class="dv-dim">(7,68 MB de pixels da foto)</span></pre>`;
+<span class="dv-dim">(linha em branco: aqui acabam os cabeçalhos)</span></pre>
+<div class="dv-photo dv-body">${cat(false)}<div><b>corpo do pedido: a foto</b><small>7,68 MB de bytes da imagem, que começam com ff d8 ff e0 (assinatura do JPEG)</small></div></div>`;
 
   const sizes = (comp) => `<div class="dv-sizes">
     <div class="dv-size"><span>original</span><i style="width:100%"></i><b>7,68 MB</b></div>
