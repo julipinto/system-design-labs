@@ -29,7 +29,16 @@ const css = `
 .o3-dv .dv-cap{display:none}
 .o3-back{position:fixed;left:16px;top:58px;z-index:5;font:12px ui-monospace,monospace;color:var(--dim);text-decoration:none;pointer-events:auto}
 .o3-back:hover{color:var(--ink)}
-@media (max-width:640px){
+.embedded .o3-back{display:none}
+.embedded #info{left:8px;right:8px;max-width:none;bottom:8px;max-height:40vh;font-size:13px}
+.embedded #swatches,.embedded #read,.embedded #hint,.embedded #credit{display:none!important}
+.embedded .o3-back{top:52px}
+.embedded #ctl-osi{top:auto!important;bottom:calc(40vh + 18px)!important;left:8px!important;right:8px!important;width:auto!important;flex-direction:row!important;gap:8px!important}
+.embedded #ctl-osi button{flex:1;justify-content:center;text-align:center}
+.embedded #ctl-osi button:nth-child(2){order:-1}
+.embedded #ctl-osi button:nth-child(n+3),.embedded #ctl-osi .sep{display:none!important}
+
+@media (max-width:900px){
   #info{left:8px;right:8px;max-width:none;bottom:8px;max-height:40vh;font-size:13px}
   #swatches,#read,#hint,#credit{display:none!important}
   .o3-back{top:52px}
@@ -37,6 +46,7 @@ const css = `
   #ctl-osi button{flex:1;justify-content:center;text-align:center}
   #ctl-osi button:nth-child(2){order:-1}
   #ctl-osi button:nth-child(n+3),#ctl-osi .sep{display:none!important}
+
 }
 ${read("../osi/osi-data.css")}
 `;
@@ -44,6 +54,7 @@ const reps = [
   ["<title>Iso 3D</title>", "<title>Modelo OSI em 3D · SDLabs</title>"],
   ["<i></i>Iso 3D</div>", "<i></i>Modelo OSI · 3D</div>"],
   ["</style>", css + "</style>"],
+  ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
   ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-2-modelo-osi">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", `const OSI_STAGES = ${JSON.stringify(stages)};\n${read("../osi/osi-data.js")}\n${read("fig3d.js")}`],
 ];

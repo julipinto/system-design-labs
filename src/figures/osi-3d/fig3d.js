@@ -3,6 +3,8 @@
 // quebrada em fatias (TCP) → quadro da fatia #1 [MAC][IP][TCP][dados][FCS] → bits no cabo → volta.
 // Usa OSI_STAGES e osiDataView, injetados pelo build.
 FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
+  // layout de gaveta (painel embaixo) no celular, em telas médias e quando a figura está embutida na aula
+  const NARROW = () => innerWidth < 900 || document.documentElement.classList.contains('embedded');
   const g0 = new THREE.Group(); g0.visible = false; scene.add(g0);
   const first = twMeshes.length;
   const OX = 40, OY = 34, SW = 170, SD = 116, SH = 6, GAP = 40, Z0 = 20, PULL = 132;   // PULL: quanto a camada ativa sai da pilha, como gaveta
@@ -211,7 +213,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
       <p class="o3-story">${u ? u[1] : STORY[s][0]}</p>
       <p class="o3-look"><b>Olhe no desenho</b>${u ? u[2] : LOOK3D[s]}</p>
       <p class="o3-key"><b>Em uma frase</b>${u ? u[3] : STORY[s][1]}</p>${cmpHtml()}
-      <details class="o3-dv"${innerWidth < 640 ? '' : ' open'}><summary>O dado agora</summary><div class="dv">${osiDataView(s, false, mode)}</div></details>`;
+      <details class="o3-dv"${NARROW() ? '' : ' open'}><summary>O dado agora</summary><div class="dv">${osiDataView(s, false, mode)}</div></details>`;
   }
   function render() {
     const w = where(s);
@@ -289,7 +291,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     // depois de cada passo a câmera desliza até a camada da vez (no desktop, à direita do painel)
     followT -= dt;
     if (followT > 0 && dt > 0) {
-      const mob = innerWidth < 640, off = mob ? 30 : -150;
+      const mob = NARROW(), off = mob ? 30 : -150;
       const fx = d.sess ? (SXS.sp + SW + SXS.tk) / 2 + (mob ? 0 : -120) : w.side === 'tk' ? SXS.tk + SW / 2 + (mob ? -30 : off) : w.side === 'x' ? (COL.sp + COL.tk) / 2 + (mob ? 0 : -120) : SXS.sp + SW / 2 + off;
       const want = W(fx, w.side === 'x' ? WY : 150 + PULL * 0.6, w.side === 'x' ? (mob ? -110 : -40) : (mob ? 30 : zL(w.L) - 20)), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
       if (dd.lengthSq() > 1e-8) { controls.target.add(dd); camera.position.add(dd); }
@@ -307,10 +309,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   }
   function click(hit) { let o = hit?.object; while (o && o.userData.stage === undefined) o = o.parent; if (o) go(o.userData.stage); }
   themeHooks.push(() => { for (const side of ['sp', 'tk']) for (let L = 1; L <= 7; L++) slabs[side][L].force = true; drawTile(tileMode || 'photo', true); render(); });
+  // embutida na aula: a roda do mouse rola a página (sem zoom) e a câmera fica um pouco mais longe
+  if (document.documentElement.classList.contains('embedded')) { controls.enableZoom = false; }
   drawTile('photo', true); render();
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
     panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Foto ⇄ Ligação', 'U', toggleMode]],
-    view: innerWidth < 640 ? { target: W(SXS.sp + SW / 2 + 30, 150 + PULL * 0.6, 30), dist: 7 } : { target: W(250, 200, 110), dist: 14 },
+    view: NARROW() ? { target: W(SXS.sp + SW / 2 + 30, 150 + PULL * 0.6, 30), dist: innerWidth < 640 ? 7 : 9 } : { target: W(250, 200, 110), dist: 14 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · clique numa camada · arraste para girar' };
 })() });

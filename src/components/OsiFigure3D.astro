@@ -1,0 +1,40 @@
+---
+// Figura OSI 3D (skill iso-glow). No desktop entra embutida num iframe (carrega só quando a aula aparece);
+// no celular aparece uma prévia com botão para abrir em tela cheia, para o dedo não ficar preso girando a figura
+// em vez de rolar a página.
+import { withBase } from '../lib/url.js';
+const src = withBase('labs/protocolos-de-rede/osi-3d/');
+const poster = withBase('labs/protocolos-de-rede/osi-3d-previa.webp');
+---
+<div class="osi3d-wrap" data-src={`${src}?embed=1`}>
+  <a class="osi3d-poster" href={src}>
+    <img src={poster} alt="Prévia da figura 3D: a pilha de 7 camadas com a fatia de dados dentro das caixas TCP, IP e MAC" width="640" height="588" loading="lazy" />
+    <span class="osi3d-cta">▶ Abrir a figura 3D</span>
+  </a>
+  <div class="osi3d-bar">
+    <span class="osi3d-hint">Arraste para girar · Próximo passo para avançar · clique numa camada para ir até ela</span>
+    <a class="btn" href={src}>Abrir em tela cheia ↗</a>
+  </div>
+</div>
+<script is:inline>
+  // desktop: troca a prévia pela figura interativa quando a aula fica visível
+  (function () {
+    const wrap = document.currentScript.previousElementSibling;
+    if (!wrap || !matchMedia('(min-width: 720px)').matches) return;
+    const mount = () => { if (wrap.querySelector('iframe')) return;
+      const f = document.createElement('iframe'); f.className = 'osi3d-frame'; f.src = wrap.dataset.src; f.loading = 'lazy';
+      f.title = 'Figura interativa do modelo OSI em 3D'; f.allow = 'fullscreen';
+      wrap.querySelector('.osi3d-poster').replaceWith(f); };
+    if ('IntersectionObserver' in window) new IntersectionObserver((es, io) => { if (es.some(e => e.isIntersecting)) { mount(); io.disconnect(); } }, { rootMargin: '300px' }).observe(wrap);
+    else mount();
+  })();
+</script>
+<style>
+  .osi3d-wrap{max-width:960px;margin:22px 0 30px}
+  .osi3d-frame{display:block;width:100%;height:min(760px,86vh);border:1px solid var(--line);border-radius:14px;background:#121314}
+  .osi3d-poster{position:relative;display:block;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#121314;text-decoration:none}
+  .osi3d-poster img{display:block;width:100%;height:auto}
+  .osi3d-cta{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:14px 22px;min-height:48px;border-radius:12px;background:var(--accent);color:#1b1306;font:700 16px/1.2 var(--sans);white-space:nowrap;box-shadow:0 6px 20px #0006}
+  .osi3d-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;margin-top:8px;font:12px/1.4 var(--mono);color:var(--muted)}
+  @media (max-width:719px){.osi3d-hint{display:none}.osi3d-bar .btn{display:none}}
+</style>

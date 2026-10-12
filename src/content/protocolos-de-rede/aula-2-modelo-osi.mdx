@@ -11,17 +11,16 @@ import Widget from '../../components/Widget.astro';
 import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
-import OsiFigure2D from '../../components/OsiFigure2D.astro';
+import OsiFigure3D from '../../components/OsiFigure3D.astro';
 import { withBase } from '../../lib/url.js';
 
 <OneLiner>o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</OneLiner>
 
 <DoIt>
-  <p>Na figura abaixo, clique em ▶ (próxima etapa) e veja a foto da Lena descer andar por andar.</p>
+  <p>Na figura abaixo, clique em <strong>Próximo passo</strong> e veja a foto da Lena descer camada por camada, virar bits no cabo e subir no celular do irmão. Experimente também o botão <strong>Ligação · UDP</strong>.</p>
 </DoIt>
 
-<p class="try3d" style="margin:14px 0 0"><a class="btn big" href={withBase('labs/protocolos-de-rede/osi-3d/')}>Ver a mesma figura em 3D (piloto) →</a> <span style="color:var(--muted);font-size:14px">dá para girar, os nomes ficam nas camadas</span></p>
-<OsiFigure2D />
+<OsiFigure3D />
 
 <HowItWorks>
 <p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele.</p>
@@ -34,7 +33,7 @@ import { withBase } from '../../lib/url.js';
 </ol>
 <div class="callout why" role="note">
   <h3>SDU, PCI e PDU</h3>
-  <p>Na figura, o cabeçalho que entra a cada andar é a <strong>PCI</strong> daquela camada: o controle que ela acrescenta. O que veio de cima, sem mexer, é a <strong>SDU</strong>. Juntas formam a <strong>PDU</strong>: PDU = PCI + SDU.</p>
+  <p>Na figura, o cabeçalho que entra a cada camada é a <strong>PCI</strong> daquela camada: o controle que ela acrescenta. O que veio de cima, sem mexer, é a <strong>SDU</strong>. Juntas formam a <strong>PDU</strong>: PDU = PCI + SDU.</p>
 </div>
 <div class="mnemonic" role="note">
   <h3>Mnemônico: a foto da Lena</h3>
