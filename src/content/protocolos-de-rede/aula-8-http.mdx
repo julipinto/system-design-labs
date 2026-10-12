@@ -8,6 +8,7 @@ import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
 import WhyItMatters from '../../components/WhyItMatters.astro';
 import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
 import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
@@ -15,9 +16,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>o HTTP é o protocolo de requisição e resposta da web, e cada versão ataca o mesmo problema: o head-of-line blocking, quando uma resposta travada segura as que vêm atrás.</OneLiner>
 
 <DoIt>
-  <p>Clique em <strong>Reproduzir</strong>, depois em <strong>Perder um pacote</strong>, e compare quais recursos ficam listrados em cada versão.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> até um pacote se perder. Depois troque entre <strong>HTTP/1.1 · HTTP/2 · HTTP/3</strong> e compare o que fica travado em cada versão.</p>
 </DoIt>
-<Widget name="http" title="Carregando 6 recursos" hint="Cada coluna é um instante (tick). Experimente perder um pacote. Valores são ilustrativos." />
+<Figure3D path="labs/protocolos-de-rede/http-3d/" poster="labs/protocolos-de-rede/http-3d-previa.webp" title="Figura interativa: HTTP/1.1, HTTP/2 e HTTP/3 carregando 6 recursos" alt="Prévia da figura 3D: navegador e servidor ligados por uma conexão, com um pacote perdido travando a fila" hint="Arraste para girar · Próximo passo para avançar · troque a versão no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

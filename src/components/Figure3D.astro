@@ -1,0 +1,40 @@
+---
+// Figura 3D (skill iso-glow) embutida numa aula. A página da figura é gerada no build (npm run build:3d)
+// em public/<path>/. Desktop: iframe que carrega quando a aula aparece. Celular: prévia + botão de tela cheia,
+// para o dedo não ficar preso girando a cena em vez de rolar a página.
+import { withBase } from '../lib/url.js';
+interface Props { path: string; poster: string; alt: string; title: string; hint?: string; }
+const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo para avançar · clique numa peça para ir até ela' } = Astro.props;
+const src = withBase(path);
+---
+<div class="f3d-wrap" data-src={`${src}?embed=1`} data-title={title}>
+  <a class="f3d-poster" href={src}>
+    <img src={withBase(poster)} alt={alt} width="640" height="560" loading="lazy" />
+    <span class="f3d-cta">▶ Abrir a figura 3D</span>
+  </a>
+  <div class="f3d-bar">
+    <span class="f3d-hint">{hint}</span>
+    <a class="btn" href={src}>Abrir em tela cheia ↗</a>
+  </div>
+</div>
+<script is:inline>
+  (function () {
+    const wrap = document.currentScript.previousElementSibling;
+    if (!wrap || !matchMedia('(min-width: 720px)').matches) return;
+    const mount = () => { if (wrap.querySelector('iframe')) return;
+      const f = document.createElement('iframe'); f.className = 'f3d-frame'; f.src = wrap.dataset.src; f.loading = 'lazy';
+      f.title = wrap.dataset.title; f.allow = 'fullscreen';
+      wrap.querySelector('.f3d-poster').replaceWith(f); };
+    if ('IntersectionObserver' in window) new IntersectionObserver((es, io) => { if (es.some(e => e.isIntersecting)) { mount(); io.disconnect(); } }, { rootMargin: '300px' }).observe(wrap);
+    else mount();
+  })();
+</script>
+<style>
+  .f3d-wrap{max-width:960px;margin:22px 0 30px}
+  .f3d-frame{display:block;width:100%;height:min(760px,86vh);border:1px solid var(--line);border-radius:14px;background:#121314}
+  .f3d-poster{position:relative;display:block;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#121314;text-decoration:none}
+  .f3d-poster img{display:block;width:100%;height:auto}
+  .f3d-cta{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:14px 22px;min-height:48px;border-radius:12px;background:var(--accent);color:#1b1306;font:700 16px/1.2 var(--sans);white-space:nowrap;box-shadow:0 6px 20px #0006}
+  .f3d-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;margin-top:8px;font:12px/1.4 var(--mono);color:var(--muted)}
+  @media (max-width:719px){.f3d-hint{display:none}.f3d-bar .btn{display:none}}
+</style>
