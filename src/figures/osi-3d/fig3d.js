@@ -95,7 +95,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   const sessEnds = () => [[SXS.sp + SW, PY + slabs.sp[5].pull, zL(5) + SH / 2], [SXS.tk, PY + slabs.tk[5].pull, zL(5) + SH / 2]];
 
   // ── o dado: um grupo que fica sobre a camada ativa ──
-  const D = new THREE.Group(); g0.add(D); const DS = 2; D.scale.setScalar(DS);
+  const D = new THREE.Group(); g0.add(D); const DS = 1.5; D.scale.setScalar(DS);
   const tile = new THREE.Group(); D.add(tile);
   const tileMat = capMat(); twCaps.push(tileMat); rbox(-28, -28, 0, 56, 56, 3, 3, tileMat, tile);
   const tcv = faceCanvas('top', -28, -28, 3, 56, 56, 6, tile, false);
@@ -260,7 +260,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     cur.x += (tx - cur.x) * k; cur.z += (tz - cur.z) * k;
     const show = d.mode !== 'none' && !d.fade ? 1 : 0; cur.a += (show - cur.a) * k;
     cur.f += ((d.f || 1) - cur.f) * k; cur.tile += ((d.mode === 'photo' || d.mode === 'cipher' ? 1 : 0) - cur.tile) * k;
-    D.position.copy(W(cur.x, PY + 4 + pullNow, cur.z)); D.visible = cur.a > 0.04;
+    D.position.copy(W(cur.x, OY + SD - 46 + pullNow, cur.z));   // na metade da frente da placa: o nome da camada (atrás) fica à vista D.visible = cur.a > 0.04;
     tile.scale.setScalar(Math.max(0.001, cur.f * cur.tile * cur.a)); tile.visible = cur.tile > 0.02;
     const cubesOn = d.mode === 'cubes' ? cur.a : 0;
     cubes.forEach((c, n) => { const gap = mode === 'udp' && n === 6 && s >= 9; c.s += ((gap ? 0 : cubesOn) - c.s) * (1 - Math.exp(-dt / (0.25 + n * 0.012)));
@@ -293,7 +293,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     if (followT > 0 && dt > 0) {
       const mob = NARROW(), off = mob ? 30 : -150;
       const fx = d.sess ? (SXS.sp + SW + SXS.tk) / 2 + (mob ? 0 : -120) : w.side === 'tk' ? SXS.tk + SW / 2 + (mob ? -30 : off) : w.side === 'x' ? (COL.sp + COL.tk) / 2 + (mob ? 0 : -120) : SXS.sp + SW / 2 + off;
-      const want = W(fx, w.side === 'x' ? WY : 150 + PULL * 0.6, w.side === 'x' ? (mob ? -110 : -40) : (mob ? 30 : zL(w.L) - 20)), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
+      const want = W(fx, w.side === 'x' ? WY : 150 + PULL * 0.6, w.side === 'x' ? (mob ? -110 : -40) : (mob ? -15 : zL(w.L) - 20)), dd = want.sub(controls.target).multiplyScalar(1 - Math.exp(-dt / 0.6));
       if (dd.lengthSq() > 1e-8) { controls.target.add(dd); camera.position.add(dd); }
     }
     if (playing) { dwell += dt; if (dwell >= (s === 8 ? 6 : 6.5)) next(); }
