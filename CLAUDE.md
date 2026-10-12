@@ -33,6 +33,7 @@ Não citar curso nem marca de terceiros no site; não reproduzir títulos/duraç
 | Maestro / figuras anatomy | Opus 5.5 | Geometria isométrica e orquestração pedem o raciocínio mais forte |
 | `sdlabs-writer` (condensar aulas, widgets simples) | Sonnet 5.5 | Escrita didática longa com bom custo |
 | `sdlabs-researcher` (buscar fontes, conferir fatos) | Haiku 5.5 | Busca e leitura rápidas e baratas |
+| `sdlabs-qa` (testar páginas: screenshots, console, cliques) | Haiku 5.5 | Bom em uso de navegador e ~10x mais barato que o Sonnet |
 | `sdlabs-reviewer` (revisar exatidão técnica) | Sonnet 5.5 | Precisa de bom critério sem o custo do Opus |
 
 Como isso é automático:
