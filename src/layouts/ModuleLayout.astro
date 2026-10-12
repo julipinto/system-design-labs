@@ -43,6 +43,7 @@ const label = `${heading} · ${lessons.length} tópicos`;
         <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior">‹</button>
         <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">{label}</span><span class="pg-caret" aria-hidden="true">▾</span></button>
         <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula">›</button>
+        {quizHref && <a class="pg-quizbtn" href={quizHref} aria-label="Fazer o quiz do módulo">Quiz</a>}
       </div>
       <div class="pg-meter">
         <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
@@ -64,5 +65,9 @@ const label = `${heading} · ${lessons.length} tópicos`;
     <slot />
     {terms.length > 0 && <Glossary terms={terms} lessons={lessons} />}
   </main>
+<style is:global>
+  .sdl-content .pg-quizbtn{flex:none;display:grid;place-items:center;min-width:56px;min-height:48px;padding:0 12px;border-radius:12px;background:var(--accent);color:#1b1306;font:700 14px var(--sans);text-decoration:none}
+  .sdl-content .pg-quizbtn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+</style>
   <footer class="sdl-credit">Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
 </BaseLayout>
