@@ -8,6 +8,7 @@ import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
 import WhyItMatters from '../../components/WhyItMatters.astro';
 import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
 import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
@@ -15,9 +16,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>o DNS é a lista telefônica da internet: transforma <code>demo.fidelissauro.dev</code> em um endereço IP, perguntando a servidores cada vez mais específicos.</OneLiner>
 
 <DoIt>
-  <p>Com <strong>Sem cache</strong> marcado, clique em <strong>Próximo</strong> até o autoritativo responder; depois marque <strong>Cache no resolver</strong> e repita.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e siga a pergunta do resolver até a raiz, o <strong>.dev</strong> e o autoritativo. Depois troque para <strong>Cache no resolver</strong> e veja o tempo cair.</p>
 </DoIt>
-<Widget name="dns" title="Resolvendo demo.fidelissauro.dev" hint="Escolha o cache e avance. IP e tempos são exemplos." />
+<Figure3D path="labs/protocolos-de-rede/dns-3d/" poster="labs/protocolos-de-rede/dns-3d-previa.webp" title="Figura interativa: resolução DNS de demo.fidelissauro.dev" alt="Prévia da figura 3D: celular, resolver e os servidores raiz, TLD .dev e autoritativo, com a resposta A 203.0.113.42" hint="Arraste para girar · Próximo passo para avançar · troque o cenário de cache no painel" />
 
 <HowItWorks>
 <p>Humanos lembram nomes, máquinas precisam de IP. O <strong>resolver</strong> (geralmente do provedor, ou 8.8.8.8, 1.1.1.1) faz esta sequência de perguntas:</p>
