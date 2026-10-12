@@ -4,7 +4,7 @@
 // para o dedo não ficar preso girando a cena em vez de rolar a página.
 import { withBase } from '../lib/url.js';
 interface Props { path: string; poster: string; alt: string; title: string; hint?: string; }
-const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo para avançar · clique numa peça para ir até ela' } = Astro.props;
+const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo ou setas do teclado para avançar · clique numa peça para ir até ela' } = Astro.props;
 const src = withBase(path);
 ---
 <div class="f3d-wrap" data-src={`${src}?embed=1`} data-title={title}>
@@ -24,6 +24,8 @@ const src = withBase(path);
     const mount = () => { if (wrap.querySelector('iframe')) return;
       const f = document.createElement('iframe'); f.className = 'f3d-frame'; f.src = wrap.dataset.src; f.loading = 'lazy';
       f.title = wrap.dataset.title; f.allow = 'fullscreen';
+      // com o mouse em cima, a figura recebe o foco: as setas do teclado passam a funcionar sem precisar clicar
+      f.addEventListener('pointerenter', () => { try { f.focus({ preventScroll: true }); } catch (e) {} });
       wrap.querySelector('.f3d-poster').replaceWith(f); };
     if ('IntersectionObserver' in window) new IntersectionObserver((es, io) => { if (es.some(e => e.isIntersecting)) { mount(); io.disconnect(); } }, { rootMargin: '300px' }).observe(wrap);
     else mount();
