@@ -5,6 +5,9 @@ import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.js';
 import '../styles/lesson.css';
 import '../styles/module.css';
+import '../styles/glossary.css';
+import Glossary from '../components/Glossary.astro';
+import { glossaries } from '../data/glossary.js';
 
 interface LessonRef { id: string; title: string }
 interface Props {
@@ -17,6 +20,7 @@ interface Props {
   quizHref?: string;      // link do quiz no painel (opcional)
 }
 const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
+const terms = glossaries[module] ?? [];
 const label = `${heading} · ${lessons.length} tópicos`;
 ---
 <BaseLayout title={title} description={description}>
@@ -25,6 +29,7 @@ const label = `${heading} · ${lessons.length} tópicos`;
     <!-- módulos são deferidos: no head rodam antes do script da figura, como no site antigo -->
     <script>
       import '../scripts/focus-mode.js';
+      import '../scripts/glossary.js';
     </script>
   </Fragment>
   <div class="sdl-top"><a href={withBase('')}>← SDLabs</a><span>Módulo · {heading}</span></div>
@@ -46,6 +51,7 @@ const label = `${heading} · ${lessons.length} tópicos`;
       <div class="pg-panel" id="sdl-panel">
         {quizHref && <a class="btn big primary pg-quiz" href={quizHref} style="display:flex;justify-content:center;margin-bottom:10px">Fazer o quiz do módulo →</a>}
         <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
+        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <span aria-hidden="true">↓</span></button>}
         <nav class="toc" aria-label="Aulas do módulo">
           <p class="toc-title">{label}</p>
           <ol>
@@ -56,6 +62,7 @@ const label = `${heading} · ${lessons.length} tópicos`;
     </div>
     <noscript><style is:inline>.sdl-content .fc-a[hidden]{display:block}</style></noscript>
     <slot />
+    {terms.length > 0 && <Glossary terms={terms} lessons={lessons} />}
   </main>
   <footer class="sdl-credit">Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
 </BaseLayout>
