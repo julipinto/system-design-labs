@@ -308,6 +308,26 @@
     "Aumentar a banda do servidor.",
     "Reduzir o TTL do DNS para 1 segundo."
   ], 0, "O HTTP/3 isola perdas entre fluxos e sobrevive à troca de rede. Terminar no CDN é a adoção mais simples.");
+  choice("t8", 9, 2, "Por que o QUIC roda em espaço de usuário, sobre UDP, e não dentro do kernel como o TCP?", [
+    "Para evoluir rápido: basta atualizar o app ou o navegador, sem esperar o sistema operacional nem os middleboxes.",
+    "Porque o UDP já garante entrega em ordem.",
+    "Porque o kernel não consegue cifrar dados.",
+    "Para dispensar o handshake de TLS."
+  ], 0, "O TCP está no kernel e os middleboxes travam o formato dele (ossificação). Em espaço de usuário, o QUIC muda com uma nova versão do software. O UDP só entrega datagramas: ordem e confiabilidade o QUIC faz sozinho.");
+  tf("t8", 10, 2, "O 0-RTT do QUIC é seguro para qualquer requisição, inclusive um POST que cobra um pagamento.", false,
+    "Os dados do 0-RTT podem sofrer replay: um atacante repete o primeiro pedido. Só vale para pedidos seguros de repetir, como um GET.");
+  choice("t8", 11, 3, "Um firewall corporativo bloqueia UDP/443. O que acontece com um usuário cujo navegador fala HTTP/3?", [
+    "O navegador volta para HTTP/2 ou 1.1 sobre TCP, e o site continua abrindo.",
+    "O site fica fora do ar para esse usuário.",
+    "O QUIC passa a rodar sobre TCP.",
+    "O navegador espera o firewall liberar a porta."
+  ], 0, "O HTTP/3 é anunciado como opção (Alt-Svc), e o TCP continua disponível. Se o UDP falha, o cliente cai para o TCP. Por isso o servidor precisa manter HTTP/2 funcionando.");
+  order("t8", 12, 2, "Ordene do cenário com MAIS RTTs antes do pedido para o com MENOS.", [
+    "TCP + TLS 1.2 (3 RTTs)",
+    "TCP + TLS 1.3 (2 RTTs)",
+    "QUIC, conexão nova (1 RTT)",
+    "QUIC, retomada com 0-RTT (0 RTT)"
+  ], "O TLS 1.3 corta um RTT do 1.2. O QUIC junta o handshake de transporte com o de TLS e fica em 1. Na retomada, o pedido sai junto com a primeira mensagem.");
 
   /* ---------- 9. Tempo de resposta ---------- */
   order("t9", 1, 2, "Em uma requisição HTTPS nova, coloque as parcelas do tempo na ordem em que acontecem.", [

@@ -55,6 +55,7 @@ export const glossaries = {
     { term: 'QUIC', aliases: ['QUIC'], short: 'Transporte moderno sobre UDP, com conexão, fluxos independentes e TLS 1.3 juntos. Base do HTTP/3.', layer: 4, lesson: L8 },
     { term: 'TTFB', aliases: ['TTFB'], short: 'Tempo até chegar o primeiro byte da resposta. Já inclui DNS, TCP e TLS.', lesson: L9 },
     { term: 'Keep-alive', aliases: ['keep-alive', 'conexão reutilizada', 'conexões persistentes'], short: 'Reaproveitar a conexão que já está aberta em vez de abrir outra, e pular os handshakes.', lesson: L9 },
+    { term: 'Connection ID', aliases: ['Connection ID', 'connection ID'], short: 'Número que identifica a conexão QUIC no lugar de IP e porta. Por isso ela sobrevive à troca de rede.', lesson: L8 },
     { term: '0-RTT', aliases: ['0-RTT'], short: 'Retomada que já manda o pedido na primeira mensagem. Risco: alguém pode repetir esse pedido (replay).', lesson: L5 },
     { term: 'FCS', aliases: ['FCS'], short: 'Código no fim do quadro para o receptor perceber se algum bit chegou errado.', layer: 2, lesson: L2 }
   ]

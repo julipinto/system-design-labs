@@ -1,7 +1,7 @@
 ---
 title: "HTTP/1.1, HTTP/2 e HTTP/3"
 order: 8
-min: 2
+min: 3
 ---
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
@@ -29,6 +29,64 @@ import Flashcards from '../../components/Flashcards.astro';
   <li><strong>Connection ID</strong> no lugar de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
 </ol>
 </HowItWorks>
+
+<h3 class="sec">QUIC: o transporte do HTTP/3</h3>
+<p><strong>Em uma frase:</strong> o QUIC é um protocolo de transporte construído sobre UDP, que faz o trabalho do TCP e do TLS juntos.</p>
+
+<h4 class="deep-h">Por que existe</h4>
+<ul class="why-list">
+  <li><strong>O TCP vive no kernel</strong> e muda devagar. Middleboxes (firewalls, NATs) travam o formato e barram o que é novo: é a <strong>ossificação</strong>.</li>
+  <li><strong>O QUIC roda em espaço de usuário</strong>, dentro do app ou do navegador. Atualizar é lançar uma nova versão, sem esperar o sistema operacional.</li>
+  <li><strong>O TCP tem HOL blocking entre fluxos.</strong> Ele entrega bytes em ordem, então um pacote perdido segura tudo que veio depois.</li>
+</ul>
+
+<HowItWorks title="Como o QUIC funciona">
+<ol class="flow steps">
+  <li><strong>Handshake de 1 RTT</strong> com o TLS 1.3 embutido. Na reconexão, dá para mandar dados em <strong>0-RTT</strong>, mas um atacante pode repetir esse primeiro pedido (<strong>replay</strong>). Só serve para pedidos seguros de repetir, como um GET.</li>
+  <li><strong>Streams independentes:</strong> cada fluxo tem a sua própria ordem. A perda num fluxo só trava aquele fluxo.</li>
+  <li><strong>Connection ID:</strong> a conexão é identificada por um ID, não por IP e porta. Ao trocar de Wi-Fi para 4G, ela continua.</li>
+  <li><strong>Quase tudo cifrado:</strong> o conteúdo e boa parte do cabeçalho de transporte, como número de pacote e confirmações. Quem está no meio vê pouco mais que o UDP e o ID de destino.</li>
+  <li><strong>Perda e congestionamento próprios:</strong> o QUIC detecta perdas e controla a velocidade sozinho, em cima do UDP. O UDP só entrega datagramas.</li>
+</ol>
+</HowItWorks>
+
+<div class="rtt-table-wrap">
+<table class="rtt-table">
+  <thead><tr><th></th><th>TCP + TLS 1.3</th><th>QUIC</th></tr></thead>
+  <tbody>
+    <tr><td>RTTs até mandar dados</td><td>2 (1 TCP + 1 TLS)</td><td>1; na retomada, 0</td></tr>
+    <tr><td>Onde roda</td><td>No kernel</td><td>No app ou no navegador</td></tr>
+    <tr><td>Efeito de uma perda</td><td>Todos os fluxos esperam</td><td>Só o fluxo afetado espera</td></tr>
+    <tr><td>Troca de rede</td><td>A conexão cai (IP e porta mudam)</td><td>Continua, pelo connection ID</td></tr>
+    <tr><td>O que fica cifrado</td><td>O conteúdo; o cabeçalho TCP fica à mostra</td><td>O conteúdo e boa parte do cabeçalho</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4 class="deep-h">Por que importa em System Design</h4>
+<ul class="why-list">
+  <li><strong>Latência no celular:</strong> menos RTTs para começar e conexão que sobrevive à troca de rede.</li>
+  <li><strong>Redes com perda:</strong> um pacote perdido atrasa só um fluxo, não a página inteira.</li>
+  <li><strong>Balanceadores e firewalls</strong> precisam deixar passar <strong>UDP/443</strong>. Quando isso falha, o cliente cai para HTTP/2 sobre TCP. Mantenha os dois caminhos funcionando.</li>
+</ul>
+
+<Deep min={1}>
+  <h4 class="deep-h">Detalhes extras do QUIC</h4>
+  <ul>
+    <li><strong>QPACK no lugar do HPACK:</strong> o HPACK do HTTP/2 supõe que tudo chega em ordem. No QUIC os fluxos chegam fora de ordem, então o QPACK usa fluxos próprios para atualizar a tabela de cabeçalhos sem criar HOL.</li>
+    <li><strong>Números de pacote nunca se repetem.</strong> Um dado retransmitido vai num pacote novo, então o QUIC mede o RTT sem ambiguidade.</li>
+    <li><strong>Congestionamento:</strong> a RFC 9002 descreve um algoritmo parecido com o NewReno, mas cada implementação pode usar outro, como CUBIC ou BBR.</li>
+    <li><strong>Limite antes de validar o cliente:</strong> o servidor não manda mais que 3 vezes o que recebeu. Isso evita usar o QUIC para amplificar ataques.</li>
+    <li><strong>Como o cliente descobre o HTTP/3:</strong> o servidor avisa pelo cabeçalho <code>Alt-Svc</code> (ou por um registro HTTPS no DNS). Se o UDP falhar, o navegador volta para o TCP.</li>
+  </ul>
+  <Sources items={[
+    { label: "RFC 9000: QUIC, transporte multiplexado e seguro sobre UDP", href: "https://www.rfc-editor.org/rfc/rfc9000" },
+    { label: "RFC 9001: usando o TLS para proteger o QUIC", href: "https://www.rfc-editor.org/rfc/rfc9001" },
+    { label: "RFC 9002: detecção de perda e controle de congestionamento no QUIC", href: "https://www.rfc-editor.org/rfc/rfc9002" },
+    { label: "RFC 9114: HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9114" },
+    { label: "RFC 9204: QPACK, compressão de cabeçalhos para o HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9204" },
+  ]} />
+</Deep>
 
 <WhyItMatters>
   <li>A versão do HTTP muda quantas conexões, quantos handshakes e quanto uma perda dói.</li>
@@ -90,4 +148,10 @@ import Flashcards from '../../components/Flashcards.astro';
     a: "QUIC sobre UDP, fluxos independentes e handshake combinado." },
   { q: "Para que serve o Connection ID?",
     a: "Manter a sessão ao trocar de rede." },
+  { q: "O que o QUIC faz que o TCP puro não faz?",
+    a: "Junta transporte e TLS 1.3 num handshake de 1 RTT, tem fluxos independentes e cifra quase todo o cabeçalho." },
+  { q: "Qual o risco do 0-RTT?",
+    a: "Replay: um atacante pode repetir o primeiro pedido. Use só em pedidos seguros de repetir, como GET." },
+  { q: "O UDP/443 está bloqueado. O que acontece com o HTTP/3?",
+    a: "O cliente volta para HTTP/2 (ou 1.1) sobre TCP. O site continua funcionando, só sem os ganhos do QUIC." },
 ]} />
