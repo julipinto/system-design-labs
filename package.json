@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build:3d": "node src/figures/osi-3d/build.mjs && node src/figures/http-3d/build.mjs && node src/figures/dns-3d/build.mjs && node src/figures/tcp-3d/build.mjs && node src/figures/tls-3d/build.mjs",
+    "build:3d": "node src/figures/osi-3d/build.mjs && node src/figures/http-3d/build.mjs && node src/figures/dns-3d/build.mjs && node src/figures/tcp-3d/build.mjs && node src/figures/tls-3d/build.mjs && node src/figures/dhcp-3d/build.mjs",
     "dev": "npm run build:3d && astro dev",
     "build": "npm run build:3d && astro build",
     "preview": "astro preview",
