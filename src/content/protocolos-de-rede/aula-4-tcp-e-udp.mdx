@@ -8,6 +8,7 @@ import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
 import WhyItMatters from '../../components/WhyItMatters.astro';
 import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
 import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
@@ -15,9 +16,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>TCP é o entregador que exige assinatura e confirma cada pacote; UDP é o que joga a correspondência debaixo do portão e segue para a próxima.</OneLiner>
 
 <DoIt>
-  <p>Clique em <strong>Próximo</strong> até o passo 7 e olhe o painel <strong>O segmento agora</strong>: o buffer do servidor fica com um buraco nos bytes 201–300. Depois clique em <strong>Comparar com UDP</strong>.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> até o <strong>#2</strong> cair do trilho e veja o buraco no buffer do servidor e o reenvio. Depois troque para <strong>UDP</strong> e compare.</p>
 </DoIt>
-<Widget name="tcp" title="Stepper do TCP" hint="Avance passo a passo. Os números de sequência são exemplos." />
+<Figure3D path="labs/protocolos-de-rede/tcp-3d/" poster="labs/protocolos-de-rede/tcp-3d-previa.webp" title="Figura interativa: TCP com handshake, perda, reenvio e fechamento; e o mesmo com UDP" alt="Prévia da figura 3D: celular e servidor ligados por dois trilhos, com o segmento #2 perdido e o buffer do servidor esperando" hint="Arraste para girar · Próximo passo para avançar · troque TCP/UDP no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
