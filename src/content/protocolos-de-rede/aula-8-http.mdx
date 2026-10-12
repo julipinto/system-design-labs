@@ -33,6 +33,22 @@ import Flashcards from '../../components/Flashcards.astro';
 <h3 class="sec">QUIC: o transporte do HTTP/3</h3>
 <p><strong>Em uma frase:</strong> o QUIC é um protocolo de transporte construído sobre UDP, que faz o trabalho do TCP e do TLS juntos.</p>
 
+<h4 class="deep-h">HTTP/3 e QUIC são a mesma coisa?</h4>
+<p>Não, mas andam juntos. O <strong>QUIC é transporte</strong>: fica onde antes ficavam o TCP e o TLS, e abre a conexão, cifra, numera e reenvia. O <strong>HTTP/3 é aplicação</strong>: o mesmo HTTP de sempre (GET, POST, headers, 200/404), só que usando o QUIC por baixo.</p>
+<div class="rtt-table-wrap">
+<table class="rtt-table">
+  <thead><tr><th>Camada</th><th>HTTP/1.1 e HTTP/2</th><th>HTTP/3</th></tr></thead>
+  <tbody>
+    <tr><td>Aplicação</td><td>HTTP/1.1 ou HTTP/2</td><td>HTTP/3</td></tr>
+    <tr><td>Segurança</td><td>TLS</td><td rowspan="2">QUIC (já com TLS 1.3 dentro)</td></tr>
+    <tr><td>Transporte</td><td>TCP</td></tr>
+    <tr><td>Por baixo do transporte</td><td>(nada)</td><td>UDP</td></tr>
+    <tr><td>Rede</td><td>IP</td><td>IP</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Pense numa carta: o <strong>HTTP</strong> é a carta (o que você pede) e o <strong>TCP ou o QUIC</strong> é o entregador. O HTTP/3 é a mesma carta com um entregador mais novo. O QUIC também serve para outras coisas além do HTTP, como DNS sobre QUIC.</p>
+
 <h4 class="deep-h">Por que existe</h4>
 <ul class="why-list">
   <li><strong>O TCP vive no kernel</strong> e muda devagar. Middleboxes (firewalls, NATs) travam o formato e barram o que é novo: é a <strong>ossificação</strong>.</li>
