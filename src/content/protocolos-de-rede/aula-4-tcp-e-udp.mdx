@@ -23,7 +23,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <Figure3D path="labs/protocolos-de-rede/tcp-3d/" poster="labs/protocolos-de-rede/tcp-3d-previa.webp" title="Figura interativa: TCP com handshake, perda, reenvio e fechamento; e o mesmo com UDP" alt="Prévia da figura 3D: celular e servidor ligados por dois trilhos, com o segmento #2 perdido e o buffer do servidor esperando" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque TCP/UDP no painel" />
 
 <HowItWorks>
-<p>Para ver isso de perto, a figura usa um exemplo menor e inventado: 300 bytes em 3 segmentos de 100 bytes, no lugar das 215 fatias da foto (no TCP, cada fatia se chama segmento).</p>
+<p>Para ver isso de perto, a figura mostra só as 3 primeiras fatias da foto da Lena, com 100 bytes cada (300 bytes), no lugar das 215 fatias reais de ~1.460 bytes; os números de seq e ack são de exemplo (no TCP, cada fatia se chama segmento).</p>
 <ol class="flow steps">
   <li>O <strong>TCP</strong> começa abrindo a conexão, com o <strong>three-way handshake</strong>: SYN, SYN-ACK, ACK (1 RTT).</li>
   <li>Aberta a conexão, ele transfere <strong>segmentos numerados</strong>. O receptor reordena o que chega fora de ordem e manda ACK.</li>

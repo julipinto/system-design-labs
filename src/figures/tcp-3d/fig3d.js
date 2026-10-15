@@ -1,5 +1,6 @@
 // Figura 3D (iso-glow): TCP x UDP.
-// O celular (cliente, à esquerda) manda 300 bytes ao servidor (à direita, ao fundo) em 3 segmentos de 100 bytes.
+// O celular da Lena (cliente, à esquerda) manda ao servidor do app (à direita, ao fundo) as 3 primeiras fatias da foto do gato
+// (3 segmentos de 100 bytes; as fatias reais têm ~1.460 bytes, o exemplo é menor para caber na tela).
 // Dois trilhos: o de cima leva segmentos ao servidor, o da frente traz os ACKs. Na frente do servidor, o buffer de
 // recepção com 3 vagas (bytes 101–200, 201–300, 301–400). O #2 cai do trilho; no TCP ele volta, no UDP some de vez.
 // Números (ISN 100 e 300, portas 51234 → 443) são os do widget da aula 4; são exemplos.
@@ -40,8 +41,8 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
   rbox(CHX - 10, SRV_FRONT, 7, 20, AY - SRV_FRONT - 4, 17, 3, railMatA, railA);          // rampa do servidor até o trilho de ACKs
   const slats = (y, x0, x1) => { const s = []; for (let x = x0; x <= x1; x += 14) s.push([[x, y - 12, RZ + 0.1], [x, y + 12, RZ + 0.1]]); return s; };
   seg([...slats(DY, 300, RX1 - 8), ...slats(AY, RX0 + 8, 250), ...slats(AY, 380, CHX - 16)], g0);
-  label('PARA O SERVIDOR →', 96, 10, 6.5, onTop(222, DY, RZ), g0);
-  label('← PARA O CELULAR', 96, 10, 6.5, onTop(316, AY, RZ), g0);
+  label('PARA O SERVIDOR DO APP →', 96, 10, 6.5, onTop(222, DY, RZ), g0);
+  label('← PARA O CELULAR DA LENA', 96, 10, 6.5, onTop(316, AY, RZ), g0);
   const rimD = polyLine([[RX0, DY - 14, RZ + 0.2], [RX1, DY - 14, RZ + 0.2], [RX1, DY + 14, RZ + 0.2], [RX0, DY + 14, RZ + 0.2], [RX0, DY - 14, RZ + 0.2]], accentLineMat, g0);
   const rimA = polyLine([[RX0, AY - 14, RZ + 0.2], [CHX + 10, AY - 14, RZ + 0.2], [CHX + 10, AY + 14, RZ + 0.2], [RX0, AY + 14, RZ + 0.2], [RX0, AY - 14, RZ + 0.2]], accentLineMat, g0);
 
@@ -146,74 +147,74 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     <tr><td>Neste exemplo</td><td>14 msgs, 300 B</td><td>3 msgs, 200 B</td></tr></table>`;
   const STEPS = {
     tcp: [
-      { title: 'O celular vai mandar 300 bytes', dur: 0, ev: [],
-        story: 'O celular (o cliente) quer mandar 300 bytes para um servidor: uma foto pequena, um formulário. O TCP corta isso em 3 segmentos de 100 bytes e garante que tudo chegue inteiro e na ordem. Os números deste exemplo são inventados para ficar fácil de seguir.',
-        look: 'À esquerda o celular, à direita o servidor. O trilho de cima leva segmentos ao servidor; o da frente traz as respostas. Na frente do servidor, o buffer de recepção tem 3 vagas vazias.',
-        key: 'TCP: conexão, bytes numerados, confirmação e reenvio.' },
+      { title: 'A Lena vai mandar a foto do gato', dur: 0, ev: [],
+        story: 'A Lena, em São Paulo, aperta enviar: o celular dela vai mandar a foto do gato ao irmão, em Tóquio, passando pelo servidor do app (o servidor de mensagens que entrega a foto a ele). Os 313 KB viram 215 fatias, e o TCP garante que todas cheguem inteiras e em ordem. Aqui acompanhamos só as 3 primeiras fatias, 300 bytes. Para caber na tela, a figura usa fatias de 100 bytes; as reais têm ~1.460 bytes. Os números de seq e ack são de exemplo.',
+        look: 'À esquerda o celular da Lena, com a foto do gato na tela; à direita o servidor do app. O trilho de cima leva as fatias; o da frente traz as respostas. Na frente do servidor, o buffer de recepção tem 3 vagas vazias, uma para cada fatia.',
+        key: 'TCP: a foto da Lena chega inteira por conexão, bytes numerados, confirmação e reenvio.' },
       { title: 'Handshake: SYN, SYN-ACK, ACK', dur: 7.6, ev: [[0, 0.3], [1, 2.6], [2, 5.3]],
-        story: 'Antes de qualquer dado, os dois combinam a conversa. O celular manda SYN e escolhe seu número inicial (ISN): 100. O servidor responde SYN-ACK com o ISN dele, 300, e ack=101: "espero o seu byte 101". O celular confirma com ACK.',
+        story: 'Antes de qualquer fatia da foto, os dois combinam a conversa. O celular da Lena manda SYN e escolhe seu número inicial (ISN): 100. O servidor do app responde SYN-ACK com o ISN dele, 300, e ack=101: "espero o seu byte 101". O celular confirma com ACK.',
         look: 'Três blocos sem dados vão, voltam e vão. As placas trocam de estado: SYN_SENT, SYN_RECEIVED e, no fim, ESTABLISHED dos dois lados.',
         key: 'Three-way handshake: 1 RTT antes do primeiro byte de dados.' },
       { title: 'O segmento #1 chega', dur: 3.4, ev: [[3, 0.3]],
-        story: 'Conexão aberta. O celular manda o primeiro segmento: seq=101, 100 bytes (do 101 ao 200). Ele guarda uma cópia até a confirmação chegar, para poder reenviar. O #1 chega e ocupa a primeira vaga do buffer.',
+        story: 'Conexão aberta. O celular da Lena manda a fatia #1 da foto: seq=101, 100 bytes (do 101 ao 200). Ele guarda uma cópia até a confirmação chegar, para poder reenviar. O #1 chega e ocupa a primeira vaga do buffer do servidor do app.',
         look: 'O bloco #1 corre pelo trilho de cima e cai na vaga 101–200.',
         key: 'Cada byte tem número; seq diz onde o segmento começa.' },
       { title: 'ACK 201', dur: 3.0, ev: [[4, 0.3]],
-        story: 'O servidor responde ack=201: "recebi tudo até o 200, agora espero o 201". Quando o ACK chega, o celular apaga a cópia do #1: ele já está garantido.',
-        look: 'Um ACK sai do servidor e volta pelo trilho da frente. Na tela do celular, o #1 vira "confirmado".',
+        story: 'O servidor do app responde ack=201: "recebi tudo até o 200, agora espero o 201". Quando o ACK chega, o celular da Lena apaga a cópia do #1: essa fatia da foto já está garantida.',
+        look: 'Um ACK sai do servidor e volta pelo trilho da frente. Na tela do celular da Lena, o #1 vira "confirmado".',
         key: 'O ACK diz qual é o próximo byte que o receptor espera.' },
       { title: 'O #2 se perde', dur: 3.2, ev: [[5, 0.3]],
-        story: 'O celular manda o #2 (seq=201) e, logo atrás, o #3, sem esperar confirmação. No meio do caminho o #2 se perde: Wi-Fi ruim ou um roteador com a fila cheia. Ninguém avisa. O celular ainda acha que está tudo certo.',
-        look: 'O bloco #2 cai do trilho e some.',
+        story: 'A Lena não espera: o celular manda a fatia #2 da foto (seq=201) e, logo atrás, a #3. No meio do caminho a #2 se perde: Wi-Fi ruim ou um roteador com a fila cheia. Ninguém avisa. O celular ainda acha que está tudo certo.',
+        look: 'O bloco #2, uma fatia da foto, cai do trilho e some.',
         key: 'A rede perde pacotes em silêncio. Quem percebe é o TCP.' },
       { title: 'O #3 chega fora de ordem', dur: 3.4, ev: [[6, 0.3]],
-        story: 'O #3 (seq=301) chega inteiro. O servidor guarda no buffer, mas não entrega ao app: falta o pedaço 201–300 no meio. Entregar fora de ordem estragaria os dados.',
+        story: 'A fatia #3 (seq=301) chega inteira. O servidor do app guarda no buffer, mas não entrega: falta o pedaço 201–300 no meio. Montar a foto fora de ordem estragaria o gato.',
         look: 'O #3 ocupa a última vaga, apagado. A vaga do meio fica vazada, com "esperando".',
         key: 'O TCP guarda o que chegou fora de ordem e espera o buraco fechar.' },
       { title: 'ACK duplicado', dur: 3.0, ev: [[7, 0.3]],
-        story: 'O servidor responde de novo ack=201. O ACK é cumulativo: só pode dizer "recebi tudo até aqui", e o "aqui" continua sendo o byte 200. Para o celular, receber o mesmo ack outra vez é sinal de que algo faltou.',
+        story: 'O servidor responde de novo ack=201. O ACK é cumulativo: só pode dizer "recebi tudo até aqui", e o "aqui" continua sendo o byte 200. Para o celular da Lena, receber o mesmo ack outra vez é sinal de que algo faltou.',
         look: 'Volta outro ACK com o mesmo número, 201. O buffer não muda.',
         key: 'ACK repetido: alguma coisa faltou depois daquele byte.' },
       { title: 'O #2 é reenviado', dur: 4.0, ev: [[8, 0.9]],
-        story: 'O celular ainda tem a cópia do #2 e reenvia o mesmo segmento: seq=201, 100 bytes. Neste exemplo quem dispara é o timer de reenvio, que venceu sem ACK. Com 3 ACKs duplicados o TCP reenviaria antes do timer (fast retransmit).',
-        look: 'O #2 sai de novo do celular e preenche a vaga do meio. As 3 vagas estão cheias e em ordem.',
+        story: 'O celular da Lena ainda tem a cópia do #2 e reenvia a mesma fatia: seq=201, 100 bytes. Neste exemplo quem dispara é o timer de reenvio, que venceu sem ACK. Com 3 ACKs duplicados o TCP reenviaria antes do timer (fast retransmit).',
+        look: 'O #2 sai de novo do celular da Lena e preenche a vaga do meio. As 3 vagas estão cheias e em ordem.',
         key: 'Sem confirmação, o TCP reenvia a partir da cópia guardada.' },
       { title: 'ACK 401 e entrega ao app', dur: 4.2, ev: [[9, 1.6]], del: 0.3,
-        story: 'Com o buraco fechado, os bytes de 101 a 400 estão em ordem e o app do servidor lê os 300 bytes. Um único ACK, ack=401, confirma tudo, inclusive o #3. (O #1 já podia ter sido lido antes, porque estava em ordem; o que o TCP nunca faz é entregar o #3 antes do #2.)',
-        look: 'Os três blocos entram no servidor e a tela dele mostra 300 de 300 bytes. Um ACK com 401 volta ao celular.',
+        story: 'Com o buraco fechado, os bytes de 101 a 400 estão em ordem e o app do servidor lê as 3 fatias, 300 bytes. Um único ACK, ack=401, confirma tudo, inclusive o #3. (O #1 já podia ter sido lido antes, porque estava em ordem; o que o TCP nunca faz é entregar o #3 antes do #2.)',
+        look: 'Os três blocos entram no servidor e a tela dele mostra 300 de 300 bytes. Um ACK com 401 volta ao celular da Lena.',
         key: 'ACK cumulativo: um número confirma tudo o que veio antes.' },
-      { title: 'O celular fecha o lado dele', dur: 5.4, ev: [[10, 0.3], [11, 2.7]],
-        story: 'O celular não tem mais nada para mandar. Envia FIN (seq=401) e passa a FIN_WAIT_1. O servidor confirma com ack=402 e fica em CLOSE_WAIT: ele ainda pode mandar dados, se tiver.',
+      { title: 'O celular da Lena fecha o lado dele', dur: 5.4, ev: [[10, 0.3], [11, 2.7]],
+        story: 'Neste exemplo, a Lena não tem mais fatias para mandar. O celular envia FIN (seq=401) e passa a FIN_WAIT_1. O servidor do app confirma com ack=402 e fica em CLOSE_WAIT: ele ainda pode mandar dados, se tiver.',
         look: 'Um FIN vai, um ACK volta. As placas mostram FIN_WAIT_2 no celular e CLOSE_WAIT no servidor.',
         key: 'Cada sentido da conexão fecha separado.' },
-      { title: 'O servidor fecha o dele', dur: 5.4, ev: [[12, 0.3], [13, 2.9]],
-        story: 'Quando termina, o servidor manda o próprio FIN (seq=301) e vai para LAST_ACK. O celular confirma com ack=302 e o servidor fecha. O celular ainda fica um tempo em TIME_WAIT, caso esse último ACK se perca e o FIN volte.',
+      { title: 'O servidor do app fecha o dele', dur: 5.4, ev: [[12, 0.3], [13, 2.9]],
+        story: 'Quando termina, o servidor do app manda o próprio FIN (seq=301) e vai para LAST_ACK. O celular da Lena confirma com ack=302 e o servidor fecha. O celular ainda fica um tempo em TIME_WAIT, caso esse último ACK se perca e o FIN volte.',
         look: 'Agora o FIN vem do servidor e o ACK vai. Servidor: CLOSED. Celular: TIME_WAIT.',
         key: 'Four-way close: FIN, ACK, FIN, ACK.' },
-      { title: 'Resumo: 14 segmentos por 300 bytes', dur: 1.2, ev: [], tw: 0.8,
-        story: 'Para entregar 300 bytes, o TCP trocou 14 segmentos: 3 para abrir, 7 de dados e ACKs (contando o reenvio) e 4 para fechar. Tudo chegou inteiro e em ordem, apesar da perda. Depois do TIME_WAIT (2 × MSL: de segundos a alguns minutos, depende do sistema), o celular também fecha.',
-        look: 'As duas placas em CLOSED e o app do servidor com os 300 bytes. Troque para UDP no painel para comparar.',
+      { title: 'Resumo: 14 segmentos para 3 fatias', dur: 1.2, ev: [], tw: 0.8,
+        story: 'Para entregar as 3 primeiras fatias da foto (300 bytes), o TCP trocou 14 segmentos: 3 para abrir, 7 de dados e ACKs (contando o reenvio) e 4 para fechar. Tudo chegou inteiro e em ordem, apesar da perda: com as 215 fatias seria o mesmo, e o irmão veria o gato sem buracos. Depois do TIME_WAIT (2 × MSL: de segundos a alguns minutos, depende do sistema), o celular também fecha.',
+        look: 'As duas placas em CLOSED e o app do servidor com as 3 fatias, 300 bytes. Troque para UDP no painel para comparar.',
         key: 'TCP troca velocidade por garantia: ordem, confirmação e reenvio.', sum: true },
     ],
     udp: [
-      { title: 'Agora com UDP', dur: 0, ev: [],
-        story: 'Mesma história: o celular manda 300 bytes ao servidor, em 3 pedaços de 100 bytes. Só que agora o transporte é UDP. Não existe conexão: nada de handshake, nada de estado, nada de número de sequência.',
-        look: 'As placas não mostram estado: sem conexão, não há estado para mostrar. O trilho da frente vai ficar vazio.',
+      { title: 'E se fosse uma ligação de vídeo?', dur: 0, ev: [],
+        story: 'E se, em vez de uma foto, a Lena estivesse numa ligação de vídeo com o irmão? É o cenário de ligação da figura OSI: o vídeo nasce a cada instante e vai em pedaços, aqui os mesmos 3 pedaços de 100 bytes, e o transporte é UDP. Não existe conexão: nada de handshake, nada de estado, nada de número de sequência.',
+        look: 'A tela do celular da Lena segue enviando. As placas não mostram estado: sem conexão, não há estado para mostrar. O trilho da frente vai ficar vazio.',
         key: 'UDP: manda e esquece.' },
       { title: 'Datagrama #1, direto', dur: 3.4, ev: [[0, 0.3]],
-        story: 'Sem combinar nada, o celular já manda o primeiro datagrama. Ele chega e vai direto para o app do servidor. Ninguém responde: no UDP não existe ACK.',
+        story: 'Sem combinar nada, o celular da Lena já manda o primeiro pedaço do vídeo. Ele chega e vai direto para o app do servidor. Ninguém responde: no UDP não existe ACK.',
         look: 'O #1 sai na hora, sem SYN antes, e cai na primeira vaga. Nada volta pelo trilho da frente.',
         key: 'Sem handshake: o primeiro dado sai na hora.' },
       { title: 'O #2 se perde', dur: 3.2, ev: [[1, 0.3]],
-        story: 'O #2 se perde no caminho, como no TCP. A diferença: o celular não guardou cópia e nunca vai saber. Não existe ACK para deixar de chegar.',
+        story: 'O #2 se perde no caminho, como a fatia #2 da foto. A diferença: o celular da Lena não guardou cópia e nunca vai saber. Não existe ACK para deixar de chegar.',
         look: 'O #2 cai do trilho e some. Ninguém reage.',
         key: 'No UDP, a perda é silenciosa e definitiva.' },
       { title: 'O #3 chega e é entregue', dur: 3.4, ev: [[2, 0.3]],
-        story: 'O #3 chega e vai direto para o app, sem esperar nada. O servidor não sabe que existiu um #2: o datagrama não tem seq para mostrar o buraco.',
+        story: 'O #3 chega e vai direto para o app, sem esperar nada. O servidor do app não sabe que existiu um #2: o datagrama não tem seq para mostrar o buraco.',
         look: 'O #3 ocupa a última vaga, aceso. A do meio fica vazia e sem "esperando": ninguém está esperando.',
         key: 'Cada datagrama é independente: chegou, entregou.' },
-      { title: 'Fim: 200 de 300 bytes', dur: 0, ev: [],
-        story: 'O servidor ficou com o #1 e o #3: 200 bytes. O celular acha que mandou tudo. Foram 3 mensagens, contra 14 do TCP. Para voz, vídeo ao vivo e jogos, perder um pedaço é melhor do que esperar por ele. Se o app precisar de garantia, ele mesmo implementa (o QUIC faz isso em cima do UDP).',
+      { title: 'Fim: 200 de 300 bytes (o vídeo trava um instante)', dur: 0, ev: [],
+        story: 'O servidor ficou com o #1 e o #3: 200 bytes. O celular da Lena acha que mandou tudo. Foram 3 mensagens, contra 14 do TCP. Na ligação, o irmão vê uma travadinha e a chamada segue: para voz, vídeo ao vivo e jogos, perder um pedaço é melhor do que esperar por ele. Para a foto do gato, isso seria um buraco na imagem. Se o app precisar de garantia, ele mesmo implementa (o QUIC faz isso em cima do UDP).',
         look: 'A vaga do meio vazia para sempre e nenhum ACK no trilho da frente.',
         key: 'UDP é rápido e leve; a garantia fica com a aplicação.', sum: true },
     ],
@@ -274,8 +275,9 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     x.fillStyle = theme === 'light' ? '#f6f6f5' : '#141516'; x.fillRect(0, 0, phScr.c.width, phScr.c.height);
     x.textBaseline = 'middle'; x.textAlign = 'center';
     x.fillStyle = C.line; x.beginPath(); x.roundRect(u(21), u(4), u(16), u(3), u(1.5)); x.fill();
-    x.fillStyle = C.inkHi; x.font = `600 ${u(7)}px ${MONO3}`; x.fillText('enviar 300 B', u(W_ / 2), u(16));
-    x.fillStyle = A_; x.font = `600 ${u(6)}px ${MONO3}`; x.fillText(d.udp ? 'UDP' : 'TCP', u(W_ / 2), u(25));
+    x.fillStyle = C.inkHi; x.font = `600 ${u(7)}px ${MONO3}`; x.fillText('foto do gato', u(W_ / 2), u(11));
+    x.fillStyle = C.ink; x.font = `${u(5.6)}px ${MONO3}`; x.fillText('· enviando', u(W_ / 2), u(18.5));
+    x.fillStyle = A_; x.font = `600 ${u(6)}px ${MONO3}`; x.fillText(d.udp ? 'UDP' : 'TCP', u(W_ / 2), u(26));
     const TX = { fila: 'na fila', sent: 'enviado', retx: 'reenviado', ok: 'confirmado', enviado: 'enviado' };
     const SUB = { fila: '', sent: 'cópia guardada', retx: 'cópia guardada', ok: 'cópia apagada', enviado: 'sem cópia' };
     d.buf.forEach((b, k) => { const y = 33 + k * 28, on = b === 'ok';
@@ -291,7 +293,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     const { x, P } = srvCv, C = pal3(), A_ = '#' + accent.getHexString(), u = v => v * P;
     x.fillStyle = theme === 'light' ? '#f6f6f5' : '#141516'; x.fillRect(0, 0, srvCv.c.width, srvCv.c.height);
     x.textBaseline = 'middle'; x.textAlign = 'left';
-    x.fillStyle = C.inkHi; x.font = `600 ${u(8)}px ${MONO3}`; x.fillText('servidor :443', u(6), u(9));
+    x.fillStyle = C.inkHi; x.font = `600 ${u(8)}px ${MONO3}`; x.fillText('servidor do app :443', u(6), u(9));
     x.fillStyle = C.ink; x.font = `${u(6.5)}px ${MONO3}`; x.fillText(d.udp ? 'app recebeu' : 'app leu', u(6), u(24));
     const full = d.bytes === 300;
     x.fillStyle = full ? A_ : C.inkHi; x.font = `600 ${u(13)}px ${MONO3}`; x.fillText(`${d.bytes}/300 B`, u(6), u(40));
@@ -320,11 +322,11 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     const S = STEPS[mode][step], ms = MSGS[mode], tl = TL[mode];
     const end = stateAt(tl.off[step] + S.dur), prevEnd = step ? stateAt(tl.off[step] - 1e-6) : stateAt(-1);
     let h = '';
-    if (!S.ev.length) h += `<p class="t3-note">${mode === 'tcp' ? (step === 0 ? 'Nenhum segmento ainda. O servidor escuta na porta 443; o celular vai usar uma porta temporária, 51234.' : 'Nenhum segmento neste passo.') : (step === 0 ? 'Nenhum datagrama ainda. Portas: 51234 → 443.' : 'Nenhum datagrama neste passo. E nenhum ACK, nunca.')}</p>`;
+    if (!S.ev.length) h += `<p class="t3-note">${mode === 'tcp' ? (step === 0 ? 'Nenhum segmento ainda. O servidor do app escuta na porta 443; o celular da Lena vai usar uma porta temporária, 51234.' : 'Nenhum segmento neste passo.') : (step === 0 ? 'Nenhum datagrama ainda. Portas: 51234 → 443.' : 'Nenhum datagrama neste passo. E nenhum ACK, nunca.')}</p>`;
     S.ev.forEach(([m]) => { const M = ms[m], P = ms.slice(0, m).reverse().find(q => q.dir === M.dir);
       const name = M.udp ? `datagrama ${M.lab}` : M.k === 'd' ? `${M.retx ? 'reenvio ' : ''}segmento ${M.lab}` : (M.dup ? 'ACK duplicado' : M.lab);
-      h += `<div class="t3-msg"><div class="t3-mh"><b>${M.dir === '>' ? '→' : '←'} ${name}</b><span${M.lost ? ' class="lost"' : ''}>${M.lost ? 'se perdeu no caminho' : M.dir === '>' ? 'celular → servidor' : 'servidor → celular'}</span></div>${fieldsHtml(M, P)}</div>`; });
-    if (mode === 'tcp') h += `<p class="t3-st">estado do celular: <b${end.c !== prevEnd.c ? ' class="new"' : ''}>${end.c}</b><br>estado do servidor: <b${end.s !== prevEnd.s ? ' class="new"' : ''}>${end.s}</b></p>`;
+      h += `<div class="t3-msg"><div class="t3-mh"><b>${M.dir === '>' ? '→' : '←'} ${name}</b><span${M.lost ? ' class="lost"' : ''}>${M.lost ? 'se perdeu no caminho' : M.dir === '>' ? 'celular da Lena → servidor' : 'servidor → celular da Lena'}</span></div>${fieldsHtml(M, P)}</div>`; });
+    if (mode === 'tcp') h += `<p class="t3-st">estado do celular da Lena: <b${end.c !== prevEnd.c ? ' class="new"' : ''}>${end.c}</b><br>estado do servidor do app: <b${end.s !== prevEnd.s ? ' class="new"' : ''}>${end.s}</b></p>`;
     h += `<p class="t3-note">Em destaque, o que mudou em relação à mensagem anterior no mesmo sentido. ${mode === 'tcp' ? 'ISNs 100 e 300 são exemplos: na vida real são números aleatórios de 32 bits.' : 'O cabeçalho UDP tem só 8 bytes: portas, tamanho e checksum.'}</p>`;
     return h;
   }
@@ -343,7 +345,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
   let cur = null;
   function readout() { if (active !== 'tcp') return;
     const s = cur || stateAt(TL[mode].off[step]);
-    document.getElementById('read').textContent = `passo ${step + 1}/${N()} · ${mode}` + (mode === 'tcp' ? ` · celular ${s.c} · servidor ${s.s}` : ' · sem conexão'); }
+    document.getElementById('read').textContent = `passo ${step + 1}/${N()} · ${mode}` + (mode === 'tcp' ? ` · celular da Lena ${s.c} · servidor do app ${s.s}` : ' · sem conexão'); }
   function render() {
     const info = document.getElementById('info'); if (active === 'tcp' && info) { info.innerHTML = panelHtml(); info.scrollTop = 0; }
     rngT.forEach(m => m.visible = mode === 'tcp'); rngU.forEach(m => m.visible = mode === 'udp');
@@ -401,7 +403,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     railMatD.emissiveIntensity = onD ? 0.2 : 0; railMatA.emissiveIntensity = onA ? 0.2 : 0; rimD.visible = onD; rimA.visible = onA;
     // perda
     const lost = tl.ev.find(e => e.M.lost), retx = tl.ev.find(e => e.M.retx);
-    if (lost && T >= lost.tf && (!retx || T < retx.ta)) tLost.set(udp ? '✕ #2 caiu e sumiu\nninguém vai saber' : '✕ #2 caiu e sumiu', 'acc').at(RX0 + (RX1 - RX0) * 0.5 + 10, DY - 50, 26); else tLost.hide();
+    if (lost && T >= lost.tf && (!retx || T < retx.ta)) tLost.set(udp ? '✕ #2 caiu e sumiu\nninguém vai saber' : '✕ fatia #2 da foto caiu', 'acc').at(RX0 + (RX1 - RX0) * 0.5 + 10, DY - 50, 26); else tLost.hide();
     // vaga vazada / vazia
     const hole = S.slot[1] === 'hole'; holeG.visible = hole;
     if (hole) tWait.set('esperando\nbytes 201–300', 'acc').at(SX[1] - 6, SY + 62, 22);
@@ -413,16 +415,17 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
     if (udp && step >= 1) tNoAck.set(step === N() - 1 ? 'nenhum ACK, nunca' : 'nenhum ACK volta', step === N() - 1 ? 'acc' : 'dim').at(430, AY, 44); else tNoAck.hide();
     // placas de estado
     const changed = t => t >= stepStart && t >= 0;
-    if (udp) { tCli.set('CELULAR (cliente)\nUDP: sem estado', 'dim'); tSrv.set('SERVIDOR\nUDP: sem estado', 'dim'); }
-    else { tCli.set(`CELULAR (cliente)\n${S.c}`, changed(S.ct) && step ? 'acc' : 'hi'); tSrv.set(`SERVIDOR\n${S.s}`, changed(S.st) && step ? 'acc' : 'hi'); }
-    tCli.at(93, 170, 196); tSrv.at(630, 70, 168);
+    const SRV_NAME = NARROW() ? 'SERV. DO APP' : 'SERVIDOR DO APP';
+    if (udp) { tCli.set('CELULAR DA LENA\nUDP: sem estado', 'dim'); tSrv.set(`${SRV_NAME}\nUDP: sem estado`, 'dim'); }
+    else { tCli.set(`CELULAR DA LENA\n${S.c}`, changed(S.ct) && step ? 'acc' : 'hi'); tSrv.set(`${SRV_NAME}\n${S.s}`, changed(S.st) && step ? 'acc' : 'hi'); }
+    tCli.at(93, 170, 196); tSrv.at(NARROW() ? 585 : 630, 70, 168);
     // conexão (handshake e fechamento)
     const hs = TL.tcp.ev.slice(0, 3);
     if (udp) { if (step === 0) tConn.set('UDP: sem conexão\nsem handshake', 'dim').at(350, 180, 70); else tConn.hide(); }
     else if (step === 0) tConn.set('ainda sem conexão', 'dim').at(350, 180, 70);
     else if (step === 1) { const k = hs.filter(e => T >= e.ts).length, done = T >= hs[1].ta;
       tConn.set(done ? '1 RTT: SYN + SYN-ACK\no ACK já pode levar dados' : `handshake ${k}/3`, done ? 'acc' : 'hi').at(350, 180, 70); }
-    else if (step >= 9) tConn.set(step === 9 ? 'celular → servidor: fechado\nservidor → celular: aberto' : step === 10 ? 'os dois sentidos fechados' : 'conexão encerrada', 'hi').at(350, 180, 70);
+    else if (step >= 9) tConn.set(step === 9 ? 'Lena → servidor: fechado\nservidor → Lena: aberto' : step === 10 ? 'os dois sentidos fechados' : 'conexão encerrada', 'hi').at(350, 180, 70);
     else tConn.hide();
     // telas e luzes
     drawPhone({ udp, buf: S.sendBuf });
