@@ -1,5 +1,7 @@
 # SDLabs
 
+Leia também PREMISSAS.md: o que torna um lab "inesquecível" (aprovado pela Juliana no módulo 1).
+
 Laboratórios visuais e interativos de System Design. Notas pessoais de estudo, escritas com palavras próprias,
 a partir dos artigos públicos de Matheus Fidelis (https://fidelissauro.dev). Tudo em português.
 Não citar curso nem marca de terceiros no site; não reproduzir títulos/durações de aulas pagas; crédito só ao blog público, com "sem vínculo".

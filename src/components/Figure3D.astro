@@ -7,7 +7,7 @@ interface Props { path: string; poster: string; alt: string; title: string; hint
 const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo ou setas do teclado para avançar · clique numa peça para ir até ela' } = Astro.props;
 const src = withBase(path);
 ---
-<div class="f3d-wrap" data-src={`${src}?embed=1`} data-title={title}>
+<div class="f3d-wrap" data-src={`${src}${src.includes('?') ? '&' : '?'}embed=1`} data-title={title}>
   <a class="f3d-poster" href={src}>
     <img src={withBase(poster)} alt={alt} width="640" height="560" loading="lazy" />
     <span class="f3d-cta">▶ Abrir a figura 3D</span>
