@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">Com a rede configurada, o nome resolvido e a conexão cifrada, o notebook da Lena finalmente pede a página da loja. Ela precisa de 6 arquivos, e é aqui que o transporte volta a atrapalhar: uma resposta travada segura as que vêm atrás.</p>
+
 <OneLiner>o HTTP é o protocolo de requisição e resposta da web, e cada versão ataca o mesmo problema: o head-of-line blocking, quando uma resposta travada segura as que vêm atrás.</OneLiner>
 
 <DoIt>
@@ -22,13 +24,15 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>HTTP é da <strong>camada 7</strong> e segue o modelo <strong>pedido e resposta</strong>.</li>
+  <li>O HTTP é da <strong>camada 7</strong> e segue o modelo <strong>pedido e resposta</strong>: o navegador pede cada arquivo e o servidor responde.</li>
   <li><strong>HTTP/1.1:</strong> uma resposta por vez em cada conexão. Uma resposta lenta bloqueia as seguintes (<strong>head-of-line blocking</strong>, HOL).</li>
-  <li><strong>HTTP/2:</strong> <strong>multiplexação</strong>, várias requisições na mesma conexão TCP. Mas um pacote perdido ainda segura todos os fluxos (HOL no TCP).</li>
-  <li><strong>HTTP/3:</strong> troca o TCP pelo <strong>QUIC, sobre UDP</strong>. Fluxos independentes: perda num não trava os outros.</li>
-  <li><strong>Connection ID</strong> no lugar de IP+porta: a conexão sobrevive à troca de Wi-Fi para dados móveis.</li>
+  <li>O <strong>HTTP/2</strong> atacou isso com <strong>multiplexação</strong>: várias requisições na mesma conexão TCP. Mas um pacote perdido ainda segura todos os fluxos (HOL no TCP).</li>
+  <li>O <strong>HTTP/3</strong> ataca a causa que sobrou: troca o TCP pelo <strong>QUIC, sobre UDP</strong>. Fluxos independentes: perda num não trava os outros.</li>
+  <li>Outra vantagem do QUIC: o <strong>Connection ID</strong> no lugar de IP+porta faz a conexão sobreviver à troca de Wi-Fi para dados móveis.</li>
 </ol>
 </HowItWorks>
+
+<p>O HTTP/3 muda de transporte, e o transporte novo é o QUIC. Ele merece uma seção própria.</p>
 
 <h3 class="sec">QUIC: o transporte do HTTP/3</h3>
 <p><strong>Em uma frase:</strong> o QUIC é um protocolo de transporte construído sobre UDP, que faz o trabalho do TCP e do TLS juntos.</p>
@@ -51,18 +55,18 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <h4 class="deep-h">Por que existe</h4>
 <ul class="why-list">
-  <li><strong>O TCP vive no kernel</strong> e muda devagar. Middleboxes (firewalls, NATs) travam o formato e barram o que é novo: é a <strong>ossificação</strong>.</li>
-  <li><strong>O QUIC roda em espaço de usuário</strong>, dentro do app ou do navegador. Atualizar é lançar uma nova versão, sem esperar o sistema operacional.</li>
   <li><strong>O TCP tem HOL blocking entre fluxos.</strong> Ele entrega bytes em ordem, então um pacote perdido segura tudo que veio depois.</li>
+  <li>Corrigir isso no TCP é difícil: <strong>ele vive no kernel</strong> e muda devagar. Middleboxes (firewalls, NATs) travam o formato e barram o que é novo: é a <strong>ossificação</strong>.</li>
+  <li>Por isso <strong>o QUIC roda em espaço de usuário</strong>, dentro do app ou do navegador. Atualizar é lançar uma nova versão, sem esperar o sistema operacional.</li>
 </ul>
 
 <HowItWorks title="Como o QUIC funciona">
 <ol class="flow steps">
   <li><strong>Handshake de 1 RTT</strong> com o TLS 1.3 embutido. Na reconexão, dá para mandar dados em <strong>0-RTT</strong>, mas um atacante pode repetir esse primeiro pedido (<strong>replay</strong>). Só serve para pedidos seguros de repetir, como um GET.</li>
-  <li><strong>Streams independentes:</strong> cada fluxo tem a sua própria ordem. A perda num fluxo só trava aquele fluxo.</li>
-  <li><strong>Connection ID:</strong> a conexão é identificada por um ID, não por IP e porta. Ao trocar de Wi-Fi para 4G, ela continua.</li>
+  <li>Com a conexão aberta, os <strong>streams são independentes</strong>: cada fluxo tem a sua própria ordem, e a perda num fluxo só trava aquele fluxo.</li>
+  <li>A conexão é identificada por um <strong>Connection ID</strong>, não por IP e porta. Ao trocar de Wi-Fi para 4G, ela continua.</li>
   <li><strong>Quase tudo cifrado:</strong> o conteúdo e boa parte do cabeçalho de transporte, como número de pacote e confirmações. Quem está no meio vê pouco mais que o UDP e o ID de destino.</li>
-  <li><strong>Perda e congestionamento próprios:</strong> o QUIC detecta perdas e controla a velocidade sozinho, em cima do UDP. O UDP só entrega datagramas.</li>
+  <li>Como o UDP só entrega datagramas, o QUIC cuida sozinho da <strong>perda e do congestionamento</strong>: detecta perdas e controla a velocidade.</li>
 </ol>
 </HowItWorks>
 
@@ -79,12 +83,18 @@ import Flashcards from '../../components/Flashcards.astro';
 </table>
 </div>
 
-<h4 class="deep-h">Por que importa em System Design</h4>
+<h4 class="deep-h">O que o QUIC muda na prática</h4>
 <ul class="why-list">
   <li><strong>Latência no celular:</strong> menos RTTs para começar e conexão que sobrevive à troca de rede.</li>
   <li><strong>Redes com perda:</strong> um pacote perdido atrasa só um fluxo, não a página inteira.</li>
   <li><strong>Balanceadores e firewalls</strong> precisam deixar passar <strong>UDP/443</strong>. Quando isso falha, o cliente cai para HTTP/2 sobre TCP. Mantenha os dois caminhos funcionando.</li>
 </ul>
+
+<WhyItMatters>
+  <li>Com isso, a versão do HTTP muda quantas conexões, quantos handshakes e quanto uma perda dói.</li>
+  <li>Em redes móveis e instáveis, o HTTP/3 ganha. Entre serviços num datacenter, HTTP/2 ou gRPC com poucas conexões longas é o comum.</li>
+  <li>Terminar HTTP/3 num CDN ou load balancer é a forma mais simples de adotar.</li>
+</WhyItMatters>
 
 <Deep min={1}>
   <h4 class="deep-h">Detalhes extras do QUIC</h4>
@@ -103,12 +113,6 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "RFC 9204: QPACK, compressão de cabeçalhos para o HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9204" },
   ]} />
 </Deep>
-
-<WhyItMatters>
-  <li>A versão do HTTP muda quantas conexões, quantos handshakes e quanto uma perda dói.</li>
-  <li>Em redes móveis e instáveis, o HTTP/3 ganha. Entre serviços num datacenter, HTTP/2 ou gRPC com poucas conexões longas é o comum.</li>
-  <li>Terminar HTTP/3 num CDN ou load balancer é a forma mais simples de adotar.</li>
-</WhyItMatters>
 
 <Deep min={1}>
   <h4 class="deep-h">Anatomia de uma mensagem</h4>
@@ -156,6 +160,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "http.cat: códigos de status para lembrar", href: "https://http.cat/" },
   ]} />
 </Deep>
+
+<p class="gancho">Cada versão do HTTP corta esperas, e cada espera tem nome: DNS, TCP, TLS, servidor, download. Falta saber quanto tempo uma requisição inteira leva e onde cortar primeiro.</p>
 
 <Flashcards cards={[
   { q: "Como o HTTP/1.1 e o HTTP/2 reagem a uma perda?",

@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">O TCP entrega a foto inteira e em ordem, mas em claro: num Wi-Fi público, quem está na mesma rede lê tudo. Na aula 2, a camada 6 transformou a foto em ruído. Aqui está como cliente e servidor combinam a chave desse ruído sem que ninguém no meio a descubra.</p>
+
 <OneLiner>TLS (sucessor do SSL) criptografa a conversa para garantir privacidade e integridade, e o handshake dele serve para chegar a uma chave de sessão única.</OneLiner>
 
 <DoIt>
@@ -22,16 +24,18 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Cliente e servidor <strong>negociam</strong> versão e algoritmos.</li>
-  <li>O servidor prova quem é com um <strong>certificado</strong>.</li>
-  <li>Os dois derivam uma <strong>chave de sessão</strong> simétrica.</li>
-  <li>Essa chave criptografa o resto da conversa: <strong>assimétrica na negociação, simétrica nos dados</strong>.</li>
+  <li>Primeiro, cliente e servidor <strong>negociam</strong> versão e algoritmos.</li>
+  <li>Depois o servidor prova quem é com um <strong>certificado</strong>, e o cliente confere.</li>
+  <li>Com o servidor autenticado, os dois derivam uma <strong>chave de sessão</strong> simétrica, sem mandá-la pela linha.</li>
+  <li>Só então essa chave criptografa o resto da conversa: <strong>assimétrica na negociação, simétrica nos dados</strong>.</li>
 </ol>
 </HowItWorks>
 
+<p>O preço da privacidade é o handshake. No exemplo da figura, com RTT de 80 ms, o pedido sai depois de 240 ms no TLS 1.2 e de 160 ms no TLS 1.3, já contando o TCP.</p>
+
 <WhyItMatters>
   <li>Cada RTT do handshake é tempo antes do primeiro byte útil.</li>
-  <li>TLS 1.3, conexões reutilizadas e TLS terminado perto do usuário (CDN, load balancer na borda) baixam a latência.</li>
+  <li>Por isso TLS 1.3, conexões reutilizadas e TLS terminado perto do usuário (CDN, load balancer na borda) baixam a latência.</li>
   <li>Certificado expirado é uma causa clássica de indisponibilidade.</li>
 </WhyItMatters>
 
@@ -46,6 +50,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "AWS: diferença entre SSL e TLS", href: "https://aws.amazon.com/pt/compare/the-difference-between-ssl-and-tls/" },
   ]} />
 </Deep>
+
+<p class="gancho">Tudo isso supõe que a Lena já tem o IP do servidor, mas ela só tocou num link com nome. Falta saber de onde vem esse IP.</p>
 
 <Flashcards cards={[
   { q: "O que o TLS garante?",

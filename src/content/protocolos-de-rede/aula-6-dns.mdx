@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">O celular da Lena já sabe endereçar, entregar e cifrar, mas tudo isso parte de um IP, e ela tocou num link com nome. Quem transforma o nome em IP é o DNS.</p>
+
 <OneLiner>o DNS é a lista telefônica da internet: transforma <code>demo.fidelissauro.dev</code> em um endereço IP, perguntando a servidores cada vez mais específicos.</OneLiner>
 
 <DoIt>
@@ -21,20 +23,22 @@ import Flashcards from '../../components/Flashcards.astro';
 <Figure3D path="labs/protocolos-de-rede/dns-3d/" poster="labs/protocolos-de-rede/dns-3d-previa.webp" title="Figura interativa: resolução DNS de demo.fidelissauro.dev" alt="Prévia da figura 3D: celular, resolver e os servidores raiz, TLD .dev e autoritativo, com a resposta A 203.0.113.42" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o cenário de cache no painel" />
 
 <HowItWorks>
-<p>Humanos lembram nomes, máquinas precisam de IP. O <strong>resolver</strong> (geralmente do provedor, ou 8.8.8.8, 1.1.1.1) faz esta sequência de perguntas:</p>
+<p>Pessoas lembram nomes, máquinas precisam de IP. Antes de abrir qualquer conexão, o celular pergunta ao <strong>resolver</strong> (geralmente o do provedor, ou 8.8.8.8, 1.1.1.1), que faz esta sequência de perguntas:</p>
 <ol class="flow steps">
   <li><strong>Cache:</strong> o navegador, o sistema e o resolver olham se já sabem a resposta.</li>
-  <li><strong>Servidor raiz:</strong> não sabe o IP, mas sabe quem cuida do <code>.dev</code>.</li>
-  <li><strong>Servidor TLD do .dev:</strong> não sabe o IP, mas sabe quem é o servidor de nomes de <code>fidelissauro.dev</code>.</li>
-  <li><strong>Servidor autoritativo:</strong> tem a palavra final e responde o IP de <code>demo.fidelissauro.dev</code>.</li>
-  <li>O resolver devolve a resposta e <strong>guarda em cache</strong> pelo tempo do TTL. O navegador conecta ao IP.</li>
+  <li>Se ninguém sabe, o resolver começa pelo topo. O <strong>servidor raiz</strong> não sabe o IP, mas sabe quem cuida do <code>.dev</code>.</li>
+  <li>O <strong>servidor TLD do .dev</strong> também não sabe o IP, mas sabe quem é o servidor de nomes de <code>fidelissauro.dev</code>.</li>
+  <li>O <strong>servidor autoritativo</strong> tem a palavra final e responde o IP de <code>demo.fidelissauro.dev</code>.</li>
+  <li>O resolver devolve a resposta e <strong>guarda em cache</strong> pelo tempo do TTL. Só então o navegador conecta ao IP.</li>
 </ol>
 </HowItWorks>
 
+<p>Quatro servidores parecem muito, mas o cache faz a consulta custar pouco: no exemplo da figura, cerca de 85 ms sem cache, 5 ms com o cache do resolver e 0 ms com o cache do navegador.</p>
+
 <WhyItMatters>
-  <li>DNS é a primeira etapa de toda requisição e também um ponto único de falha.</li>
-  <li>O <strong>TTL</strong> é o equilíbrio: alto dá menos consultas, mas atrasa um failover. Baixo troca de IP rápido, mas gera mais consultas.</li>
-  <li>DNS também serve para balancear carga e rotear por região.</li>
+  <li>O DNS é a primeira etapa de toda requisição e também um ponto único de falha.</li>
+  <li>O <strong>TTL</strong> é o equilíbrio: alto dá menos consultas, mas atrasa um failover; baixo troca de IP rápido, mas gera mais consultas.</li>
+  <li>Além de achar o IP, o DNS serve para balancear carga e rotear por região.</li>
 </WhyItMatters>
 
 <Deep min={1}>
@@ -49,6 +53,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "root-servers.org: mapa dos servidores raiz", href: "https://root-servers.org/" },
   ]} />
 </Deep>
+
+<p class="gancho">O DNS só funciona se o celular já tem IP e sabe qual resolver perguntar. Num café onde ela acabou de chegar, ele não tem nada disso. Falta saber quem entrega essa configuração a quem acabou de entrar na rede.</p>
 
 <Flashcards cards={[
   { q: "Qual a cadeia de uma resolução sem cache?",

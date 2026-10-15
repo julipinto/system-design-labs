@@ -12,6 +12,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">Cada aula deixou uma conta de RTTs: um para o TCP, um ou dois para o TLS, o DNS antes de tudo e as esperas do HTTP. Agora a conta fecha: quanto tempo a página da loja leva para a Lena, e onde cortar?</p>
+
 <OneLiner>o tempo de resposta é a soma de várias esperas (DNS, handshakes, servidor, download), e a maioria delas é feita de RTTs, não de largura de banda.</OneLiner>
 
 <DoIt>
@@ -20,20 +22,20 @@ import Flashcards from '../../components/Flashcards.astro';
 <Widget name="latency" title="Calculadora de tempo de resposta" hint="Modelo simplificado: ignora slow start e perdas. Valores são exemplos." />
 
 <HowItWorks>
-<p>Uma requisição HTTPS nova, do ponto de vista do usuário, passa por:</p>
+<p>Uma requisição HTTPS nova, do ponto de vista do usuário, passa por estas esperas, na ordem em que acontecem:</p>
 <ol class="flow steps">
-  <li><strong>DNS lookup:</strong> descobrir o IP (zero se estiver em cache).</li>
-  <li><strong>TCP handshake:</strong> 1 RTT.</li>
-  <li><strong>TLS handshake:</strong> 2 RTTs no TLS 1.2, 1 RTT no TLS 1.3.</li>
-  <li><strong>Espera pelo primeiro byte:</strong> 1 RTT para o pedido ir e a resposta voltar, mais o processamento do servidor.</li>
+  <li><strong>DNS lookup</strong> (aula 6): descobrir o IP (zero se estiver em cache).</li>
+  <li><strong>TCP handshake</strong> (aula 4): 1 RTT.</li>
+  <li><strong>TLS handshake</strong> (aula 5): 2 RTTs no TLS 1.2, 1 RTT no TLS 1.3.</li>
+  <li><strong>Espera pelo primeiro byte</strong> (aula 8): 1 RTT para o pedido ir e a resposta voltar, mais o processamento do servidor.</li>
   <li><strong>Download:</strong> baixar o conteúdo, limitado pela largura de banda.</li>
 </ol>
-<p><strong>RTT</strong> (round-trip time) é o tempo de uma ida e volta entre cliente e servidor. Em respostas pequenas, quase todo o tempo é RTT.</p>
+<p><strong>RTT</strong> (round-trip time) é o tempo de uma ida e volta entre cliente e servidor. Em respostas pequenas, quase todo o tempo é RTT. Com os 80 ms das figuras, só o TCP e o TLS 1.2 já somam 240 ms antes de o pedido sair.</p>
 </HowItWorks>
 
 <WhyItMatters>
   <li>Ordem de ataque: eliminar RTTs (keep-alive, cache de DNS, TLS 1.3, HTTP/3, CDN perto do usuário), depois reduzir o tempo do servidor, e só então comprar banda.</li>
-  <li>Em respostas pequenas, dobrar a banda quase não muda nada. Cortar um RTT muda tudo.</li>
+  <li>Isso funciona porque, em respostas pequenas, dobrar a banda quase não muda nada e cortar um RTT muda tudo.</li>
   <li>Meça percentis (p95, p99), não só a média.</li>
 </WhyItMatters>
 
@@ -62,6 +64,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "Artigo público de Matheus Fidelis sobre protocolos de rede", href: "https://fidelissauro.dev/protocolos-de-rede/" },
   ]} />
 </Deep>
+
+<p class="gancho">Agora cada protocolo do módulo tem um custo que você sabe medir em RTTs. Na próxima vez que uma página demorar, some as esperas e corte a maior.</p>
 
 <Flashcards cards={[
   { q: "Quais parcelas compõem o tempo de resposta?",

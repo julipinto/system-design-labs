@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">O IP leva cada uma das 215 fatias até a máquina certa, mas não garante nada: a fatia pode sumir, chegar duplicada ou fora de ordem. Quem cuida disso é o TCP, na camada 4, a não ser que a aplicação escolha o UDP.</p>
+
 <OneLiner>TCP é o entregador que exige assinatura e confirma cada pacote; UDP é o que joga a correspondência debaixo do portão e segue para a próxima.</OneLiner>
 
 <DoIt>
@@ -21,26 +23,29 @@ import Flashcards from '../../components/Flashcards.astro';
 <Figure3D path="labs/protocolos-de-rede/tcp-3d/" poster="labs/protocolos-de-rede/tcp-3d-previa.webp" title="Figura interativa: TCP com handshake, perda, reenvio e fechamento; e o mesmo com UDP" alt="Prévia da figura 3D: celular e servidor ligados por dois trilhos, com o segmento #2 perdido e o buffer do servidor esperando" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque TCP/UDP no painel" />
 
 <HowItWorks>
+<p>Para ver isso de perto, a figura usa um exemplo menor e inventado: 300 bytes em 3 segmentos de 100 bytes, no lugar das 215 fatias da foto (no TCP, cada fatia se chama segmento).</p>
 <ol class="flow steps">
-  <li><strong>UDP:</strong> envia datagramas independentes, sem conexão, sem ordem, sem confirmação. Rápido e leve.</li>
-  <li><strong>TCP</strong> abre com o <strong>three-way handshake</strong>: SYN, SYN-ACK, ACK (1 RTT).</li>
-  <li>Transfere <strong>segmentos numerados</strong>. O receptor reordena o que chega fora de ordem e manda ACK.</li>
+  <li>O <strong>TCP</strong> começa abrindo a conexão, com o <strong>three-way handshake</strong>: SYN, SYN-ACK, ACK (1 RTT).</li>
+  <li>Aberta a conexão, ele transfere <strong>segmentos numerados</strong>. O receptor reordena o que chega fora de ordem e manda ACK.</li>
   <li>O que não for confirmado a tempo é <strong>retransmitido</strong>.</li>
-  <li>Fecha com o <strong>four-way close</strong>: cada lado manda FIN e recebe um ACK.</li>
+  <li>Quando acaba, fecha com o <strong>four-way close</strong>: cada lado manda FIN e recebe um ACK.</li>
+  <li>O <strong>UDP</strong> pula tudo isso: envia datagramas independentes, sem conexão, sem ordem, sem confirmação. Rápido e leve.</li>
 </ol>
 </HowItWorks>
 
+<p>Cada garantia do TCP é uma mensagem a mais, e cada mensagem espera uma volta.</p>
+
 <WhyItMatters>
-  <li>O handshake é custo fixo por conexão: por isso existem <strong>keep-alive</strong> e pools de conexões.</li>
+  <li>O handshake é custo fixo por conexão, por isso existem <strong>keep-alive</strong> e pools de conexões.</li>
   <li>A retransmissão explica picos de latência quando há perda.</li>
-  <li>Dado que perde valor rápido (voz, posição num jogo): UDP. Dado que não pode faltar (pagamento, banco de dados): TCP.</li>
+  <li>Na hora de escolher, dado que perde valor rápido (voz, posição num jogo) vai de UDP, e dado que não pode faltar (pagamento, banco de dados) vai de TCP.</li>
 </WhyItMatters>
 
 <Deep min={4}>
   <h4 class="deep-h">UDP: sem conexão, sem garantias</h4>
-  <p>Quase não tem burocracia, então é rápido e leve. Serve para o que tolera perda ou onde o dado velho já não vale nada: chamadas de voz e vídeo, jogos online, DNS, NTP.</p>
+  <p>O UDP quase não tem burocracia, então é rápido e leve. Serve para o que tolera perda ou onde o dado velho já não vale nada: chamadas de voz e vídeo, jogos online, DNS, NTP.</p>
   <h4 class="deep-h">TCP: orientado a conexão</h4>
-  <p>Abre, mantém, verifica e encerra a conexão. Entrega íntegro e na ordem.</p>
+  <p>O TCP abre, mantém, verifica e encerra a conexão. Entrega íntegro e na ordem.</p>
   <p>No handshake, cada lado escolhe um <strong>ISN</strong> (Initial Sequence Number) e o outro confirma. O ACK é cumulativo: "recebi tudo até aqui, espero o número X".</p>
   <p>A confiabilidade do TCP custa burocracia, e por isso ele é mais lento que o UDP. Mesmo assim, a maioria dos protocolos de serviço usa TCP.</p>
   <h4 class="deep-h">Cabeçalhos lado a lado</h4>
@@ -90,6 +95,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "Microsoft Learn: three-way handshake do TCP/IP", href: "https://learn.microsoft.com/pt-br/troubleshoot/windows-server/networking/three-way-handshake-via-tcpip" },
   ]} />
 </Deep>
+
+<p class="gancho">O TCP entrega as 215 fatias inteiras e em ordem, mas em claro: num Wi-Fi público, qualquer um na rede lê o gato. Falta saber como esconder a conversa.</p>
 
 <Flashcards cards={[
   { q: "TCP e UDP, na analogia do entregador?",

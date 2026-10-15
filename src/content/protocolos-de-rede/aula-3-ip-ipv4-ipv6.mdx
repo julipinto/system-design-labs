@@ -12,6 +12,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">Na aula 2, a foto da Lena virou 215 fatias e cada uma ganhou uma caixa IP com o endereço final, 198.51.100.7. Mas o que é esse número, e o que um roteador faz com ele?</p>
+
 <OneLiner>o IP dá a cada dispositivo um endereço lógico na camada 3 para os pacotes saberem aonde chegar, e o IPv6 existe porque os 32 bits do IPv4 acabaram.</OneLiner>
 
 <DoIt>
@@ -20,24 +22,25 @@ import Flashcards from '../../components/Flashcards.astro';
 <Widget name="ip" title="Visualizador de endereços" hint="Digite um IPv4 para ver os 32 bits e saber se é privado." />
 
 <HowItWorks>
+<p>Os 32 bits que o visualizador mostrou são o endereço que cada roteador lê.</p>
 <ol class="flow steps">
   <li>O IP é o "CEP + número" do dispositivo, na <strong>camada 3</strong>.</li>
-  <li><strong>Roteadores</strong> olham só o IP de destino e empurram o pacote ao próximo salto. O IP <strong>não garante</strong> entrega nem ordem: isso é do TCP.</li>
-  <li><strong>IPv4:</strong> 32 bits em 4 octetos (<code>192.168.1.10</code>), cerca de 4,3 bilhões de endereços. Acabou.</li>
+  <li>Com o IP de destino em mãos, os <strong>roteadores</strong> empurram o pacote ao próximo salto. Eles olham só isso, e o IP <strong>não garante</strong> entrega nem ordem: isso é do TCP.</li>
+  <li>O endereço vem em duas versões. <strong>IPv4:</strong> 32 bits em 4 octetos (<code>192.168.1.10</code>), cerca de 4,3 bilhões de endereços. Esse espaço acabou.</li>
   <li><strong>IPv6:</strong> 128 bits em 8 grupos hexadecimais (<code>2001:db8::1</code>). Espaço praticamente ilimitado.</li>
-  <li><strong>Dual stack:</strong> o dispositivo fala IPv4 e IPv6 e escolhe conforme o destino.</li>
+  <li>Enquanto o mundo migra, o <strong>dual stack</strong> deixa o dispositivo falar IPv4 e IPv6 e escolher conforme o destino.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>IP privado dentro da VPC, IP público só no que precisa.</li>
-  <li>O <strong>NAT</strong> esconde instâncias, mas esgota portas sob muita conexão saindo.</li>
-  <li>IPv6 reduz a dependência de NAT, e o dual stack aparece em load balancers e DNS (registros A e AAAA).</li>
-  <li><code>ping</code> e <code>traceroute</code> usam o ICMP: quando algo falha no caminho, a rede avisa onde.</li>
+  <li>Como o IPv4 acabou, a saída foi o <strong>NAT</strong>: ele esconde instâncias atrás de um IP público, mas esgota portas sob muita conexão saindo.</li>
+  <li>O IPv6 reduz a dependência de NAT, e o dual stack aparece em load balancers e DNS (registros A e AAAA).</li>
+  <li>E quando algo falha no caminho, a rede avisa onde: <code>ping</code> e <code>traceroute</code> usam o ICMP.</li>
 </WhyItMatters>
 
 <Deep min={3}>
-  <p>O IPv4 acabou e foi contornado com <strong>IPs privados</strong> e <strong>NAT</strong>: milhares de aparelhos atrás de um único IP público.</p>
+  <p>Para contornar o fim do IPv4, entraram os <strong>IPs privados</strong> e o <strong>NAT</strong>: milhares de aparelhos atrás de um único IP público.</p>
   <p>O IPv6 tem cabeçalho mais simples para os roteadores e IPsec nativo. O dual stack é uma transição simples, mas exige suporte dos dois lados.</p>
   <p>Faixas privadas (não roteadas na internet):</p>
   <ul>
@@ -65,6 +68,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "ipv6.br: endereçamento", href: "https://ipv6.br/post/enderecamento/" },
   ]} />
 </Deep>
+
+<p class="gancho">O IP leva cada fatia até a máquina certa, mas não garante que ela chegue, nem em que ordem. Falta saber quem garante as 215 fatias da foto.</p>
 
 <Flashcards cards={[
   { q: "Quantos bits têm o IPv4 e o IPv6?",

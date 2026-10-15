@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">A Lena acabou de sentar no café. O celular conectou ao Wi-Fi, mas ainda não tem IP, não sabe quem é o roteador e não sabe qual DNS usar. Quem entrega essa configuração é o DHCP, que na ordem real vem antes de tudo o que vimos: antes do DNS, do TCP e do TLS.</p>
+
 <OneLiner>o DHCP entrega automaticamente IP, máscara, gateway e DNS para quem acabou de entrar na rede, num ritual de 4 mensagens chamado DORA.</OneLiner>
 
 <DoIt>
@@ -21,19 +23,21 @@ import Flashcards from '../../components/Flashcards.astro';
 <Figure3D path="labs/protocolos-de-rede/dhcp-3d/" poster="labs/protocolos-de-rede/dhcp-3d-previa.webp" title="Figura interativa: DHCP (DORA) na rede de um café" alt="Prévia da figura 3D: o roteador oferece o IP 192.168.0.105 ao celular da Lena, com o pool de endereços ao lado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o cenário no painel" />
 
 <HowItWorks>
-<p>A sigla <strong>DORA</strong> reúne as 4 etapas: Discover, Offer, Request, Acknowledgment.</p>
+<p>O celular não tem IP e não sabe quem é o servidor, então tudo começa aos gritos. A sigla <strong>DORA</strong> reúne as 4 etapas: Discover, Offer, Request, Acknowledgment.</p>
 <ol class="flow steps">
   <li><strong>Discover:</strong> o cliente ainda não tem IP, então grita em <strong>broadcast</strong> sobre UDP (portas 68 e 67): "tem servidor DHCP aí?"</li>
-  <li><strong>Offer:</strong> o servidor oferece IP, máscara, gateway, DNS e tempo de lease.</li>
-  <li><strong>Request:</strong> o cliente escolhe uma oferta e a pede, também em broadcast.</li>
+  <li><strong>Offer:</strong> só o servidor responde, com uma oferta de IP, máscara, gateway, DNS e tempo de lease.</li>
+  <li><strong>Request:</strong> o cliente escolhe uma oferta e a pede, também em broadcast, porque ainda não pode usar o IP.</li>
   <li><strong>Acknowledgment:</strong> o servidor confirma. O IP é do cliente pelo tempo do <strong>lease</strong>.</li>
 </ol>
 </HowItWorks>
 
+<p>Com IP, gateway e DNS na mão, o celular da Lena enfim consegue usar o DNS da aula 6 e abrir as conexões das aulas 4 e 5.</p>
+
 <WhyItMatters>
-  <li>Instâncias, containers e dispositivos entram na rede sem configuração manual, com IPs reaproveitados.</li>
-  <li>Pool de endereços esgotado ou servidor DHCP fora do ar deixa novos dispositivos sem rede.</li>
-  <li>Sintoma clássico: IP <code>169.254.x.x</code>.</li>
+  <li>Graças a isso, instâncias, containers e dispositivos entram na rede sem configuração manual, com IPs reaproveitados.</li>
+  <li>O outro lado da moeda: pool de endereços esgotado ou servidor DHCP fora do ar deixa novos dispositivos sem rede.</li>
+  <li>O sintoma clássico é um IP <code>169.254.x.x</code>.</li>
 </WhyItMatters>
 
 <Deep min={1}>
@@ -46,6 +50,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "GeeksforGeeks: como o DORA funciona", href: "https://www.geeksforgeeks.org/how-dora-works/" },
   ]} />
 </Deep>
+
+<p class="gancho">Com IP, gateway e DNS na mão, o celular está pronto para falar com o servidor. Falta saber o que ele diz e por que o protocolo da web ganhou três versões.</p>
 
 <Flashcards cards={[
   { q: "O que significa DORA?",

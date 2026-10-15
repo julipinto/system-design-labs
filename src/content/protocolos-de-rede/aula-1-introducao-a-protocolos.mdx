@@ -12,35 +12,39 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p class="ponte">A Lena, em São Paulo, manda a foto do gato para o irmão, em Tóquio. Os dois celulares nunca se viram e, mesmo assim, a foto chega inteira. O que faz dois sistemas estranhos se entenderem?</p>
+
 <OneLiner>protocolo é um acordo sobre o formato e a ordem das mensagens, para que dois sistemas que nunca se viram consigam conversar.</OneLiner>
 
 <DoIt>
-  <p>Anote 3 coisas que dois programas precisam combinar antes de conversar, depois confira nos passos abaixo.</p>
+  <p>Pense nos dois celulares e anote 3 coisas que eles precisam combinar antes de conversar. Depois confira nos passos abaixo.</p>
 </DoIt>
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Os dois combinam <strong>quem fala primeiro</strong>.</li>
-  <li>Combinam o <strong>formato</strong> das mensagens e o que significa cada campo.</li>
-  <li>Combinam o que fazer quando <strong>algo dá errado</strong>.</li>
+  <li>Antes de qualquer foto, os dois combinam <strong>quem fala primeiro</strong>.</li>
+  <li>Depois combinam o <strong>formato</strong> das mensagens e o que significa cada campo.</li>
+  <li>Combinam também o que fazer quando <strong>algo dá errado</strong>.</li>
   <li>Esse combinado é o <strong>protocolo</strong>. Sem ele, os bytes chegam e ninguém sabe o que são.</li>
-  <li>Protocolos se <strong>empilham</strong>: cada um resolve um pedaço e entrega o resultado ao de cima.</li>
+  <li>Um protocolo só não dá conta de tudo, então eles se <strong>empilham</strong>: cada um resolve um pedaço e serve o de cima.</li>
 </ol>
 </HowItWorks>
+
+<p>Esse acordo não nasceu pronto. A linha do tempo mostra os problemas que o fizeram crescer.</p>
 
 <h3 class="sec">Como a internet chegou até aqui</h3>
 <Widget name="timeline" title="Linha do tempo" hint="Clique em cada marco para ler uma frase. Cada um resolveu um problema do anterior." />
 
 <WhyItMatters>
-  <li>Escolher protocolo é escolher trade-offs de <strong>performance</strong> e <strong>resiliência</strong>.</li>
-  <li>Confiabilidade custa idas e vindas, e idas e vindas custam <strong>latência</strong>.</li>
-  <li>Cada decisão (gRPC ou REST, TCP ou UDP, uma conexão ou várias) é uma decisão de protocolo.</li>
-  <li>Dividir em camadas deixa trocar uma tecnologia (cobre por fibra, HTTP/2 por HTTP/3) sem refazer o resto.</li>
+  <li>Escolher um protocolo é escolher um trade-off entre <strong>performance</strong> e <strong>resiliência</strong>.</li>
+  <li>O motivo: confiabilidade custa idas e vindas, e idas e vindas custam <strong>latência</strong>.</li>
+  <li>Por isso gRPC ou REST, TCP ou UDP, uma conexão ou várias são todas decisões de protocolo.</li>
+  <li>E dividir em camadas deixa trocar uma peça (cobre por fibra, HTTP/2 por HTTP/3) sem refazer o resto.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <p>O HTTP não sabe como o sinal viaja no cabo. O IP não sabe o que é uma página web. Essa divisão em camadas é o assunto da aula 2.</p>
-  <p>O módulo segue uma ordem: o mapa (modelo OSI), depois quem endereça (IP), quem transporta (TCP e UDP), quem protege (TLS), quem traduz nomes (DNS), quem configura a rede (DHCP), quem carrega a web (HTTP) e, no fim, quanto tempo tudo isso custa.</p>
+  <p>Cada aula do módulo parte do problema que a anterior deixou: o mapa (modelo OSI), depois quem endereça (IP), quem transporta (TCP e UDP), quem protege (TLS), quem traduz nomes (DNS), quem configura a rede (DHCP), quem carrega a web (HTTP) e, no fim, quanto tempo tudo isso custa.</p>
   <h4 class="deep-h">Por que dividir em camadas</h4>
   <ul>
     <li><strong>Independência:</strong> cada camada oferece serviços à de cima e usa os da de baixo, sem conhecer o funcionamento interno delas.</li>
@@ -60,6 +64,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "MDN: pacote", href: "https://developer.mozilla.org/en-US/docs/Glossary/Packet" },
   ]} />
 </Deep>
+
+<p class="gancho">Se os protocolos se empilham, falta saber quais são as camadas dessa pilha e o que cada uma faz com a foto da Lena.</p>
 
 <Flashcards cards={[
   { q: "O que um protocolo define?",

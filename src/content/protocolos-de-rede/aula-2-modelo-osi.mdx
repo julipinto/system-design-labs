@@ -14,6 +14,8 @@ import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import { withBase } from '../../lib/url.js';
 
+<p class="ponte">Na aula 1 os protocolos se empilharam, mas ficou a pergunta: em quantos andares, e o que cada um faz? O modelo OSI responde com 7 camadas.</p>
+
 <OneLiner>o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</OneLiner>
 
 <DoIt>
@@ -23,13 +25,13 @@ import { withBase } from '../../lib/url.js';
 <Figure3D path="labs/protocolos-de-rede/osi-3d/" poster="labs/protocolos-de-rede/osi-3d-previa.webp" title="Figura interativa do modelo OSI em 3D" alt="Prévia da figura 3D: a pilha de 7 camadas com a fatia de dados dentro das caixas TCP, IP e MAC" hint="Arraste para girar · Próximo passo ou ← → para avançar · clique numa camada para ir até ela" />
 
 <HowItWorks>
-<p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele.</p>
+<p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele. Na figura, os 7,68 MB da foto viram 313 KB cifrados e depois 215 fatias.</p>
 <ol class="flow steps">
-  <li><strong>7 Aplicação, 6 Apresentação, 5 Sessão:</strong> o programa. O que se diz, em que formato (ou cifrado) e qual conversa está aberta.</li>
-  <li><strong>4 Transporte:</strong> leva os dados de um processo a outro, pela <strong>porta</strong>. TCP ou UDP.</li>
-  <li><strong>3 Rede:</strong> endereça com <strong>IP</strong> e roteia, salto a salto.</li>
-  <li><strong>2 Enlace:</strong> entrega ao vizinho na mesma rede local, pelo <strong>MAC</strong>. O <strong>ARP</strong>, que descobre o MAC de um IP, fica aqui.</li>
-  <li><strong>1 Física:</strong> vira <strong>bits</strong>: luz, tensão ou rádio.</li>
+  <li>No topo ficam <strong>7 Aplicação, 6 Apresentação e 5 Sessão</strong>: o que o app diz, em que formato (ou cifrado) e qual conversa está aberta.</li>
+  <li>Abaixo, o <strong>4 Transporte</strong> corta o resultado em fatias e leva cada uma de um processo a outro, pela <strong>porta</strong>. TCP ou UDP.</li>
+  <li>O <strong>3 Rede</strong> dá a cada fatia um endereço <strong>IP</strong> e roteia, salto a salto.</li>
+  <li>O <strong>2 Enlace</strong> entrega ao vizinho na mesma rede local, pelo <strong>MAC</strong>. O <strong>ARP</strong>, que descobre o MAC de um IP, fica aqui.</li>
+  <li>No fim, o <strong>1 Física</strong> transforma o quadro em <strong>bits</strong>: luz, tensão ou rádio.</li>
 </ol>
 <div class="callout why" role="note">
   <h3>SDU, PCI e PDU</h3>
@@ -45,12 +47,14 @@ import { withBase } from '../../lib/url.js';
 </div>
 </HowItWorks>
 
+<p>A foto desceu a pilha inteira, mas no caminho cada equipamento abre o pacote só até uma camada. Até qual?</p>
+
 <h3 class="sec">Quem decide em qual camada?</h3>
 <Widget name="equip" title="Equipamentos e camadas" hint="Clique em um equipamento e veja até onde ele abre o pacote e onde decide." />
 
 <WhyItMatters>
-  <li>As camadas dão vocabulário para diagnosticar: a primeira pergunta é <strong>em que camada o pedido morreu?</strong></li>
-  <li><strong>Load balancer L4</strong> decide por IP e porta. <strong>L7</strong> lê o HTTP e roteia por caminho ou header.</li>
+  <li>Por isso as camadas servem de vocabulário para diagnosticar: a primeira pergunta é <strong>em que camada o pedido morreu?</strong></li>
+  <li>Um <strong>load balancer L4</strong> decide por IP e porta. Um <strong>L7</strong> lê o HTTP e roteia por caminho ou header.</li>
   <li>Alta disponibilidade e troubleshooting começam por localizar a camada.</li>
 </WhyItMatters>
 
@@ -152,6 +156,8 @@ import { withBase } from '../../lib/url.js';
     { label: "Livro \"Redes de Computadores\", de Andrew Tanenbaum" },
   ]} />
 </Deep>
+
+<p class="gancho">Na camada 3, cada fatia precisa de um endereço que valha no mundo inteiro: é ele que os roteadores leem até Tóquio. Falta saber como o IP faz isso.</p>
 
 <Flashcards cards={[
   { q: "Qual a ordem das camadas, de baixo para cima?",
