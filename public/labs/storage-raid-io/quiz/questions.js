@@ -40,7 +40,7 @@
 
 
   /* ---------- 1. Storage em System Design ---------- */
-  choice("t1", 1, 1, "Na loja da Lia, o que é o storage?", [
+  choice("t1", 1, 1, "Na loja, o que é o storage?", [
     "O lugar onde o sistema guarda dados para eles sobreviverem a um reinício.",
     "A memória RAM, que é apagada ao desligar.",
     "O cabo que liga o servidor à internet.",
@@ -53,14 +53,14 @@
     "Os logs de meses atrás."
   ], 0, "O banco é lido e gravado o tempo todo, em pontos aleatórios: cada milissegundo conta no checkout.");
   choice("t1", 3, 1, "Qual a ordem de latência típica, do mais rápido ao mais lento?", [
-    "NVMe (~0,02 ms), SSD SATA (~0,1 ms), HDD (5 a 10 ms).",
+    "NVMe (~0,1 ms), SSD SATA (~0,2 ms), HDD (5 a 10 ms).",
     "HDD, SSD SATA, NVMe.",
     "SSD SATA, NVMe, HDD.",
     "Todos têm a mesma latência; só a capacidade muda."
   ], 0, "NVMe fala direto com a flash por PCIe; o HDD precisa mover mecanicamente a cabeça.");
   tf("t1", 4, 1, "Guardar tudo da loja num único disco é um ponto único de falha.", true,
     "Se aquele disco queima, pedidos, fotos e tudo mais somem junto. Por isso existem réplicas, RAID e backups.");
-  choice("t1", 5, 3, "Fotos de produtos (2 TB, gravadas uma vez, lidas muitas) e o banco de pedidos (200 GB, pequenos e aleatórios). Qual o raciocínio certo?", [
+  choice("t1", 5, 3, "Fotos de produtos (~1,2 TB, como o gato.jpg, gravadas uma vez, lidas muitas) e o banco de pedidos (200 GB, pequenos e aleatórios). Qual o raciocínio certo?", [
     "Cada um pede um storage diferente: fotos, espaço barato e escalável; banco, latência baixa.",
     "Os dois devem ir para o mesmo disco NVMe, para simplificar.",
     "O banco vai para o disco mais barato, porque é o menor.",
@@ -158,9 +158,9 @@
     "A velocidade do disco em MB/s.",
     "O tipo de RAID usado."
   ], 0, "LBA é o endereço do bloco: bloco 0, bloco 1, bloco 2048.");
-  choice("t5", 3, 2, "Uma foto de 4 MB, em blocos de 4 KB, ocupa quantos blocos?", [
-    "1.024.", "4.", "400.", "16.384."
-  ], 0, "4 MB = 4.096 KB; dividido por 4 KB dá 1.024 blocos.");
+  choice("t5", 3, 2, "O gato.jpg tem 2,4 MB (2.457.600 bytes). Em blocos de 4 KB, ocupa quantos blocos?", [
+    "600.", "1.024.", "2.400.", "150."
+  ], 0, "2.457.600 bytes / 4.096 = 600 blocos (no volume da loja, LBA 2048 a 2647).");
   choice("t5", 4, 2, "Qual serviço da AWS é block storage?", [
     "EBS.", "S3.", "EFS.", "CloudFront."
   ], 0, "EBS entrega volumes de blocos que se anexam a uma instância. S3 é objeto e EFS é arquivo.");
@@ -202,7 +202,7 @@
     "Um caminho de pastas e um inode.",
     "Um número de bloco e uma paridade."
   ], 0, "O objeto leva tudo junto: os bytes, os dados sobre eles e a chave que o identifica.");
-  tf("t7", 2, 2, "No S3, produtos/camisa-azul/frente.jpg é uma pasta de verdade dentro do bucket.", false,
+  tf("t7", 2, 2, "No S3, produtos/gatos/ é uma pasta de verdade dentro do bucket loja-fotos.", false,
     "As \"pastas\" são só parte do nome da chave. O bucket é plano, sem árvore real.");
   choice("t7", 3, 1, "Como se acessa object storage?", [
     "Por API HTTP (PUT, GET, DELETE).",
@@ -216,7 +216,7 @@
     "Backups.",
     "Vídeos grandes."
   ], 0, "O objeto é trocado inteiro e cada acesso é uma chamada de rede. Banco precisa de blocos e baixa latência.");
-  choice("t7", 5, 3, "A Lia quer guardar backups noturnos com durabilidade altíssima e custo baixo. Qual a melhor escolha?", [
+  choice("t7", 5, 3, "A loja quer guardar backups noturnos com durabilidade altíssima e custo baixo. Qual a melhor escolha?", [
     "Object storage, em outra região, com regras de ciclo de vida.",
     "Um RAID 0 no servidor da loja.",
     "Um DAS no mesmo servidor do banco.",
@@ -230,15 +230,15 @@
     "Guarda uma paridade distribuída.",
     "Guarda duas paridades."
   ], 0, "É o striping: só desempenho, sem redundância.");
-  choice("t8", 2, 2, "Qual a capacidade de um RAID 0 com 4 discos de 10 TB?", [
-    "40 TB.", "30 TB.", "20 TB.", "10 TB."
-  ], 0, "RAID 0 soma tudo: 4 x 10 = 40 TB, aproveitamento de 100%.");
+  choice("t8", 2, 2, "Qual a capacidade de um RAID 0 com 4 discos de 1 TB?", [
+    "4 TB.", "3 TB.", "2 TB.", "1 TB."
+  ], 0, "RAID 0 soma tudo: 4 x 1 = 4 TB, aproveitamento de 100%.");
   choice("t8", 3, 2, "Quantos discos podem falhar num RAID 0 sem perda de dados?", [
     "Nenhum.", "Um.", "Dois.", "Metade."
   ], 0, "Cada arquivo tem pedaços em todos os discos. Perdeu um, perdeu tudo.");
   tf("t8", 4, 2, "Quanto mais discos num RAID 0, maior a chance de perder todos os dados.", true,
     "Qualquer disco que falhe derruba o conjunto. Com 4 discos há 4 chances de falha.");
-  layer("t8", 5, 2, "A Lia quer uma área temporária de renderização de imagens, rápida, em que perder os arquivos não importa. Qual nível de RAID?", 0,
+  layer("t8", 5, 2, "A loja quer uma área temporária de renderização de imagens, rápida, em que perder os arquivos não importa. Qual nível de RAID?", 0,
     "Dado refazível pede velocidade, não proteção: RAID 0.");
 
   /* ---------- 9. RAID 1 ---------- */
@@ -248,39 +248,39 @@
     "Calcula paridade com XOR.",
     "Junta pares em fatias."
   ], 0, "Mirroring: cada escrita vai para os dois discos.");
-  choice("t9", 2, 2, "Qual a capacidade útil de 2 discos de 10 TB em RAID 1?", [
-    "10 TB.", "20 TB.", "5 TB.", "15 TB."
+  choice("t9", 2, 2, "Qual a capacidade útil de 2 discos de 1 TB em RAID 1?", [
+    "1 TB.", "2 TB.", "0,5 TB.", "1,5 TB."
   ], 0, "Os dois discos guardam a mesma coisa, então só se aproveita um: 50%.");
   choice("t9", 3, 2, "Qual a penalidade de escrita do RAID 1?", [
     "2.", "1.", "4.", "6."
   ], 0, "Cada escrita lógica vira duas físicas, uma por disco.");
   tf("t9", 4, 2, "Se alguém executar um DELETE errado no banco, o RAID 1 permite recuperar a tabela.", false,
     "O espelho copia tudo na hora, inclusive o erro. RAID não é backup.");
-  layer("t9", 5, 2, "Um servidor pequeno precisa de proteção contra falha de um disco, e a Lia quer o mais simples possível, com 2 discos. Qual nível?", 1,
+  layer("t9", 5, 2, "Um servidor pequeno precisa de proteção contra falha de um disco, e a loja quer o mais simples possível, com 2 discos. Qual nível?", 1,
     "Dois discos espelhados: RAID 1.");
 
   /* ---------- 10. RAID 5 ---------- */
-  choice("t10", 1, 1, "Qual a capacidade do RAID 5 com 5 discos de 10 TB?", [
-    "40 TB.", "50 TB.", "30 TB.", "20 TB."
-  ], 0, "(N - 1) x tamanho = 4 x 10 = 40 TB. O equivalente a um disco vai para a paridade.");
+  choice("t10", 1, 1, "Qual a capacidade do RAID 5 com 4 discos de 1 TB?", [
+    "3 TB.", "4 TB.", "2 TB.", "1 TB."
+  ], 0, "(N - 1) x tamanho = 3 x 1 = 3 TB (75%). O equivalente a um disco vai para a paridade.");
   choice("t10", 2, 1, "Quantos discos podem falhar no RAID 5?", [
     "Um.", "Nenhum.", "Dois.", "Metade."
   ], 0, "A paridade permite refazer um disco perdido, mas só um por vez.");
-  choice("t10", 3, 2, "Blocos A = 1010, B = 0110, C = 1001. Qual a paridade (XOR dos três)?", [
-    "0101.", "1111.", "0000.", "1010."
-  ], 0, "1010 xor 0110 = 1100; 1100 xor 1001 = 0101.");
+  choice("t10", 3, 2, "Blocos A1 = 1011, A2 = 0110, A3 = 0101. Qual a paridade P1 (XOR dos três)?", [
+    "1000.", "1111.", "0000.", "1010."
+  ], 0, "1011 xor 0110 = 1101; 1101 xor 0101 = 1000.");
   choice("t10", 4, 2, "Quantas operações no disco gera uma escrita pequena no RAID 5?", [
     "4: lê dado e paridade antigos, grava dado e paridade novos.",
     "2: grava o dado em dois discos.",
     "1: só grava o dado.",
     "6: grava duas paridades."
   ], 0, "É a penalidade de escrita do RAID 5: 2 leituras + 2 escritas.");
-  choice("t10", 5, 3, "Por que o rebuild de um RAID 5 com discos de 10 TB é arriscado?", [
+  choice("t10", 5, 3, "Por que o rebuild de um RAID 5 é arriscado, sobretudo se os discos fossem de 10 TB?", [
     "Lê todos os outros discos por horas ou dias, e um erro de leitura (URE) nesse momento pode causar perda.",
     "Apaga os dados novos para economizar espaço.",
     "O disco novo é sempre defeituoso.",
     "A paridade é recalculada com a loja desligada."
-  ], 0, "Reconstruir 10 TB a 150 MB/s leva mais de 18 horas. Sem paridade sobrando, um URE no caminho é perda.");
+  ], 0, "Reconstruir um disco de 10 TB a 150 MB/s leva mais de 18 horas (com 1 TB, umas 2 horas). Sem paridade sobrando, um URE no caminho é perda.");
   tf("t10", 6, 2, "No RAID 5, a paridade fica sempre num disco dedicado.", false,
     "Ela é distribuída: gira de disco em cada linha, para não sobrecarregar um só.");
 
@@ -291,9 +291,9 @@
     "Nenhuma paridade.",
     "Discos mais rápidos."
   ], 0, "P e Q: duas equações, dois blocos desconhecidos recuperáveis.");
-  choice("t11", 2, 2, "Qual a capacidade do RAID 6 com 5 discos de 10 TB?", [
-    "30 TB.", "40 TB.", "20 TB.", "50 TB."
-  ], 0, "(N - 2) x tamanho = 3 x 10 = 30 TB.");
+  choice("t11", 2, 2, "Qual a capacidade do RAID 6 com 5 discos de 1 TB?", [
+    "3 TB.", "4 TB.", "2 TB.", "5 TB."
+  ], 0, "(N - 2) x tamanho = 3 x 1 = 3 TB (60%).");
   choice("t11", 3, 2, "Qual a penalidade de escrita do RAID 6?", [
     "6.", "4.", "2.", "1."
   ], 0, "Lê dado, P e Q antigos e grava dado, P e Q novos: 3 leituras + 3 escritas.");
@@ -310,43 +310,43 @@
     "Dois discos com cópia exata.",
     "Quatro discos sem nenhuma cópia."
   ], 0, "RAID 1+0: primeiro espelha, depois faz striping entre os pares.");
-  choice("t12", 2, 2, "Qual a capacidade do RAID 10 com 4 discos de 10 TB?", [
-    "20 TB.", "40 TB.", "30 TB.", "10 TB."
-  ], 0, "Metade do total: 4 x 10 / 2 = 20 TB.");
-  choice("t12", 3, 3, "RAID 10 com 4 discos (pares A-B e C-D). Falham A e C. O que acontece?", [
+  choice("t12", 2, 2, "Qual a capacidade do RAID 10 com 4 discos de 1 TB?", [
+    "2 TB.", "4 TB.", "3 TB.", "1 TB."
+  ], 0, "Metade do total: 4 x 1 / 2 = 2 TB.");
+  choice("t12", 3, 3, "RAID 10 com 4 discos (pares D1-D2 e D3-D4). Falham D1 e D3. O que acontece?", [
     "Os dados sobrevivem: sobrou um disco de cada par.",
     "Tudo é perdido.",
-    "Só os dados do par A-B se perdem.",
+    "Só os dados do par D1-D2 se perdem.",
     "O RAID vira RAID 0 e para."
   ], 0, "Cada par ainda tem um disco com a cópia completa.");
-  choice("t12", 4, 3, "RAID 10 com 4 discos (pares A-B e C-D). Falham A e B. O que acontece?", [
-    "Tudo é perdido: o par A-B inteiro foi embora.",
-    "Os dados sobrevivem, porque há C e D.",
+  choice("t12", 4, 3, "RAID 10 com 4 discos (pares D1-D2 e D3-D4). Falham D1 e D2. O que acontece?", [
+    "Tudo é perdido: o par D1-D2 inteiro foi embora.",
+    "Os dados sobrevivem, porque há D3 e D4.",
     "Só metade dos arquivos se perde.",
-    "O RAID reconstrói A e B de C e D."
-  ], 0, "Os dados estão fatiados entre os pares. Sem o par A-B, faltam pedaços de todos os arquivos.");
+    "O RAID reconstrói D1 e D2 de D3 e D4."
+  ], 0, "Os dados estão fatiados entre os pares. Sem o par D1-D2, faltam pedaços de todos os arquivos.");
   layer("t12", 5, 3, "O banco de pedidos tem muita escrita, não pode parar e tem orçamento para perder metade do espaço. Qual nível?", 10,
     "Penalidade de escrita 2 e rebuild simples: RAID 10 é a escolha clássica para transações.");
 
   /* ---------- 13. Resumo e comparativos ---------- */
-  choice("t13", 1, 2, "Com 5 discos de 10 TB, qual a ordem de capacidade útil, do maior ao menor, entre RAID 0, 5 e 6?", [
-    "RAID 0 (50 TB), RAID 5 (40 TB), RAID 6 (30 TB).",
-    "RAID 5 (50 TB), RAID 0 (40 TB), RAID 6 (30 TB).",
-    "RAID 6 (50 TB), RAID 5 (40 TB), RAID 0 (30 TB).",
-    "Os três dão 50 TB."
-  ], 0, "0: N x S = 50. 5: (N - 1) x S = 40. 6: (N - 2) x S = 30.");
+  choice("t13", 1, 2, "Com 4 discos de 1 TB cada, qual a ordem de capacidade útil, do maior ao menor, entre RAID 0, 5 e 10?", [
+    "RAID 0 (4 TB), RAID 5 (3 TB), RAID 10 (2 TB).",
+    "RAID 5 (4 TB), RAID 0 (3 TB), RAID 10 (2 TB).",
+    "RAID 10 (4 TB), RAID 5 (3 TB), RAID 0 (2 TB).",
+    "Os três dão 4 TB."
+  ], 0, "0: N x S = 4. 5: (N - 1) x S = 3. 10: N x S / 2 = 2.");
   order("t13", 2, 2, "Ordene as penalidades de escrita, da menor para a maior.", [
     "RAID 0 (1)",
     "RAID 1 e RAID 10 (2)",
     "RAID 5 (4)",
     "RAID 6 (6)"
   ], "RAID 0 não duplica nada; espelho grava 2; RAID 5 faz 4 I/Os; RAID 6 faz 6.");
-  choice("t13", 3, 2, "Com 150 IOPS por disco, qual a escrita aleatória teórica de um RAID 5 com 5 discos?", [
-    "187 IOPS (5 x 150 / 4).",
-    "750 IOPS.",
-    "375 IOPS.",
-    "125 IOPS."
-  ], 0, "O total bruto é 5 x 150 = 750; a penalidade de 4 divide por quatro: 187,5.");
+  choice("t13", 3, 2, "Com 150 IOPS por disco, qual a escrita aleatória teórica de um RAID 5 com 4 discos?", [
+    "150 IOPS (4 x 150 / 4).",
+    "600 IOPS.",
+    "300 IOPS.",
+    "75 IOPS."
+  ], 0, "O total bruto é 4 x 150 = 600; a penalidade de 4 divide por quatro: 150. O RAID 10 com os mesmos 4 discos faz 4 x 150 / 2 = 300.");
   choice("t13", 4, 2, "Qual combinação de falhas toleradas está CORRETA?", [
     "RAID 0: 0; RAID 5: 1; RAID 6: 2.",
     "RAID 0: 1; RAID 5: 1; RAID 6: 2.",

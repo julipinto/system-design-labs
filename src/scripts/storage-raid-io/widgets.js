@@ -161,18 +161,18 @@
     '10': { n: 'RAID 10 (1+0)',            min: 4, pen: 2, even: true, use: function (n, s) { return n / 2 * s; }, tol: function (n) { return '1 garantido, até ' + (n / 2) + ' (um por par)'; }, rd: function (n) { return n; } }
   };
   var LORDER = ['0', '1', '5', '6', '10'];
-  var DEFAULT_N = { '0': 4, '1': 2, '5': 5, '6': 5, '10': 4 };
+  var DEFAULT_N = { '0': 4, '1': 2, '5': 4, '6': 5, '10': 4 };
 
   function wRaid(root) {
-    var S = { lv: '5', n: 5, size: 10, iops: 150 };
+    var S = { lv: '5', n: 4, size: 1, iops: 150 };
     var lvId = id('rl'), nId = id('rn'), szId = id('rs'), ioId = id('ri');
     var sel = el('select', { id: lvId }, LORDER.map(function (k) {
       var o = el('option', { value: k, text: LEVELS[k].n });
       if (k === S.lv) o.selected = true;
       return o;
     }));
-    var nIn = el('input', { type: 'number', id: nId, min: '2', max: '24', step: '1', value: '5', inputmode: 'numeric' });
-    var szIn = el('input', { type: 'number', id: szId, min: '1', max: '100', step: '1', value: '10', inputmode: 'numeric' });
+    var nIn = el('input', { type: 'number', id: nId, min: '2', max: '24', step: '1', value: '4', inputmode: 'numeric' });
+    var szIn = el('input', { type: 'number', id: szId, min: '1', max: '100', step: '1', value: '1', inputmode: 'numeric' });
     var ioIn = el('input', { type: 'number', id: ioId, min: '50', max: '1000000', step: '50', value: '150', inputmode: 'numeric' });
     sel.addEventListener('change', function () {
       S.lv = sel.value; S.n = DEFAULT_N[S.lv]; nIn.value = String(S.n); calc();
