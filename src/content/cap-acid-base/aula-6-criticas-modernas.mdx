@@ -14,25 +14,28 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
+<p>A aula passada terminou com um aviso: os rótulos CP e AP são aproximações. As críticas modernas vão além e dizem que "escolha 2 de 3" esconde mais do que mostra. Elas olham para a mesma loja, com os bancos de SP, Rio e Recife.</p>
+
 <OneLiner>"Escolha 2 de 3" simplifica demais: partições são raras, consistência e disponibilidade são graus e não botões, e a escolha deve ser feita por operação, não pelo banco inteiro.</OneLiner>
 
 <DoIt>
-  <p>Na figura, deixe o modo AP rodando com a rede boa por alguns segundos. Depois corte a rede e veja que <strong>só a parte "último gato do estoque" muda de regra</strong>: o carrinho segue normal.</p>
+  <p>Na figura, no modo AP, olhe a venda #101 com a rede boa: <strong>nada diverge</strong>. Depois corte o cabo e veja o conflito aparecer. Troque para CP e compare. Pergunte: <strong>essa regra serviria igual ao carrinho de compras?</strong></p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/cap-3d/?mode=ap" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo disponibilidade (AP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Partição é rara.</strong> Na maior parte do tempo a loja tem os três bancos (SP, Rio e Recife) conversando. Sem partição, dá para ter consistência e disponibilidade juntas: o teorema só proíbe isso <em>durante</em> a falha.</li>
-  <li><strong>C e A são graus.</strong> Entre "sempre o dado mais novo" e "qualquer dado velho" há meios-termos: ler do líder, ler com quorum, aceitar um atraso de até 200 ms.</li>
-  <li><strong>Escolha por operação.</strong> Dentro da mesma loja: finalizar a compra do último gato (recusa na partição), adicionar ao carrinho (aceita sempre), mostrar a vitrine (pode ser velha).</li>
-  <li><strong>Partição tem três tempos (Brewer, 2012):</strong> detectar (o timeout de 3.000 ms estourou), entrar em modo partição (limitar o que é arriscado) e recuperar (juntar as versões e corrigir erros).</li>
-  <li><strong>Corrigir depois também é design.</strong> Venda duplicada (a #102 e a #103 para a mesma unidade): cancelar um dos pedidos e dar um cupom de R$ 20. Cobrança no cartão é adiada até a rede voltar.</li>
+  <li><strong>Partição é rara.</strong> Na maior parte do tempo a loja tem os três bancos conversando, como na venda #101. Sem partição, dá para ter consistência e disponibilidade juntas: o teorema só proíbe isso <em>durante</em> a falha.</li>
+  <li><strong>E, mesmo na falha, C e A são graus.</strong> Entre "sempre o dado mais novo" e "qualquer dado velho" há meios-termos: ler do líder, ler com quórum, aceitar um atraso de até 200 ms.</li>
+  <li><strong>Com graus, a escolha vira por operação.</strong> Dentro da mesma loja: finalizar a compra do gato de pelúcia (recusa na partição), adicionar ao carrinho (aceita sempre), mostrar a vitrine (pode ser velha).</li>
+  <li><strong>A partição tem três tempos (Brewer, 2012):</strong> detectar (o timeout de 3.000 ms estourou), entrar em modo partição (limitar o que é arriscado) e recuperar (juntar as versões e corrigir erros).</li>
+  <li><strong>Recuperar é a parte que se esquece, e também é design.</strong> Se a #102 e a #103 disputassem a última unidade, a loja cancelaria um dos pedidos e daria um cupom de R$ 20. A cobrança no cartão fica adiada até a rede voltar.</li>
 </ol>
 </HowItWorks>
 
 <div class="callout why" role="note">
   <h3>A crítica de Kleppmann (2015) em 3 linhas</h3>
+  <p>Ela ataca as definições que você viu na aula 4.</p>
   <ul>
     <li>As definições do CAP são estreitas: C é linearizabilidade, A é "todo pedido a um nó vivo responde", e só falha de rede conta.</li>
     <li>Muitos bancos não cabem em nenhuma caixa: depende de como são configurados e de qual operação você olha.</li>
@@ -42,8 +45,8 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <WhyItMatters>
   <li>Em vez de perguntar "nosso banco é CP ou AP?", pergunte "o que acontece com <em>esta operação</em> numa partição, e como corrigimos depois?".</li>
-  <li>A pergunta sobre latência, que o CAP deixa de fora, é a porta de entrada do PACELC (próxima aula).</li>
-  <li>Boa decisão de design tem plano de recuperação: detectar, limitar, juntar e compensar.</li>
+  <li>Uma boa decisão de design traz o plano de recuperação junto: detectar, limitar, juntar e compensar.</li>
+  <li>E a crítica da latência, que o CAP deixa de fora, é a porta de entrada do PACELC (próxima aula).</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -51,7 +54,7 @@ import Flashcards from '../../components/Flashcards.astro';
   <p>Em 2012, o próprio Brewer escreveu que o CAP proíbe só uma parte pequena do espaço de design possível. Ele defende que subsistemas, operações, dados e até usuários podem ter escolhas diferentes, e que o foco deve ser as <strong>invariantes</strong>: quais regras você protege na partição e quais pode violar e consertar depois.</p>
   <h4 class="deep-h">Invariantes na loja</h4>
   <ul>
-    <li><strong>Pode violar e consertar:</strong> o estoque do gato ir a -1. Cancela-se um pedido.</li>
+    <li><strong>Pode violar e consertar:</strong> o estoque do gato ir a -1 (venda além do que havia). Cancela-se um pedido.</li>
     <li><strong>Protege sempre:</strong> o saldo da Lena não vira negativo (<code>CHECK saldo &gt;= 0</code>): um pedido de R$ 200 com R$ 150 na conta é recusado.</li>
     <li><strong>Adia:</strong> a cobrança do cartão, até a rede voltar.</li>
   </ul>
@@ -64,6 +67,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "Kleppmann (2015): uma crítica ao teorema CAP (arXiv)", href: "https://arxiv.org/abs/1509.05393" },
   ]} />
 </Deep>
+
+<p>Quase tudo isso trata do momento da falha, mas a rede passa quase o tempo todo boa. Falta saber o que um sistema sacrifica nesse tempo todo, quando não há partição nenhuma. É a pergunta do PACELC.</p>
 
 <Flashcards cards={[
   { q: "Por que \"escolha 2 de 3\" engana?",

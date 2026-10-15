@@ -13,6 +13,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>A Lena compra um gato de pelúcia em São Paulo. O irmão dela compra o mesmo gato, ao mesmo tempo, em Recife. O estoque da loja está copiado em três bancos, e o cabo para Recife acabou de cair. O que a loja faz?</p>
+
 <OneLiner>Quando a rede entre os bancos quebra, um sistema replicado só consegue escolher entre responder sempre (disponível) ou responder sempre o dado mais novo (consistente).</OneLiner>
 
 <DoIt>
@@ -22,30 +24,30 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja guarda o estoque do gato de pelúcia em <strong>3 bancos replicados</strong>: São Paulo, Rio e Recife. Depois da venda normal #101 (5 → 4), cada um tem a mesma linha: <code>gato_pelucia: estoque 4, v2</code>. A Lena compra em SP e o irmão dela, em Recife.</li>
-  <li>O cabo entre Rio e Recife cai. São Paulo e Rio ainda se falam. <strong>Recife fica isolado</strong>: é uma partição de rede.</li>
-  <li>Entram dois pedidos ao mesmo tempo: o #102 da Lena, em São Paulo, e o #103 do irmão, em Recife. Recife não consegue perguntar nada a ninguém.</li>
-  <li><strong>Escolha 1, consistente:</strong> SP grava 3 e o Rio confirma: são 2 de 3 nós, há quórum, e a #102 passa. Recife recusa depois de 3.000 ms de timeout (erro 503). Quando o cabo volta, o irmão tenta de novo, a #103 passa e o estoque final é 2 (v4). Ninguém recebeu uma promessa falsa, mas o irmão ficou sem resposta por um tempo.</li>
-  <li><strong>Escolha 2, disponível:</strong> Recife aceita e também grava 3, sem saber da #102. Os dois responderam OK, mas o estoque real é 5 − 3 = 2 e os nós mostram 3. A divergência só aparece quando o cabo volta.</li>
+  <li>A loja guarda o estoque do gato de pelúcia em <strong>3 bancos replicados</strong>: São Paulo, Rio e Recife. Com a rede boa, a venda #101 (5 → 4) chega aos três e cada um fica com a mesma linha: <code>gato_pelucia: estoque 4, v2</code>. A Lena compra em SP e o irmão dela, em Recife.</li>
+  <li>Então o cabo entre Rio e Recife cai. São Paulo e Rio ainda se falam, mas <strong>Recife fica isolado</strong>: é uma partição de rede.</li>
+  <li>Nessa hora entram dois pedidos: o #102 da Lena, em São Paulo, e o #103 do irmão, em Recife. Recife não consegue perguntar nada a ninguém, e só resta escolher o que fazer.</li>
+  <li><strong>Escolha 1, consistente:</strong> SP grava 3 e o Rio confirma. São 2 de 3 nós, há quórum, e a #102 passa. Recife não tem maioria: recusa depois de 3.000 ms de timeout (erro 503). Quando o cabo volta, o irmão tenta de novo, a #103 passa e o estoque final é 2 (v4). Ninguém recebeu uma promessa falsa, mas o irmão ficou um tempo sem resposta.</li>
+  <li><strong>Escolha 2, disponível:</strong> desta vez Recife aceita e também grava 3, sem saber da #102. Os dois recebem OK, mas o estoque real é 5 − 3 = 2 e os nós mostram 3. A divergência só aparece quando o cabo volta.</li>
 </ol>
 </HowItWorks>
 
 <div class="callout why" role="note">
-  <h3>O nome vem de três letras</h3>
-  <p><strong>C</strong>onsistency (todos veem o dado mais novo), <strong>A</strong>vailability (todo pedido recebe resposta) e <strong>P</strong>artition tolerance (o sistema segue vivo com a rede cortada). Eric Brewer propôs a ideia em 2000 e Gilbert e Lynch provaram em 2002. Uma imagem de bolso: boa, rápida e barata, escolha duas. Na lição 6 você vê por que essa imagem engana um pouco.</p>
+  <h3>A escolha tem nome, e ele vem de três letras</h3>
+  <p><strong>C</strong>onsistency (todos veem o dado mais novo), <strong>A</strong>vailability (todo pedido recebe resposta) e <strong>P</strong>artition tolerance (o sistema segue vivo com a rede cortada). Eric Brewer propôs a ideia em 2000 e Gilbert e Lynch provaram em 2002. A imagem de bolso é "boa, rápida e barata: escolha duas". Na aula 6 você vê por que ela engana um pouco.</p>
 </div>
 
 <WhyItMatters>
   <li>Partições <strong>acontecem</strong>: cabo, roteador, deploy mal feito, nuvem com problema numa zona. Não dá para decidir "isso não vai ocorrer".</li>
-  <li>A pergunta de design é: <strong>o que cada parte da loja prefere, recusar ou arriscar?</strong> Estoque e pagamento pedem uma resposta, carrinho e recomendação pedem outra.</li>
-  <li>Decida antes da falha. Se não decidir, o banco decide por você no pior momento.</li>
+  <li>Como elas vão acontecer, a pergunta de design é: <strong>o que cada parte da loja prefere, recusar ou arriscar?</strong> Estoque e pagamento pedem uma resposta, carrinho e recomendação pedem outra.</li>
+  <li>E a resposta precisa vir antes da falha. Se você não decidir, o banco decide por você no pior momento.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Os números da cena (exemplo)</h4>
   <ul>
     <li>Venda normal com a rede boa (#101): ~12 ms. SP grava, avisa o Rio, e o Rio avisa o Recife. Timeout da escrita sem resposta: 3.000 ms.</li>
-    <li>Quorum de 3 bancos: 2. São Paulo + Rio têm maioria. Recife sozinho não tem.</li>
+    <li>Quórum de 3 bancos: 2. São Paulo + Rio têm maioria. Recife sozinho não tem.</li>
     <li>Modo consistente: o lado sem maioria recusa. Modo disponível: os dois lados aceitam e conciliam depois.</li>
   </ul>
   <h4 class="deep-h">O que o teorema diz de verdade</h4>
@@ -56,6 +58,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "IBM: o que é o teorema CAP", href: "https://www.ibm.com/br-pt/topics/cap-theorem" },
   ]} />
 </Deep>
+
+<p>Recusar o pedido do irmão foi uma promessa: "não vou deixar o dado errado". Falta saber o que um banco promete, dentro de uma transação, para nunca deixar a conta da Lena pela metade. É o ACID.</p>
 
 <Flashcards cards={[
   { q: "O que diz o teorema CAP?",

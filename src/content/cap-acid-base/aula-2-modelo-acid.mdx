@@ -14,6 +14,8 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
+<p>Na aula passada, o banco de Recife recusou o pedido do irmão para não errar. Mas recusar só vale se o banco souber desfazer o que já começou. Antes de espalhar o dado por três cidades, veja o que um único banco promete quando a Lena transfere R$ 100 ao irmão.</p>
+
 <OneLiner>ACID é a promessa de uma transação: acontece inteira ou não acontece (A), deixa o banco válido (C), não se mistura com as outras (I) e, depois de confirmada, não se perde (D).</OneLiner>
 
 <DoIt>
@@ -24,23 +26,23 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Atomicidade.</strong> A Lena transfere R$ 100 ao irmão: debita a conta dela (150 → 50) e credita a dele (20 → 120). Se o servidor cair entre os dois passos, o <strong>rollback</strong> devolve tudo: 150 e 20. Nunca fica só metade.</li>
-  <li><strong>Consistência.</strong> As regras do banco valem antes e depois: uma regra <code>CHECK saldo &gt;= 0</code>, a soma das duas contas continua R$ 170, a chave estrangeira aponta para uma conta que existe. Se a Lena pedir R$ 200 por engano, a conta daria 150 − 200 = −50: o banco recusa e a transação inteira volta.</li>
-  <li><strong>Isolamento.</strong> Duas transações ao mesmo tempo não podem se atrapalhar. Os níveis (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decidem quanto o banco protege: o simulador acima mostra as quatro anomalias.</li>
-  <li><strong>Durabilidade.</strong> O <strong>commit</strong> só devolve "ok" depois que a mudança foi anotada no <strong>WAL</strong> (o diário do banco) em disco. Se a luz acabar um segundo depois, o banco relê o WAL ao ligar e a transferência continua lá.</li>
-  <li>Quanto mais isolamento, mais o banco trava ou refaz. <strong>Serializable</strong> é o mais seguro e o mais caro: por isso muitos bancos usam um nível intermediário como padrão.</li>
+  <li><strong>Atomicidade.</strong> A transferência de R$ 100 são duas escritas: debita a conta da Lena (150 → 50) e credita a do irmão (20 → 120). Se o servidor cair entre as duas, o <strong>rollback</strong> devolve tudo: 150 e 20. Nunca fica só metade.</li>
+  <li><strong>Consistência.</strong> Fazer tudo junto não basta: o resultado também precisa ser válido. As regras do banco valem antes e depois: <code>CHECK saldo &gt;= 0</code>, a soma das duas contas continua R$ 170, a chave estrangeira aponta para uma conta que existe. Se a Lena pedir R$ 200 por engano, a conta daria 150 − 200 = −50. O banco recusa e a transação inteira volta.</li>
+  <li><strong>Isolamento.</strong> Até aqui a Lena estava sozinha no banco. Só que o débito automático do aluguel (R$ 40) mexe na conta dela no mesmo instante, e as duas transações não podem se atrapalhar. Os níveis (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decidem quanto o banco protege. O simulador acima mostra as quatro anomalias.</li>
+  <li><strong>Durabilidade.</strong> Quando tudo deu certo, o <strong>commit</strong> só devolve "ok" depois que a mudança foi anotada no <strong>WAL</strong> (o diário do banco) em disco. Se a luz acabar um segundo depois, o banco relê o WAL ao ligar e a transferência continua lá.</li>
+  <li>Cada garantia tem preço. Quanto mais isolamento, mais o banco trava ou refaz: <strong>Serializable</strong> é o mais seguro e o mais caro, e por isso muitos bancos usam um nível intermediário como padrão.</li>
 </ol>
 </HowItWorks>
 
 <div class="callout why" role="note">
   <h3>Cuidado: dois "C" diferentes</h3>
-  <p>O <strong>C do ACID</strong> é sobre <strong>regras de integridade</strong>: saldo não negativo, chaves válidas, a soma das contas fechando. O <strong>C do CAP</strong> é sobre <strong>réplicas</strong>: todas devem parecer uma cópia só (linearizabilidade). Um banco pode ter um e não o outro. Na lição 4 voltamos a isso.</p>
+  <p>A palavra "consistência" já apareceu na aula 1, com outro sentido. O <strong>C do ACID</strong> é sobre <strong>regras de integridade</strong>: saldo não negativo, chaves válidas, a soma das contas fechando. O <strong>C do CAP</strong> é sobre <strong>réplicas</strong>: todas devem parecer uma cópia só (linearizabilidade). Um banco pode ter um e não o outro. Na aula 4 você vê a diferença com calma.</p>
 </div>
 
 <WhyItMatters>
   <li>Pagamentos e estoque precisam de ACID: perder R$ 100 no meio da transferência ou vender duas vezes o mesmo gato de pelúcia é prejuízo direto.</li>
-  <li>Cada anomalia tem um nome porque cada uma já derrubou algum sistema: <strong>dirty read, non-repeatable read, phantom e lost update</strong>.</li>
-  <li>Transações são locais a um banco. Para atravessar vários bancos você precisa de <strong>two-phase commit</strong> ou de outro desenho, e aí o CAP volta à conversa.</li>
+  <li>Sem isolamento, transações certas dão resultado errado juntas. Cada anomalia tem nome porque já derrubou algum sistema: <strong>dirty read, non-repeatable read, phantom e lost update</strong>.</li>
+  <li>Mas transações são locais a um banco. Para atravessar vários bancos você precisa de <strong>two-phase commit</strong> ou de outro desenho, e aí o CAP volta à conversa.</li>
 </WhyItMatters>
 
 <Deep min={4}>
@@ -67,6 +69,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "Wikipedia: two-phase commit", href: "https://en.wikipedia.org/wiki/Two-phase_commit_protocol" },
   ]} />
 </Deep>
+
+<p>Todas essas garantias custam espera, trava e recusa. E se a loja preferir responder na hora e deixar as cópias se acertarem depois? Falta saber o que o BASE promete no lugar do ACID.</p>
 
 <Flashcards cards={[
   { q: "O que significa ACID?",

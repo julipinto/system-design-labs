@@ -14,6 +14,8 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
+<p>A aula passada deixou uma lacuna: o CAP não diz nada sobre latência, e a rede passa quase todo o tempo boa. O PACELC preenche essa lacuna, e a venda #101 da Lena mostra o preço.</p>
+
 <OneLiner>PACELC completa o CAP: se há Partição, escolha entre Availability e Consistency; senão (Else), escolha entre Latency e Consistency, e o "senão" é o que acontece quase o tempo todo.</OneLiner>
 
 <DoIt>
@@ -23,11 +25,11 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>O CAP só olha para a falha. Mas a rede passa quase todo o tempo funcionando, e aí também existe um preço: <strong>distância custa milissegundos</strong>.</li>
-  <li><strong>Escrita consistente (EC):</strong> SP só responde "ok" depois que o Rio e o Recife confirmarem: a Lena espera <strong>~80 ms</strong>. Com a rede lenta (300 ms entre as cidades), a espera vira ~300 ms.</li>
-  <li><strong>Escrita rápida (EL):</strong> SP grava e responde em <strong>~5 ms</strong>. A cópia vai depois. Em compensação, se o irmão consulta o Recife logo depois, ele ainda vê <code>estoque 5</code> (v1) em vez de 4: uma leitura velha, por uns 80 ms.</li>
-  <li><strong>As quatro combinações:</strong> o "PA" ou "PC" diz o que o sistema faz na partição; o "EL" ou "EC" diz o que faz sem partição. Daí PA/EL, PC/EL, PA/EC e PC/EC.</li>
-  <li><strong>Na loja:</strong> carrinho em PA/EL (rápido e sempre no ar), saldo e transferência em PC/EC (certo, mesmo que mais lento).</li>
+  <li>O CAP só olha para a falha. Com a rede funcionando também existe um preço: <strong>distância custa milissegundos</strong>. Há duas maneiras de pagá-lo.</li>
+  <li><strong>Escrita consistente (EC):</strong> primeiro, SP só responde "ok" depois que o Rio e o Recife confirmarem. A Lena espera <strong>~80 ms</strong>, e com a rede lenta (300 ms entre as cidades) a espera vira ~300 ms.</li>
+  <li><strong>Escrita rápida (EL):</strong> a outra opção é SP gravar e responder em <strong>~5 ms</strong>, mandando a cópia depois. Em compensação, se o irmão consulta o Recife logo em seguida, ele ainda vê <code>estoque 5</code> (v1) em vez de 4: uma leitura velha, por uns 80 ms.</li>
+  <li><strong>Juntando as duas metades:</strong> "PA" ou "PC" diz o que o sistema faz na partição; "EL" ou "EC" diz o que faz sem partição. Daí PA/EL, PC/EL, PA/EC e PC/EC.</li>
+  <li><strong>Na loja,</strong> cada operação escolhe a sua: carrinho em PA/EL (rápido e sempre no ar), saldo e transferência em PC/EC (certo, mesmo que mais lento).</li>
 </ol>
 </HowItWorks>
 
@@ -44,9 +46,9 @@ import Flashcards from '../../components/Flashcards.astro';
 </div>
 
 <WhyItMatters>
-  <li>É a ferramenta certa para a pergunta de entrevista: "e quando a rede está boa, o que você sacrifica?". Quase sempre a resposta é <strong>latência x consistência</strong>.</li>
-  <li>Explica por que bancos globais "fortes" são lentos para gravar e bancos "eventuais" são rápidos.</li>
-  <li>Daniel Abadi propôs o PACELC em 2010, justamente porque o CAP não tem a letra L de latência.</li>
+  <li>Responde à pergunta de entrevista: "e quando a rede está boa, o que você sacrifica?". Quase sempre a resposta é <strong>latência x consistência</strong>.</li>
+  <li>Também explica por que bancos globais "fortes" são lentos para gravar e bancos "eventuais" são rápidos.</li>
+  <li>Daniel Abadi propôs o PACELC em 2010 justamente porque o CAP não tem a letra L de latência.</li>
 </WhyItMatters>
 
 <Deep min={4}>
@@ -88,6 +90,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "ScyllaDB: glossário do PACELC", href: "https://www.scylladb.com/glossary/pacelc-theorem/" },
   ]} />
 </Deep>
+
+<p>Com a rede cortada ou boa, a pergunta é a mesma: esta operação prefere esperar ou arriscar? Quem desenha um sistema replicado responde isso operação por operação, antes da falha.</p>
 
 <Flashcards cards={[
   { q: "O que significa PACELC?",

@@ -14,6 +14,8 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
+<p>Com C, A e P bem definidos, dá para montar as combinações. Qual delas a loja do gato de pelúcia usa? Depende da operação, e a tabela abaixo mostra o que cada uma custa.</p>
+
 <OneLiner>CP recusa pedidos na partição para não errar, AP responde sempre e concilia depois, e CA só existe onde não há rede entre os nós, como num banco único.</OneLiner>
 
 <DoIt>
@@ -25,7 +27,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <table class="sr-table">
   <thead><tr><th>Combinação</th><th>Durante a partição</th><th>Custo</th><th>Na loja do gato de pelúcia</th></tr></thead>
   <tbody>
-    <tr><th>CP</th><td>O lado sem quorum recusa pedidos (erro ou timeout)</td><td>Indisponível para parte dos clientes</td><td>Último gato do estoque, transferências da Lena, saldo</td></tr>
+    <tr><th>CP</th><td>O lado sem quórum recusa pedidos (erro ou timeout)</td><td>Indisponível para parte dos clientes</td><td>Estoque do gato de pelúcia, transferências da Lena, saldo</td></tr>
     <tr><th>AP</th><td>Todos os nós respondem, com o dado que têm</td><td>Leituras velhas e conflitos para resolver</td><td>Carrinho, busca, recomendações, contador de views</td></tr>
     <tr><th>CA</th><td>Não tolera partição: se a rede quebra, o sistema para ou se corrompe</td><td>Só serve onde a rede entre nós não existe</td><td>O banco único do começo da loja</td></tr>
   </tbody>
@@ -34,23 +36,23 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>CP.</strong> Com o cabo cortado, o Recife (sem maioria) devolve erro em vez de arriscar. O irmão da Lena fica sem resposta por um tempo, mas as cópias nunca divergem: no fim o estoque é 2. Costuma-se citar etcd, Consul e ZooKeeper aqui.</li>
-  <li><strong>AP.</strong> O Recife continua vendendo e guarda <code>estoque 3, v3b</code> (#103) localmente, enquanto SP e o Rio guardam <code>3, v3a</code> (#102). Quando a rede volta, as réplicas comparam versões e conciliam. Costuma-se citar Cassandra, DynamoDB e CouchDB aqui.</li>
-  <li><strong>CA.</strong> Um único PostgreSQL com a loja inteira é consistente e disponível, porque não existe outra réplica com quem discordar. Se o servidor cai, tudo cai. Não há tolerância a partição porque não há partição possível.</li>
-  <li><strong>Na prática, CP e CA se parecem:</strong> os dois perdem disponibilidade quando a rede quebra. A escolha real do dia a dia é entre CP e AP, para cada operação.</li>
-  <li>Cada parte da loja escolhe a sua: pagamento em CP, carrinho em AP. Um sistema pode misturar.</li>
+  <li><strong>CP.</strong> Com o cabo cortado, o Recife (sem maioria) devolve erro em vez de arriscar. O irmão da Lena fica um tempo sem resposta, mas as cópias nunca divergem: no fim o estoque é 2. Costuma-se citar etcd, Consul e ZooKeeper aqui.</li>
+  <li><strong>AP.</strong> Aqui o Recife continua vendendo e guarda <code>estoque 3, v3b</code> (#103) localmente, enquanto SP e o Rio guardam <code>3, v3a</code> (#102). Quando a rede volta, as réplicas comparam versões e conciliam. Costuma-se citar Cassandra, DynamoDB e CouchDB aqui.</li>
+  <li><strong>CA.</strong> Sobra a terceira combinação. Um único PostgreSQL com a loja inteira é consistente e disponível, porque não existe outra réplica com quem discordar. Se o servidor cai, tudo cai. Não há tolerância a partição porque não há partição possível.</li>
+  <li><strong>Na prática, CP e CA se parecem:</strong> os dois perdem disponibilidade quando a rede quebra. A escolha real do dia a dia é entre CP e AP.</li>
+  <li>E essa escolha é feita por operação: pagamento em CP, carrinho em AP. Um mesmo sistema pode misturar.</li>
 </ol>
 </HowItWorks>
 
 <div class="callout why" role="note">
   <h3>Rótulo é aproximação</h3>
-  <p>Muitos bancos deixam você mexer em quantas réplicas confirmam a escrita (W) e quantas respondem a leitura (R). O mesmo Cassandra pode se comportar mais como CP ou mais como AP conforme R e W. Por isso as listas dos artigos às vezes se contradizem. Use o rótulo para começar a conversa, não para terminá-la.</p>
+  <p>Os nomes de bancos citados acima vêm com ressalva. Muitos bancos deixam você mexer em quantas réplicas confirmam a escrita (W) e quantas respondem a leitura (R), como na aula 4. O mesmo Cassandra pode se comportar mais como CP ou mais como AP conforme R e W, e por isso as listas dos artigos às vezes se contradizem. Use o rótulo para começar a conversa, não para terminá-la.</p>
 </div>
 
 <WhyItMatters>
   <li>Dá um vocabulário para a decisão de design: "para essa operação, prefiro recusar ou responder com o que tenho?".</li>
-  <li>Evita o mito de que dá para ter "tudo": em sistema distribuído, a rede falha, então CA não é uma opção real.</li>
-  <li>Mostra o custo escondido de cada escolha: erro para o cliente (CP) ou conciliação depois (AP).</li>
+  <li>Com ele, cai o mito de ter "tudo": em sistema distribuído a rede falha, então CA não é uma opção real.</li>
+  <li>E mostra o custo escondido de cada escolha: erro para o cliente (CP) ou conciliação depois (AP).</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -63,7 +65,7 @@ import Flashcards from '../../components/Flashcards.astro';
   <h4 class="deep-h">Por que CP e CA quase se confundem</h4>
   <p>Daniel Abadi argumenta que os dois perdem a disponibilidade numa partição. A diferença é só que o CP planejou isso (recusa de propósito) e o CA não pensou na partição.</p>
   <h4 class="deep-h">O que se faz depois, no AP</h4>
-  <p>Quando as réplicas voltam a se falar, conciliam com last-write-wins, vector clocks ou CRDTs (lição 3). O estoque divergente (nós dizendo 3, real 2) vira um problema de negócio: com last-write-wins a #102 da Lena se perde, e com merge alguém precisa escrever a regra. Se o estoque acabar, cancelar um pedido, pedir desculpa, dar um cupom.</p>
+  <p>Quando as réplicas voltam a se falar, conciliam com last-write-wins, vector clocks ou CRDTs (aula 3). O estoque divergente (nós dizendo 3, real 2) vira um problema de negócio: com last-write-wins a #102 da Lena se perde, e com merge alguém precisa escrever a regra. Se o estoque acabasse, a loja teria de cancelar um pedido, pedir desculpa e dar um cupom.</p>
   <Sources items={[
     { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
     { label: "Abadi (2010): problemas com o CAP", href: "http://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html" },
@@ -71,9 +73,11 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>Se o rótulo é só uma aproximação, a própria ideia de "escolha 2 de 3" merece desconfiança. Falta saber o que as críticas modernas ao CAP dizem sobre ela.</p>
+
 <Flashcards cards={[
   { q: "O que faz um sistema CP numa partição?",
-    a: "Recusa pedidos do lado sem quorum, para não arriscar dado inconsistente." },
+    a: "Recusa pedidos do lado sem quórum, para não arriscar dado inconsistente." },
   { q: "O que faz um sistema AP numa partição?",
     a: "Todos os nós respondem com o que têm e conciliam as diferenças depois." },
   { q: "Por que CA não existe de verdade num sistema distribuído?",

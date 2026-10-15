@@ -14,6 +14,8 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
+<p>O ACID faz a Lena esperar: trava a linha, confirma, grava no disco. E se o app respondesse na hora e deixasse as cópias se acertarem sozinhas? É o que o BASE faz com a mesma transferência de R$ 100.</p>
+
 <OneLiner>BASE troca a certeza imediata por velocidade e disponibilidade: o sistema sempre responde, o estado muda aos poucos e, se ninguém escrever mais, todas as cópias acabam iguais.</OneLiner>
 
 <DoIt>
@@ -24,26 +26,27 @@ import Flashcards from '../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>A Lena transfere R$ 100 ao irmão e o pedido cai no nó de São Paulo. Os saldos vão de <code>Lena 150, irmão 20, v1</code> para <code>Lena 50, irmão 120, v2</code>. O nó responde "ok" em <strong>~5 ms</strong>, sem esperar o Rio nem o Recife: é a <strong>replicação assíncrona</strong>.</li>
-  <li>A mudança viaja em segundo plano, primeiro ao Rio e depois ao Recife. Nesse intervalo os três nós <strong>discordam</strong>: é o <strong>soft state</strong>, um estado que ainda está se ajeitando sozinho.</li>
-  <li>O irmão da Lena abre o app em Recife e lê <code>R$ 20, v1</code>: um <strong>stale read</strong> (leitura desatualizada). A loja continua respondendo, e é isso o <strong>basically available</strong>.</li>
-  <li>Quando a réplica chega ao Recife, os três ficam em <code>Lena 50, irmão 120, v2</code>, se ninguém escrever de novo: <strong>consistência eventual</strong>.</li>
-  <li>E se duas réplicas aceitam escritas ao mesmo tempo? Há um conflito, e alguém precisa resolver: veja as três regras no quadro abaixo.</li>
+  <li>Depois do "ok", a mudança viaja em segundo plano, primeiro ao Rio e depois ao Recife. Nesse intervalo os três nós <strong>discordam</strong>: é o <strong>soft state</strong>, um estado que ainda está se ajeitando sozinho.</li>
+  <li>Se o irmão da Lena abre o app em Recife nesse intervalo, lê <code>R$ 20, v1</code>: um <strong>stale read</strong> (leitura desatualizada). O app respondeu mesmo assim, e é isso o <strong>basically available</strong>.</li>
+  <li>Por fim a réplica chega ao Recife e os três ficam em <code>Lena 50, irmão 120, v2</code>, desde que ninguém escreva de novo: é a <strong>consistência eventual</strong>.</li>
+  <li>Até aqui só uma réplica recebia a escrita. E se duas aceitam escritas ao mesmo tempo, como a loja na partição da aula 1? Há um conflito, e alguém precisa resolver: veja as três regras no quadro abaixo.</li>
 </ol>
 </HowItWorks>
 
 <div class="callout why" role="note">
   <h3>Três jeitos de resolver um conflito de escrita</h3>
+  <p>Voltemos às vendas #102 e #103 da loja do gato de pelúcia.</p>
   <ul>
-    <li><strong>Last-write-wins:</strong> vale o maior timestamp. Na loja do gato de pelúcia, durante a partição, SP vende a #102 da Lena e Recife vende a #103 do irmão, e os dois gravam estoque 3. Vence a escrita mais recente, a do Recife: o estoque fica 3 e a #102 se perde, mas o certo era 5 − 3 = 2. Simples, mas perde dado.</li>
-    <li><strong>Vector clock:</strong> cada versão carrega contadores por nó. <code>{'{'}SP:2, REC:1{'}'}</code> e <code>{'{'}SP:1, REC:2{'}'}</code> não são uma antes da outra: o sistema sabe que são <strong>concorrentes</strong> e pede para alguém juntar.</li>
+    <li><strong>Last-write-wins:</strong> vale o maior timestamp. Durante a partição, SP vende a #102 da Lena e Recife vende a #103 do irmão, e os dois gravam estoque 3. Vence a escrita mais recente, a do Recife: o estoque fica 3 e a #102 se perde, mas o certo era 5 − 3 = 2. Simples, mas perde dado.</li>
+    <li><strong>Vector clock:</strong> cada versão carrega contadores por nó. A de SP é <code>{'{'}SP:2, REC:0{'}'}</code> (#101 e #102) e a do Recife é <code>{'{'}SP:1, REC:1{'}'}</code> (#101 e #103). Nenhuma veio antes da outra: o sistema sabe que são <strong>concorrentes</strong> e pede para alguém juntar.</li>
     <li><strong>CRDT:</strong> cada nó conta só as próprias vendas (SP: 2, com a #101 e a #102; REC: 1, com a #103). Ao juntar, soma-se: 3 vendas, estoque 5 − 3 = 2. O resultado é o mesmo em qualquer ordem, sem perder nada.</li>
   </ul>
 </div>
 
 <WhyItMatters>
   <li>Carrinho, vitrine, contador de visualizações e recomendações aguentam dado alguns segundos atrasado, e ganham velocidade e resiliência em troca.</li>
-  <li>Eventual não é "qualquer coisa": o sistema precisa ter uma regra de conflito (LWW, vector clock, CRDT) escolhida de propósito.</li>
-  <li>Dinheiro e último item de estoque raramente aguentam isso. Nesses pontos use transação (ACID) ou outro desenho.</li>
+  <li>Mas "eventual" pede uma regra de conflito (LWW, vector clock, CRDT) escolhida de propósito. Sem ela, o sistema perde dado em silêncio.</li>
+  <li>Dinheiro e a última unidade de um estoque raramente aguentam isso. Nesses pontos use transação (ACID) ou outro desenho.</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -63,6 +66,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "Wikipedia: CRDT", href: "https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type" },
   ]} />
 </Deep>
+
+<p>Nas aulas 1 e 3 usamos "consistente" e "disponível" no sentido do dia a dia. Falta saber o que essas palavras (e a terceira, partição) querem dizer com exatidão no CAP.</p>
 
 <Flashcards cards={[
   { q: "O que significa BASE?",
