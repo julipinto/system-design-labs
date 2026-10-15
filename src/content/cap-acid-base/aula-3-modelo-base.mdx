@@ -3,6 +3,7 @@ title: "Modelo BASE: Basic Availability, Soft-State, Eventual Consistency"
 order: 3
 min: 5
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -18,7 +19,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, faça uma venda em São Paulo e leia o estoque em Dublin <strong>logo em seguida</strong>. Depois espere a cópia chegar e leia de novo.</p>
 </DoIt>
-{/* FIG:acid mode=base */}
+<Figure3D path="labs/cap-acid-base/acid-3d/?mode=base" poster="labs/cap-acid-base/acid-3d-previa.webp" title="Figura interativa: a transferência da Lena e o modelo BASE" alt="Prévia da figura 3D: servidor de banco com a tabela de contas, o WAL e o disco, mostrando a transação desfeita com ROLLBACK" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque A, C, I, D ou BASE no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
