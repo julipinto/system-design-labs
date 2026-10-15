@@ -18,9 +18,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>RAID 6 é um RAID 5 com duas paridades, então aguenta a perda de dois discos ao mesmo tempo, em troca de mais um disco de espaço e escrita mais lenta.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e deixe o D2 queimar. Veja A2 e A5 serem refeitos pela primeira paridade e repare no Q, que fica de reserva para um segundo disco.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e deixe o D2 queimar. Veja A2 e A5 serem refeitos pela primeira paridade e repare no Q, que fica de reserva. No passo 6, o D4 também queima: veja P e Q refazerem os dois blocos que faltam.</p>
 </DoIt>
-<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid6" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 6 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
+<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid6" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 6 gravando blocos, um ou dois discos falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID ligada aos discos, com o disco D2 queimado e um bloco sendo recalculado pela paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

@@ -18,9 +18,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>RAID 1 grava tudo em dois discos iguais, então se um morre o outro continua servindo, ao custo de metade do espaço.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong>, veja cada bloco ser gravado duas vezes, deixe o D2 queimar e confira que o pedidos.db continua inteiro.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong>, veja cada bloco ser gravado duas vezes, deixe o D2 queimar e confira que o pedidos.db continua inteiro. No passo 6, o D1 também queima: veja o que sobra quando não há mais cópia.</p>
 </DoIt>
-<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid1" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 1 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
+<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid1" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 1 gravando blocos, um ou dois discos falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID ligada aos discos, com o disco D2 queimado e um bloco sendo recalculado pela paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

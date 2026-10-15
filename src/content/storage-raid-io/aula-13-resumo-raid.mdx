@@ -20,7 +20,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na calculadora, escolha <strong>RAID 5</strong>, 4 discos de 1 TB (3 TB úteis). Troque para RAID 6 (com 5 discos) e depois RAID 10 (com 4) e veja capacidade e penalidade mudarem.</p>
 </DoIt>
-<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 5 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
+<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 5 gravando blocos, um ou dois discos falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID ligada aos discos, com o disco D2 queimado e um bloco sendo recalculado pela paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 <Widget name="raid" title="Calculadora de RAID" hint="Escolha o nível, o número de discos e o tamanho. Os IOPS são teóricos." />
 
 <div class="sr-tablewrap" role="region" aria-label="Tabela comparando os níveis de RAID" tabindex="0">
