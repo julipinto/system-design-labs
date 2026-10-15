@@ -1,0 +1,84 @@
+---
+title: "Combinações do Modelo CAP (CP, AP, CA)"
+order: 5
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+
+<OneLiner>CP recusa pedidos na partição para não errar, AP responde sempre e concilia depois, e CA só existe onde não há rede entre os nós, como num banco único.</OneLiner>
+
+<DoIt>
+  <p>Na figura, escolha o modo <strong>CA</strong> e corte a rede. Veja o que acontece com um banco único e com dois bancos tentando agir como um só.</p>
+</DoIt>
+{/* FIG:cap mode=ca */}
+
+<div class="sr-tablewrap" role="region" aria-label="Tabela comparando CP, AP e CA" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Combinação</th><th>Durante a partição</th><th>Custo</th><th>Na loja da Lia</th></tr></thead>
+  <tbody>
+    <tr><th>CP</th><td>O lado sem quorum recusa pedidos (erro ou timeout)</td><td>Indisponível para parte dos clientes</td><td>Último par do estoque, transferências, saldo</td></tr>
+    <tr><th>AP</th><td>Todos os nós respondem, com o dado que têm</td><td>Leituras velhas e conflitos para resolver</td><td>Carrinho, busca, recomendações, contador de views</td></tr>
+    <tr><th>CA</th><td>Não tolera partição: se a rede quebra, o sistema para ou se corrompe</td><td>Só serve onde a rede entre nós não existe</td><td>O banco único do começo da loja</td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>CP.</strong> Com a rede cortada, Dublin (sem maioria) devolve erro em vez de arriscar. Um cliente pode ficar sem resposta, mas o estoque nunca vende duas vezes o mesmo par. Costuma-se citar etcd, Consul e ZooKeeper aqui.</li>
+  <li><strong>AP.</strong> Dublin continua vendendo e guarda <code>estoque 0, v8</code> localmente. Quando a rede volta, as réplicas comparam versões e conciliam. Costuma-se citar Cassandra, DynamoDB e CouchDB aqui.</li>
+  <li><strong>CA.</strong> Um único PostgreSQL com a loja inteira é consistente e disponível, porque não existe outra réplica com quem discordar. Se o servidor cai, tudo cai. Não há tolerância a partição porque não há partição possível.</li>
+  <li><strong>Na prática, CP e CA se parecem:</strong> os dois perdem disponibilidade quando a rede quebra. A escolha real do dia a dia é entre CP e AP, para cada operação.</li>
+  <li>Cada parte da loja escolhe a sua: pagamento em CP, carrinho em AP. Um sistema pode misturar.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Rótulo é aproximação</h3>
+  <p>Muitos bancos deixam você mexer em quantas réplicas confirmam a escrita (W) e quantas respondem a leitura (R). O mesmo Cassandra pode se comportar mais como CP ou mais como AP conforme R e W. Por isso as listas dos artigos às vezes se contradizem. Use o rótulo para começar a conversa, não para terminá-la.</p>
+</div>
+
+<WhyItMatters>
+  <li>Dá um vocabulário para a decisão de design: "para essa operação, prefiro recusar ou responder com o que tenho?".</li>
+  <li>Evita o mito de que dá para ter "tudo": em sistema distribuído, a rede falha, então CA não é uma opção real.</li>
+  <li>Mostra o custo escondido de cada escolha: erro para o cliente (CP) ou conciliação depois (AP).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Exemplos citados no artigo-base</h4>
+  <ul>
+    <li><strong>CP:</strong> MongoDB, Couchbase, etcd, Consul, e Cassandra em certas configurações.</li>
+    <li><strong>AP:</strong> CouchDB, DynamoDB, SimpleDB e Cassandra em certas configurações.</li>
+    <li><strong>CA:</strong> MySQL, MariaDB, PostgreSQL, Oracle, SQL Server, Redis e Memcached em instância única.</li>
+  </ul>
+  <h4 class="deep-h">Por que CP e CA quase se confundem</h4>
+  <p>Daniel Abadi argumenta que os dois perdem a disponibilidade numa partição. A diferença é só que o CP planejou isso (recusa de propósito) e o CA não pensou na partição.</p>
+  <h4 class="deep-h">O que se faz depois, no AP</h4>
+  <p>Quando as réplicas voltam a se falar, conciliam com last-write-wins, vector clocks ou CRDTs (lição 3). O estoque 0 vendido duas vezes vira um problema de negócio: cancelar um pedido, pedir desculpa, dar um cupom.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Abadi (2010): problemas com o CAP", href: "http://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html" },
+    { label: "IBM: o que é o teorema CAP", href: "https://www.ibm.com/br-pt/topics/cap-theorem" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que faz um sistema CP numa partição?",
+    a: "Recusa pedidos do lado sem quorum, para não arriscar dado inconsistente." },
+  { q: "O que faz um sistema AP numa partição?",
+    a: "Todos os nós respondem com o que têm e conciliam as diferenças depois." },
+  { q: "Por que CA não existe de verdade num sistema distribuído?",
+    a: "Porque a rede falha. CA só vale sem rede entre nós, como num banco único." },
+  { q: "Qual combinação para o saldo de uma conta?",
+    a: "CP: é melhor recusar do que mostrar ou gravar um saldo errado." },
+  { q: "Qual combinação para o carrinho de compras?",
+    a: "AP: é melhor aceitar o item e conciliar depois do que derrubar a loja." },
+]} />

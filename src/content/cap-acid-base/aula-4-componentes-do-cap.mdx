@@ -1,0 +1,76 @@
+---
+title: "Componentes do CAP"
+order: 4
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+
+<OneLiner>No CAP, C é "todas as réplicas parecem uma cópia só", A é "todo pedido a um nó de pé recebe resposta" e P é "o sistema segue funcionando mesmo com mensagens perdidas entre os nós".</OneLiner>
+
+<DoIt>
+  <p>Na figura, deixe a rede boa e escreva um novo estoque. Depois corte a rede e leia de cada nó. Para cada leitura, pergunte: <strong>veio resposta?</strong> (A) e <strong>é o valor mais novo?</strong> (C).</p>
+</DoIt>
+{/* FIG:cap mode=ap */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>C, consistência (linearizável).</strong> Depois que a escrita <code>estoque 8, v9</code> termina, qualquer leitura, em qualquer nó, vê v9 ou algo mais novo. Nunca volta para <code>9, v8</code>. É a ilusão de que existe uma cópia só.</li>
+  <li><strong>A, disponibilidade.</strong> Todo pedido a um nó que está de pé recebe uma resposta que <strong>não é erro</strong>, mesmo que o valor seja velho. Um 503 ou um timeout não conta como resposta.</li>
+  <li><strong>P, tolerância a partição.</strong> Uma partição é quando a rede perde ou atrasa as mensagens entre grupos de nós, e todos continuam vivos. Dublin está bem, só não ouve SP nem Virgínia.</li>
+  <li><strong>Quorum ajuda no C.</strong> Com 3 cópias, grave em W = 2 e leia de R = 2. Como R + W = 4 é maior que 3, toda leitura toca pelo menos uma cópia com a escrita nova. Lendo de VA (v9) e DUB (v8), vence a maior versão: v9.</li>
+  <li><strong>P não é opcional.</strong> Rede falha. Por isso, na prática, a escolha é o que fazer <em>durante</em> a partição: recusar (C) ou responder com o que tem (A).</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Dois "C" que não são o mesmo</h3>
+  <p><strong>C do CAP</strong> = linearizabilidade entre réplicas. <strong>C do ACID</strong> = o banco respeita suas regras de integridade. Um banco único respeita o C do ACID e nem tem réplicas para discordar. Um banco replicado e linearizável pode aceitar um saldo negativo se ninguém criou a regra. São perguntas diferentes.</p>
+</div>
+
+<WhyItMatters>
+  <li>Se você não define o C e o A com precisão, "somos CP" ou "somos AP" vira slogan. O teorema só vale com as definições acima.</li>
+  <li>"Disponível" no CAP é mais exigente que 99,9% de uptime: <strong>todo</strong> pedido a um nó vivo precisa ter resposta.</li>
+  <li>Quorum é uma ferramenta, não uma garantia mágica: você escolhe R e W conforme o que a operação aguenta.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Contas de quorum com N = 3</h4>
+  <ul>
+    <li><strong>W = 2, R = 2:</strong> R + W = 4 &gt; 3. A leitura sempre cruza com uma cópia nova.</li>
+    <li><strong>W = 1, R = 1:</strong> R + W = 2 &le; 3. Rápido, mas a leitura pode cair numa cópia velha (stale read).</li>
+    <li><strong>W = 3:</strong> a escrita só vale com as três. Se Dublin cair, as escritas falham: consistência paga com disponibilidade.</li>
+  </ul>
+  <h4 class="deep-h">Quorum sozinho é linearizável?</h4>
+  <p>Nem sempre. Em sistemas no estilo Dynamo, escritas concorrentes, relógios e reparos em segundo plano criam casos em que o R + W &gt; N não basta para a linearizabilidade estrita. Trate o quorum como "provavelmente lê o mais novo", não como prova.</p>
+  <h4 class="deep-h">Como uma partição aparece na prática</h4>
+  <ul>
+    <li>Um timeout de 3.000 ms sem resposta: o nó não sabe se o outro caiu ou se a rede caiu.</li>
+    <li>Por isso partição, no fundo, é um limite de tempo: quanto menor o timeout, mais cedo o sistema decide que há partição.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Kleppmann: pare de chamar bancos de CP ou AP (definições de C, A e P)", href: "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html" },
+    { label: "AWS: o teorema CAP", href: "https://docs.aws.amazon.com/pt_br/whitepapers/latest/availability-and-beyond-improving-resilience/cap-theorem.html" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que é consistência no CAP?",
+    a: "Linearizabilidade: depois da escrita, toda leitura vê o valor novo, como se houvesse uma cópia só." },
+  { q: "O que é disponibilidade no CAP?",
+    a: "Todo pedido a um nó de pé recebe uma resposta que não é erro." },
+  { q: "O que é uma partição de rede?",
+    a: "Nós vivos que não conseguem trocar mensagens: perda ou atraso na rede." },
+  { q: "Com N = 3, W = 2 e R = 2, a leitura vê a escrita mais nova?",
+    a: "Sim: R + W = 4 > 3, então a leitura cruza com pelo menos uma cópia nova." },
+  { q: "O C do CAP e o C do ACID são iguais?",
+    a: "Não. CAP: réplicas parecem uma cópia só. ACID: o banco respeita suas regras de integridade." },
+]} />

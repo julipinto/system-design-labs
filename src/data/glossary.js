@@ -1,4 +1,5 @@
 import { storageRaidIo } from './glossary-storage-raid-io.js';
+import { capAcidBase } from './glossary-cap-acid-base.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -60,5 +61,6 @@ export const glossaries = {
     { term: '0-RTT', aliases: ['0-RTT'], short: 'Retomada que já manda o pedido na primeira mensagem. Risco: alguém pode repetir esse pedido (replay).', lesson: L5 },
     { term: 'FCS', aliases: ['FCS'], short: 'Código no fim do quadro para o receptor perceber se algum bit chegou errado.', layer: 2, lesson: L2 }
   ],
-  'storage-raid-io': storageRaidIo
+  'storage-raid-io': storageRaidIo,
+  'cap-acid-base': capAcidBase
 };

@@ -1,0 +1,77 @@
+---
+title: "Modelo BASE: Basic Availability, Soft-State, Eventual Consistency"
+order: 3
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+
+<OneLiner>BASE troca a certeza imediata por velocidade e disponibilidade: o sistema sempre responde, o estado muda aos poucos e, se ninguém escrever mais, todas as cópias acabam iguais.</OneLiner>
+
+<DoIt>
+  <p>Na figura, faça uma venda em São Paulo e leia o estoque em Dublin <strong>logo em seguida</strong>. Depois espere a cópia chegar e leia de novo.</p>
+</DoIt>
+{/* FIG:acid mode=base */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lia vende um par de tênis em São Paulo (líder). O estoque vai de <code>10, v7</code> para <code>9, v8</code>. O líder responde "ok" em <strong>2 ms</strong>, sem esperar ninguém: é a <strong>replicação assíncrona</strong>.</li>
+  <li>A mudança viaja. Chega à Virgínia em ~120 ms e a Dublin em ~190 ms. Nesse intervalo os três bancos <strong>discordam</strong>: é o <strong>soft state</strong>, um estado que ainda está se ajeitando sozinho.</li>
+  <li>Um cliente em Dublin lê o estoque aos 50 ms e vê <code>10, v7</code>: um <strong>stale read</strong> (leitura desatualizada). A loja continua respondendo, e é isso o <strong>basically available</strong>.</li>
+  <li>Aos 190 ms Dublin recebe a versão 8. Se ninguém escrever de novo, os três ficam em <code>9, v8</code>: <strong>consistência eventual</strong>.</li>
+  <li>E se duas réplicas aceitam escritas ao mesmo tempo? Há um conflito, e alguém precisa resolver: veja as três regras no quadro abaixo.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Três jeitos de resolver um conflito de escrita</h3>
+  <ul>
+    <li><strong>Last-write-wins:</strong> vale o maior timestamp. As duas réplicas leem estoque 10 e vendem um par cada. SP grava 9 às 12:00:00,100 e Dublin grava 9 às 12:00:00,090. Vence a de SP e o estoque fica 9, mas foram duas vendas: o certo era 8. Simples, mas perde dado.</li>
+    <li><strong>Vector clock:</strong> cada versão carrega contadores por nó. <code>{'{'}SP:2, DUB:1{'}'}</code> e <code>{'{'}SP:1, DUB:2{'}'}</code> não são uma antes da outra: o sistema sabe que são <strong>concorrentes</strong> e pede para alguém juntar.</li>
+    <li><strong>CRDT:</strong> cada nó conta só as próprias vendas (SP: 1, DUB: 1). Ao juntar, soma-se: 2 vendas, estoque 8. O resultado é o mesmo em qualquer ordem, sem perder nada.</li>
+  </ul>
+</div>
+
+<WhyItMatters>
+  <li>Carrinho, vitrine, contador de visualizações e recomendações aguentam dado alguns segundos atrasado, e ganham velocidade e resiliência em troca.</li>
+  <li>Eventual não é "qualquer coisa": o sistema precisa ter uma regra de conflito (LWW, vector clock, CRDT) escolhida de propósito.</li>
+  <li>Dinheiro e último item de estoque raramente aguentam isso. Nesses pontos use transação (ACID) ou outro desenho.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">As três letras</h4>
+  <ul>
+    <li><strong>Basically Available:</strong> parte dos dados ou dos nós pode falhar, mas o sistema segue atendendo, de forma degradada.</li>
+    <li><strong>Soft state:</strong> o estado pode mudar sem nenhuma escrita nova (réplicas convergindo, cache que expira por TTL, dados que vencem).</li>
+    <li><strong>Eventual consistency:</strong> se as escritas pararem, as cópias convergem. A promessa não diz em quanto tempo.</li>
+  </ul>
+  <h4 class="deep-h">De onde vem o nome</h4>
+  <p>BASE foi cunhado como contraponto ao ACID, em trabalhos de Eric Brewer e colegas sobre sistemas de grande escala. Não é um padrão formal como o ACID: é uma família de escolhas.</p>
+  <h4 class="deep-h">Quanto tempo é "eventualmente"?</h4>
+  <p>Em geral, a janela é próxima do tempo de propagação entre regiões: aqui, 190 ms. Mas com um nó fora do ar ou uma partição, pode virar segundos, minutos ou horas. Por isso o desenho precisa tolerar a leitura velha.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Alex DeBrie: consistência eventual no DynamoDB", href: "https://www.alexdebrie.com/posts/dynamodb-eventual-consistency/" },
+    { label: "Wikipedia: CRDT", href: "https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que significa BASE?",
+    a: "Basically Available, Soft state, Eventual consistency." },
+  { q: "O que é soft state?",
+    a: "O estado muda com o tempo sem escrita nova: réplicas convergindo, cache expirando." },
+  { q: "O que é um stale read?",
+    a: "Ler uma réplica ainda sem a escrita mais nova: estoque 10, v7 quando o certo é 9, v8." },
+  { q: "Por que o last-write-wins pode perder dado?",
+    a: "Mantém só a escrita de maior timestamp e descarta a outra, mesmo que as duas fossem válidas." },
+  { q: "O que o CRDT faz de diferente?",
+    a: "Junta as cópias sozinho e sempre chega ao mesmo resultado, em qualquer ordem, sem perder escrita." },
+]} />

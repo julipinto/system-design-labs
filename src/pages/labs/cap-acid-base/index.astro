@@ -1,0 +1,36 @@
+---
+// Módulo Teorema CAP, ACID e BASE: as 7 aulas de src/content/cap-acid-base/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/cap-acid-base.css';
+
+const entries = (await getCollection('cap-acid-base')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/cap-acid-base/quiz/');
+---
+<ModuleLayout
+  title="Teorema CAP, ACID e BASE · SDLabs"
+  description="Teorema CAP, ACID e BASE: consistência, disponibilidade e partição, níveis de isolamento, consistência eventual e PACELC, com laboratórios interativos."
+  module="cap-acid-base"
+  heading="Teorema CAP, ACID e BASE"
+  lead="O que acontece com o estoque e os pagamentos da loja quando os bancos replicados deixam de se falar. Uma loja online do começo ao fim."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/cap-acid-base/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

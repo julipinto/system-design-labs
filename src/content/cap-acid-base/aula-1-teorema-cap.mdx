@@ -1,0 +1,70 @@
+---
+title: "Teorema CAP"
+order: 1
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>Quando a rede entre os bancos quebra, um sistema replicado só consegue escolher entre responder sempre (disponível) ou responder sempre o dado mais novo (consistente).</OneLiner>
+
+<DoIt>
+  <p>Na figura, corte o cabo entre São Paulo e Dublin. Depois tente comprar o <strong>último par de tênis</strong> pelos dois lados e compare o que cada modo faz.</p>
+</DoIt>
+{/* FIG:cap mode=cp */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A loja da Lia agora guarda o estoque em <strong>3 bancos replicados</strong>: São Paulo (líder), Virgínia e Dublin. Cada um tem a mesma linha: <code>tenis_trilha_42: estoque 1, versão 7</code>.</li>
+  <li>O cabo submarino cai. São Paulo e Virgínia ainda se falam. <strong>Dublin fica isolado</strong>: é uma partição de rede.</li>
+  <li>Entram dois pedidos para o último par: um em Dublin, outro em São Paulo. Dublin não consegue perguntar nada a ninguém.</li>
+  <li><strong>Escolha 1, consistente:</strong> Dublin recusa depois de 3.000 ms de timeout (erro 503). São Paulo vende. Estoque final: 0, versão 8. Ninguém compra um par que não existe, mas o cliente de Dublin ficou sem resposta.</li>
+  <li><strong>Escolha 2, disponível:</strong> Dublin aceita e grava estoque 0, versão 8. São Paulo faz o mesmo. Os dois responderam, mas <strong>venderam o mesmo par duas vezes</strong>. A divergência só aparece quando o cabo volta.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>O nome vem de três letras</h3>
+  <p><strong>C</strong>onsistency (todos veem o dado mais novo), <strong>A</strong>vailability (todo pedido recebe resposta) e <strong>P</strong>artition tolerance (o sistema segue vivo com a rede cortada). Eric Brewer propôs a ideia em 2000 e Gilbert e Lynch provaram em 2002. Uma imagem de bolso: boa, rápida e barata, escolha duas. Na lição 6 você vê por que essa imagem engana um pouco.</p>
+</div>
+
+<WhyItMatters>
+  <li>Partições <strong>acontecem</strong>: cabo, roteador, deploy mal feito, nuvem com problema numa zona. Não dá para decidir "isso não vai ocorrer".</li>
+  <li>A pergunta de design é: <strong>o que cada parte da loja prefere, recusar ou arriscar?</strong> Estoque e pagamento pedem uma resposta, carrinho e recomendação pedem outra.</li>
+  <li>Decida antes da falha. Se não decidir, o banco decide por você no pior momento.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os números da cena (exemplo)</h4>
+  <ul>
+    <li>Ida e volta São Paulo ↔ Virgínia: ~120 ms. São Paulo ↔ Dublin: ~190 ms. Escrita local: ~2 ms.</li>
+    <li>Quorum de 3 bancos: 2. São Paulo + Virgínia têm maioria. Dublin sozinho não tem.</li>
+    <li>Modo consistente: o lado sem maioria recusa. Modo disponível: os dois lados aceitam e conciliam depois.</li>
+  </ul>
+  <h4 class="deep-h">O que o teorema diz de verdade</h4>
+  <p>Ele fala de um caso estreito: durante uma partição, não existe sistema que garanta ao mesmo tempo leituras sempre atuais (linearizáveis) e resposta a todo pedido. Sem partição, nada impede de ter as duas coisas.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Brewer (2012): CAP Twelve Years Later, na InfoQ", href: "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/" },
+    { label: "IBM: o que é o teorema CAP", href: "https://www.ibm.com/br-pt/topics/cap-theorem" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que diz o teorema CAP?",
+    a: "Durante uma partição de rede, um sistema replicado precisa escolher entre consistência e disponibilidade." },
+  { q: "Quem propôs o CAP e quando?",
+    a: "Eric Brewer, em 2000. Gilbert e Lynch provaram em 2002." },
+  { q: "O que é uma partição de rede?",
+    a: "Os nós continuam de pé, mas não conseguem se falar. Cada grupo acha que é o único." },
+  { q: "Na cena do último par, o que o modo consistente faz em Dublin?",
+    a: "Recusa o pedido (erro após o timeout) para não vender duas vezes." },
+  { q: "E o modo disponível?",
+    a: "Aceita nos dois lados e pode vender o mesmo par duas vezes, a ser corrigido quando a rede voltar." },
+]} />

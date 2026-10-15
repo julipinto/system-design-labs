@@ -1,0 +1,78 @@
+---
+title: "Críticas Modernas ao modelo CAP"
+order: 6
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+
+<OneLiner>"Escolha 2 de 3" simplifica demais: partições são raras, consistência e disponibilidade são graus e não botões, e a escolha deve ser feita por operação, não pelo banco inteiro.</OneLiner>
+
+<DoIt>
+  <p>Na figura, deixe o modo AP rodando com a rede boa por alguns segundos. Depois corte a rede e veja que <strong>só a parte "último par" muda de regra</strong>: o carrinho segue normal.</p>
+</DoIt>
+{/* FIG:cap mode=ap */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Partição é rara.</strong> Na maior parte do tempo a loja da Lia tem os três bancos conversando. Sem partição, dá para ter consistência e disponibilidade juntas: o teorema só proíbe isso <em>durante</em> a falha.</li>
+  <li><strong>C e A são graus.</strong> Entre "sempre o dado mais novo" e "qualquer dado velho" há meios-termos: ler do líder, ler com quorum, aceitar um atraso de até 200 ms.</li>
+  <li><strong>Escolha por operação.</strong> Dentro da mesma loja: finalizar a compra do último par (recusa na partição), adicionar ao carrinho (aceita sempre), mostrar a vitrine (pode ser velha).</li>
+  <li><strong>Partição tem três tempos (Brewer, 2012):</strong> detectar (o timeout de 3.000 ms estourou), entrar em modo partição (limitar o que é arriscado) e recuperar (juntar as versões e corrigir erros).</li>
+  <li><strong>Corrigir depois também é design.</strong> Venda duplicada do último par: cancelar um dos pedidos e dar um cupom de R$ 20. Cobrança no cartão é adiada até a rede voltar.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>A crítica de Kleppmann (2015) em 3 linhas</h3>
+  <ul>
+    <li>As definições do CAP são estreitas: C é linearizabilidade, A é "todo pedido a um nó vivo responde", e só falha de rede conta.</li>
+    <li>Muitos bancos não cabem em nenhuma caixa: depende de como são configurados e de qual operação você olha.</li>
+    <li>O CAP não diz nada de latência: um sistema que responde em dois minutos ainda é "disponível" pela definição.</li>
+  </ul>
+</div>
+
+<WhyItMatters>
+  <li>Em vez de perguntar "nosso banco é CP ou AP?", pergunte "o que acontece com <em>esta operação</em> numa partição, e como corrigimos depois?".</li>
+  <li>A pergunta sobre latência, que o CAP deixa de fora, é a porta de entrada do PACELC (próxima aula).</li>
+  <li>Boa decisão de design tem plano de recuperação: detectar, limitar, juntar e compensar.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Brewer, doze anos depois</h4>
+  <p>Em 2012, o próprio Brewer escreveu que o CAP proíbe só uma parte pequena do espaço de design possível. Ele defende que subsistemas, operações, dados e até usuários podem ter escolhas diferentes, e que o foco deve ser as <strong>invariantes</strong>: quais regras você protege na partição e quais pode violar e consertar depois.</p>
+  <h4 class="deep-h">Invariantes na loja</h4>
+  <ul>
+    <li><strong>Pode violar e consertar:</strong> o estoque do par ir a -1. Cancela-se um pedido.</li>
+    <li><strong>Protege sempre:</strong> o saldo da conta da Lia não vira negativo por uma transferência de R$ 300 em duplicidade.</li>
+    <li><strong>Adia:</strong> a cobrança do cartão, até a rede voltar.</li>
+  </ul>
+  <h4 class="deep-h">Rótulos CP e AP</h4>
+  <p>Kleppmann sugere abandonar os rótulos e raciocinar com definições precisas por operação. O artigo-base traz a tabela de "flavors" com rótulos por banco, e o próprio texto mostra um caso em que o Cassandra aparece como CP numa seção e como AP em outra: bom exemplo de por que o rótulo sozinho engana.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o teorema CAP, ACID e BASE (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Brewer (2012): CAP Twelve Years Later, na InfoQ", href: "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/" },
+    { label: "Kleppmann (2015): pare de chamar bancos de CP ou AP", href: "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html" },
+    { label: "Kleppmann (2015): uma crítica ao teorema CAP (arXiv)", href: "https://arxiv.org/abs/1509.05393" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Por que \"escolha 2 de 3\" engana?",
+    a: "Partição não é opcional, é rara, e C e A são graus. O trade-off só pesa durante a partição." },
+  { q: "Quais os três tempos de uma partição, segundo Brewer (2012)?",
+    a: "Detectar, entrar em modo partição (limitar operações) e recuperar (juntar e corrigir)." },
+  { q: "O que o CAP não diz?",
+    a: "Nada de latência: um sistema lento ainda pode ser \"disponível\" pela definição." },
+  { q: "Por que Kleppmann pede para parar de chamar bancos de CP ou AP?",
+    a: "Porque muitos não cabem numa caixa só: depende da configuração e da operação." },
+  { q: "Dê um exemplo de compensação depois da partição.",
+    a: "Cancelar um dos dois pedidos do último par e dar um cupom ao cliente." },
+]} />
