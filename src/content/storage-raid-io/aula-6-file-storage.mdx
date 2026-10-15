@@ -3,6 +3,7 @@ title: "File Storage"
 order: 6
 min: 3
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -17,7 +18,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, clique em <strong>Próximo passo</strong> e veja a mesma foto ganhar um nome, um caminho de pastas e uma ficha com tamanho, dono e data.</p>
 </DoIt>
-{/* FIG:storage mode=file */}
+<Figure3D path="labs/storage-raid-io/storage-3d/?mode=file" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com file storage" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
