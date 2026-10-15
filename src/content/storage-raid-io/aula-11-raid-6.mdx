@@ -13,42 +13,44 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>O rebuild do RAID 5 deixa a loja sem margem: enquanto ele roda, o pedidos.db depende de todos os outros discos funcionando. Uma segunda paridade tira esse risco. Ela custa mais um disco de espaço e escritas mais caras.</p>
+
 <OneLiner>RAID 6 é um RAID 5 com duas paridades, então aguenta a perda de dois discos ao mesmo tempo, em troca de mais um disco de espaço e escrita mais lenta.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e faça <strong>dois discos</strong> falharem. Veja os dois blocos serem refeitos das duas paridades.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e deixe o D2 queimar. Veja A2 e A5 serem refeitos pela primeira paridade e repare no Q, que fica de reserva para um segundo disco.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid6" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 6 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Com <strong>5 discos de 10 TB</strong>, cada linha tem 3 discos de dados e <strong>2 de paridade</strong>.</li>
-  <li>A primeira paridade (<strong>P</strong>) é o XOR. A segunda (<strong>Q</strong>) é calculada de outro jeito (matemática de Reed-Solomon), então as duas são diferentes.</li>
-  <li>Com duas equações, dá para achar <strong>dois blocos desconhecidos</strong>.</li>
-  <li>Capacidade: (5 - 2) x 10 TB = <strong>30 TB</strong> úteis (60%). Tolera <strong>2 falhas</strong>.</li>
-  <li>Cada escrita pequena vira <strong>6 operações</strong> (penalidade de escrita 6).</li>
+  <li>Com <strong>5 discos de 1 TB</strong>, cada faixa tem 3 blocos de dados e <strong>2 de paridade</strong>. As duas giram entre os discos.</li>
+  <li>A primeira paridade (<strong>P</strong>) é o XOR, igual à do RAID 5. A segunda (<strong>Q</strong>) é calculada de outro jeito (matemática de Reed-Solomon), então as duas são diferentes.</li>
+  <li>Com uma falha, o RAID 6 faz o mesmo que o RAID 5: P1 xor A1 xor A3 = 0110, que é o A2. E o Q sobra de reserva.</li>
+  <li>Com duas falhas, o P sozinho não basta. Com duas equações (P e Q), dá para achar <strong>dois blocos desconhecidos</strong>.</li>
+  <li>Capacidade: (5 - 2) x 1 TB = <strong>3 TB</strong> úteis (60%). Tolera <strong>2 falhas</strong>. Cada escrita pequena vira <strong>6 operações</strong> (penalidade de escrita 6).</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>Resolve o risco do rebuild do RAID 5: se um segundo disco falha (ou um URE aparece) durante o rebuild, ainda há margem.</li>
   <li>Indicado para muito volume e dados que ficam anos, com discos grandes e muitos deles.</li>
-  <li>Custa escrita mais lenta e um disco a mais de overhead.</li>
+  <li>Custa escrita mais lenta e um disco a mais de overhead. Para os mesmos 3 TB úteis, o RAID 6 pede 5 discos e o RAID 5 pede 4.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Contas</h4>
   <ul>
-    <li><strong>Mínimo:</strong> 4 discos.</li>
-    <li><strong>Capacidade útil:</strong> (N - 2) x tamanho. 5 x 10 TB: 30 TB (60%).</li>
+    <li><strong>Mínimo:</strong> 4 discos (com 4 discos de 1 TB, sobram 2 TB úteis).</li>
+    <li><strong>Capacidade útil:</strong> (N - 2) x tamanho. 5 x 1 TB: 3 TB (60%).</li>
     <li><strong>Falhas toleradas:</strong> 2.</li>
     <li><strong>Penalidade de escrita:</strong> 6 (ler dado, P e Q antigos, gravar dado, P e Q novos).</li>
   </ul>
-  <h4 class="deep-h">Comparação rápida com o RAID 5 (5 discos de 10 TB)</h4>
+  <h4 class="deep-h">Comparação rápida com o RAID 5 (discos de 1 TB)</h4>
   <ul>
-    <li>RAID 5: 40 TB, 1 falha, escrita 4.</li>
-    <li>RAID 6: 30 TB, 2 falhas, escrita 6.</li>
-    <li>Escrita aleatória com 150 IOPS por disco: 5 x 150 / 4 = 187 (RAID 5) contra 5 x 150 / 6 = 125 (RAID 6).</li>
+    <li>RAID 5 com 4 discos: 3 TB, 1 falha, escrita 4.</li>
+    <li>RAID 6 com 5 discos: 3 TB, 2 falhas, escrita 6.</li>
+    <li>Escrita aleatória com 150 IOPS por disco: 4 x 150 / 4 = 150 (RAID 5) contra 5 x 150 / 6 = 125 (RAID 6).</li>
   </ul>
   <h4 class="deep-h">Número de discos</h4>
   <p>Quanto mais discos no grupo, maior a chance de falhas durante o rebuild. Por isso o RAID 6 é a escolha comum em grupos grandes.</p>
@@ -60,11 +62,13 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>O RAID 6 protege bem, mas cada escrita pequena custa 6 operações, e o pedidos.db é um banco que escreve o tempo todo. Falta saber se existe um nível que una velocidade e proteção sem calcular paridade: o RAID 10.</p>
+
 <Flashcards cards={[
   { q: "O que o RAID 6 tem de diferente do 5?",
     a: "Duas paridades (P e Q): tolera duas falhas ao mesmo tempo." },
-  { q: "Capacidade do RAID 6 com 5 discos de 10 TB?",
-    a: "(5 - 2) x 10 = 30 TB." },
+  { q: "Capacidade do RAID 6 com 5 discos de 1 TB?",
+    a: "(5 - 2) x 1 = 3 TB." },
   { q: "Penalidade de escrita do RAID 6?",
     a: "6." },
   { q: "Quantos discos no mínimo?",

@@ -13,34 +13,36 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Fotos e backups já têm casa. O pedidos.db ainda mora num disco só, e esse disco tem dois defeitos: é limitado em velocidade e, se queimar, leva o arquivo junto. A saída é juntar vários discos e tratá-los como um só. Isso é um <strong>RAID</strong> (Redundant Array of Independent Disks).</p>
+
 <OneLiner>RAID 0 fatia os dados e espalha entre os discos para somar a velocidade, mas não guarda nenhuma cópia: um disco que falha derruba tudo.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> até os blocos se espalharem pelos discos. Depois faça um disco falhar e veja o que sobra.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> até os blocos se espalharem pelos discos. Continue até o disco D2 queimar e veja o que sobra do pedidos.db.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid0" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 0 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja junta <strong>4 discos de 10 TB</strong> para ter espaço e velocidade.</li>
-  <li>O RAID divide o arquivo em <strong>fatias (stripes)</strong>: bloco 1 no disco A, bloco 2 no B, bloco 3 no C, bloco 4 no D, bloco 5 volta ao A.</li>
+  <li>A loja junta <strong>4 discos de 1 TB</strong> (D1 a D4) atrás de uma <strong>controladora RAID</strong>. Ela recebe o pedidos.db e o corta em blocos: A1, A2, A3…</li>
+  <li>No RAID 0, a controladora espalha os blocos em <strong>faixas (stripes)</strong>: A1 vai para o D1, A2 para o D2, A3 para o D3, A4 para o D4. A faixa seguinte recomeça no D1 (A5).</li>
   <li>Os 4 discos leem e gravam <strong>ao mesmo tempo</strong>: a velocidade chega a ~4x.</li>
-  <li>A capacidade é a soma: 4 x 10 TB = <strong>40 TB úteis</strong>.</li>
-  <li>Não há cópia nem paridade. <strong>Um disco falha, tudo é perdido</strong>, porque cada arquivo tem pedaços em todos.</li>
+  <li>Como nada é copiado, a capacidade é a soma: 4 x 1 TB = <strong>4 TB úteis</strong>.</li>
+  <li>Aí vem o custo. Numa noite o D2 queima e leva A2 e A6. Cada arquivo tem pedaços em todos os discos, então o pedidos.db fica com buracos e não abre. <strong>Um disco falha, tudo é perdido.</strong> Trocar o D2 só dá um disco vazio: só o backup restaura.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>Serve para dado que pode ser refeito: cache, área temporária, renderização.</li>
   <li>Mais discos, mais chance de falha: 4 discos têm 4x o risco de perder tudo.</li>
-  <li>Nunca para os pedidos da Lia nem para backups. Para isso, as próximas aulas.</li>
+  <li>Nunca para o pedidos.db nem para backups. Para proteger o arquivo, a próxima aula copia cada bloco.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Contas</h4>
   <ul>
     <li><strong>Mínimo:</strong> 2 discos.</li>
-    <li><strong>Capacidade útil:</strong> N x tamanho. 4 x 10 TB = 40 TB (100%).</li>
+    <li><strong>Capacidade útil:</strong> N x tamanho. 4 x 1 TB = 4 TB (100%).</li>
     <li><strong>Falhas toleradas:</strong> 0.</li>
     <li><strong>Penalidade de escrita:</strong> 1 (cada escrita é uma operação).</li>
     <li><strong>Leitura e escrita:</strong> até N vezes um disco só.</li>
@@ -57,11 +59,13 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>O RAID 0 corre, mas não protege nada. Falta saber o que muda se cada bloco existir em dois discos ao mesmo tempo: o RAID 1.</p>
+
 <Flashcards cards={[
   { q: "O que o RAID 0 faz?",
     a: "Fatia os dados e espalha entre os discos, somando a velocidade." },
-  { q: "Capacidade de 4 discos de 10 TB em RAID 0?",
-    a: "40 TB. Aproveita 100%." },
+  { q: "Capacidade de 4 discos de 1 TB em RAID 0?",
+    a: "4 TB. Aproveita 100%." },
   { q: "Quantos discos podem falhar no RAID 0?",
     a: "Nenhum. Uma falha perde tudo." },
   { q: "Por que mais discos aumentam o risco no RAID 0?",

@@ -13,20 +13,22 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Com IOPS e latência na mão, a loja precisa gravar o <strong>gato.jpg</strong>, a foto de um produto (2,4 MB). O caminho mais curto até um disco é não ter caminho: o disco fica dentro do servidor.</p>
+
 <OneLiner>DAS é o disco ligado direto ao servidor: o caminho mais curto e rápido, mas só aquele servidor enxerga o disco.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a mesma foto de produto ser salva no disco que está espetado no servidor. Conte quantos saltos ela faz.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja o gato.jpg ser salvo no disco que está espetado no servidor A. Conte quantos saltos de rede ele faz.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/storage-3d/?mode=das" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com DAS" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>O servidor da loja tem um <strong>NVMe</strong> instalado dentro dele.</li>
+  <li>O servidor A da loja tem um <strong>SSD NVMe de 1 TB</strong> instalado dentro dele.</li>
   <li>O sistema operacional fala com o disco pelo barramento (<strong>PCIe</strong>, SATA ou USB). Não há rede no caminho.</li>
-  <li>A foto é gravada: menos saltos, <strong>menos latência</strong>.</li>
-  <li>Só esse servidor enxerga o disco. Outro servidor não lê aquela foto.</li>
-  <li>Para crescer, é preciso <strong>colocar mais discos na máquina</strong> e migrar dados na mão.</li>
+  <li>O gato.jpg é gravado em <code>/data/produtos/gato.jpg</code>. Sem saltos, a leitura de 4 KB leva perto de <strong>0,1 ms</strong>.</li>
+  <li>O preço aparece quando a loja cresce: o servidor B procura o mesmo arquivo e não acha. Só o A enxerga aquele disco.</li>
+  <li>Para crescer, é preciso <strong>colocar mais discos na máquina</strong> e migrar dados na mão. O remendo é copiar a foto para o B, e aí existem duas fotos.</li>
 </ol>
 </HowItWorks>
 
@@ -49,7 +51,7 @@ import Flashcards from '../../components/Flashcards.astro';
     <li>Sem compartilhamento: copiar para outro servidor é trabalho manual.</li>
   </ul>
   <h4 class="deep-h">Ver no Linux</h4>
-  <pre><code>{"lsblk -o NAME,SIZE,TYPE,ROTA,MOUNTPOINT\n# ROTA=1 é HDD, ROTA=0 é SSD ou NVMe\ndf -h /dados"}</code></pre>
+  <pre><code>{"lsblk -o NAME,SIZE,TYPE,ROTA,MOUNTPOINT\n# ROTA=1 é HDD, ROTA=0 é SSD ou NVMe\ndf -h /data"}</code></pre>
   <Sources items={[
     { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
     { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
@@ -57,11 +59,13 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>Copiar a foto de servidor em servidor não escala. Falta saber como A, B e C enxergam a mesma pasta sem copiar nada. O NAS faz isso.</p>
+
 <Flashcards cards={[
   { q: "O que é DAS?",
     a: "Disco ligado direto ao servidor (SATA, USB ou NVMe), sem rede no meio." },
   { q: "Vantagem do DAS?",
-    a: "Menos saltos: latência baixa e desempenho alto." },
+    a: "Menos saltos: latência baixa (~0,1 ms) e desempenho alto." },
   { q: "Principal limite do DAS?",
     a: "Só uma máquina enxerga o disco, e crescer exige mexer fisicamente." },
   { q: "Se o servidor com DAS cai, e o disco?",

@@ -13,35 +13,37 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>O NAS resolveu o compartilhamento, mas entrega arquivos pela rede, e cada leitura custa uns 1 ms. O pedidos.db não aguenta isso: ele regrava 4 KB no meio de um arquivo enorme, milhares de vezes por segundo. Ele precisa de um disco que só entregue blocos.</p>
+
 <OneLiner>block storage entrega um disco "cru" de blocos numerados, e quem o recebe formata e decide o que guardar nele.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto ser cortada em blocos e cada bloco ir para um número de endereço (LBA).</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja o gato.jpg ser cortado em blocos e cada bloco ir para um número de endereço (LBA).</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/storage-3d/?mode=block" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com block storage" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>O disco é dividido em <strong>blocos de tamanho fixo</strong>, por exemplo 4 KB.</li>
+  <li>A loja cria na nuvem um volume de 100 GB, anexado ao servidor A como <code>/dev/nvme1n1</code>. O disco é dividido em <strong>blocos de tamanho fixo</strong>, aqui de 4 KB.</li>
   <li>Cada bloco tem um número, o <strong>LBA</strong> (Logical Block Address): bloco 0, bloco 1, bloco 2048.</li>
-  <li>Uma foto de 4 MB ocupa <strong>1.024 blocos</strong> (4 MB / 4 KB).</li>
-  <li>Quem usa o volume instala um <strong>sistema de arquivos</strong> (ext4, XFS) ou um banco de dados direto nos blocos.</li>
-  <li>O volume pode estar dentro da máquina ou longe, entregue por rede (<strong>SAN</strong>, <strong>iSCSI</strong>, <strong>EBS</strong>).</li>
+  <li>Quem usa o volume instala um <strong>sistema de arquivos</strong> (ext4, XFS) ou um banco de dados direto nos blocos. O A formata com ext4 e monta em <code>/dados</code>.</li>
+  <li>O gato.jpg tem 2.457.600 bytes. Dividido em blocos de 4 KB, ocupa <strong>600 blocos</strong>, do LBA 2048 ao 2647.</li>
+  <li>O volume guarda só bytes. O bloco 2048 começa com <code>FF D8 FF E0</code>, a assinatura de todo JPEG, mas o volume não sabe disso: não há nome, pasta nem dono lá dentro.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>É o storage do banco de dados e do disco do sistema: latência baixa, controle total.</li>
-  <li>No EBS você anexa e desanexa o volume de uma instância a outra. Mas ele costuma servir <strong>uma instância por vez</strong>.</li>
-  <li>Não compartilha arquivos sozinho e o tamanho dos blocos é definido na configuração: crescer exige planejar.</li>
+  <li>É o storage do banco de dados e do disco do sistema: latência baixa, controle total. Para corrigir 4 KB no começo da foto, basta regravar o bloco 2048; os outros 599 ficam como estão. É o que o pedidos.db faz o tempo todo.</li>
+  <li>No EBS você anexa e desanexa o volume de uma instância a outra. Mas ele costuma servir <strong>uma instância por vez</strong>: se o B tenta anexar o mesmo volume, a nuvem recusa.</li>
+  <li>Não compartilha arquivos sozinho, e o tamanho dos blocos é definido na configuração: crescer exige planejar.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Ver blocos de verdade</h4>
-  <pre><code>{"lsblk -o NAME,SIZE,PHY-SEC,LOG-SEC\nsudo blockdev --getbsz /dev/nvme0n1p1     # tamanho do bloco do sistema de arquivos\nsudo dd if=/dev/nvme0n1 bs=4096 skip=1 count=1 status=none | xxd | head -4\n# lê o bloco de número 1 (LBA 1 em blocos de 4 KB), só leitura"}</code></pre>
+  <pre><code>{"lsblk -o NAME,SIZE,PHY-SEC,LOG-SEC\nsudo blockdev --getbsz /dev/nvme1n1       # tamanho do bloco\nsudo dd if=/dev/nvme1n1 bs=4096 skip=2048 count=1 status=none | xxd | head -4\n# lê o bloco 2048 (onde começa o gato.jpg neste exemplo), só leitura"}</code></pre>
   <h4 class="deep-h">Tamanhos comuns</h4>
   <ul>
-    <li>Setor do disco: 512 bytes ou 4 KB.</li>
+    <li>Setor do disco: 512 bytes ou 4 KB. Em setores de 512 bytes, cada bloco de 4 KB ocupa 8 LBAs.</li>
     <li>Bloco do ext4: 4 KB por padrão.</li>
     <li>Página do Postgres: 8 KB.</li>
   </ul>
@@ -57,13 +59,15 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>Se o volume não sabe que aqueles 600 blocos são uma foto, quem sabe? Falta saber como o nome gato.jpg e a pasta produtos/gatos chegam aos blocos. Quem faz isso é o file storage.</p>
+
 <Flashcards cards={[
   { q: "O que é block storage?",
     a: "Disco cru dividido em blocos de tamanho fixo, cada um com um endereço." },
   { q: "O que é LBA?",
     a: "O número do bloco no disco (Logical Block Address)." },
-  { q: "Quantos blocos de 4 KB tem uma foto de 4 MB?",
-    a: "1.024." },
+  { q: "Quantos blocos de 4 KB tem o gato.jpg, de 2,4 MB?",
+    a: "600 (2.457.600 bytes ÷ 4.096)." },
   { q: "Quem decide o que vai nos blocos?",
     a: "Quem usa o volume: um sistema de arquivos ou o próprio banco de dados." },
   { q: "Que serviço da AWS é block storage?",

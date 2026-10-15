@@ -13,26 +13,29 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>No RAID 0, o D2 queimou e levou A2 e A6, e com eles o pedidos.db. O problema é que cada bloco existia em um lugar só. Se cada bloco existir em dois discos, perder um deixa de ser perder o arquivo.</p>
+
 <OneLiner>RAID 1 grava tudo em dois discos iguais, então se um morre o outro continua servindo, ao custo de metade do espaço.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong>, veja cada bloco ser gravado duas vezes, faça um disco falhar e confira que a loja continua no ar.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong>, veja cada bloco ser gravado duas vezes, deixe o D2 queimar e confira que o pedidos.db continua inteiro.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid1" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 1 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A Lia põe o <strong>banco de pedidos</strong> em 2 discos de 10 TB.</li>
-  <li>Cada escrita vai para os <strong>dois discos</strong>: o segundo é uma cópia exata (espelho).</li>
-  <li>Na leitura, o RAID pode ler de qualquer um dos dois. Isso ajuda a <strong>leitura</strong>.</li>
-  <li>Se um disco falha, o outro assume <strong>sem parada</strong>. É só trocar o disco e recopiar.</li>
-  <li>A capacidade é a de um disco só: 2 x 10 TB dá <strong>10 TB úteis</strong> (50%).</li>
+  <li>A loja põe o <strong>pedidos.db</strong> em 2 discos de 1 TB (D1 e D2).</li>
+  <li>Cada escrita vai para os <strong>dois discos</strong>: A1 no D1 e no D2, depois A2 nos dois. O segundo é uma cópia exata (espelho), então a escrita tem a velocidade de um disco só.</li>
+  <li>Na leitura, a controladora divide o trabalho: A1 vem do D1 e A2 vem do D2, ao mesmo tempo. A <strong>leitura</strong> chega a ~2x.</li>
+  <li>Quando o D2 queima, o D1 tem os mesmos blocos e assume <strong>sem parada</strong>. A loja nem percebe. Troca-se o disco e a controladora recopia o D1 para o novo (<strong>rebuild</strong>).</li>
+  <li>O preço é o espaço: a capacidade é a de um disco só. 2 x 1 TB dá <strong>1 TB úteis</strong> (50%).</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>É o básico para sistema operacional, banco de dados e coisas críticas pequenas.</li>
   <li>Simples de entender e de recuperar: o disco que sobrou já é um disco completo.</li>
+  <li>Durante o rebuild, o D1 é a única cópia. Se ele falhar agora, o arquivo se perde.</li>
   <li><strong>RAID não é backup.</strong> Se alguém apagar uma tabela, o espelho apaga junto, na hora.</li>
 </WhyItMatters>
 
@@ -40,7 +43,7 @@ import Flashcards from '../../components/Flashcards.astro';
   <h4 class="deep-h">Contas</h4>
   <ul>
     <li><strong>Mínimo:</strong> 2 discos.</li>
-    <li><strong>Capacidade útil:</strong> tamanho de 1 disco. 2 x 10 TB = 10 TB (50%).</li>
+    <li><strong>Capacidade útil:</strong> tamanho de 1 disco. 2 x 1 TB = 1 TB (50%).</li>
     <li><strong>Falhas toleradas:</strong> 1 (com N cópias, N - 1).</li>
     <li><strong>Penalidade de escrita:</strong> 2 (grava nos dois discos).</li>
     <li><strong>Leitura:</strong> até 2x, lendo dos dois. <strong>Escrita:</strong> igual a um disco.</li>
@@ -56,11 +59,13 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>O espelho protege, mas metade do espaço vira cópia. Falta saber se dá para proteger vários discos gastando só um disco extra. O RAID 5 responde com a paridade.</p>
+
 <Flashcards cards={[
   { q: "O que o RAID 1 faz?",
     a: "Grava tudo em dois discos iguais (espelho)." },
-  { q: "Capacidade de 2 discos de 10 TB em RAID 1?",
-    a: "10 TB, ou 50%." },
+  { q: "Capacidade de 2 discos de 1 TB em RAID 1?",
+    a: "1 TB, ou 50%." },
   { q: "Quantos discos podem falhar no RAID 1 de 2 discos?",
     a: "Um." },
   { q: "Penalidade de escrita do RAID 1?",

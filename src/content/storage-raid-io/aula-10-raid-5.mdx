@@ -13,34 +13,36 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>O espelho do RAID 1 salvou o pedidos.db, mas gastou metade dos discos. Com 4 discos, dá para gastar só um: em vez de copiar cada bloco, a controladora guarda uma conta que permite refazer o bloco perdido. Essa conta é a <strong>paridade</strong>.</p>
+
 <OneLiner>RAID 5 espalha os dados e uma paridade entre os discos, e assim sobrevive à perda de qualquer um deles gastando só um disco de espaço.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong>, veja a paridade ser calculada, faça um disco falhar e acompanhe a reconstrução bloco a bloco.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong>, veja a paridade ser calculada, deixe o D2 queimar e acompanhe a reconstrução bloco a bloco.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 5 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja agora tem <strong>5 discos de 10 TB</strong>.</li>
-  <li>Em cada linha, 4 discos guardam dados e 1 guarda a <strong>paridade</strong>. A paridade <strong>gira</strong> de disco em cada linha.</li>
-  <li>A paridade é o <strong>XOR</strong> dos blocos: com A = 1010, B = 0110, C = 1001, a paridade P = 0101.</li>
-  <li>Se o disco B morre, recalcula: A xor C xor P = 1010 xor 1001 xor 0101 = <strong>0110</strong>. Voltou o B.</li>
-  <li>Capacidade: (5 - 1) x 10 TB = <strong>40 TB</strong> úteis. Tolera <strong>1 falha</strong>.</li>
+  <li>A loja usa <strong>4 discos de 1 TB</strong>. Em cada faixa, 3 discos guardam dados e 1 guarda a <strong>paridade</strong> (P). A paridade <strong>gira</strong>: P1 fica no D4, P2 no D3.</li>
+  <li>A paridade é o <strong>XOR</strong> dos blocos da faixa. Com A1 = 1011, A2 = 0110 e A3 = 0101, a paridade é P1 = 1011 xor 0110 xor 0101 = <strong>1000</strong>.</li>
+  <li>O D2 queima e leva A2 e A5. Para refazer o A2, a controladora faz o XOR do que sobrou na faixa: A1 xor A3 xor P1 = 1011 xor 0101 xor 1000 = <strong>0110</strong>. Voltou o A2. O A5 sai do mesmo jeito.</li>
+  <li>Enquanto o D2 não é trocado, o arquivo está completo, só mais lento (modo degradado). No <strong>rebuild</strong>, a controladora lê todos os outros discos e recalcula cada bloco do D2.</li>
+  <li>Capacidade: (4 - 1) x 1 TB = <strong>3 TB</strong> úteis (75%). Tolera <strong>1 falha</strong>.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>Boa relação entre espaço e proteção: perde só 1 disco, qualquer que seja o número deles.</li>
+  <li>Boa relação entre espaço e proteção: perde só 1 disco, qualquer que seja o número deles. Quanto mais discos, menor a fração perdida.</li>
   <li>A <strong>escrita é cara</strong>: cada escrita pequena vira 4 operações (penalidade de escrita 4).</li>
-  <li>O <strong>rebuild</strong> lê todos os outros discos. Com discos grandes, demora e é arriscado.</li>
+  <li>O <strong>rebuild</strong> lê todos os outros discos. Com discos grandes, demora e é arriscado: se outro disco falhar nesse intervalo, o arquivo se perde.</li>
 </WhyItMatters>
 
 <Deep min={5}>
   <h4 class="deep-h">Contas</h4>
   <ul>
     <li><strong>Mínimo:</strong> 3 discos.</li>
-    <li><strong>Capacidade útil:</strong> (N - 1) x tamanho. 5 x 10 TB: 40 TB (80%).</li>
+    <li><strong>Capacidade útil:</strong> (N - 1) x tamanho. 4 x 1 TB: 3 TB (75%).</li>
     <li><strong>Falhas toleradas:</strong> 1.</li>
     <li><strong>Penalidade de escrita:</strong> 4.</li>
   </ul>
@@ -51,17 +53,17 @@ import Flashcards from '../../components/Flashcards.astro';
     <li>Calcular a nova: P novo = P antigo xor dado antigo xor dado novo.</li>
     <li>Gravar o bloco novo e a paridade nova (2 escritas).</li>
   </ol>
-  <p>Total: 2 leituras + 2 escritas = 4 operações. Com 5 discos de 150 IOPS, a escrita aleatória cai de 750 para uns 187 IOPS.</p>
-  <h4 class="deep-h">Rebuild e URE (exemplo)</h4>
+  <p>Total: 2 leituras + 2 escritas = 4 operações. Com 4 discos de 150 IOPS, a escrita aleatória cai de 600 para 150 IOPS.</p>
+  <h4 class="deep-h">Rebuild e URE: e se os discos fossem de 10 TB? (exemplo)</h4>
   <ul>
-    <li>Reconstruir um disco de 10 TB a 150 MB/s: 10.000.000 MB / 150 = 66.667 s, mais de 18 horas. Na prática, dias com a loja no ar.</li>
-    <li>Ele lê os outros 4 discos inteiros: 40 TB = 3,2 x 10^14 bits.</li>
-    <li>Discos comuns têm 1 <strong>URE</strong> (erro de leitura que não se recupera) a cada 10^14 bits. Na conta, é esperado achar uns 3 erros durante o rebuild. Sem paridade sobrando, cada erro é perda.</li>
+    <li>Reconstruir um disco de 10 TB a 150 MB/s: 10.000.000 MB / 150 = 66.667 s, mais de 18 horas. Na prática, dias com a loja no ar. Com os discos de 1 TB da figura, são umas 2 horas.</li>
+    <li>Num RAID 5 de 4 discos de 10 TB, o rebuild lê os outros 3 discos inteiros: 30 TB = 2,4 x 10^14 bits.</li>
+    <li>Discos comuns têm 1 <strong>URE</strong> (erro de leitura que não se recupera) a cada 10^14 bits. Na conta, é esperado achar uns 2 a 3 erros durante o rebuild. Sem paridade sobrando, cada erro é perda. Com 1 TB, a conta cai para ~0,24 erro esperado.</li>
   </ul>
   <h4 class="deep-h">Hot spare</h4>
   <p>Um disco reserva ligado e vazio: quando um disco falha, ele entra sozinho e o rebuild começa na hora, sem esperar alguém trocar o disco.</p>
   <h4 class="deep-h">Ver no Linux</h4>
-  <pre><code>{"sudo mdadm --create /dev/md0 --level=5 --raid-devices=5 /dev/sd[b-f]\ncat /proc/mdstat        # mostra \"recovery = 12.3%\" durante o rebuild"}</code></pre>
+  <pre><code>{"sudo mdadm --create /dev/md0 --level=5 --raid-devices=4 /dev/sd[b-e]\ncat /proc/mdstat        # mostra \"recovery = 12.3%\" durante o rebuild"}</code></pre>
   <Sources items={[
     { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
     { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
@@ -70,9 +72,11 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>O RAID 5 só aguenta um disco queimado, e durante o rebuild não sobra margem para um segundo. Falta saber como aguentar dois discos de uma vez. O RAID 6 responde com uma segunda paridade.</p>
+
 <Flashcards cards={[
-  { q: "Capacidade do RAID 5 com 5 discos de 10 TB?",
-    a: "(5 - 1) x 10 = 40 TB." },
+  { q: "Capacidade do RAID 5 com 4 discos de 1 TB?",
+    a: "(4 - 1) x 1 = 3 TB." },
   { q: "Quantas falhas o RAID 5 tolera?",
     a: "Uma." },
   { q: "Como a paridade recupera um disco?",

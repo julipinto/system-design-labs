@@ -13,39 +13,41 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>O pedidos.db é um banco com muita escrita, e o RAID 5 e o RAID 6 cobram 4 e 6 operações por escrita pequena. O RAID 10 junta o que já vimos: espelho (RAID 1) para proteger e faixas (RAID 0) para ganhar velocidade. Ele não calcula paridade nenhuma.</p>
+
 <OneLiner>RAID 10 é espelho com fatiamento por cima: primeiro pares espelhados, depois dados espalhados entre os pares, e assim une velocidade e proteção ao custo de metade do espaço.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e faça falhar dois discos: primeiro um de cada par, depois os dois do mesmo par, e veja a diferença.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e deixe o D2 queimar: o D1, seu par, segura. Depois imagine o D1 também queimando e compare com um disco do outro par.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid10" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 10 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A Lia quer o melhor para o banco: <strong>4 discos de 10 TB</strong>.</li>
-  <li>Eles formam <strong>2 pares espelhados</strong> (RAID 1). Cada par é um "disco" inteiro.</li>
-  <li>Os dados são fatiados (RAID 0) entre os 2 pares: <strong>velocidade de leitura e escrita somada</strong>.</li>
-  <li>Capacidade: metade, <strong>20 TB</strong> úteis (50%).</li>
-  <li>Pode perder <strong>um disco por par</strong> e seguir. Se perder os <strong>dois do mesmo par</strong>, perde tudo.</li>
+  <li>A loja quer o melhor para o pedidos.db: <strong>4 discos de 1 TB</strong>.</li>
+  <li>Eles formam <strong>2 pares espelhados</strong> (RAID 1): D1+D2 e D3+D4. Cada par é um "disco" inteiro.</li>
+  <li>Os blocos são fatiados (RAID 0) entre os 2 pares: A1 vai para o par 1 e é copiado nos dois discos dele, A2 vai para o par 2, também copiado. A leitura chega a ~4x e a escrita a ~2x.</li>
+  <li>Quando o D2 queima, o D1 tem A1 e A3, e os outros pares nem notam. O rebuild só <strong>copia o D1</strong> para o disco novo, sem conta nenhuma: é rápido e leve.</li>
+  <li>Capacidade: metade, <strong>2 TB</strong> úteis (50%). Pode perder <strong>um disco por par</strong> e seguir. Se perder os <strong>dois do mesmo par</strong>, perde tudo.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>Para banco de dados com muita escrita (financeiro, saúde, pedidos), é a escolha clássica.</li>
   <li>A penalidade de escrita é só 2 e o rebuild é simples: copiar o espelho, sem ler o resto.</li>
-  <li>Custa caro: metade do espaço some em redundância.</li>
+  <li>Custa caro: metade do espaço some em redundância. Até o rebuild terminar, o D1 é a única cópia do par.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Contas</h4>
   <ul>
     <li><strong>Mínimo:</strong> 4 discos, em número par.</li>
-    <li><strong>Capacidade útil:</strong> N / 2 x tamanho. 4 x 10 TB: 20 TB (50%).</li>
+    <li><strong>Capacidade útil:</strong> N / 2 x tamanho. 4 x 1 TB: 2 TB (50%).</li>
     <li><strong>Falhas toleradas:</strong> 1 garantida, até N / 2 se for um por par.</li>
     <li><strong>Penalidade de escrita:</strong> 2.</li>
   </ul>
   <h4 class="deep-h">E se dois discos falham?</h4>
-  <p>Com 4 discos (A, B espelhados; C, D espelhados), há 6 jeitos de escolher 2 discos. Em 4 deles o conjunto sobrevive (um de cada par). Em 2 (A e B, ou C e D) ele morre. Ou seja, 2/3 de chance de sobreviver à segunda falha.</p>
+  <p>Com 4 discos (D1, D2 espelhados; D3, D4 espelhados), há 6 jeitos de escolher 2 discos. Em 4 deles o conjunto sobrevive (um de cada par). Em 2 (D1 e D2, ou D3 e D4) ele morre. Ou seja, 2/3 de chance de sobreviver à segunda falha.</p>
   <h4 class="deep-h">Escrita aleatória (150 IOPS por disco)</h4>
   <p>4 x 150 / 2 = 300 IOPS, o dobro do RAID 5 com os mesmos 4 discos (4 x 150 / 4 = 150).</p>
   <h4 class="deep-h">RAID 1+0 x 0+1</h4>
@@ -57,11 +59,13 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>Já são cinco níveis, cada um com seu preço em espaço, velocidade e segurança. Falta saber qual vai em cada dado da loja. É o que o resumo compara.</p>
+
 <Flashcards cards={[
   { q: "Como o RAID 10 é montado?",
     a: "Pares espelhados (RAID 1) com os dados fatiados entre eles (RAID 0)." },
-  { q: "Capacidade de 4 discos de 10 TB em RAID 10?",
-    a: "20 TB, ou 50%." },
+  { q: "Capacidade de 4 discos de 1 TB em RAID 10?",
+    a: "2 TB, ou 50%." },
   { q: "Quando dois discos falhando matam o RAID 10?",
     a: "Quando são os dois do mesmo par espelhado." },
   { q: "Penalidade de escrita do RAID 10?",

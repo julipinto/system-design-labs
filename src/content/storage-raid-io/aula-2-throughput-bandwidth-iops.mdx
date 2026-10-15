@@ -12,6 +12,8 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Na aula passada o banco pediu "latência baixa" e as fotos pediram "muito espaço". Palavras não bastam para escolher um disco. Falta uma conta, e ela tem três números: IOPS, bloco e banda.</p>
+
 <OneLiner>IOPS conta quantos pedidos o disco atende por segundo, bandwidth é a largura do cano, e o throughput real é IOPS vezes o tamanho do bloco, limitado pelo cano.</OneLiner>
 
 <DoIt>
@@ -21,16 +23,16 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>I/O</strong> é uma operação de leitura ou escrita. <strong>IOPS</strong> é quantas o disco faz por segundo.</li>
-  <li><strong>Bloco</strong> é o tamanho de cada operação. O Postgres, por exemplo, lê páginas de 8 KB.</li>
-  <li><strong>Throughput</strong> = IOPS x tamanho do bloco. Com 3.000 IOPS e blocos de 8 KB: 3.000 x 8 KB = 24 MB/s.</li>
-  <li><strong>Bandwidth</strong> é o teto do canal. O gp3 padrão, da AWS, passa no máximo 125 MB/s.</li>
-  <li>O <strong>menor dos dois manda</strong>. Bloco pequeno esbarra nos IOPS. Bloco grande esbarra na banda.</li>
+  <li>Tudo começa numa <strong>I/O</strong>: uma operação de leitura ou escrita. <strong>IOPS</strong> é quantas o disco faz por segundo.</li>
+  <li>Cada operação tem um tamanho, o <strong>bloco</strong>. O Postgres, por exemplo, lê páginas de 8 KB.</li>
+  <li>Com IOPS e bloco, sai o <strong>throughput</strong>: IOPS x tamanho do bloco. Com 3.000 IOPS e blocos de 8 KB: 3.000 x 8 KB = 24 MB/s.</li>
+  <li>Só que o canal também tem um teto, a <strong>bandwidth</strong>. O gp3 padrão, da AWS, passa no máximo 125 MB/s.</li>
+  <li>Os dois limites valem ao mesmo tempo, então o <strong>menor manda</strong>. Bloco pequeno esbarra nos IOPS. Bloco grande esbarra na banda.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>O banco da loja faz muitas operações pequenas: precisa de <strong>IOPS</strong>. O vídeo do produto é um arquivo grande: precisa de <strong>banda</strong>.</li>
+  <li>Agora dá para traduzir os dados da loja. O pedidos.db faz muitas operações pequenas: precisa de <strong>IOPS</strong>. Um vídeo de produto é um arquivo grande: precisa de <strong>banda</strong>.</li>
   <li>Comprar mais IOPS quando o gargalo é a banda não muda nada, e o contrário também. Meça antes de pagar.</li>
   <li>Nuvem aplica <strong>throttling</strong>: o volume é "lento" porque bateu no limite contratado, não porque está com defeito. Monitore IOPS e MB/s.</li>
 </WhyItMatters>
@@ -55,6 +57,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
   ]} />
 </Deep>
+
+<p>Com a conta pronta, falta saber onde o disco deve ficar. O caminho mais curto é espetá-lo no próprio servidor. É o DAS.</p>
 
 <Flashcards cards={[
   { q: "Fórmula do throughput?",

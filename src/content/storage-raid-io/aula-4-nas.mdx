@@ -13,27 +13,29 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Na aula passada o servidor B procurou o gato.jpg e não achou, porque a foto estava no SSD do A. A loja precisa que A, B e C vejam a mesma pasta. A solução é tirar o disco do servidor e pô-lo na rede.</p>
+
 <OneLiner>NAS é um servidor de arquivos na rede: vários clientes usam a mesma pasta ao mesmo tempo, e a velocidade depende da rede.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto sair do servidor da loja, atravessar a rede e chegar ao NAS. Compare o caminho com o do DAS.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto sair do servidor A, atravessar a rede e chegar ao NAS. Compare o caminho com o do DAS.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/storage-3d/?mode=nas" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com NAS" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja agora tem <strong>3 servidores web</strong> e todos precisam da mesma pasta de fotos.</li>
-  <li>Um <strong>NAS</strong> guarda a pasta e a oferece pela rede com <strong>NFS</strong> (Linux) ou <strong>SMB</strong> (Windows).</li>
-  <li>Cada servidor <strong>monta</strong> a pasta remota como se fosse local.</li>
-  <li>Cada leitura ou escrita vira uma conversa pela rede: soma <strong>latência</strong> e usa a <strong>banda</strong> do link.</li>
-  <li>Fácil de gerenciar num lugar só, mas a rede e o próprio NAS viram <strong>gargalo e ponto de falha</strong>.</li>
+  <li>A loja já tem <strong>3 servidores web</strong> (A, B e C) e todos precisam da mesma pasta de fotos.</li>
+  <li>Um <strong>NAS</strong> (<code>nas.loja</code>) guarda a pasta <code>/export/fotos</code> e a oferece pela rede com <strong>NFS</strong> (Linux) ou <strong>SMB</strong> (Windows).</li>
+  <li>Cada servidor <strong>monta</strong> a pasta remota em <code>/mnt/nas</code>, como se fosse local. O programa grava em <code>/mnt/nas/produtos/gatos/gato.jpg</code> e nem percebe a rede.</li>
+  <li>Por baixo, cada leitura ou escrita vira uma conversa pela rede. O gato.jpg, de 2,4 MB, sai em 3 mensagens <strong>NFS WRITE</strong> (1 MB, 1 MB e 0,4 MB).</li>
+  <li>O B e o C abrem o mesmo caminho e recebem a mesma foto, sem cópia. Em troca, cada leitura soma <strong>latência</strong> e usa a <strong>banda</strong> do link, e o NAS vira <strong>gargalo e ponto de falha</strong>.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>Resolve o compartilhamento: todos veem o mesmo arquivo.</li>
-  <li>Desempenho = menor entre o disco do NAS e a rede. Um link de 1 Gbps passa só ~125 MB/s.</li>
-  <li>Para banco de dados costuma ser lento demais. Para fotos, documentos e arquivos de uso comum, funciona bem.</li>
+  <li>Resolve o compartilhamento: todos veem o mesmo arquivo, e se o A trocar a foto, o B vê a versão nova.</li>
+  <li>Desempenho = menor entre o disco do NAS e a rede. Um link de 1 Gbps passa só ~125 MB/s, dividido entre os três servidores.</li>
+  <li>Uma leitura de 4 KB leva uns 1 ms, contra ~0,1 ms do SSD local. Para banco de dados costuma ser lento demais. Para fotos, documentos e arquivos de uso comum, funciona bem.</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -43,14 +45,14 @@ import Flashcards from '../../components/Flashcards.astro';
     <li><strong>SMB:</strong> mundo Windows (pastas de rede). Porta 445.</li>
   </ul>
   <h4 class="deep-h">Montar uma pasta NFS</h4>
-  <pre><code>{"sudo mount -t nfs 10.0.0.20:/export/fotos /mnt/fotos\nls /mnt/fotos/camisa-azul\ndf -h /mnt/fotos"}</code></pre>
+  <pre><code>{"sudo mount -t nfs nas.loja:/export/fotos /mnt/nas\nls /mnt/nas/produtos/gatos\ndf -h /mnt/nas"}</code></pre>
   <h4 class="deep-h">Números para lembrar</h4>
   <ul>
     <li>Rede de 1 Gbps: ~125 MB/s no máximo. De 10 Gbps: ~1,25 GB/s.</li>
-    <li>Latência de rede dentro do mesmo datacenter: ~0,5 ms, mais que um NVMe local (0,02 ms).</li>
+    <li>Ida e volta pela rede local: ~0,2 a 0,5 ms só de viagem. A leitura de 4 KB fecha em ~1 ms, contra ~0,1 ms do NVMe local.</li>
   </ul>
   <h4 class="deep-h">Limites</h4>
-  <p>A estrutura é de arquivos em pastas. O desempenho cai com muitos clientes e depende da rede. Para escalar além disso, entra o object storage (aula 7).</p>
+  <p>A estrutura é de arquivos em pastas. O desempenho cai com muitos clientes e depende da rede. Um NAS sozinho também é ponto único de falha: se a fonte queima, os três servidores travam juntos. Na prática se usa NAS com duas controladoras, discos em RAID e réplica.</p>
   <Sources items={[
     { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
     { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
@@ -58,6 +60,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
   ]} />
 </Deep>
+
+<p>O NAS entrega pastas prontas pela rede. Mas o banco da loja não quer pasta nenhuma: quer o disco cru, com a menor latência possível. Falta saber como é um disco que entrega só blocos: o block storage.</p>
 
 <Flashcards cards={[
   { q: "O que é NAS?",

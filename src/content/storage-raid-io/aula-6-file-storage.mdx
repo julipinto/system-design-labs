@@ -13,32 +13,34 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>O volume da aula passada guarda 600 blocos do gato.jpg e nada mais: nenhum nome, nenhuma pasta. Alguém precisa guardar o mapa que liga o nome aos blocos. Esse alguém é o sistema de arquivos, e o que ele entrega é o file storage.</p>
+
 <OneLiner>file storage organiza os dados em pastas e arquivos com nome, e o sistema de arquivos faz a ponte entre esses nomes e os blocos do disco.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a mesma foto ganhar um nome, um caminho de pastas e uma ficha com tamanho, dono e data.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja o gato.jpg ganhar um nome, um caminho de pastas e uma ficha com tamanho, dono e data.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/storage-3d/?mode=file" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com file storage" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Os dados ficam numa <strong>árvore de pastas</strong>: /fotos/camisa-azul/frente.jpg.</li>
+  <li>Os dados ficam numa <strong>árvore de pastas</strong>: <code>/produtos/gatos/gato.jpg</code>. A loja usa um file storage gerenciado (o <strong>EFS</strong>, da AWS), e os três servidores montam a mesma árvore em <code>/mnt/efs</code>.</li>
   <li>O <strong>caminho + nome</strong> identifica o arquivo. Dois arquivos não têm o mesmo nome na mesma pasta.</li>
-  <li>Cada arquivo tem <strong>metadados</strong>: tamanho, datas, dono, grupo, permissões.</li>
-  <li>No Linux, essa ficha é o <strong>inode</strong>. Ele aponta para os blocos onde o conteúdo está.</li>
-  <li>Vários clientes acessam por <strong>NFS</strong> ou <strong>SMB</strong>, normalmente num NAS (<strong>EFS</strong>, na AWS).</li>
+  <li>Para abrir o arquivo, o sistema anda pasta por pasta: raiz, <code>produtos</code>, <code>gatos</code>, <code>gato.jpg</code>. Em cada pasta confere se o servidor pode entrar (o <code>x</code> de rwx).</li>
+  <li>Ao chegar, vem a ficha do arquivo, os <strong>metadados</strong>: dono <code>loja</code>, grupo <code>web</code>, permissão <code>rw-r--r--</code>, 2.457.600 bytes, data. No Linux, essa ficha é o <strong>inode</strong> (o do gato.jpg é o 1311), que aponta para os blocos 2048 a 2647.</li>
+  <li>Dois servidores querem editar a mesma foto? O sistema dá um <strong>lock</strong> ao primeiro, e o segundo espera. Sem isso, as gravações se misturariam.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>É o que as pessoas e os programas já conhecem: abrir, salvar, mover, dar permissão.</li>
+  <li>É o que as pessoas e os programas já conhecem: abrir, salvar, mover, dar permissão. Renomear a pasta <code>gatos</code> para <code>felinos</code> é uma operação só, com 1 foto ou 1 milhão dentro.</li>
   <li>Funciona bem para dados compartilhados e organizados em pastas, como as fotos de produto que o time edita.</li>
   <li>A hierarquia complica a escala: listar uma pasta com milhões de arquivos fica lento.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Ver o inode</h4>
-  <pre><code>{"ls -li /fotos/camisa-azul/frente.jpg\nstat /fotos/camisa-azul/frente.jpg\n# mostra tamanho, quantidade de blocos, inode, dono, permissões e datas"}</code></pre>
+  <pre><code>{"ls -li /dados/produtos/gatos/gato.jpg\nstat /dados/produtos/gatos/gato.jpg\nfilefrag -v /dados/produtos/gatos/gato.jpg\n# stat: tamanho, quantidade de blocos, inode, dono, permissões e datas\n# filefrag: em quais blocos do volume o arquivo está"}</code></pre>
   <h4 class="deep-h">Sistemas de arquivos comuns</h4>
   <ul>
     <li><strong>ext4:</strong> padrão do Linux, simples e estável.</li>
@@ -46,7 +48,7 @@ import Flashcards from '../../components/Flashcards.astro';
     <li><strong>NTFS:</strong> o do Windows.</li>
   </ul>
   <h4 class="deep-h">Bloco x arquivo</h4>
-  <p>O block storage guarda blocos e não sabe o que é um arquivo. O sistema de arquivos é a camada que dá nome e pasta a esses blocos. Em file storage, quem entrega isso pela rede é o servidor (NAS).</p>
+  <p>O block storage guarda blocos e não sabe o que é um arquivo. O sistema de arquivos é a camada que dá nome e pasta a esses blocos. Em file storage, quem entrega isso pela rede é o servidor (NAS ou EFS).</p>
   <h4 class="deep-h">RAID por baixo</h4>
   <p>É comum o servidor de arquivos guardar os dados sobre um RAID (aulas 8 a 13), para ganhar velocidade e tolerância a falhas.</p>
   <Sources items={[
@@ -56,6 +58,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
   ]} />
 </Deep>
+
+<p>A árvore funciona bem para algumas pastas de fotos. Mas a loja tem 500 mil, e cada nível da árvore é uma consulta. Falta saber como guardar milhões de arquivos sem árvore nenhuma: o object storage.</p>
 
 <Flashcards cards={[
   { q: "Como se identifica um arquivo?",

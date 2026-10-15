@@ -13,32 +13,34 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>A loja guarda 500 mil fotos como o gato.jpg, e uma árvore de pastas com tantas fotos fica pesada. O object storage tira a árvore: cada foto tem uma chave, e o servidor pede a foto por ela.</p>
+
 <OneLiner>object storage guarda cada coisa como um objeto (conteúdo, metadados e uma chave única) num bucket, e você a acessa por uma API, sem pastas de verdade.</OneLiner>
 
 <DoIt>
-  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto virar um objeto, receber uma chave e ser copiada sem que você peça.</p>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja o gato.jpg virar um objeto, receber uma chave e ser lido por outro servidor só com a URL.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/storage-3d/?mode=object" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Figura interativa: a mesma foto salva com object storage" alt="Prévia da figura 3D: um volume de blocos numerados (LBA 2048, 2049…), com só o bloco 2048 sendo regravado" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o tipo de storage no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Você cria um <strong>bucket</strong> (um "balde") com nome único, por exemplo lojadalia-fotos.</li>
-  <li>Cada foto vira um <strong>objeto</strong>: conteúdo + metadados + chave (<strong>key</strong>), tipo produtos/camisa-azul/frente.jpg.</li>
-  <li>Acesso por <strong>API HTTP</strong>: PUT para gravar, GET para ler, DELETE para apagar. Sem montar disco.</li>
-  <li>As "pastas" são só parte do nome da chave. Não há árvore de verdade.</li>
-  <li>O serviço <strong>replica e distribui</strong> sozinho, entre discos e até entre locais.</li>
+  <li>A loja cria um <strong>bucket</strong> (um "balde") com nome único: <code>loja-fotos</code>.</li>
+  <li>O gato.jpg vira um <strong>objeto</strong>: os 2.457.600 bytes, mais metadados (<code>image/jpeg</code>, <code>produto=4521</code>) e uma chave (<strong>key</strong>): <code>produtos/gatos/gato.jpg</code>.</li>
+  <li>Tudo se faz por <strong>API HTTP</strong>: PUT para gravar, GET para ler, DELETE para apagar. Sem montar disco. O B e o navegador do cliente leem pela mesma URL.</li>
+  <li>As barras da chave parecem pastas, mas são só parte do nome. O bucket é plano, e listar <code>produtos/gatos/</code> é filtrar chaves pelo prefixo.</li>
+  <li>O serviço <strong>replica e distribui</strong> sozinho, entre discos e até entre locais. O preço é que não dá para editar o meio do objeto: corrigir 4 KB do cabeçalho reenvia os 2,4 MB inteiros.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
   <li>É o lugar das fotos da loja, dos backups e dos arquivos grandes: capacidade quase ilimitada e barata.</li>
   <li>Escala na horizontal e é cloud native. Em troca, não serve para banco de dados nem para editar um byte no meio do arquivo.</li>
-  <li>Cada acesso é uma chamada de rede: latência maior que a de um disco. Use CDN na frente para fotos.</li>
+  <li>Cada acesso é uma chamada de rede, com dezenas de milissegundos de latência, mais que um disco. Use CDN na frente para fotos.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Falar com o S3 (exemplos)</h4>
-  <pre><code>{"aws s3 cp frente.jpg s3://lojadalia-fotos/produtos/camisa-azul/frente.jpg\naws s3 ls s3://lojadalia-fotos/produtos/camisa-azul/\naws s3api head-object --bucket lojadalia-fotos --key produtos/camisa-azul/frente.jpg\n# o head-object mostra ContentLength, ContentType, ETag e metadados"}</code></pre>
+  <pre><code>{"aws s3 cp gato.jpg s3://loja-fotos/produtos/gatos/gato.jpg\naws s3 ls s3://loja-fotos/produtos/gatos/\naws s3api head-object --bucket loja-fotos --key produtos/gatos/gato.jpg\n# o head-object mostra ContentLength, ContentType, ETag e metadados"}</code></pre>
   <h4 class="deep-h">Anatomia do objeto</h4>
   <ul>
     <li><strong>Dados:</strong> os bytes da foto.</li>
@@ -58,6 +60,8 @@ import Flashcards from '../../components/Flashcards.astro';
     { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
   ]} />
 </Deep>
+
+<p>Agora a loja tem onde guardar as fotos e os backups. Sobra o pedidos.db, num disco só, e disco queima. Falta saber como juntar vários discos para que um deles possa morrer sem levar o arquivo junto. É o RAID, a começar pelo mais simples.</p>
 
 <Flashcards cards={[
   { q: "O que tem num objeto?",

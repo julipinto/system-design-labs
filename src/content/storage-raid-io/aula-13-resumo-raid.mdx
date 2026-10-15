@@ -13,10 +13,12 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Agora existem cinco níveis de RAID, e a loja precisa de um para o pedidos.db. A escolha depende do que cada dado aceita perder: espaço, velocidade ou segurança. Esta aula põe os cinco lado a lado.</p>
+
 <OneLiner>cada RAID troca espaço, velocidade e segurança de um jeito: 0 só corre, 1 e 10 copiam, 5 e 6 usam paridade, e nenhum deles é backup.</OneLiner>
 
 <DoIt>
-  <p>Na calculadora, escolha <strong>RAID 5</strong>, 5 discos de 10 TB (40 TB úteis). Troque para RAID 6 e depois RAID 10 e veja capacidade e penalidade mudarem.</p>
+  <p>Na calculadora, escolha <strong>RAID 5</strong>, 4 discos de 1 TB (3 TB úteis). Troque para RAID 6 (com 5 discos) e depois RAID 10 (com 4) e veja capacidade e penalidade mudarem.</p>
 </DoIt>
 <Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 5 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 <Widget name="raid" title="Calculadora de RAID" hint="Escolha o nível, o número de discos e o tamanho. Os IOPS são teóricos." />
@@ -38,14 +40,14 @@ import Flashcards from '../../components/Flashcards.astro';
 <ol class="flow steps">
   <li><strong>Precisa de velocidade e o dado é refazível?</strong> RAID 0.</li>
   <li><strong>Pouco dado, crítico, simples?</strong> RAID 1.</li>
-  <li><strong>Banco com muita escrita e dado crítico?</strong> RAID 10.</li>
+  <li><strong>Banco com muita escrita e dado crítico?</strong> RAID 10. É o caso do pedidos.db.</li>
   <li><strong>Muito espaço, leitura pesada, orçamento curto?</strong> RAID 5. Com discos grandes e muitos deles: RAID 6.</li>
   <li>Em todos: <strong>RAID não é backup.</strong> Mantenha cópias fora do conjunto (objeto, outra região).</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>Conta de capacidade com 5 discos de 10 TB: RAID 5 = 40 TB, RAID 6 = 30 TB. Com 4 discos: RAID 0 = 40, RAID 10 = 20.</li>
+  <li>Conta de capacidade com discos de 1 TB: RAID 0 (4 discos) = 4 TB, RAID 1 (2) = 1 TB, RAID 5 (4) = 3 TB, RAID 6 (5) = 3 TB, RAID 10 (4) = 2 TB.</li>
   <li>O RAID 5 e o 6 pagam pela capacidade com escrita mais lenta. O 10 paga com espaço. O 0 paga com segurança.</li>
   <li>RAID protege contra <strong>falha de disco</strong>, não contra erro humano, ransomware, incêndio ou bug.</li>
 </WhyItMatters>
@@ -60,13 +62,13 @@ import Flashcards from '../../components/Flashcards.astro';
   <h4 class="deep-h">Escrita aleatória com 150 IOPS por disco</h4>
   <ul>
     <li>RAID 10 com 4 discos: 4 x 150 / 2 = 300 IOPS.</li>
-    <li>RAID 5 com 5 discos: 5 x 150 / 4 = 187 IOPS.</li>
+    <li>RAID 5 com 4 discos: 4 x 150 / 4 = 150 IOPS.</li>
     <li>RAID 6 com 5 discos: 5 x 150 / 6 = 125 IOPS.</li>
   </ul>
-  <h4 class="deep-h">E a loja da Lia?</h4>
+  <h4 class="deep-h">E a loja?</h4>
   <ul>
-    <li><strong>Pedidos (banco):</strong> RAID 10 em SSD, mais réplica em outra máquina.</li>
-    <li><strong>Fotos:</strong> object storage, que replica sozinho.</li>
+    <li><strong>Pedidos (pedidos.db):</strong> RAID 10 em SSD, mais réplica em outra máquina.</li>
+    <li><strong>Fotos (como o gato.jpg):</strong> object storage, que replica sozinho.</li>
     <li><strong>Backups:</strong> object storage em outra região, com ciclo de vida.</li>
     <li><strong>Cache e temporários:</strong> RAID 0 ou disco sem RAID.</li>
   </ul>
@@ -79,6 +81,8 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>O gato.jpg está no object storage e o pedidos.db no RAID 10. Mas um RAID só protege contra disco, e a máquina inteira ainda pode cair. Falta saber como manter a loja no ar nesse caso. É o terreno da réplica e do sharding.</p>
+
 <Flashcards cards={[
   { q: "RAID 5, 6 e 10: capacidade e falhas?",
     a: "5: (N - 1) x S, 1 falha. 6: (N - 2) x S, 2 falhas. 10: N / 2 x S, 1 garantida." },
@@ -88,6 +92,6 @@ import Flashcards from '../../components/Flashcards.astro';
     a: "RAID 10." },
   { q: "RAID substitui backup?",
     a: "Não. Protege contra falha de disco, não contra erro humano ou desastre." },
-  { q: "5 discos de 10 TB em RAID 6 dão quanto?",
-    a: "30 TB." },
+  { q: "5 discos de 1 TB em RAID 6 dão quanto?",
+    a: "3 TB." },
 ]} />

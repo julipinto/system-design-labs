@@ -12,35 +12,38 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
+<p>Uma loja online acabou de abrir. Cada pedido, cada foto de produto e cada backup precisa de um lugar para morar, e um disco só não serve para os três.</p>
+
 <OneLiner>storage é onde o sistema guarda dados para eles sobreviverem a um reinício, e cada tipo de dado pede um tipo de disco diferente.</OneLiner>
 
 <DoIt>
-  <p>Pense na <strong>Camisaria da Lia</strong>, uma loja online. Anote 3 coisas que ela precisa guardar (pedidos, fotos, backups). Para cada uma, escreva: pequena ou grande? Muita leitura ou muita escrita? Pode perder?</p>
+  <p>Pense na <strong>loja online</strong>. Anote 3 coisas que ela precisa guardar (pedidos, fotos, backups). Para cada uma, escreva: pequena ou grande? Muita leitura ou muita escrita? Pode perder?</p>
 </DoIt>
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja guarda <strong>pedidos</strong>: 200 GB de linhas pequenas num banco, lidas e gravadas o tempo todo, em pontos aleatórios.</li>
-  <li>Guarda <strong>fotos</strong>: 500 mil arquivos de uns 4 MB, ou cerca de 2 TB. Gravadas uma vez, lidas muitas.</li>
+  <li>A loja guarda <strong>pedidos</strong>: o <strong>pedidos.db</strong>, com 200 GB de linhas pequenas, lidas e gravadas o tempo todo, em pontos aleatórios.</li>
+  <li>Guarda <strong>fotos</strong>: 500 mil arquivos como o <strong>gato.jpg</strong> (2,4 MB), cerca de 1,2 TB. Cada foto é gravada uma vez e lida muitas.</li>
   <li>Guarda <strong>backups</strong>: uma cópia de tudo por noite, gravada em sequência e quase nunca lida.</li>
-  <li>Cada um pede algo diferente: o banco precisa de <strong>latência baixa</strong>, as fotos de <strong>muito espaço barato</strong>, o backup de <strong>durabilidade</strong>.</li>
-  <li>Por isso o storage tem formas diferentes: <strong>DAS, NAS, block, file, object</strong> e arranjos de discos (<strong>RAID</strong>). As próximas aulas contam uma de cada vez.</li>
+  <li>Os três pedem coisas diferentes: o banco precisa de <strong>latência baixa</strong>, as fotos de <strong>muito espaço barato</strong>, o backup de <strong>durabilidade</strong>.</li>
+  <li>Por isso o storage tem formas diferentes: <strong>DAS, NAS, block, file e object</strong>, mais os arranjos de discos (<strong>RAID</strong>). As próximas aulas mostram uma de cada vez.</li>
 </ol>
 </HowItWorks>
 
 <WhyItMatters>
-  <li>Um disco só é um <strong>ponto único de falha</strong>: se ele queima, a loja para e os pedidos somem.</li>
+  <li>Um disco só é um <strong>ponto único de falha</strong>: se ele queima, a loja para e os pedidos somem. É a dor que o RAID, no fim do módulo, vem resolver.</li>
   <li>Escolher o storage errado custa caro: foto em disco NVMe é desperdício, banco em disco lento trava o checkout.</li>
   <li>Três números guiam a escolha: <strong>latência</strong>, <strong>IOPS e throughput</strong> e <strong>custo por TB</strong>.</li>
 </WhyItMatters>
 
 <Deep min={3}>
   <h4 class="deep-h">Latência típica por tipo de disco</h4>
+  <p>Ordem de grandeza para uma leitura aleatória de 4 KB.</p>
   <ul>
-    <li><strong>HDD</strong> (disco com pratos): 5 a 10 ms por acesso aleatório.</li>
-    <li><strong>SSD SATA:</strong> cerca de 0,1 ms.</li>
-    <li><strong>NVMe:</strong> cerca de 0,02 ms (20 microssegundos).</li>
-    <li><strong>Rede:</strong> NAS e discos na nuvem somam de 0,5 a 1 ms de rede por cima.</li>
+    <li><strong>HDD</strong> (disco com pratos): 5 a 10 ms.</li>
+    <li><strong>SSD SATA:</strong> cerca de 0,2 ms.</li>
+    <li><strong>NVMe:</strong> cerca de 0,1 ms (100 microssegundos).</li>
+    <li><strong>Rede:</strong> NAS e discos na nuvem somam de 0,2 a 0,5 ms de rede por cima, e chegam a uns 1 ms por leitura.</li>
   </ul>
   <h4 class="deep-h">O que "storage" abrange</h4>
   <p>HDDs, SSDs e soluções de rede como o NFS. Em sistemas distribuídos entram também <strong>sharding</strong> (dividir os dados entre máquinas), <strong>replicação</strong> (copiar para outras máquinas) e resiliência, para não depender de um único host.</p>
@@ -53,13 +56,15 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
+<p>Falta saber como medir o que cada dado pede. Quando o banco pede "latência baixa", quantas operações por segundo isso quer dizer?</p>
+
 <Flashcards cards={[
-  { q: "Quais três tipos de dado a loja da Lia guarda?",
-    a: "Pedidos (banco, 200 GB, pequenos e aleatórios), fotos (2 TB, grandes) e backups (cópia noturna)." },
+  { q: "Quais três tipos de dado a loja guarda?",
+    a: "Pedidos (pedidos.db, 200 GB, pequenos e aleatórios), fotos (como o gato.jpg, ~1,2 TB no total) e backups (cópia noturna)." },
   { q: "Por que um disco só é um risco?",
     a: "É ponto único de falha: se queima, o sistema para e o dado se perde." },
   { q: "Latência típica de HDD, SSD SATA e NVMe?",
-    a: "HDD: 5 a 10 ms. SSD SATA: ~0,1 ms. NVMe: ~0,02 ms." },
+    a: "HDD: 5 a 10 ms. SSD SATA: ~0,2 ms. NVMe: ~0,1 ms." },
   { q: "Que três números guiam a escolha do storage?",
     a: "Latência, IOPS e throughput, custo por TB." },
 ]} />
