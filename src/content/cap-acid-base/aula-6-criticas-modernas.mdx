@@ -3,6 +3,7 @@ title: "Críticas Modernas ao modelo CAP"
 order: 6
 min: 5
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -18,7 +19,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, deixe o modo AP rodando com a rede boa por alguns segundos. Depois corte a rede e veja que <strong>só a parte "último par" muda de regra</strong>: o carrinho segue normal.</p>
 </DoIt>
-{/* FIG:cap mode=ap */}
+<Figure3D path="labs/cap-acid-base/cap-3d/?mode=ap" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo disponibilidade (AP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

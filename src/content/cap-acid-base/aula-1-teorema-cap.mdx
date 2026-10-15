@@ -3,6 +3,7 @@ title: "Teorema CAP"
 order: 1
 min: 4
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -17,7 +18,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, corte o cabo entre São Paulo e Dublin. Depois tente comprar o <strong>último par de tênis</strong> pelos dois lados e compare o que cada modo faz.</p>
 </DoIt>
-{/* FIG:cap mode=cp */}
+<Figure3D path="labs/cap-acid-base/cap-3d/?mode=cp" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo consistência (CP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

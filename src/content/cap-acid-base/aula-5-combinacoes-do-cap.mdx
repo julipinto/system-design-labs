@@ -3,6 +3,7 @@ title: "Combinações do Modelo CAP (CP, AP, CA)"
 order: 5
 min: 5
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -18,7 +19,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, escolha o modo <strong>CA</strong> e corte a rede. Veja o que acontece com um banco único e com dois bancos tentando agir como um só.</p>
 </DoIt>
-{/* FIG:cap mode=ca */}
+<Figure3D path="labs/cap-acid-base/cap-3d/?mode=ca" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, o caso CA" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <div class="sr-tablewrap" role="region" aria-label="Tabela comparando CP, AP e CA" tabindex="0">
 <table class="sr-table">

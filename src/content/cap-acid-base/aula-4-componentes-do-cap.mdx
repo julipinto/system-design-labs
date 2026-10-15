@@ -3,6 +3,7 @@ title: "Componentes do CAP"
 order: 4
 min: 5
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -18,7 +19,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, deixe a rede boa e escreva um novo estoque. Depois corte a rede e leia de cada nó. Para cada leitura, pergunte: <strong>veio resposta?</strong> (A) e <strong>é o valor mais novo?</strong> (C).</p>
 </DoIt>
-{/* FIG:cap mode=ap */}
+<Figure3D path="labs/cap-acid-base/cap-3d/?mode=ap" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo disponibilidade (AP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">

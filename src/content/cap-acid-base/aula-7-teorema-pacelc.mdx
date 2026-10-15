@@ -3,6 +3,7 @@ title: "Teorema PACELC"
 order: 7
 min: 6
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -18,7 +19,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, grave o estoque em São Paulo no modo <strong>latência</strong> e no modo <strong>consistência</strong>. Compare os milissegundos até o "ok" e o que um leitor em Dublin enxerga nesse tempo.</p>
 </DoIt>
-{/* FIG:cap mode=pacelc-el */}
+<Figure3D path="labs/cap-acid-base/cap-3d/?mode=pacelc-el" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, PACELC sem partição: latência x consistência" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
