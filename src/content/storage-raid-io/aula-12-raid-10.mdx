@@ -1,0 +1,70 @@
+---
+title: "RAID 10 (RAID 1+0)"
+order: 12
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>RAID 10 é espelho com fatiamento por cima: primeiro pares espelhados, depois dados espalhados entre os pares, e assim une velocidade e proteção ao custo de metade do espaço.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e faça falhar dois discos: primeiro um de cada par, depois os dois do mesmo par, e veja a diferença.</p>
+</DoIt>
+{/* FIG:raid mode=raid10 */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lia quer o melhor para o banco: <strong>4 discos de 10 TB</strong>.</li>
+  <li>Eles formam <strong>2 pares espelhados</strong> (RAID 1). Cada par é um "disco" inteiro.</li>
+  <li>Os dados são fatiados (RAID 0) entre os 2 pares: <strong>velocidade de leitura e escrita somada</strong>.</li>
+  <li>Capacidade: metade, <strong>20 TB</strong> úteis (50%).</li>
+  <li>Pode perder <strong>um disco por par</strong> e seguir. Se perder os <strong>dois do mesmo par</strong>, perde tudo.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Para banco de dados com muita escrita (financeiro, saúde, pedidos), é a escolha clássica.</li>
+  <li>A penalidade de escrita é só 2 e o rebuild é simples: copiar o espelho, sem ler o resto.</li>
+  <li>Custa caro: metade do espaço some em redundância.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Contas</h4>
+  <ul>
+    <li><strong>Mínimo:</strong> 4 discos, em número par.</li>
+    <li><strong>Capacidade útil:</strong> N / 2 x tamanho. 4 x 10 TB: 20 TB (50%).</li>
+    <li><strong>Falhas toleradas:</strong> 1 garantida, até N / 2 se for um por par.</li>
+    <li><strong>Penalidade de escrita:</strong> 2.</li>
+  </ul>
+  <h4 class="deep-h">E se dois discos falham?</h4>
+  <p>Com 4 discos (A, B espelhados; C, D espelhados), há 6 jeitos de escolher 2 discos. Em 4 deles o conjunto sobrevive (um de cada par). Em 2 (A e B, ou C e D) ele morre. Ou seja, 2/3 de chance de sobreviver à segunda falha.</p>
+  <h4 class="deep-h">Escrita aleatória (150 IOPS por disco)</h4>
+  <p>4 x 150 / 2 = 300 IOPS, o dobro do RAID 5 com os mesmos 4 discos (4 x 150 / 4 = 150).</p>
+  <h4 class="deep-h">RAID 1+0 x 0+1</h4>
+  <p>Em 1+0, primeiro espelha e depois fatia: uma falha afeta só um par. Em 0+1 é o inverso, e uma falha derruba um lado inteiro. Por isso o 1+0 é o preferido.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Como o RAID 10 é montado?",
+    a: "Pares espelhados (RAID 1) com os dados fatiados entre eles (RAID 0)." },
+  { q: "Capacidade de 4 discos de 10 TB em RAID 10?",
+    a: "20 TB, ou 50%." },
+  { q: "Quando dois discos falhando matam o RAID 10?",
+    a: "Quando são os dois do mesmo par espelhado." },
+  { q: "Penalidade de escrita do RAID 10?",
+    a: "2." },
+  { q: "Qual o ponto fraco do RAID 10?",
+    a: "Custo: metade do espaço vira redundância." },
+]} />

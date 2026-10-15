@@ -14,4 +14,9 @@ const protocolosDeRede = defineCollection({
   schema: lesson,
 });
 
-export const collections = { 'protocolos-de-rede': protocolosDeRede };
+const storageRaidIo = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/storage-raid-io' }),
+  schema: lesson,
+});
+
+export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo };

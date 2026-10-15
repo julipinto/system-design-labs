@@ -1,0 +1,73 @@
+---
+title: "RAID 6 (Striping com Dupla Paridade)"
+order: 11
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>RAID 6 é um RAID 5 com duas paridades, então aguenta a perda de dois discos ao mesmo tempo, em troca de mais um disco de espaço e escrita mais lenta.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e faça <strong>dois discos</strong> falharem. Veja os dois blocos serem refeitos das duas paridades.</p>
+</DoIt>
+{/* FIG:raid mode=raid6 */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Com <strong>5 discos de 10 TB</strong>, cada linha tem 3 discos de dados e <strong>2 de paridade</strong>.</li>
+  <li>A primeira paridade (<strong>P</strong>) é o XOR. A segunda (<strong>Q</strong>) é calculada de outro jeito (matemática de Reed-Solomon), então as duas são diferentes.</li>
+  <li>Com duas equações, dá para achar <strong>dois blocos desconhecidos</strong>.</li>
+  <li>Capacidade: (5 - 2) x 10 TB = <strong>30 TB</strong> úteis (60%). Tolera <strong>2 falhas</strong>.</li>
+  <li>Cada escrita pequena vira <strong>6 operações</strong> (penalidade de escrita 6).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Resolve o risco do rebuild do RAID 5: se um segundo disco falha (ou um URE aparece) durante o rebuild, ainda há margem.</li>
+  <li>Indicado para muito volume e dados que ficam anos, com discos grandes e muitos deles.</li>
+  <li>Custa escrita mais lenta e um disco a mais de overhead.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Contas</h4>
+  <ul>
+    <li><strong>Mínimo:</strong> 4 discos.</li>
+    <li><strong>Capacidade útil:</strong> (N - 2) x tamanho. 5 x 10 TB: 30 TB (60%).</li>
+    <li><strong>Falhas toleradas:</strong> 2.</li>
+    <li><strong>Penalidade de escrita:</strong> 6 (ler dado, P e Q antigos, gravar dado, P e Q novos).</li>
+  </ul>
+  <h4 class="deep-h">Comparação rápida com o RAID 5 (5 discos de 10 TB)</h4>
+  <ul>
+    <li>RAID 5: 40 TB, 1 falha, escrita 4.</li>
+    <li>RAID 6: 30 TB, 2 falhas, escrita 6.</li>
+    <li>Escrita aleatória com 150 IOPS por disco: 5 x 150 / 4 = 187 (RAID 5) contra 5 x 150 / 6 = 125 (RAID 6).</li>
+  </ul>
+  <h4 class="deep-h">Número de discos</h4>
+  <p>Quanto mais discos no grupo, maior a chance de falhas durante o rebuild. Por isso o RAID 6 é a escolha comum em grupos grandes.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "DataStorage: o que é RAID 6", href: "https://datastorage.com.br/post/o-que-e-o-raid-6" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que o RAID 6 tem de diferente do 5?",
+    a: "Duas paridades (P e Q): tolera duas falhas ao mesmo tempo." },
+  { q: "Capacidade do RAID 6 com 5 discos de 10 TB?",
+    a: "(5 - 2) x 10 = 30 TB." },
+  { q: "Penalidade de escrita do RAID 6?",
+    a: "6." },
+  { q: "Quantos discos no mínimo?",
+    a: "4." },
+  { q: "Quando escolher RAID 6 em vez de 5?",
+    a: "Muitos discos grandes e dado crítico: sobrevive a falha durante o rebuild." },
+]} />

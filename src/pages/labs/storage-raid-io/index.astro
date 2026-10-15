@@ -1,0 +1,36 @@
+---
+// Módulo Storage, RAID e I/O: as 13 aulas de src/content/storage-raid-io/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/storage-raid-io.css';
+
+const entries = (await getCollection('storage-raid-io')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/storage-raid-io/quiz/');
+---
+<ModuleLayout
+  title="Storage, RAID e I/O · SDLabs"
+  description="Storage, RAID e I/O: IOPS e throughput, DAS, NAS, block, file e object storage, RAID 0, 1, 5, 6 e 10, com laboratórios interativos."
+  module="storage-raid-io"
+  heading="Storage, RAID e I/O"
+  lead="Onde os dados ficam guardados, quão rápido e o que acontece quando um disco queima. Uma loja online do começo ao fim."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/storage-raid-io/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

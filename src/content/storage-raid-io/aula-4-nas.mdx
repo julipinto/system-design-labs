@@ -1,0 +1,70 @@
+---
+title: "Network Attached Storage (NAS)"
+order: 4
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>NAS é um servidor de arquivos na rede: vários clientes usam a mesma pasta ao mesmo tempo, e a velocidade depende da rede.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto sair do servidor da loja, atravessar a rede e chegar ao NAS. Compare o caminho com o do DAS.</p>
+</DoIt>
+{/* FIG:storage mode=nas */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A loja agora tem <strong>3 servidores web</strong> e todos precisam da mesma pasta de fotos.</li>
+  <li>Um <strong>NAS</strong> guarda a pasta e a oferece pela rede com <strong>NFS</strong> (Linux) ou <strong>SMB</strong> (Windows).</li>
+  <li>Cada servidor <strong>monta</strong> a pasta remota como se fosse local.</li>
+  <li>Cada leitura ou escrita vira uma conversa pela rede: soma <strong>latência</strong> e usa a <strong>banda</strong> do link.</li>
+  <li>Fácil de gerenciar num lugar só, mas a rede e o próprio NAS viram <strong>gargalo e ponto de falha</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Resolve o compartilhamento: todos veem o mesmo arquivo.</li>
+  <li>Desempenho = menor entre o disco do NAS e a rede. Um link de 1 Gbps passa só ~125 MB/s.</li>
+  <li>Para banco de dados costuma ser lento demais. Para fotos, documentos e arquivos de uso comum, funciona bem.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">NFS x SMB</h4>
+  <ul>
+    <li><strong>NFS:</strong> mundo Linux e Unix. Porta 2049.</li>
+    <li><strong>SMB:</strong> mundo Windows (pastas de rede). Porta 445.</li>
+  </ul>
+  <h4 class="deep-h">Montar uma pasta NFS</h4>
+  <pre><code>{"sudo mount -t nfs 10.0.0.20:/export/fotos /mnt/fotos\nls /mnt/fotos/camisa-azul\ndf -h /mnt/fotos"}</code></pre>
+  <h4 class="deep-h">Números para lembrar</h4>
+  <ul>
+    <li>Rede de 1 Gbps: ~125 MB/s no máximo. De 10 Gbps: ~1,25 GB/s.</li>
+    <li>Latência de rede dentro do mesmo datacenter: ~0,5 ms, mais que um NVMe local (0,02 ms).</li>
+  </ul>
+  <h4 class="deep-h">Limites</h4>
+  <p>A estrutura é de arquivos em pastas. O desempenho cai com muitos clientes e depende da rede. Para escalar além disso, entra o object storage (aula 7).</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
+    { label: "Red Hat: armazenamento de arquivo, bloco e objeto", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que é NAS?",
+    a: "Servidor de arquivos na rede, usado por vários clientes ao mesmo tempo." },
+  { q: "NFS e SMB: qual é de quem?",
+    a: "NFS: Linux e Unix. SMB: Windows." },
+  { q: "O que limita a velocidade do NAS?",
+    a: "A latência e a banda da rede, além do disco do próprio NAS." },
+  { q: "Quanto passa um link de 1 Gbps?",
+    a: "Cerca de 125 MB/s no máximo." },
+]} />

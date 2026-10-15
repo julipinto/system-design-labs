@@ -1,0 +1,70 @@
+---
+title: "RAID 0 (Striping)"
+order: 8
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>RAID 0 fatia os dados e espalha entre os discos para somar a velocidade, mas não guarda nenhuma cópia: um disco que falha derruba tudo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> até os blocos se espalharem pelos discos. Depois faça um disco falhar e veja o que sobra.</p>
+</DoIt>
+{/* FIG:raid mode=raid0 */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A loja junta <strong>4 discos de 10 TB</strong> para ter espaço e velocidade.</li>
+  <li>O RAID divide o arquivo em <strong>fatias (stripes)</strong>: bloco 1 no disco A, bloco 2 no B, bloco 3 no C, bloco 4 no D, bloco 5 volta ao A.</li>
+  <li>Os 4 discos leem e gravam <strong>ao mesmo tempo</strong>: a velocidade chega a ~4x.</li>
+  <li>A capacidade é a soma: 4 x 10 TB = <strong>40 TB úteis</strong>.</li>
+  <li>Não há cópia nem paridade. <strong>Um disco falha, tudo é perdido</strong>, porque cada arquivo tem pedaços em todos.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Serve para dado que pode ser refeito: cache, área temporária, renderização.</li>
+  <li>Mais discos, mais chance de falha: 4 discos têm 4x o risco de perder tudo.</li>
+  <li>Nunca para os pedidos da Lia nem para backups. Para isso, as próximas aulas.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Contas</h4>
+  <ul>
+    <li><strong>Mínimo:</strong> 2 discos.</li>
+    <li><strong>Capacidade útil:</strong> N x tamanho. 4 x 10 TB = 40 TB (100%).</li>
+    <li><strong>Falhas toleradas:</strong> 0.</li>
+    <li><strong>Penalidade de escrita:</strong> 1 (cada escrita é uma operação).</li>
+    <li><strong>Leitura e escrita:</strong> até N vezes um disco só.</li>
+  </ul>
+  <h4 class="deep-h">Risco em números (exemplo)</h4>
+  <p>Se cada disco tem 3% de chance de falhar no ano, o RAID 0 de 4 discos perde tudo com 1 - 0,97^4 = 11,5%. Um disco só: 3%.</p>
+  <h4 class="deep-h">Tamanho da fatia</h4>
+  <p>O <strong>stripe size</strong> (por exemplo 64 KB) é quanto vai a cada disco antes de passar ao próximo. Fatia pequena favorece arquivos pequenos em paralelo, fatia grande favorece leitura sequencial.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "TechTarget: RAID 0 (disk striping)", href: "https://www.techtarget.com/searchstorage/definition/RAID-0-disk-striping" },
+    { label: "Controle.net: RAID 0, o que é e como funciona", href: "https://www.controle.net/faq/raid-0-o-que-e-para-que-serve-como-funciona" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que o RAID 0 faz?",
+    a: "Fatia os dados e espalha entre os discos, somando a velocidade." },
+  { q: "Capacidade de 4 discos de 10 TB em RAID 0?",
+    a: "40 TB. Aproveita 100%." },
+  { q: "Quantos discos podem falhar no RAID 0?",
+    a: "Nenhum. Uma falha perde tudo." },
+  { q: "Por que mais discos aumentam o risco no RAID 0?",
+    a: "Qualquer um que falhe derruba o conjunto inteiro." },
+  { q: "Para que serve?",
+    a: "Dado refazível: cache, temporário, renderização." },
+]} />

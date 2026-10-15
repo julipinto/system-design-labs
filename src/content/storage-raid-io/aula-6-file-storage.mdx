@@ -1,0 +1,68 @@
+---
+title: "File Storage"
+order: 6
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>file storage organiza os dados em pastas e arquivos com nome, e o sistema de arquivos faz a ponte entre esses nomes e os blocos do disco.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a mesma foto ganhar um nome, um caminho de pastas e uma ficha com tamanho, dono e data.</p>
+</DoIt>
+{/* FIG:storage mode=file */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Os dados ficam numa <strong>árvore de pastas</strong>: /fotos/camisa-azul/frente.jpg.</li>
+  <li>O <strong>caminho + nome</strong> identifica o arquivo. Dois arquivos não têm o mesmo nome na mesma pasta.</li>
+  <li>Cada arquivo tem <strong>metadados</strong>: tamanho, datas, dono, grupo, permissões.</li>
+  <li>No Linux, essa ficha é o <strong>inode</strong>. Ele aponta para os blocos onde o conteúdo está.</li>
+  <li>Vários clientes acessam por <strong>NFS</strong> ou <strong>SMB</strong>, normalmente num NAS (<strong>EFS</strong>, na AWS).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>É o que as pessoas e os programas já conhecem: abrir, salvar, mover, dar permissão.</li>
+  <li>Funciona bem para dados compartilhados e organizados em pastas, como as fotos de produto que o time edita.</li>
+  <li>A hierarquia complica a escala: listar uma pasta com milhões de arquivos fica lento.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Ver o inode</h4>
+  <pre><code>{"ls -li /fotos/camisa-azul/frente.jpg\nstat /fotos/camisa-azul/frente.jpg\n# mostra tamanho, quantidade de blocos, inode, dono, permissões e datas"}</code></pre>
+  <h4 class="deep-h">Sistemas de arquivos comuns</h4>
+  <ul>
+    <li><strong>ext4:</strong> padrão do Linux, simples e estável.</li>
+    <li><strong>XFS:</strong> bom para arquivos grandes e muita concorrência.</li>
+    <li><strong>NTFS:</strong> o do Windows.</li>
+  </ul>
+  <h4 class="deep-h">Bloco x arquivo</h4>
+  <p>O block storage guarda blocos e não sabe o que é um arquivo. O sistema de arquivos é a camada que dá nome e pasta a esses blocos. Em file storage, quem entrega isso pela rede é o servidor (NAS).</p>
+  <h4 class="deep-h">RAID por baixo</h4>
+  <p>É comum o servidor de arquivos guardar os dados sobre um RAID (aulas 8 a 13), para ganhar velocidade e tolerância a falhas.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: armazenamento de arquivo, bloco e objeto", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "Arch Wiki: sistemas de arquivos", href: "https://wiki.archlinux.org/title/File_systems" },
+    { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Como se identifica um arquivo?",
+    a: "Pelo caminho mais o nome, e não pode haver nomes iguais na mesma pasta." },
+  { q: "O que é um inode?",
+    a: "A ficha do arquivo no Linux: tamanho, dono, datas e onde estão os blocos." },
+  { q: "O que o sistema de arquivos faz?",
+    a: "Transforma blocos do disco em arquivos e pastas com nome." },
+  { q: "Qual o ponto fraco do file storage em larga escala?",
+    a: "A hierarquia: pastas com milhões de arquivos ficam lentas." },
+]} />

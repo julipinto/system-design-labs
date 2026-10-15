@@ -1,0 +1,69 @@
+---
+title: "RAID 1 (Mirroring)"
+order: 9
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>RAID 1 grava tudo em dois discos iguais, então se um morre o outro continua servindo, ao custo de metade do espaço.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong>, veja cada bloco ser gravado duas vezes, faça um disco falhar e confira que a loja continua no ar.</p>
+</DoIt>
+{/* FIG:raid mode=raid1 */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lia põe o <strong>banco de pedidos</strong> em 2 discos de 10 TB.</li>
+  <li>Cada escrita vai para os <strong>dois discos</strong>: o segundo é uma cópia exata (espelho).</li>
+  <li>Na leitura, o RAID pode ler de qualquer um dos dois. Isso ajuda a <strong>leitura</strong>.</li>
+  <li>Se um disco falha, o outro assume <strong>sem parada</strong>. É só trocar o disco e recopiar.</li>
+  <li>A capacidade é a de um disco só: 2 x 10 TB dá <strong>10 TB úteis</strong> (50%).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>É o básico para sistema operacional, banco de dados e coisas críticas pequenas.</li>
+  <li>Simples de entender e de recuperar: o disco que sobrou já é um disco completo.</li>
+  <li><strong>RAID não é backup.</strong> Se alguém apagar uma tabela, o espelho apaga junto, na hora.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Contas</h4>
+  <ul>
+    <li><strong>Mínimo:</strong> 2 discos.</li>
+    <li><strong>Capacidade útil:</strong> tamanho de 1 disco. 2 x 10 TB = 10 TB (50%).</li>
+    <li><strong>Falhas toleradas:</strong> 1 (com N cópias, N - 1).</li>
+    <li><strong>Penalidade de escrita:</strong> 2 (grava nos dois discos).</li>
+    <li><strong>Leitura:</strong> até 2x, lendo dos dois. <strong>Escrita:</strong> igual a um disco.</li>
+  </ul>
+  <h4 class="deep-h">Ver no Linux (mdadm)</h4>
+  <pre><code>{"sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc\ncat /proc/mdstat\n# [UU] = os dois discos ok, [U_] = um disco caiu (degradado)"}</code></pre>
+  <h4 class="deep-h">Custo</h4>
+  <p>Pagar 2 discos para usar 1. Em troca, a recuperação é rápida: só copiar o disco bom para o novo.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que o RAID 1 faz?",
+    a: "Grava tudo em dois discos iguais (espelho)." },
+  { q: "Capacidade de 2 discos de 10 TB em RAID 1?",
+    a: "10 TB, ou 50%." },
+  { q: "Quantos discos podem falhar no RAID 1 de 2 discos?",
+    a: "Um." },
+  { q: "Penalidade de escrita do RAID 1?",
+    a: "2: cada escrita vai para dois discos." },
+  { q: "RAID 1 substitui o backup?",
+    a: "Não. Um apagão lógico (DELETE errado) é espelhado também." },
+]} />

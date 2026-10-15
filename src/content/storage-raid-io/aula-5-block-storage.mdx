@@ -1,0 +1,70 @@
+---
+title: "Block Storage"
+order: 5
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>block storage entrega um disco "cru" de blocos numerados, e quem o recebe formata e decide o que guardar nele.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto ser cortada em blocos e cada bloco ir para um número de endereço (LBA).</p>
+</DoIt>
+{/* FIG:storage mode=block */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O disco é dividido em <strong>blocos de tamanho fixo</strong>, por exemplo 4 KB.</li>
+  <li>Cada bloco tem um número, o <strong>LBA</strong> (Logical Block Address): bloco 0, bloco 1, bloco 2048.</li>
+  <li>Uma foto de 4 MB ocupa <strong>1.024 blocos</strong> (4 MB / 4 KB).</li>
+  <li>Quem usa o volume instala um <strong>sistema de arquivos</strong> (ext4, XFS) ou um banco de dados direto nos blocos.</li>
+  <li>O volume pode estar dentro da máquina ou longe, entregue por rede (<strong>SAN</strong>, <strong>iSCSI</strong>, <strong>EBS</strong>).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>É o storage do banco de dados e do disco do sistema: latência baixa, controle total.</li>
+  <li>No EBS você anexa e desanexa o volume de uma instância a outra. Mas ele costuma servir <strong>uma instância por vez</strong>.</li>
+  <li>Não compartilha arquivos sozinho e o tamanho dos blocos é definido na configuração: crescer exige planejar.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Ver blocos de verdade</h4>
+  <pre><code>{"lsblk -o NAME,SIZE,PHY-SEC,LOG-SEC\nsudo blockdev --getbsz /dev/nvme0n1p1     # tamanho do bloco do sistema de arquivos\nsudo dd if=/dev/nvme0n1 bs=4096 skip=1 count=1 status=none | xxd | head -4\n# lê o bloco de número 1 (LBA 1 em blocos de 4 KB), só leitura"}</code></pre>
+  <h4 class="deep-h">Tamanhos comuns</h4>
+  <ul>
+    <li>Setor do disco: 512 bytes ou 4 KB.</li>
+    <li>Bloco do ext4: 4 KB por padrão.</li>
+    <li>Página do Postgres: 8 KB.</li>
+  </ul>
+  <h4 class="deep-h">Partições</h4>
+  <p>Um volume grande pode ser dividido em partições isoladas no mesmo dispositivo, cada uma formatada com seu sistema de arquivos.</p>
+  <h4 class="deep-h">Na nuvem</h4>
+  <p><strong>EBS gp3:</strong> 3.000 IOPS e 125 MB/s de base. O volume é um disco de rede: tem latência de rede, mas se comporta como disco local.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: armazenamento de arquivo, bloco e objeto", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que é block storage?",
+    a: "Disco cru dividido em blocos de tamanho fixo, cada um com um endereço." },
+  { q: "O que é LBA?",
+    a: "O número do bloco no disco (Logical Block Address)." },
+  { q: "Quantos blocos de 4 KB tem uma foto de 4 MB?",
+    a: "1.024." },
+  { q: "Quem decide o que vai nos blocos?",
+    a: "Quem usa o volume: um sistema de arquivos ou o próprio banco de dados." },
+  { q: "Que serviço da AWS é block storage?",
+    a: "O EBS." },
+]} />

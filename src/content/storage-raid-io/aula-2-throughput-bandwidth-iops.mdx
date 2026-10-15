@@ -1,0 +1,70 @@
+---
+title: "Dimensões em Storage: Throughput, Bandwidth, IOPS"
+order: 2
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>IOPS conta quantos pedidos o disco atende por segundo, bandwidth é a largura do cano, e o throughput real é IOPS vezes o tamanho do bloco, limitado pelo cano.</OneLiner>
+
+<DoIt>
+  <p>Na calculadora, clique em <strong>Banco: blocos pequenos e aleatórios</strong> e veja o gargalo. Depois clique em <strong>Vídeo: blocos grandes</strong> e veja o gargalo mudar de lugar.</p>
+</DoIt>
+<Widget name="io" title="Calculadora de I/O" hint="Valores de discos são ordens de grandeza para estudo. Troque o disco, o cenário ou mexa nos controles." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>I/O</strong> é uma operação de leitura ou escrita. <strong>IOPS</strong> é quantas o disco faz por segundo.</li>
+  <li><strong>Bloco</strong> é o tamanho de cada operação. O Postgres, por exemplo, lê páginas de 8 KB.</li>
+  <li><strong>Throughput</strong> = IOPS x tamanho do bloco. Com 3.000 IOPS e blocos de 8 KB: 3.000 x 8 KB = 24 MB/s.</li>
+  <li><strong>Bandwidth</strong> é o teto do canal. O gp3 padrão, da AWS, passa no máximo 125 MB/s.</li>
+  <li>O <strong>menor dos dois manda</strong>. Bloco pequeno esbarra nos IOPS. Bloco grande esbarra na banda.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O banco da loja faz muitas operações pequenas: precisa de <strong>IOPS</strong>. O vídeo do produto é um arquivo grande: precisa de <strong>banda</strong>.</li>
+  <li>Comprar mais IOPS quando o gargalo é a banda não muda nada, e o contrário também. Meça antes de pagar.</li>
+  <li>Nuvem aplica <strong>throttling</strong>: o volume é "lento" porque bateu no limite contratado, não porque está com defeito. Monitore IOPS e MB/s.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Ordens de grandeza (exemplos para estudar)</h4>
+  <ul>
+    <li><strong>HDD 7200 rpm:</strong> ~150 IOPS aleatórios, ~180 MB/s em sequência.</li>
+    <li><strong>SSD SATA:</strong> dezenas de milhares de IOPS, teto da interface em ~550 MB/s.</li>
+    <li><strong>NVMe:</strong> centenas de milhares de IOPS, vários GB/s.</li>
+    <li><strong>EBS gp3:</strong> 3.000 IOPS e 125 MB/s de base. Dá para contratar mais de cada um, separados.</li>
+  </ul>
+  <h4 class="deep-h">Aleatório x sequencial</h4>
+  <p>O HDD precisa mover a cabeça para cada acesso aleatório: por isso só ~150 IOPS. Em sequência, a cabeça fica parada e o disco lê rápido. SSD quase não sente a diferença.</p>
+  <h4 class="deep-h">Ver no Linux</h4>
+  <pre><code>{"iostat -x 1\n# colunas: r/s e w/s (IOPS), rMB/s e wMB/s (throughput), r_await e w_await (latência)"}</code></pre>
+  <h4 class="deep-h">A conta para guardar</h4>
+  <p>Throughput real = menor entre (IOPS x bloco) e (banda). O bloco em que os dois se igualam é banda / IOPS. No gp3: 125 MB/s dividido por 3.000 dá uns 42 KB.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+    { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Fórmula do throughput?",
+    a: "IOPS x tamanho do bloco, limitado pela banda." },
+  { q: "3.000 IOPS com blocos de 8 KB dão quanto?",
+    a: "24 MB/s. Gargalo: IOPS, porque a banda de 125 MB/s sobra." },
+  { q: "Banco e vídeo, quem precisa do quê?",
+    a: "Banco: IOPS (blocos pequenos e aleatórios). Vídeo: banda (blocos grandes e sequenciais)." },
+  { q: "Quantos IOPS tem um HDD de 7200 rpm?",
+    a: "Cerca de 150, em acesso aleatório." },
+  { q: "O volume ficou lento e o disco está saudável. O que olhar?",
+    a: "Throttling: o limite de IOPS ou MB/s contratado." },
+]} />

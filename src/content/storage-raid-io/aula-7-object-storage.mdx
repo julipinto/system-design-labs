@@ -1,0 +1,72 @@
+---
+title: "Object Storage"
+order: 7
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>object storage guarda cada coisa como um objeto (conteúdo, metadados e uma chave única) num bucket, e você a acessa por uma API, sem pastas de verdade.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a foto virar um objeto, receber uma chave e ser copiada sem que você peça.</p>
+</DoIt>
+{/* FIG:storage mode=object */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Você cria um <strong>bucket</strong> (um "balde") com nome único, por exemplo lojadalia-fotos.</li>
+  <li>Cada foto vira um <strong>objeto</strong>: conteúdo + metadados + chave (<strong>key</strong>), tipo produtos/camisa-azul/frente.jpg.</li>
+  <li>Acesso por <strong>API HTTP</strong>: PUT para gravar, GET para ler, DELETE para apagar. Sem montar disco.</li>
+  <li>As "pastas" são só parte do nome da chave. Não há árvore de verdade.</li>
+  <li>O serviço <strong>replica e distribui</strong> sozinho, entre discos e até entre locais.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>É o lugar das fotos da loja, dos backups e dos arquivos grandes: capacidade quase ilimitada e barata.</li>
+  <li>Escala na horizontal e é cloud native. Em troca, não serve para banco de dados nem para editar um byte no meio do arquivo.</li>
+  <li>Cada acesso é uma chamada de rede: latência maior que a de um disco. Use CDN na frente para fotos.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Falar com o S3 (exemplos)</h4>
+  <pre><code>{"aws s3 cp frente.jpg s3://lojadalia-fotos/produtos/camisa-azul/frente.jpg\naws s3 ls s3://lojadalia-fotos/produtos/camisa-azul/\naws s3api head-object --bucket lojadalia-fotos --key produtos/camisa-azul/frente.jpg\n# o head-object mostra ContentLength, ContentType, ETag e metadados"}</code></pre>
+  <h4 class="deep-h">Anatomia do objeto</h4>
+  <ul>
+    <li><strong>Dados:</strong> os bytes da foto.</li>
+    <li><strong>Metadados:</strong> tipo de conteúdo, data, etiquetas que você define.</li>
+    <li><strong>Chave:</strong> o identificador único dentro do bucket.</li>
+  </ul>
+  <h4 class="deep-h">Durabilidade</h4>
+  <p>O S3 Standard promete 99,999999999% (11 noves) de durabilidade: com 10 milhões de objetos, a expectativa é perder um a cada 10 mil anos. Isso vem de guardar várias cópias em locais diferentes.</p>
+  <h4 class="deep-h">Outros exemplos</h4>
+  <p>Azure Blob Storage, Google Cloud Storage e, para rodar em casa, MinIO e Ceph.</p>
+  <h4 class="deep-h">Ciclo de vida</h4>
+  <p>Regras automáticas movem objetos antigos para camadas mais baratas ou os apagam. Útil para os backups da loja.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: armazenamento de arquivo, bloco e objeto", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "Cloudian: cuidados com object storage", href: "https://www.cloudian.com/blog/object-storage-care/" },
+    { label: "AWS: diferença entre block, file e object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que tem num objeto?",
+    a: "Conteúdo, metadados e uma chave única." },
+  { q: "O que é um bucket?",
+    a: "O balde que guarda objetos; o nome é único." },
+  { q: "Existem pastas no object storage?",
+    a: "Não. A \"pasta\" é só parte do nome da chave." },
+  { q: "Como se acessa object storage?",
+    a: "Por API HTTP (PUT, GET, DELETE), não por disco montado." },
+  { q: "Para que ele não serve bem?",
+    a: "Banco de dados e edição no meio do arquivo: a latência é maior e o objeto é trocado inteiro." },
+]} />

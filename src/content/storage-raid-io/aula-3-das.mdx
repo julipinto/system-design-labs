@@ -1,0 +1,68 @@
+---
+title: "Direct-Attached Storage (DAS)"
+order: 3
+min: 3
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>DAS é o disco ligado direto ao servidor: o caminho mais curto e rápido, mas só aquele servidor enxerga o disco.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong> e veja a mesma foto de produto ser salva no disco que está espetado no servidor. Conte quantos saltos ela faz.</p>
+</DoIt>
+{/* FIG:storage mode=das */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O servidor da loja tem um <strong>NVMe</strong> instalado dentro dele.</li>
+  <li>O sistema operacional fala com o disco pelo barramento (<strong>PCIe</strong>, SATA ou USB). Não há rede no caminho.</li>
+  <li>A foto é gravada: menos saltos, <strong>menos latência</strong>.</li>
+  <li>Só esse servidor enxerga o disco. Outro servidor não lê aquela foto.</li>
+  <li>Para crescer, é preciso <strong>colocar mais discos na máquina</strong> e migrar dados na mão.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Banco de dados que pede latência mínima costuma rodar em DAS (ou em volume equivalente).</li>
+  <li>Escala só para cima: cabem poucos discos por servidor, e a máquina vira ponto único de falha.</li>
+  <li>Se o servidor cai, o disco fica inacessível junto. RAID e réplicas cobrem isso (aulas 8 a 13).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Quando usar</h4>
+  <ul>
+    <li>Latência baixíssima: banco transacional, cache, arquivos temporários.</li>
+    <li>Ambiente simples, sem necessidade de compartilhar.</li>
+  </ul>
+  <h4 class="deep-h">Limites</h4>
+  <ul>
+    <li>Pouca escalabilidade horizontal.</li>
+    <li>Expandir exige abrir a máquina ou trocar de disco.</li>
+    <li>Sem compartilhamento: copiar para outro servidor é trabalho manual.</li>
+  </ul>
+  <h4 class="deep-h">Ver no Linux</h4>
+  <pre><code>{"lsblk -o NAME,SIZE,TYPE,ROTA,MOUNTPOINT\n# ROTA=1 é HDD, ROTA=0 é SSD ou NVMe\ndf -h /dados"}</code></pre>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "O que é DAS?",
+    a: "Disco ligado direto ao servidor (SATA, USB ou NVMe), sem rede no meio." },
+  { q: "Vantagem do DAS?",
+    a: "Menos saltos: latência baixa e desempenho alto." },
+  { q: "Principal limite do DAS?",
+    a: "Só uma máquina enxerga o disco, e crescer exige mexer fisicamente." },
+  { q: "Se o servidor com DAS cai, e o disco?",
+    a: "Fica inacessível junto, a menos que haja réplica ou RAID." },
+]} />

@@ -1,3 +1,4 @@
+import { storageRaidIo } from './glossary-storage-raid-io.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -58,5 +59,6 @@ export const glossaries = {
     { term: 'Connection ID', aliases: ['Connection ID', 'connection ID'], short: 'Número que identifica a conexão QUIC no lugar de IP e porta. Por isso ela sobrevive à troca de rede.', lesson: L8 },
     { term: '0-RTT', aliases: ['0-RTT'], short: 'Retomada que já manda o pedido na primeira mensagem. Risco: alguém pode repetir esse pedido (replay).', lesson: L5 },
     { term: 'FCS', aliases: ['FCS'], short: 'Código no fim do quadro para o receptor perceber se algum bit chegou errado.', layer: 2, lesson: L2 }
-  ]
+  ],
+  'storage-raid-io': storageRaidIo
 };

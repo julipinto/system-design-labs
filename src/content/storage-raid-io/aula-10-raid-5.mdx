@@ -1,0 +1,85 @@
+---
+title: "RAID 5 (Striping com Paridade Distribuída)"
+order: 10
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>RAID 5 espalha os dados e uma paridade entre os discos, e assim sobrevive à perda de qualquer um deles gastando só um disco de espaço.</OneLiner>
+
+<DoIt>
+  <p>Na figura, clique em <strong>Próximo passo</strong>, veja a paridade ser calculada, faça um disco falhar e acompanhe a reconstrução bloco a bloco.</p>
+</DoIt>
+{/* FIG:raid mode=raid5 */}
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A loja agora tem <strong>5 discos de 10 TB</strong>.</li>
+  <li>Em cada linha, 4 discos guardam dados e 1 guarda a <strong>paridade</strong>. A paridade <strong>gira</strong> de disco em cada linha.</li>
+  <li>A paridade é o <strong>XOR</strong> dos blocos: com A = 1010, B = 0110, C = 1001, a paridade P = 0101.</li>
+  <li>Se o disco B morre, recalcula: A xor C xor P = 1010 xor 1001 xor 0101 = <strong>0110</strong>. Voltou o B.</li>
+  <li>Capacidade: (5 - 1) x 10 TB = <strong>40 TB</strong> úteis. Tolera <strong>1 falha</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Boa relação entre espaço e proteção: perde só 1 disco, qualquer que seja o número deles.</li>
+  <li>A <strong>escrita é cara</strong>: cada escrita pequena vira 4 operações (penalidade de escrita 4).</li>
+  <li>O <strong>rebuild</strong> lê todos os outros discos. Com discos grandes, demora e é arriscado.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Contas</h4>
+  <ul>
+    <li><strong>Mínimo:</strong> 3 discos.</li>
+    <li><strong>Capacidade útil:</strong> (N - 1) x tamanho. 5 x 10 TB: 40 TB (80%).</li>
+    <li><strong>Falhas toleradas:</strong> 1.</li>
+    <li><strong>Penalidade de escrita:</strong> 4.</li>
+  </ul>
+  <h4 class="deep-h">Por que a escrita pequena vale 4 I/Os</h4>
+  <ol class="flow steps">
+    <li>Ler o bloco antigo.</li>
+    <li>Ler a paridade antiga.</li>
+    <li>Calcular a nova: P novo = P antigo xor dado antigo xor dado novo.</li>
+    <li>Gravar o bloco novo e a paridade nova (2 escritas).</li>
+  </ol>
+  <p>Total: 2 leituras + 2 escritas = 4 operações. Com 5 discos de 150 IOPS, a escrita aleatória cai de 750 para uns 187 IOPS.</p>
+  <h4 class="deep-h">Rebuild e URE (exemplo)</h4>
+  <ul>
+    <li>Reconstruir um disco de 10 TB a 150 MB/s: 10.000.000 MB / 150 = 66.667 s, mais de 18 horas. Na prática, dias com a loja no ar.</li>
+    <li>Ele lê os outros 4 discos inteiros: 40 TB = 3,2 x 10^14 bits.</li>
+    <li>Discos comuns têm 1 <strong>URE</strong> (erro de leitura que não se recupera) a cada 10^14 bits. Na conta, é esperado achar uns 3 erros durante o rebuild. Sem paridade sobrando, cada erro é perda.</li>
+  </ul>
+  <h4 class="deep-h">Hot spare</h4>
+  <p>Um disco reserva ligado e vazio: quando um disco falha, ele entra sozinho e o rebuild começa na hora, sem esperar alguém trocar o disco.</p>
+  <h4 class="deep-h">Ver no Linux</h4>
+  <pre><code>{"sudo mdadm --create /dev/md0 --level=5 --raid-devices=5 /dev/sd[b-f]\ncat /proc/mdstat        # mostra \"recovery = 12.3%\" durante o rebuild"}</code></pre>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "DataStorage: o que é RAID 5", href: "https://datastorage.com.br/post/raid-5" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "Capacidade do RAID 5 com 5 discos de 10 TB?",
+    a: "(5 - 1) x 10 = 40 TB." },
+  { q: "Quantas falhas o RAID 5 tolera?",
+    a: "Uma." },
+  { q: "Como a paridade recupera um disco?",
+    a: "XOR dos blocos que sobraram com a paridade devolve o bloco perdido." },
+  { q: "Penalidade de escrita do RAID 5?",
+    a: "4: lê dado antigo e paridade antiga, grava dado novo e paridade nova." },
+  { q: "Por que o rebuild é perigoso?",
+    a: "Lê todos os outros discos por horas ou dias, e um erro de leitura (URE) nesse momento causa perda." },
+  { q: "O que é um hot spare?",
+    a: "Disco reserva ligado que entra sozinho no lugar do que falhou." },
+]} />

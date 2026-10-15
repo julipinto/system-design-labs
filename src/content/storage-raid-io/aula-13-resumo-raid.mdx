@@ -1,0 +1,92 @@
+---
+title: "Resumo e Comparativos de RAID"
+order: 13
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<OneLiner>cada RAID troca espaço, velocidade e segurança de um jeito: 0 só corre, 1 e 10 copiam, 5 e 6 usam paridade, e nenhum deles é backup.</OneLiner>
+
+<DoIt>
+  <p>Na calculadora, escolha <strong>RAID 5</strong>, 5 discos de 10 TB (40 TB úteis). Troque para RAID 6 e depois RAID 10 e veja capacidade e penalidade mudarem.</p>
+</DoIt>
+{/* FIG:raid mode=raid5 */}
+<Widget name="raid" title="Calculadora de RAID" hint="Escolha o nível, o número de discos e o tamanho. Os IOPS são teóricos." />
+
+<div class="sr-tablewrap" role="region" aria-label="Tabela comparando os níveis de RAID" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Nível</th><th>Capacidade útil</th><th>Falhas toleradas</th><th>Leitura</th><th>Escrita</th><th>Penalidade</th><th>Uso típico</th></tr></thead>
+  <tbody>
+    <tr><th>RAID 0</th><td>N x S (100%)</td><td>0</td><td>~N x</td><td>~N x</td><td>1</td><td>Cache e temporários</td></tr>
+    <tr><th>RAID 1</th><td>S (50% com 2 discos)</td><td>N - 1</td><td>até N x</td><td>1 x</td><td>2</td><td>Sistema e banco pequeno</td></tr>
+    <tr><th>RAID 5</th><td>(N - 1) x S</td><td>1</td><td>~(N - 1) x</td><td>boa em sequência, fraca em pequena</td><td>4</td><td>Arquivos e leitura pesada</td></tr>
+    <tr><th>RAID 6</th><td>(N - 2) x S</td><td>2</td><td>~(N - 2) x</td><td>pior que o RAID 5</td><td>6</td><td>Grande volume, dado a longo prazo</td></tr>
+    <tr><th>RAID 10</th><td>N / 2 x S (50%)</td><td>1 garantida, até N / 2</td><td>~N x</td><td>~N / 2 x</td><td>2</td><td>Bancos e cargas transacionais</td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Precisa de velocidade e o dado é refazível?</strong> RAID 0.</li>
+  <li><strong>Pouco dado, crítico, simples?</strong> RAID 1.</li>
+  <li><strong>Banco com muita escrita e dado crítico?</strong> RAID 10.</li>
+  <li><strong>Muito espaço, leitura pesada, orçamento curto?</strong> RAID 5. Com discos grandes e muitos deles: RAID 6.</li>
+  <li>Em todos: <strong>RAID não é backup.</strong> Mantenha cópias fora do conjunto (objeto, outra região).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Conta de capacidade com 5 discos de 10 TB: RAID 5 = 40 TB, RAID 6 = 30 TB. Com 4 discos: RAID 0 = 40, RAID 10 = 20.</li>
+  <li>O RAID 5 e o 6 pagam pela capacidade com escrita mais lenta. O 10 paga com espaço. O 0 paga com segurança.</li>
+  <li>RAID protege contra <strong>falha de disco</strong>, não contra erro humano, ransomware, incêndio ou bug.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Como ler a tabela</h4>
+  <ul>
+    <li><strong>N</strong> é o número de discos e <strong>S</strong> o tamanho de cada um.</li>
+    <li>Leitura e escrita são valores teóricos: dependem do controlador, do cache e do padrão de acesso.</li>
+    <li><strong>Penalidade</strong> é quantas operações no disco cada escrita pequena gera.</li>
+  </ul>
+  <h4 class="deep-h">Escrita aleatória com 150 IOPS por disco</h4>
+  <ul>
+    <li>RAID 10 com 4 discos: 4 x 150 / 2 = 300 IOPS.</li>
+    <li>RAID 5 com 5 discos: 5 x 150 / 4 = 187 IOPS.</li>
+    <li>RAID 6 com 5 discos: 5 x 150 / 6 = 125 IOPS.</li>
+  </ul>
+  <h4 class="deep-h">E a loja da Lia?</h4>
+  <ul>
+    <li><strong>Pedidos (banco):</strong> RAID 10 em SSD, mais réplica em outra máquina.</li>
+    <li><strong>Fotos:</strong> object storage, que replica sozinho.</li>
+    <li><strong>Backups:</strong> object storage em outra região, com ciclo de vida.</li>
+    <li><strong>Cache e temporários:</strong> RAID 0 ou disco sem RAID.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: visão geral de sistemas de storage", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+    { label: "DataStorage: o que é RAID 5", href: "https://datastorage.com.br/post/raid-5" },
+    { label: "DataStorage: o que é RAID 6", href: "https://datastorage.com.br/post/o-que-e-o-raid-6" },
+  ]} />
+</Deep>
+
+<Flashcards cards={[
+  { q: "RAID 5, 6 e 10: capacidade e falhas?",
+    a: "5: (N - 1) x S, 1 falha. 6: (N - 2) x S, 2 falhas. 10: N / 2 x S, 1 garantida." },
+  { q: "Penalidades de escrita?",
+    a: "RAID 0: 1. RAID 1 e 10: 2. RAID 5: 4. RAID 6: 6." },
+  { q: "Qual RAID para banco de dados com muita escrita?",
+    a: "RAID 10." },
+  { q: "RAID substitui backup?",
+    a: "Não. Protege contra falha de disco, não contra erro humano ou desastre." },
+  { q: "5 discos de 10 TB em RAID 6 dão quanto?",
+    a: "30 TB." },
+]} />
