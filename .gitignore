@@ -7,3 +7,4 @@ public/labs/protocolos-de-rede/*-3d/
 # páginas de teste da figura 2D (node src/figures/osi/osi-figure.mjs [--light])
 src/figures/osi/osi-figure.html
 src/figures/osi/osi-figure-light.html
+public/labs/storage-raid-io/*-3d/

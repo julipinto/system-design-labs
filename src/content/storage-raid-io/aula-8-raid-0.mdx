@@ -3,6 +3,7 @@ title: "RAID 0 (Striping)"
 order: 8
 min: 3
 ---
+import Figure3D from '../../components/Figure3D.astro';
 import OneLiner from '../../components/OneLiner.astro';
 import DoIt from '../../components/DoIt.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
@@ -17,7 +18,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <DoIt>
   <p>Na figura, clique em <strong>Próximo passo</strong> até os blocos se espalharem pelos discos. Depois faça um disco falhar e veja o que sobra.</p>
 </DoIt>
-{/* FIG:raid mode=raid0 */}
+<Figure3D path="labs/storage-raid-io/raid-3d/?mode=raid0" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Figura interativa: RAID 0 gravando blocos, um disco falhando e a reconstrução" alt="Prévia da figura 3D: controladora RAID e quatro discos, com o disco D2 falho e o bloco A2 recalculado pelo XOR da paridade" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque o nível de RAID no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
