@@ -17,15 +17,15 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>PACELC completa o CAP: se há Partição, escolha entre Availability e Consistency; senão (Else), escolha entre Latency e Consistency, e o "senão" é o que acontece quase o tempo todo.</OneLiner>
 
 <DoIt>
-  <p>Na figura, grave o estoque em São Paulo no modo <strong>latência</strong> e no modo <strong>consistência</strong>. Compare os milissegundos até o "ok" e o que um leitor em Dublin enxerga nesse tempo.</p>
+  <p>Na figura, faça a venda #101 em São Paulo no modo <strong>latência</strong> e no modo <strong>consistência</strong>. Compare os milissegundos até o "ok" da Lena e o que o irmão dela, lendo em Recife, enxerga nesse tempo.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/cap-3d/?mode=pacelc-el" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, PACELC sem partição: latência x consistência" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
   <li>O CAP só olha para a falha. Mas a rede passa quase todo o tempo funcionando, e aí também existe um preço: <strong>distância custa milissegundos</strong>.</li>
-  <li><strong>Escrita consistente (EC):</strong> SP só responde "ok" depois que a Virgínia confirmar. 2 ms de escrita local + ~120 ms de ida e volta = <strong>~122 ms</strong>. Esperar também Dublin: ~192 ms.</li>
-  <li><strong>Escrita rápida (EL):</strong> SP grava e responde em <strong>2 ms</strong>. A cópia vai depois. Em compensação, uma leitura em Dublin aos 50 ms ainda vê <code>estoque 10, v7</code>.</li>
+  <li><strong>Escrita consistente (EC):</strong> SP só responde "ok" depois que o Rio e o Recife confirmarem: a Lena espera <strong>~80 ms</strong>. Com a rede lenta (300 ms entre as cidades), a espera vira ~300 ms.</li>
+  <li><strong>Escrita rápida (EL):</strong> SP grava e responde em <strong>~5 ms</strong>. A cópia vai depois. Em compensação, se o irmão consulta o Recife logo depois, ele ainda vê <code>estoque 5</code> (v1) em vez de 4: uma leitura velha, por uns 80 ms.</li>
   <li><strong>As quatro combinações:</strong> o "PA" ou "PC" diz o que o sistema faz na partição; o "EL" ou "EC" diz o que faz sem partição. Daí PA/EL, PC/EL, PA/EC e PC/EC.</li>
   <li><strong>Na loja:</strong> carrinho em PA/EL (rápido e sempre no ar), saldo e transferência em PC/EC (certo, mesmo que mais lento).</li>
 </ol>
@@ -35,10 +35,10 @@ import Flashcards from '../../components/Flashcards.astro';
 <table class="sr-table">
   <thead><tr><th>Combinação</th><th>Na partição</th><th>Sem partição</th><th>Escrita do estoque</th><th>Para quê</th></tr></thead>
   <tbody>
-    <tr><th>PA/EL</th><td>Disponibilidade</td><td>Latência</td><td>~2 ms, cópia depois</td><td>Escala global, carrinho, feed</td></tr>
-    <tr><th>PC/EL</th><td>Consistência</td><td>Latência</td><td>~2 ms, mas recusa na partição</td><td>Rápido no dia a dia, prefere cair a divergir</td></tr>
-    <tr><th>PA/EC</th><td>Disponibilidade</td><td>Consistência</td><td>~122 ms, relaxa só na falha</td><td>Raro: forte no normal, flexível na falha</td></tr>
-    <tr><th>PC/EC</th><td>Consistência</td><td>Consistência</td><td>~122 ms sempre</td><td>Bancos, coordenação, transações críticas</td></tr>
+    <tr><th>PA/EL</th><td>Disponibilidade</td><td>Latência</td><td>~5 ms, cópia depois</td><td>Escala global, carrinho, feed</td></tr>
+    <tr><th>PC/EL</th><td>Consistência</td><td>Latência</td><td>~5 ms, mas recusa na partição</td><td>Rápido no dia a dia, prefere cair a divergir</td></tr>
+    <tr><th>PA/EC</th><td>Disponibilidade</td><td>Consistência</td><td>~80 ms, relaxa só na falha</td><td>Raro: forte no normal, flexível na falha</td></tr>
+    <tr><th>PC/EC</th><td>Consistência</td><td>Consistência</td><td>~80 ms sempre</td><td>Bancos, coordenação, transações críticas</td></tr>
   </tbody>
 </table>
 </div>

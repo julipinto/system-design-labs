@@ -16,17 +16,17 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>Quando a rede entre os bancos quebra, um sistema replicado só consegue escolher entre responder sempre (disponível) ou responder sempre o dado mais novo (consistente).</OneLiner>
 
 <DoIt>
-  <p>Na figura, corte o cabo entre São Paulo e Dublin. Depois tente comprar o <strong>último par de tênis</strong> pelos dois lados e compare o que cada modo faz.</p>
+  <p>Na figura, corte o cabo entre Rio e Recife. Depois faça duas compras do <strong>gato de pelúcia</strong> ao mesmo tempo, a da Lena em São Paulo e a do irmão dela em Recife, e compare o que cada modo faz.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/cap-3d/?mode=cp" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo consistência (CP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja da Lia agora guarda o estoque em <strong>3 bancos replicados</strong>: São Paulo (líder), Virgínia e Dublin. Cada um tem a mesma linha: <code>tenis_trilha_42: estoque 1, versão 7</code>.</li>
-  <li>O cabo submarino cai. São Paulo e Virgínia ainda se falam. <strong>Dublin fica isolado</strong>: é uma partição de rede.</li>
-  <li>Entram dois pedidos para o último par: um em Dublin, outro em São Paulo. Dublin não consegue perguntar nada a ninguém.</li>
-  <li><strong>Escolha 1, consistente:</strong> Dublin recusa depois de 3.000 ms de timeout (erro 503). São Paulo vende. Estoque final: 0, versão 8. Ninguém compra um par que não existe, mas o cliente de Dublin ficou sem resposta.</li>
-  <li><strong>Escolha 2, disponível:</strong> Dublin aceita e grava estoque 0, versão 8. São Paulo faz o mesmo. Os dois responderam, mas <strong>venderam o mesmo par duas vezes</strong>. A divergência só aparece quando o cabo volta.</li>
+  <li>A loja guarda o estoque do gato de pelúcia em <strong>3 bancos replicados</strong>: São Paulo, Rio e Recife. Depois da venda normal #101 (5 → 4), cada um tem a mesma linha: <code>gato_pelucia: estoque 4, v2</code>. A Lena compra em SP e o irmão dela, em Recife.</li>
+  <li>O cabo entre Rio e Recife cai. São Paulo e Rio ainda se falam. <strong>Recife fica isolado</strong>: é uma partição de rede.</li>
+  <li>Entram dois pedidos ao mesmo tempo: o #102 da Lena, em São Paulo, e o #103 do irmão, em Recife. Recife não consegue perguntar nada a ninguém.</li>
+  <li><strong>Escolha 1, consistente:</strong> SP grava 3 e o Rio confirma: são 2 de 3 nós, há quórum, e a #102 passa. Recife recusa depois de 3.000 ms de timeout (erro 503). Quando o cabo volta, o irmão tenta de novo, a #103 passa e o estoque final é 2 (v4). Ninguém recebeu uma promessa falsa, mas o irmão ficou sem resposta por um tempo.</li>
+  <li><strong>Escolha 2, disponível:</strong> Recife aceita e também grava 3, sem saber da #102. Os dois responderam OK, mas o estoque real é 5 − 3 = 2 e os nós mostram 3. A divergência só aparece quando o cabo volta.</li>
 </ol>
 </HowItWorks>
 
@@ -44,8 +44,8 @@ import Flashcards from '../../components/Flashcards.astro';
 <Deep min={3}>
   <h4 class="deep-h">Os números da cena (exemplo)</h4>
   <ul>
-    <li>Ida e volta São Paulo ↔ Virgínia: ~120 ms. São Paulo ↔ Dublin: ~190 ms. Escrita local: ~2 ms.</li>
-    <li>Quorum de 3 bancos: 2. São Paulo + Virgínia têm maioria. Dublin sozinho não tem.</li>
+    <li>Venda normal com a rede boa (#101): ~12 ms. SP grava, avisa o Rio, e o Rio avisa o Recife. Timeout da escrita sem resposta: 3.000 ms.</li>
+    <li>Quorum de 3 bancos: 2. São Paulo + Rio têm maioria. Recife sozinho não tem.</li>
     <li>Modo consistente: o lado sem maioria recusa. Modo disponível: os dois lados aceitam e conciliam depois.</li>
   </ul>
   <h4 class="deep-h">O que o teorema diz de verdade</h4>
@@ -64,8 +64,8 @@ import Flashcards from '../../components/Flashcards.astro';
     a: "Eric Brewer, em 2000. Gilbert e Lynch provaram em 2002." },
   { q: "O que é uma partição de rede?",
     a: "Os nós continuam de pé, mas não conseguem se falar. Cada grupo acha que é o único." },
-  { q: "Na cena do último par, o que o modo consistente faz em Dublin?",
-    a: "Recusa o pedido (erro após o timeout) para não vender duas vezes." },
+  { q: "Na cena das duas compras do gato de pelúcia, o que o modo consistente faz no Recife?",
+    a: "Recusa o pedido (erro 503 após o timeout) para não deixar as cópias divergirem." },
   { q: "E o modo disponível?",
-    a: "Aceita nos dois lados e pode vender o mesmo par duas vezes, a ser corrigido quando a rede voltar." },
+    a: "Aceita nos dois lados: os nós mostram 3 enquanto o real é 2, a ser corrigido quando a rede voltar." },
 ]} />

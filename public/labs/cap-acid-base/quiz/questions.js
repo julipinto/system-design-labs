@@ -47,61 +47,61 @@
   ], 2, "Brewer apresentou a ideia em 2000. Gilbert e Lynch a provaram formalmente em 2002. Abadi propôs o PACELC em 2010.");
   tf("t1", 3, 1, "Numa partição de rede, os servidores do outro lado estão desligados.", false,
     "Partição é quando os nós estão vivos mas não conseguem trocar mensagens. Cada lado acha que o outro sumiu.");
-  choice("t1", 4, 2, "O cabo de Dublin cai. Um cliente de lá pede o último par de tênis e o sistema devolve erro 503 após 3.000 ms, enquanto São Paulo segue vendendo. O que o sistema escolheu?", [
-    "Consistência, abrindo mão da disponibilidade em Dublin.",
+  choice("t1", 4, 2, "O cabo entre Rio e Recife cai. O irmão da Lena, em Recife, tenta comprar o último gato de pelúcia e o sistema devolve erro 503 após 3.000 ms, enquanto São Paulo e o Rio seguem vendendo. O que o sistema escolheu?", [
+    "Consistência, abrindo mão da disponibilidade no Recife.",
     "Disponibilidade, abrindo mão da consistência.",
     "As duas, porque São Paulo respondeu.",
     "Nenhuma: o CAP não se aplica quando há erro."
-  ], 0, "Recusar em Dublin evita vender duas vezes o mesmo par, mas o cliente de Dublin ficou sem resposta útil.");
-  choice("t1", 5, 3, "Com a rede cortada, Dublin e São Paulo aceitam, cada um, a compra do último par (estoque 1, versão 7). Qual o risco?", [
+  ], 0, "Recusar no Recife evita que as cópias divirjam, mas o irmão da Lena ficou sem resposta útil.");
+  choice("t1", 5, 3, "Com o cabo Rio–Recife cortado, SP (pedido #102 da Lena) e Recife (pedido #103 do irmão) aceitam, cada um, uma compra do gato de pelúcia (estoque 4, v2). Qual o resultado?", [
     "Nenhum: as réplicas se corrigem sozinhas na hora.",
-    "Os dois gravam estoque 0, versão 8: o mesmo par é vendido duas vezes.",
-    "O estoque vai para 2.",
-    "O banco de São Paulo apaga o de Dublin."
-  ], 1, "Sem se falar, cada lado acha que tem o último par. A divergência só aparece quando a rede volta.");
-  order("t1", 6, 2, "Coloque em ordem o que acontece na cena do último par.", [
-    "O cabo cai e Dublin fica isolado.",
-    "Chega um pedido do último par em Dublin.",
+    "Os dois gravam estoque 3: os nós mostram 3, mas o estoque real é 2.",
+    "O estoque vai para 2 nos dois lados na hora.",
+    "O banco de São Paulo apaga o do Recife."
+  ], 1, "Sem se falar, cada lado só desconta a própria venda: 5 - 3 pedidos = 2, mas cada nó diz 3. A divergência só aparece quando a rede volta.");
+  order("t1", 6, 2, "Coloque em ordem o que acontece na cena do gato de pelúcia.", [
+    "O cabo entre Rio e Recife cai e o Recife fica isolado.",
+    "Chegam duas compras ao mesmo tempo, uma em SP e outra em Recife.",
     "O sistema escolhe: recusar o pedido ou aceitá-lo.",
     "A rede volta e as réplicas se reconciliam."
-  ], "Primeiro vem a partição, depois o pedido, depois a escolha do sistema e, no fim, a conciliação quando a rede volta.");
+  ], "Primeiro vem a partição, depois os pedidos, depois a escolha do sistema e, no fim, a conciliação quando a rede volta.");
   tf("t1", 7, 2, "Sem partição de rede, o teorema CAP proíbe o sistema de ser consistente e disponível ao mesmo tempo.", false,
     "O trade-off do CAP vale durante a partição. Sem ela, nada impede de ter as duas coisas.");
 
   /* ---------- 2. Modelo ACID ---------- */
-  choice("t2", 1, 2, "A Lia paga R$ 300 à fornecedora: débito na conta dela (1.000 para 700) e crédito na da fornecedora (500 para 800). O servidor cai entre os dois passos. O que a atomicidade garante?", [
+  choice("t2", 1, 2, "A Lena transfere R$ 100 ao irmão: débito na conta dela (150 para 50) e crédito na dele (20 para 120). O servidor cai entre os dois passos. O que a atomicidade garante?", [
     "O débito fica e o crédito se perde, para registrar o erro.",
-    "As duas contas voltam ao estado inicial: 1.000 e 500, via rollback.",
+    "As duas contas voltam ao estado inicial: 150 e 20, via rollback.",
     "O banco tenta o crédito para sempre, sem desfazer o débito.",
-    "O saldo da fornecedora vira zero."
+    "O saldo do irmão vira zero."
   ], 1, "Atomicidade é tudo ou nada: uma transação incompleta é desfeita por inteiro.");
   tf("t2", 2, 1, "O C do ACID e o C do CAP significam a mesma coisa.", false,
     "No ACID, consistência é respeitar as regras de integridade do banco. No CAP, é linearizabilidade: as réplicas parecem uma cópia só.");
-  choice("t2", 3, 2, "T1 diminui o saldo de 1.000 para 700 mas não confirma. T2 lê 700. Depois T1 dá rollback e o saldo volta a 1.000. Que anomalia foi essa?", [
+  choice("t2", 3, 2, "T1 (a transferência) diminui o saldo da Lena de 150 para 50 mas não confirma. T2 lê 50. Depois T1 dá rollback e o saldo volta a 150. Que anomalia foi essa?", [
     "Dirty read.",
     "Non-repeatable read.",
     "Phantom.",
     "Lost update."
   ], 0, "T2 leu um valor não confirmado. Esse valor nunca existiu de verdade.");
-  choice("t2", 4, 2, "T1 lê 1.000, T2 confirma 700 e T1 lê de novo, na mesma transação, e vê 700. Que anomalia é essa?", [
+  choice("t2", 4, 2, "T1 lê 150, T2 (o aluguel) confirma 110 e T1 lê de novo, na mesma transação, e vê 110. Que anomalia é essa?", [
     "Dirty read.",
     "Non-repeatable read.",
     "Phantom.",
     "Lost update."
   ], 1, "A mesma linha deu valores diferentes dentro da mesma transação. É non-repeatable read. Phantom é quando aparecem linhas novas.");
-  choice("t2", 5, 2, "T1 e T2 leem o saldo 1.000. T1 soma 200 e grava 1.200; T2 subtrai 300 e grava 700. Qual seria o saldo certo e qual anomalia ocorreu?", [
-    "900, com lost update.",
-    "700, sem anomalia.",
-    "1.200, com dirty read.",
-    "900, com phantom."
-  ], 0, "1.000 + 200 - 300 = 900. O crédito de 200 de T1 foi sobrescrito: é lost update.");
+  choice("t2", 5, 2, "T1 e T2 leem o saldo 150. T1 (transferência) calcula 150 - 100 e grava 50; T2 (aluguel) calcula 150 - 40 e grava 110. Qual seria o saldo certo e qual anomalia ocorreu?", [
+    "10, com lost update.",
+    "110, sem anomalia.",
+    "50, com dirty read.",
+    "10, com phantom."
+  ], 0, "150 - 100 - 40 = 10. O débito de 100 de T1 foi sobrescrito: é lost update.");
   choice("t2", 6, 1, "O que garante a durabilidade depois de um COMMIT?", [
     "O banco anota a mudança no WAL, em disco, antes de confirmar.",
     "Guardar o dado só na memória, que é mais rápida.",
     "Repetir a consulta até dar certo.",
     "Pedir ao cliente para guardar uma cópia."
   ], 0, "O WAL é o diário do banco. Se a energia cair, ele relê o WAL ao ligar e recupera tudo o que foi confirmado.");
-  choice("t2", 7, 2, "A mesma consulta (SOMA de lançamentos de hoje) devolve 2 linhas (R$ 300) e, minutos depois na mesma transação, 3 linhas (R$ 450) porque T2 inseriu um lançamento. Que anomalia é essa?", [
+  choice("t2", 7, 2, "A mesma consulta (SOMA de lançamentos de hoje) devolve 2 linhas (R$ 60) e, minutos depois na mesma transação, 3 linhas (R$ 100) porque T2 inseriu o lançamento do aluguel. Que anomalia é essa?", [
     "Dirty read.",
     "Lost update.",
     "Phantom.",
@@ -127,32 +127,32 @@
     "Um estado que nunca muda.",
     "Um banco com transações brandas."
   ], 1, "Soft state é estado em movimento: o valor pode ser ajustado sozinho enquanto as cópias se acertam.");
-  choice("t3", 3, 2, "SP grava estoque 9, v8 em 2 ms. Dublin só recebe a cópia aos 190 ms. Um cliente lê o estoque em Dublin aos 50 ms. O que ele vê?", [
-    "9, v8.",
+  choice("t3", 3, 2, "SP grava a transferência da Lena (Lena 50, irmão 120, v2) e responde em ~5 ms. O Recife só recebe a cópia depois. O irmão lê o próprio saldo no Recife logo em seguida. O que ele vê?", [
+    "R$ 120, v2.",
     "Um erro, porque o dado ainda não chegou.",
-    "10, v7: um stale read.",
-    "0, v0."
+    "R$ 20, v1: um stale read.",
+    "R$ 0, v0."
   ], 2, "A réplica ainda não recebeu a escrita nova e devolve o valor antigo. Isso é um stale read.");
   tf("t3", 4, 2, "Consistência eventual garante que todas as réplicas convergem em no máximo 1 segundo.", false,
     "Ela só promete que, se as escritas pararem, as cópias acabam iguais. Não define o tempo, que pode crescer com falhas.");
-  choice("t3", 5, 3, "SP e Dublin leem estoque 10 e vendem um par cada, e cada um grava 9. Com last-write-wins, o estoque fica 9. O que se perdeu?", [
-    "Nada: o estoque certo é 9.",
-    "Uma das duas vendas: o certo era 8.",
+  choice("t3", 5, 3, "Durante a partição, SP vende a #102 e Recife vende a #103, e cada um grava estoque 3. Com last-write-wins, o estoque fica 3. O que se perdeu?", [
+    "Nada: o estoque certo é 3.",
+    "Uma das duas vendas: o certo era 2.",
     "As duas vendas.",
     "O timestamp."
-  ], 1, "Foram duas vendas, então o certo era 10 - 2 = 8. O LWW mantém só uma escrita e descarta a outra.");
-  choice("t3", 6, 3, "As versões {SP:2, DUB:1} e {SP:1, DUB:2} de um vector clock estão em que relação?", [
+  ], 1, "Foram duas vendas depois do estoque 4, então o certo era 4 - 2 = 2 (5 - 3 pedidos). O LWW mantém só uma escrita e descarta a outra.");
+  choice("t3", 6, 3, "As versões {SP:2, REC:1} e {SP:1, REC:2} de um vector clock estão em que relação?", [
     "A primeira é mais nova.",
     "A segunda é mais nova.",
     "São iguais.",
     "São concorrentes: nenhuma veio depois da outra, e há um conflito."
   ], 3, "Cada uma tem um contador maior em um nó diferente. O vector clock mostra que as escritas foram independentes.");
-  choice("t3", 7, 3, "Estoque inicial 10. Num contador CRDT, SP registra 1 venda e Dublin registra 1 venda, offline. Ao juntar, qual o estoque?", [
-    "9",
-    "8",
-    "10",
+  choice("t3", 7, 3, "Estoque inicial 5. Num contador CRDT, SP registra 2 vendas (#101 e #102) e o Recife registra 1 (#103), isolado. Ao juntar, qual o estoque?", [
+    "3",
+    "2",
+    "5",
     "Depende de quem juntar primeiro."
-  ], 1, "Cada nó conta só as próprias vendas e a junção soma: 2 vendas. 10 - 2 = 8, em qualquer ordem de junção.");
+  ], 1, "Cada nó conta só as próprias vendas e a junção soma: 3 vendas. 5 - 3 = 2, em qualquer ordem de junção.");
 
   /* ---------- 4. Componentes do CAP ---------- */
   choice("t4", 1, 1, "O que é consistência no CAP?", [
@@ -181,19 +181,19 @@
     "W = 2 e R = 2",
     "W = 0 e R = 1"
   ], 2, "A regra é R + W > N: 2 + 2 = 4 > 3. Com W = 1 e R = 2 a soma é 3, que não passa de 3.");
-  choice("t4", 6, 3, "Com quorum W = 2 e R = 2, uma leitura toca a Virgínia (estoque 8, v9) e Dublin (estoque 9, v8). O que o sistema devolve?", [
-    "9, v8, porque é o maior valor.",
-    "8, v9, a versão mais nova.",
+  choice("t4", 6, 3, "Com quorum W = 2 e R = 2, uma leitura toca o Rio (estoque 3, v3) e o Recife (estoque 4, v2). O que o sistema devolve?", [
+    "4, v2, porque é o maior valor.",
+    "3, v3, a versão mais nova.",
     "Os dois valores sem decidir.",
     "Um erro de conflito."
-  ], 1, "A leitura por quorum escolhe a maior versão. Aqui é v9, com estoque 8.");
+  ], 1, "A leitura por quorum escolhe a maior versão. Aqui é v3, com estoque 3.");
   tf("t4", 7, 1, "Na prática, tolerar partição (P) é uma escolha opcional de design em sistemas distribuídos.", false,
     "A rede falha, então a partição vai acontecer. O que se escolhe é o que fazer durante ela: recusar (C) ou responder (A).");
   tf("t4", 8, 2, "Um banco pode respeitar o C do ACID e ainda assim ter réplicas que discordam entre si.", true,
     "São propriedades diferentes. O C do ACID fala de regras de integridade, o C do CAP de as réplicas parecerem uma cópia só.");
 
   /* ---------- 5. Combinações do CAP ---------- */
-  layer("t5", 1, 2, "Saldo da conta e transferências da Lia: o que a loja prefere na partição?", "cp",
+  layer("t5", 1, 2, "Saldo da conta e transferências da Lena: o que o sistema prefere na partição?", "cp",
     "Saldo errado é pior que um erro temporário. Prefere-se recusar (CP).");
   layer("t5", 2, 2, "Adicionar um item ao carrinho de compras durante uma partição: o que a loja prefere?", "ap",
     "Aceitar o item e conciliar depois custa pouco. Recusar derrubaria a venda (AP).");
@@ -213,8 +213,8 @@
     "Porque o Cassandra muda de versão a cada hora.",
     "Porque CP e AP são a mesma coisa."
   ], 1, "Muitos bancos permitem escolher quantas réplicas confirmam escrita e leitura. O rótulo depende dessa escolha.");
-  layer("t5", 7, 3, "Reservar o último par de tênis sem nunca vender duas vezes, mesmo que isso recuse alguns pedidos na falha: qual combinação?", "cp",
-    "A regra a proteger é não vender duas vezes. Aceita-se perder disponibilidade em troca (CP).");
+  layer("t5", 7, 3, "Reservar o último gato de pelúcia sem nunca divergir o estoque, mesmo que isso recuse alguns pedidos na falha: qual combinação?", "cp",
+    "A regra a proteger é o estoque não divergir. Aceita-se perder disponibilidade em troca (CP).");
 
   /* ---------- 6. Críticas modernas ---------- */
   choice("t6", 1, 2, "Por que \"escolha 2 de 3\" é considerado enganoso?", [
@@ -244,7 +244,7 @@
   ], 2, "Cada operação tem sua invariante: o saldo é protegido sempre, o carrinho tolera conciliar depois.");
   tf("t6", 6, 1, "Partições são relativamente raras, e sem partição um sistema pode entregar consistência e disponibilidade juntas.", true,
     "É um dos argumentos de Brewer (2012): o trade-off só pesa durante a falha.");
-  choice("t6", 7, 3, "Depois da partição, dois pedidos venderam o mesmo último par. Qual é um exemplo de compensação?", [
+  choice("t6", 7, 3, "Depois da partição, dois pedidos (#102 e #103) foram aceitos para a mesma unidade do gato de pelúcia. Qual é um exemplo de compensação?", [
     "Apagar o banco e recomeçar.",
     "Cancelar um dos pedidos e dar um cupom ao cliente.",
     "Ignorar o problema.",
@@ -270,12 +270,12 @@
     "Uma quarta letra para durabilidade.",
     "A prova formal do CAP."
   ], 1, "Sem partição, o dilema é entre responder rápido (L) e esperar as réplicas para ter consistência (C).");
-  choice("t7", 4, 3, "SP só responde \"ok\" depois que a Virgínia confirma. A escrita local leva 2 ms e a ida e volta SP a Virgínia leva 120 ms. Quanto leva a escrita, aproximadamente?", [
-    "2 ms",
-    "60 ms",
-    "122 ms",
-    "240 ms"
-  ], 2, "2 ms de gravação local + 120 ms de espera pela confirmação da Virgínia = ~122 ms. Esse é o preço de EC.");
+  choice("t7", 4, 3, "SP só responde \"ok\" depois que o Rio e o Recife confirmam, e isso leva ~80 ms com a rede boa. Se a rede entre as cidades ficar lenta (300 ms), quanto a Lena espera, aproximadamente?", [
+    "5 ms",
+    "80 ms",
+    "300 ms",
+    "3.000 ms"
+  ], 2, "Na replicação síncrona, cada escrita é tão lenta quanto a ligação mais lenta: ~300 ms. Esse é o preço de EC; na EL, a Lena esperaria só ~5 ms.");
   choice("t7", 5, 2, "O que descreve um sistema PA/EL?", [
     "Consistência na partição e latência baixa sem partição.",
     "Disponibilidade na partição e latência baixa sem partição, aceitando consistência eventual.",
@@ -290,7 +290,7 @@
   ], 1, "PC/EC é consistência nos dois casos, ao custo de latência. etcd, ZooKeeper, Spanner e CockroachDB entram aqui.");
   tf("t7", 7, 2, "O PACELC substitui o CAP e prova que o CAP está errado.", false,
     "Os dois se complementam: o CAP trata a partição e o PACELC acrescenta o que acontece sem ela.");
-  choice("t7", 8, 3, "Na loja da Lia, qual mapa de escolhas faz sentido?", [
+  choice("t7", 8, 3, "Na loja do gato de pelúcia, qual mapa de escolhas faz sentido?", [
     "Carrinho em PC/EC e saldo em PA/EL.",
     "Carrinho em PA/EL e saldo/transferência em PC/EC.",
     "Tudo em PA/EL, inclusive o saldo.",

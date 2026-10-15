@@ -20,12 +20,12 @@ import Flashcards from '../../components/Flashcards.astro';
   <p>No simulador, escolha <strong>Lost update</strong> e <strong>Read Committed</strong>, avance até o fim e veja o saldo errado. Depois troque para <strong>Repeatable Read</strong> e compare.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/acid-3d/?mode=a" poster="labs/cap-acid-base/acid-3d-previa.webp" title="Figura interativa: a transferência da Lena e atomicidade" alt="Prévia da figura 3D: servidor de banco com a tabela de contas, o WAL e o disco, mostrando a transação desfeita com ROLLBACK" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque A, C, I, D ou BASE no painel" />
-<Widget name="isolation" title="Simulador de níveis de isolamento" hint="Duas transações mexem na conta da Lia (saldo R$ 1.000). Escolha a anomalia e o nível e avance passo a passo." />
+<Widget name="isolation" title="Simulador de níveis de isolamento" hint="Duas transações mexem na conta da Lena (saldo R$ 150): a transferência de R$ 100 ao irmão e o débito automático do aluguel, de R$ 40. Escolha a anomalia e o nível e avance passo a passo." />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Atomicidade.</strong> A Lia paga R$ 300 à fornecedora: debita a conta dela (1.000 → 700) e credita a da fornecedora (500 → 800). Se o servidor cair entre os dois passos, o <strong>rollback</strong> devolve tudo: 1.000 e 500. Nunca fica só metade.</li>
-  <li><strong>Consistência.</strong> As regras do banco valem antes e depois: saldo não pode ficar negativo, a soma das duas contas continua R$ 1.500, a chave estrangeira aponta para uma conta que existe. Se a transação quebra uma regra, é recusada.</li>
+  <li><strong>Atomicidade.</strong> A Lena transfere R$ 100 ao irmão: debita a conta dela (150 → 50) e credita a dele (20 → 120). Se o servidor cair entre os dois passos, o <strong>rollback</strong> devolve tudo: 150 e 20. Nunca fica só metade.</li>
+  <li><strong>Consistência.</strong> As regras do banco valem antes e depois: uma regra <code>CHECK saldo &gt;= 0</code>, a soma das duas contas continua R$ 170, a chave estrangeira aponta para uma conta que existe. Se a Lena pedir R$ 200 por engano, a conta daria 150 − 200 = −50: o banco recusa e a transação inteira volta.</li>
   <li><strong>Isolamento.</strong> Duas transações ao mesmo tempo não podem se atrapalhar. Os níveis (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decidem quanto o banco protege: o simulador acima mostra as quatro anomalias.</li>
   <li><strong>Durabilidade.</strong> O <strong>commit</strong> só devolve "ok" depois que a mudança foi anotada no <strong>WAL</strong> (o diário do banco) em disco. Se a luz acabar um segundo depois, o banco relê o WAL ao ligar e a transferência continua lá.</li>
   <li>Quanto mais isolamento, mais o banco trava ou refaz. <strong>Serializable</strong> é o mais seguro e o mais caro: por isso muitos bancos usam um nível intermediário como padrão.</li>
@@ -38,7 +38,7 @@ import Flashcards from '../../components/Flashcards.astro';
 </div>
 
 <WhyItMatters>
-  <li>Pagamentos e estoque precisam de ACID: perder R$ 300 no meio ou vender duas vezes o mesmo par é prejuízo direto.</li>
+  <li>Pagamentos e estoque precisam de ACID: perder R$ 100 no meio da transferência ou vender duas vezes o mesmo gato de pelúcia é prejuízo direto.</li>
   <li>Cada anomalia tem um nome porque cada uma já derrubou algum sistema: <strong>dirty read, non-repeatable read, phantom e lost update</strong>.</li>
   <li>Transações são locais a um banco. Para atravessar vários bancos você precisa de <strong>two-phase commit</strong> ou de outro desenho, e aí o CAP volta à conversa.</li>
 </WhyItMatters>
@@ -46,17 +46,17 @@ import Flashcards from '../../components/Flashcards.astro';
 <Deep min={4}>
   <h4 class="deep-h">As quatro anomalias, com os números do simulador</h4>
   <ul>
-    <li><strong>Dirty read:</strong> T2 lê R$ 700 que T1 ainda não confirmou. T1 dá rollback: o saldo real era R$ 1.000.</li>
-    <li><strong>Non-repeatable read:</strong> T1 lê R$ 1.000, T2 confirma R$ 700, T1 lê de novo e vê R$ 700.</li>
-    <li><strong>Phantom:</strong> a mesma consulta devolve 2 linhas (R$ 300) e depois 3 (R$ 450), porque T2 inseriu um lançamento.</li>
-    <li><strong>Lost update:</strong> T1 e T2 partem de R$ 1.000, gravam 1.200 e 700. Certo seria R$ 900.</li>
+    <li><strong>Dirty read:</strong> T2 lê R$ 50 que T1 (a transferência) ainda não confirmou. T1 dá rollback: o saldo real era R$ 150.</li>
+    <li><strong>Non-repeatable read:</strong> T1 lê R$ 150, T2 (o aluguel) confirma R$ 110, T1 lê de novo e vê R$ 110.</li>
+    <li><strong>Phantom:</strong> a mesma consulta devolve 2 linhas (R$ 60 gastos) e depois 3 (R$ 100), porque T2 inseriu o lançamento do aluguel.</li>
+    <li><strong>Lost update:</strong> T1 e T2 partem de R$ 150, gravam 50 e 110. Certo seria 150 − 100 − 40 = R$ 10.</li>
   </ul>
   <h4 class="deep-h">Padrão SQL x motor real</h4>
   <p>O padrão SQL lista três anomalias e define o mínimo de cada nível: Read Uncommitted pode ter as três, Read Committed pode ter non-repeatable e phantom, Repeatable Read só pode ter phantom, Serializable nenhuma. Cada motor pode ir além. No PostgreSQL, Read Uncommitted funciona como Read Committed, o Repeatable Read não deixa phantom e, se duas transações mexem na mesma linha, a segunda recebe <em>could not serialize access due to concurrent update</em> e precisa tentar de novo. O nível padrão do PostgreSQL é Read Committed.</p>
   <h4 class="deep-h">Como o banco isola sem travar tudo: MVCC</h4>
-  <p>No <strong>MVCC</strong>, cada escrita cria uma nova versão da linha e cada transação enxerga a versão certa para o seu momento. Leitores não bloqueiam escritores. É por isso que T1 consegue reler R$ 1.000 enquanto T2 já confirmou R$ 700.</p>
+  <p>No <strong>MVCC</strong>, cada escrita cria uma nova versão da linha e cada transação enxerga a versão certa para o seu momento. Leitores não bloqueiam escritores. É por isso que T1 consegue reler R$ 150 enquanto T2 já confirmou R$ 110.</p>
   <h4 class="deep-h">Evitando o lost update na prática</h4>
-  <pre><code>{"-- o banco faz a conta, sem ler antes no app:\nUPDATE conta SET saldo = saldo - 300 WHERE id = 'lia';\n\n-- ou trava a linha enquanto você calcula:\nSELECT saldo FROM conta WHERE id = 'lia' FOR UPDATE;"}</code></pre>
+  <pre><code>{"-- o banco faz a conta, sem ler antes no app:\nUPDATE conta SET saldo = saldo - 40 WHERE id = 'lena';\n\n-- ou trava a linha enquanto você calcula:\nSELECT saldo FROM conta WHERE id = 'lena' FOR UPDATE;"}</code></pre>
   <h4 class="deep-h">Two-phase commit em uma linha</h4>
   <p>Para confirmar em vários bancos, o coordenador pergunta a todos "prepara?" (fase 1). Se todos dizem sim, manda "commit" (fase 2). Se o coordenador morre no meio, os participantes ficam esperando com a transação aberta.</p>
   <Sources items={[
@@ -71,7 +71,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <Flashcards cards={[
   { q: "O que significa ACID?",
     a: "Atomicity, Consistency, Isolation, Durability: as quatro garantias de uma transação." },
-  { q: "O que a atomicidade garante na transferência de R$ 300?",
+  { q: "O que a atomicidade garante na transferência de R$ 100 da Lena ao irmão?",
     a: "Débito e crédito acontecem juntos ou nenhum acontece (rollback)." },
   { q: "O C do ACID é o mesmo C do CAP?",
     a: "Não. No ACID é respeitar as regras do banco. No CAP é as réplicas parecerem uma cópia só." },

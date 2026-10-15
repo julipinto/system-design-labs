@@ -19,7 +19,7 @@
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
   /* =============== AULA 2: níveis de isolamento ===============
-     Duas transações, T1 e T2, mexem na conta da Lia (saldo R$ 1.000).
+     Duas transações, T1 e T2, mexem na conta da Lena (saldo R$ 150): T1 é a transferência de R$ 100 ao irmão, T2 é o débito automático do aluguel (R$ 40).
      Cada cenário mostra a pior intercalação que o nível PERMITE. */
   var LEVELS = ['Read Uncommitted', 'Read Committed', 'Repeatable Read', 'Serializable'];
   var SHORT = ['RU', 'RC', 'RR', 'SER'];
@@ -41,15 +41,15 @@
       var bad = L === 0;
       return {
         steps: [
-          { w: 'T1', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 300\n WHERE id = 'lia';", out: 'Saldo pendente de T1: R$ 700 (sem COMMIT ainda).', db: 'Banco (confirmado): ' + brl(1000) },
-          { w: 'T2', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lia';",
-            out: bad ? 'T2 lê R$ 700. É um valor sujo: ninguém confirmou.' : 'T2 lê R$ 1.000, o último valor confirmado' + (L === 3 ? ' (ou espera o T1 terminar, conforme o motor).' : '.'),
-            db: 'Banco (confirmado): ' + brl(1000), flag: bad },
-          { w: 'T1', sql: 'ROLLBACK;', out: 'O débito de R$ 300 é desfeito. O saldo continua R$ 1.000.', db: 'Banco (confirmado): ' + brl(1000) }
+          { w: 'T1', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 100\n WHERE id = 'lena';", out: 'Saldo pendente de T1: R$ 50 (sem COMMIT ainda).', db: 'Banco (confirmado): ' + brl(150) },
+          { w: 'T2', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';",
+            out: bad ? 'T2 lê R$ 50. É um valor sujo: ninguém confirmou.' : 'T2 lê R$ 150, o último valor confirmado' + (L === 3 ? ' (ou espera o T1 terminar, conforme o motor).' : '.'),
+            db: 'Banco (confirmado): ' + brl(150), flag: bad },
+          { w: 'T1', sql: 'ROLLBACK;', out: 'O débito de R$ 100 é desfeito. O saldo continua R$ 150.', db: 'Banco (confirmado): ' + brl(150) }
         ],
         bad: bad,
         msg: bad
-          ? 'Dirty read: T2 enxergou R$ 700, um saldo que nunca existiu de verdade. Se T2 tivesse aprovado uma compra com esse número, estaria errado.'
+          ? 'Dirty read: T2 enxergou R$ 50, um saldo que nunca existiu de verdade. Se T2 tivesse recusado o aluguel por falta de saldo com esse número, estaria errado.'
           : 'Sem dirty read: T2 só enxerga o que já foi confirmado (COMMIT). O débito desfeito nunca apareceu para ele.'
       };
     },
@@ -57,52 +57,52 @@
       var bad = L <= 1;
       return {
         steps: [
-          { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lia';", out: 'T1 lê R$ 1.000.', db: 'Banco (confirmado): ' + brl(1000) },
-          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 300\n WHERE id = 'lia';\nCOMMIT;", out: 'T2 confirma: o saldo agora é R$ 700.', db: 'Banco (confirmado): ' + brl(700) },
-          { w: 'T1', sql: "SELECT saldo FROM conta\n WHERE id = 'lia';  -- de novo, na mesma transação",
-            out: bad ? 'T1 lê R$ 700. A mesma consulta deu outro resultado.' : 'T1 lê R$ 1.000 outra vez: continua vendo a mesma "foto" de quando começou.',
-            db: 'Banco (confirmado): ' + brl(700), flag: bad }
+          { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';", out: 'T1 lê R$ 150.', db: 'Banco (confirmado): ' + brl(150) },
+          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 40\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 confirma o aluguel: o saldo agora é R$ 110.', db: 'Banco (confirmado): ' + brl(110) },
+          { w: 'T1', sql: "SELECT saldo FROM conta\n WHERE id = 'lena';  -- de novo, na mesma transação",
+            out: bad ? 'T1 lê R$ 110. A mesma consulta deu outro resultado.' : 'T1 lê R$ 150 outra vez: continua vendo a mesma "foto" de quando começou.',
+            db: 'Banco (confirmado): ' + brl(110), flag: bad }
         ],
         bad: bad,
         msg: bad
-          ? 'Non-repeatable read: na mesma transação, T1 leu R$ 1.000 e depois R$ 700. Um relatório que soma saldos em dois momentos fica incoerente.'
-          : 'Sem non-repeatable read: T1 vê R$ 1.000 as duas vezes. Só vai enxergar os R$ 700 depois de terminar e começar outra transação.'
+          ? 'Non-repeatable read: na mesma transação, T1 leu R$ 150 e depois R$ 110. Um relatório que soma saldos em dois momentos fica incoerente.'
+          : 'Sem non-repeatable read: T1 vê R$ 150 as duas vezes. Só vai enxergar os R$ 110 depois de terminar e começar outra transação.'
       };
     },
     function phantom(L) {
       var bad = L <= 2;
       var third;
-      if (L <= 1) third = 'T1 vê 3 linhas, total R$ 450. Apareceu um lançamento "fantasma".';
-      else if (L === 2) third = 'O padrão SQL deixa passar: 3 linhas, total R$ 450. (O PostgreSQL já esconde o fantasma aqui e mostraria 2 linhas, R$ 300.)';
-      else third = 'T1 vê as mesmas 2 linhas, total R$ 300.';
+      if (L <= 1) third = 'T1 vê 3 linhas, total R$ 100. Apareceu um lançamento "fantasma".';
+      else if (L === 2) third = 'O padrão SQL deixa passar: 3 linhas, total R$ 100. (O PostgreSQL já esconde o fantasma aqui e mostraria 2 linhas, R$ 60.)';
+      else third = 'T1 vê as mesmas 2 linhas, total R$ 60.';
       return {
         steps: [
-          { w: 'T1', sql: "BEGIN;\nSELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lia' AND dia = hoje;", out: '2 linhas, total gasto R$ 300 (limite do dia: R$ 500).', db: 'Banco: saldo ' + brl(1000) + ' · 2 lançamentos hoje' },
-          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lia', -150, hoje);\nCOMMIT;", out: 'T2 confirma um novo lançamento de R$ 150.', db: 'Banco: saldo ' + brl(850) + ' · 3 lançamentos hoje' },
-          { w: 'T1', sql: "SELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lia' AND dia = hoje;  -- mesma consulta", out: third, db: 'Banco: saldo ' + brl(850) + ' · 3 lançamentos hoje', flag: bad }
+          { w: 'T1', sql: "BEGIN;\nSELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;", out: '2 linhas, total gasto R$ 60 (limite do dia: R$ 200).', db: 'Banco: saldo ' + brl(150) + ' · 2 lançamentos hoje' },
+          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lena', -40, hoje);\nCOMMIT;", out: 'T2 confirma um novo lançamento: o aluguel, de R$ 40.', db: 'Banco: saldo ' + brl(110) + ' · 3 lançamentos hoje' },
+          { w: 'T1', sql: "SELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;  -- mesma consulta", out: third, db: 'Banco: saldo ' + brl(110) + ' · 3 lançamentos hoje', flag: bad }
         ],
         bad: bad,
         msg: bad
-          ? 'Phantom: a mesma consulta devolveu uma linha a mais. Não é um valor que mudou, é um conjunto que ganhou uma linha nova. Quem confere o limite de R$ 500 do dia pode errar a conta.'
+          ? 'Phantom: a mesma consulta devolveu uma linha a mais. Não é um valor que mudou, é um conjunto que ganhou uma linha nova. Quem confere o limite de R$ 200 do dia pode errar a conta.'
           : 'Sem phantom: o conjunto de linhas que T1 enxerga não muda no meio da transação.'
       };
     },
     function lost(L) {
       var bad = L <= 1;
       var last;
-      if (bad) last = { sql: "UPDATE conta SET saldo = 700\n WHERE id = 'lia';\nCOMMIT;", out: 'T2 grava R$ 700 por cima do R$ 1.200 de T1.', db: 'Banco (confirmado): ' + brl(700) };
-      else last = { sql: "UPDATE conta SET saldo = 700\n WHERE id = 'lia';", out: 'ERRO: could not serialize access due to concurrent update. T2 faz ROLLBACK, tenta de novo: lê R$ 1.200, grava R$ 900 e confirma.', db: 'Banco (confirmado): ' + brl(900) };
+      if (bad) last = { sql: "UPDATE conta SET saldo = 110\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 grava R$ 110 por cima do R$ 50 de T1.', db: 'Banco (confirmado): ' + brl(110) };
+      else last = { sql: "UPDATE conta SET saldo = 110\n WHERE id = 'lena';", out: 'ERRO: could not serialize access due to concurrent update. T2 faz ROLLBACK, tenta de novo: lê R$ 50, grava R$ 10 e confirma.', db: 'Banco (confirmado): ' + brl(10) };
       return {
         steps: [
-          { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lia';", out: 'T1 lê R$ 1.000 e calcula no app: 1.000 + 200.', db: 'Banco (confirmado): ' + brl(1000) },
-          { w: 'T2', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lia';", out: 'T2 lê R$ 1.000 e calcula no app: 1.000 - 300.', db: 'Banco (confirmado): ' + brl(1000) },
-          { w: 'T1', sql: "UPDATE conta SET saldo = 1200\n WHERE id = 'lia';\nCOMMIT;", out: 'T1 confirma: o saldo agora é R$ 1.200.', db: 'Banco (confirmado): ' + brl(1200) },
+          { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';", out: 'T1 lê R$ 150 e calcula no app: 150 - 100.', db: 'Banco (confirmado): ' + brl(150) },
+          { w: 'T2', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';", out: 'T2 lê R$ 150 e calcula no app: 150 - 40.', db: 'Banco (confirmado): ' + brl(150) },
+          { w: 'T1', sql: "UPDATE conta SET saldo = 50\n WHERE id = 'lena';\nCOMMIT;", out: 'T1 confirma a transferência: o saldo agora é R$ 50.', db: 'Banco (confirmado): ' + brl(50) },
           { w: 'T2', sql: last.sql, out: last.out, db: last.db, flag: bad }
         ],
         bad: bad,
         msg: bad
-          ? 'Lost update: o certo seria 1.000 + 200 - 300 = R$ 900. O banco ficou com R$ 700 e o crédito de R$ 200 de T1 sumiu, sem erro nenhum.'
-          : 'Sem lost update: o banco detecta que T2 partiu de um saldo velho, recusa a gravação e T2 refaz a conta. Resultado certo: R$ 900.'
+          ? 'Lost update: o certo seria 150 - 100 - 40 = R$ 10. O banco ficou com R$ 110 e o débito de R$ 100 de T1 sumiu, sem erro nenhum.'
+          : 'Sem lost update: o banco detecta que T2 partiu de um saldo velho, recusa a gravação e T2 refaz a conta. Resultado certo: R$ 10.'
       };
     }
   ];
@@ -197,7 +197,7 @@
     });
     root.appendChild(el('p', { class: 'sr-sub', text: 'Quadro: o que cada nível permite' }));
     root.appendChild(el('table', { class: 'ib-matrix' }, [el('caption', { class: 'sr-note', text: 'RU = Read Uncommitted, RC = Read Committed, RR = Repeatable Read, SER = Serializable. Toque numa célula para ver o caso.' }), el('thead', null, [head]), body]));
-    root.appendChild(el('p', { class: 'sr-note', text: 'As três primeiras colunas seguem a tabela do padrão SQL: ele define o mínimo que cada nível garante, e cada motor pode ser mais rígido. No PostgreSQL, Read Uncommitted se comporta como Read Committed e o Repeatable Read já não deixa phantom. Lost update não está nessa tabela: é o clássico "ler, calcular no app e gravar". Quando o banco faz a conta (UPDATE conta SET saldo = saldo - 300) ou você trava a linha (SELECT ... FOR UPDATE), ele não acontece nem em Read Committed. Valores de exemplo.' }));
+    root.appendChild(el('p', { class: 'sr-note', text: 'As três primeiras colunas seguem a tabela do padrão SQL: ele define o mínimo que cada nível garante, e cada motor pode ser mais rígido. No PostgreSQL, Read Uncommitted se comporta como Read Committed e o Repeatable Read já não deixa phantom. Lost update não está nessa tabela: é o clássico "ler, calcular no app e gravar". Quando o banco faz a conta (UPDATE conta SET saldo = saldo - 40) ou você trava a linha (SELECT ... FOR UPDATE), ele não acontece nem em Read Committed. Valores de exemplo.' }));
     render();
   }
 
