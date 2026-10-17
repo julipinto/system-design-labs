@@ -44,6 +44,7 @@ O objetivo é **inesquecível**: depois de mexer, ela tem que conseguir explicar
 - **Revisão de escrita** (Sonnet): Architect → Carpenter → Judge da skill Writing With Agents, seguindo ESCRITA.md; depois alinhar quiz, glossário e widgets.
 - **Teste** (Haiku 5.5): o site publicado, celular e desktop.
 - **Publicar**: git push na main → GitHub Actions publica sozinho.
+- **Orquestração**: o maestro pode criar terminais novos no canvas (skill maestri-manager), um por frente longa (ex.: um terminal por figura), além dos subagentes. Terminais ficam visíveis para a Juliana acompanhar; abrir cada um já no modelo do papel e dentro de sdlabs/.
 
 ## Skills e ferramentas que usamos (para reaproveitar)
 - **iso-glow** (~/.claude/skills/iso-glow): figuras 3D (three.js), o padrão. Modelo em sdlabs/tools/iso-glow/; figuras em src/figures/<nome>-3d/ (as mais completas: raid-3d, storage-3d, cap-3d, acid-3d).
