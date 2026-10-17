@@ -29,6 +29,14 @@ O objetivo é **inesquecível**: depois de mexer, ela tem que conseguir explicar
 18. Glossário por módulo com fichas tocáveis para quem é novo na área; quiz por módulo com botão fixo na barra.
 19. Conteúdo com palavras próprias, fontes primárias citadas e sem marca de curso.
 
+## Material que a Juliana passa (busca em profundidade)
+20. **Ler tudo o que ela colocar**: notas do canvas, MDs, imagens das aulas e links, por inteiro, antes de escrever. A lista de aulas da imagem define a ordem e os títulos; se a imagem cortar uma aula, conferir no artigo.
+21. **Seguir os links em profundidade**: abrir o artigo indicado, **todas as referências que ele usa** e, quando valer, **o link do link** (a fonte primária: RFC, documentação, paper). Conferir cada link (status 200) e só citar o que abre.
+22. **Página com login ou bloqueio** (NotebookLM, sites que barram robôs): usar o navegador embutido do Maestri (portal), que tem internet e às vezes a sessão dela; se ainda assim não der, pedir que ela exporte ou cole o conteúdo.
+23. **Vídeos** (TikTok, YouTube): baixar numa pasta temporária, extrair os frames para analisar e apagar tudo no fim.
+24. **Registrar as fontes do módulo** em `docs/fontes/<modulo>.md` (link, o que tem de útil, em qual aula entrou) e colocar 2 a 6 links por aula no bloco "Fontes", priorizando artigo dela > fonte primária > referências do artigo.
+25. **Corrigir o material quando ele estiver errado** (ex.: a ISO 7498-1 é de 1994; a ARPANET ligou o SRI), avisando o que foi corrigido.
+
 ## Como cada módulo é feito
 - **Conteúdo** (Sonnet): aulas MDX com marcadores `{/* FIG:<figura> mode=<cenário> */}`, widgets 2D (calculadoras e simuladores), glossário e quiz. A história canônica é combinada **antes**, no brief, para texto e figuras nascerem iguais.
 - **Figuras 3D** (Opus, até 2 em paralelo): `src/figures/<nome>-3d/`, com `?mode=` e `embed=1`.
