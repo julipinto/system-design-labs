@@ -1,0 +1,71 @@
+---
+title: "Índices invertidos"
+order: 14
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O hash da aula passada acha um pedido pelo id. Mas a Lena digita "pelúcia" na busca da loja, e o texto está dentro do produto de cada pedido. Varrer todos os pedidos procurando a palavra é a forma lenta. O índice invertido inverte o caminho: em vez de ir do pedido para as palavras, vai da palavra para os pedidos.</p>
+
+<OneLiner>Um índice invertido liga cada termo aos documentos em que ele aparece, como o catálogo de uma biblioteca, e assim a busca por palavra consulta o catálogo e não abre cada documento.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Invertido</strong>, busque <strong>pelúcia</strong> e veja a lista de pedidos que o índice devolve. Compare com o primeiro passo, a busca sem índice com LIKE, e vá até o último: <strong>pelucia</strong> sem acento.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/indices-3d/?mode=inverted" poster="labs/databases/indices-3d-previa.webp" title="Figura interativa: Índice invertido: a busca por “pelúcia” vira a lista [1042, 1043]" alt="Prévia da figura 3D: a B-Tree dos pedidos com a raiz 1043 e as duas folhas, o caminho até o pedido 1042 aceso" hint="Arraste para girar · quebrar o texto em termos e consultar a lista de cada termo · use ← → ou Próximo passo" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Quando um pedido é gravado, o banco passa o texto do produto por uma <strong>esteira</strong>. Primeiro a <strong>normalização</strong> (tudo em minúsculas, em alguns motores sem acento). O pedido 1042 traz <code>gato de pelúcia</code>.</li>
+  <li>Depois a <strong>tokenização</strong>: o texto é cortado em palavras, os tokens <code>gato</code>, <code>de</code> e <code>pelúcia</code>. Palavras sem valor para a busca, como <code>de</code>, costumam ser descartadas.</li>
+  <li>Por fim o banco monta o índice, uma lista por termo: <code>pelúcia → [1042, 1043]</code> e <code>caneca → [1041, 1044, 1046]</code>. Os outros termos entram igual: <code>azul → [1041, 1044, 1046]</code> e <code>camiseta → [1045]</code>.</li>
+  <li>Na busca por <code>pelúcia</code>, o banco vai direto à entrada do termo e devolve <strong>1042 e 1043</strong>. Não abre nenhum dos 6 pedidos para procurar a palavra.</li>
+  <li>Para <code>gato pelúcia</code> (duas palavras), pega a lista de cada termo e <strong>cruza</strong> as duas: o resultado é 1042 e 1043, que estão nas duas. Em <code>caneca azul</code>, as duas listas coincidem em 1041, 1044 e 1046.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>É o que torna a busca por texto viável em milhões de documentos: o custo vai para a gravação (montar as listas) e a leitura fica curta.</li>
+  <li>Aparece em motores de busca (Elasticsearch, Solr), em buscas de catálogo e de logs, e em recursos de texto de bancos relacionais.</li>
+  <li>Cada gravação faz mais trabalho e o índice ocupa espaço extra. A troca é a mesma de todo índice: escrever mais caro, ler mais barato.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O mesmo caso, com a loja grande</h4>
+  <p>Numa busca por <code>geladeira verde 2 portas</code>, o índice invertido devolve os produtos cuja descrição tem os termos, não importa em que ordem nem em qual campo (um campo JSON ou uma coluna de texto).</p>
+  <h4 class="deep-h">Onde o artigo-base precisa de ajuste</h4>
+  <p>O artigo diz que o índice invertido é característico dos bancos de documentos. O mais exato: ele é o coração dos <strong>motores de busca</strong> (Elasticsearch, Solr, Lucene). Bancos de documentos como o MongoDB indexam campos com B-Tree e têm só um índice de texto simples. O PostgreSQL tem o seu, o <strong>GIN</strong> (Generalized Inverted Index), que a documentação descreve como um índice invertido.</p>
+  <h4 class="deep-h">Além da lista</h4>
+  <p>Motores de busca guardam mais por termo: em que posição do texto ele aparece e quantas vezes, para ordenar por relevância. O exemplo da loja mostra só a ideia, a lista de ids.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: índices GIN", href: "https://www.postgresql.org/docs/current/gin.html" },
+    { label: "PostgreSQL: tipos de índice para busca de texto", href: "https://www.postgresql.org/docs/current/textsearch-indexes.html" },
+    { label: "Elastic: análise de texto (normalização e tokenização)", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis.html" },
+    { label: "dev.to: índices invertidos, a base da busca eficiente", href: "https://dev.to/surajvatsya/understanding-inverted-indexes-the-backbone-of-efficient-search-3hoe" },
+    { label: "Wikipedia: índice invertido", href: "https://en.wikipedia.org/wiki/Inverted_index" },
+  ]} />
+</Deep>
+
+<p>O módulo já mostrou seis modelos e quatro estruturas de índice, cada um bom em uma pergunta. Falta saber como escolher entre eles quando a loja diz o que mais acontece nela: gravar muito, ler muito ou garantir cada centavo.</p>
+
+<Flashcards cards={[
+  { q: "O que o índice invertido mapeia?",
+    a: "Cada termo para os documentos em que ele aparece. O inverso de ir do documento para as palavras." },
+  { q: "Qual a entrada do termo <code>pelúcia</code> no exemplo?",
+    a: "<code>pelúcia → [1042, 1043]</code>." },
+  { q: "Quais são as três etapas de montar o índice?",
+    a: "Normalização, tokenização e criação da lista de documentos por termo." },
+  { q: "Como a busca por duas palavras é resolvida?",
+    a: "Pega a lista de cada termo e cruza: <code>gato pelúcia</code> devolve os pedidos que estão nas duas listas (1042 e 1043)." },
+  { q: "Qual o custo do índice invertido?",
+    a: "Gravar fica mais caro (monta as listas) e o índice ocupa espaço extra." },
+]} />

@@ -1,0 +1,70 @@
+---
+title: "Indexação por hashing"
+order: 13
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>A aula passada terminou numa pergunta: se a loja só quer "o pedido exatamente 1042", sem ordem e sem faixa, a B-Tree ainda precisa descer da raiz até a folha. Existe um caminho mais curto: transformar a chave num endereço com uma conta.</p>
+
+<OneLiner>Um índice hash aplica uma função à chave e a conta devolve o balde onde o dado está, de modo que a busca por igualdade vai direto ao lugar, sem descer nível nenhum e sem servir para faixas.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Hash</strong>, procure o pedido 1042 e veja a conta que leva ao balde. Siga até o último passo, o intervalo de 1042 a 1044, e repare por que o hash não ajuda ali.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/indices-3d/?mode=hash" poster="labs/databases/indices-3d-previa.webp" title="Figura interativa: Indexação por hashing: hash(1042) % 4 cai no balde 2" alt="Prévia da figura 3D: a B-Tree dos pedidos com a raiz 1043 e as duas folhas, o caminho até o pedido 1042 aceso" hint="Arraste para girar · calcular o hash, achar o balde e buscar o offset · use ← → ou Próximo passo" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O banco cria uma <strong>tabela hash</strong> com 4 baldes (0 a 3). Cada balde guarda ponteiros para as linhas, na forma <code>chave → posição no arquivo</code>.</li>
+  <li>Para gravar o pedido 1042, aplica a <strong>função hash</strong> à chave. No exemplo, ela é simplesmente <code>1042 % 4</code>, que dá <strong>2</strong>. O 1042 vai para o <strong>balde 2</strong>, com a posição da linha no arquivo (a segunda linha, no deslocamento 2.048).</li>
+  <li>Para ler o 1042, repete a conta: <code>1042 % 4 = 2</code>. Vai direto ao balde 2, sem olhar os outros três.</li>
+  <li>Mas o <code>1046 % 4</code> também dá <strong>2</strong>. Duas chaves no mesmo balde é uma <strong>colisão</strong>. O balde 2 guarda uma pequena lista, <code>1042 → 1046</code>, e a busca compara as chaves da lista até achar a certa. O balde 1 também tem uma: <code>1041</code> e <code>1045</code>.</li>
+  <li>A conta mostra o limite: <code>WHERE id BETWEEN 1042 AND 1045</code> não tem atalho. Os pedidos 1042, 1043, 1044 e 1045 caem nos baldes 2, 3, 0 e 1. O hash espalha as chaves e perde a ordem, então a faixa obriga a olhar todos os baldes.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Para busca por igualdade (id, token, e-mail), o hash é o caminho mais curto: uma conta e uma leitura.</li>
+  <li>É a mesma ideia que distribui chaves entre servidores num banco chave-valor (aula 8): o hash da chave escolhe o servidor, e o do balde escolhe a posição.</li>
+  <li>Se a pergunta tem faixa, ordem ou prefixo, o hash não ajuda e a B-Tree é a escolha.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Função hash de verdade</h4>
+  <p>O <code>id % 4</code> é uma simplificação para a conta caber na tela. Uma função hash real mistura os bits da chave, para que chaves parecidas (1042 e 1043) caiam em baldes bem distantes. Ela é determinística: a mesma chave dá sempre o mesmo número, mil vezes seguidas.</p>
+  <h4 class="deep-h">Onde o artigo-base precisa de ajuste</h4>
+  <ul>
+    <li>O artigo chama a busca por hash de "instantânea". Ela é de custo <strong>constante em média</strong>, e as colisões fazem a lista do balde crescer. Se a tabela hash fica cheia demais, ela precisa ser refeita com mais baldes.</li>
+    <li>O PostgreSQL só usa índice hash para o operador <code>=</code>. Os índices hash dele são protegidos pelo log de escrita (crash-safe) desde a versão 10.</li>
+  </ul>
+  <h4 class="deep-h">Resolver colisões</h4>
+  <p>O exemplo usa <strong>encadeamento</strong>: cada balde aponta para uma lista. Há também <strong>endereçamento aberto</strong>, que procura o próximo balde livre. As duas servem ao mesmo fim: guardar chaves que caíram no mesmo lugar.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: índices hash", href: "https://www.postgresql.org/docs/current/hash-index.html" },
+    { label: "Wikipedia: tabela hash", href: "https://en.wikipedia.org/wiki/Hash_table" },
+    { label: "Wikipedia: hashing consistente", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+  ]} />
+</Deep>
+
+<p>O hash acha o pedido que você sabe pelo id, e nada mais. Falta saber como achar os pedidos que mencionam "pelúcia" sem abrir a descrição de cada um, que é o trabalho do índice invertido.</p>
+
+<Flashcards cards={[
+  { q: "O que a função hash faz com a chave?",
+    a: "Transforma a chave num número que aponta para um balde. A mesma chave dá sempre o mesmo balde." },
+  { q: "Em que balde cai o pedido 1042 no exemplo?",
+    a: "No balde 2, porque <code>1042 % 4 = 2</code>." },
+  { q: "O que é uma colisão?",
+    a: "Duas chaves diferentes no mesmo balde (1042 e 1046, ambos no balde 2). O balde guarda uma lista e a busca compara as chaves." },
+  { q: "Por que o índice hash não serve para faixas?",
+    a: "A função espalha as chaves e perde a ordem. <code>BETWEEN 1042 AND 1045</code> cai em baldes diferentes e obriga a olhar todos." },
+]} />

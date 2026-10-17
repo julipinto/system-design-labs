@@ -1,0 +1,69 @@
+---
+title: "Modelo de tuplas (por linha)"
+order: 4
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>A aula passada terminou numa pergunta: como o pedido 1042 da Lena fica guardado por dentro? No modelo mais tradicional, o de tuplas, ele é uma linha inteira, com todos os campos juntos. Vamos ver o que essa escolha deixa fácil e o que deixa caro.</p>
+
+<OneLiner>No modelo de tuplas, cada linha da tabela é gravada inteira e em sequência (id, cliente, produto, qtd, valor, cidade), dentro de páginas de tamanho fixo; por isso ler ou gravar um pedido inteiro é barato e somar uma coluna de todos os pedidos é caro.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Modelo de linhas</strong>, ache o pedido 1042 e veja em qual página ele está. Depois avance até <code>SELECT SUM(valor) FROM pedidos</code> e conte quantas páginas foram lidas.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=row" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: a tabela pedidos guardada linha a linha em páginas de 8 KB" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O banco guarda a tabela <code>pedidos</code> em <strong>páginas de 8 KB</strong>. Na figura, cada linha ocupa ~2 KB (um exemplo, para a conta ficar redonda), então cabem <strong>4 linhas por página</strong>: o 1041, 1042, 1043 e 1044 na página 1, e o 1045 e 1046 na página 2.</li>
+  <li>Dentro da página, os campos de cada linha ficam lado a lado: <code>1042 | Lena | gato de pelúcia | 1 | 89.90 | Recife</code>. Quem lê o 1042 recebe a linha inteira de uma vez.</li>
+  <li>Para <code>SELECT * FROM pedidos WHERE id = 1042</code>, o banco lê a <strong>página 1 (8 KB)</strong> e devolve a linha. Para gravar um pedido novo, acrescenta uma linha na página que tem espaço. Para mudar o preço, reescreve a linha inteira.</li>
+  <li>Agora a pergunta do financeiro: <code>SELECT SUM(valor) FROM pedidos</code>, que dá <strong>R$ 406,40</strong>. O banco só quer o campo <code>valor</code>, mas ele está dentro de cada linha. Precisa ler as <strong>2 páginas</strong> (16 KB) para somar 6 números.</li>
+  <li>As páginas lidas ficam num cache na memória. Se a Lena abrir a conta dela de novo, a página 1 já está lá e o disco nem é tocado.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Operações do dia a dia da loja pegam um pedido por vez: criar, consultar o 1042, corrigir o endereço. A linha inteira numa página só é o formato certo para isso.</li>
+  <li>Quando a pergunta olha <strong>uma coluna de muitas linhas</strong> (a soma de todos os valores), o modelo de tuplas lê dados que não vai usar. A aula 6 mostra o formato que evita isso.</li>
+  <li>A maior parte dos bancos relacionais (PostgreSQL, MySQL, SQL Server) é por linha. Quando alguém diz "banco SQL" sem mais detalhe, é esse formato que está por trás.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os números da cena (exemplo)</h4>
+  <ul>
+    <li>Linha de ~2 KB e página de 8 KB: 4 linhas por página. Uma linha real de pedido costuma ter bem menos (da ordem de 100 bytes), e então cabem dezenas de linhas por página. O 2 KB é para a figura ficar legível.</li>
+    <li>Com 6 linhas: 2 páginas. A soma lê 2 páginas, o <code>WHERE id = 1042</code> sem índice também.</li>
+    <li>Cada página guarda, além das linhas, um cabeçalho e uma tabela de posições. É por isso que cabe um pouco menos que a conta de dividir 8 KB pelo tamanho da linha.</li>
+  </ul>
+  <h4 class="deep-h">E o resto do pedido?</h4>
+  <p>Numa loja de verdade, cliente, pedido e itens do pedido ficam em tabelas diferentes, ligadas por chaves estrangeiras. Para montar a conta da Lena o banco faz um <code>JOIN</code>, e a aula 5 mostra o que muda quando tudo isso cabe num documento só.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: layout de página do banco de dados", href: "https://www.postgresql.org/docs/current/storage-page-layout.html" },
+    { label: "Microsoft: guia de arquitetura de páginas e extensões", href: "https://learn.microsoft.com/en-us/sql/relational-databases/pages-and-extents-architecture-guide?view=sql-server-ver17" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+  ]} />
+</Deep>
+
+<p>O pedido 1042 pertence à Lena, que tem também o 1044, e no modelo de tuplas os dois são linhas soltas que o banco só junta na consulta. Falta saber como seria guardar a Lena e os pedidos dela como um objeto só.</p>
+
+<Flashcards cards={[
+  { q: "Como o modelo de tuplas guarda uma linha?",
+    a: "Inteira e em sequência: todos os campos do pedido lado a lado, dentro de uma página." },
+  { q: "Quantas linhas cabem numa página de 8 KB na figura, e por quê?",
+    a: "4, porque cada linha ocupa ~2 KB no exemplo. As 6 linhas ocupam 2 páginas." },
+  { q: "Quantas páginas o <code>SUM(valor)</code> lê no modelo de linhas, e quanto dá?",
+    a: "As 2 páginas (16 KB), mesmo precisando só do campo <code>valor</code>. A soma é R$ 406,40." },
+  { q: "Para que tipo de operação o modelo de tuplas é ótimo?",
+    a: "Operações transacionais sobre um registro por vez: criar, ler, atualizar e apagar um pedido." },
+]} />

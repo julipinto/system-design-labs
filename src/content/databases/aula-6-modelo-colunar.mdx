@@ -1,0 +1,70 @@
+---
+title: "Modelo colunar"
+order: 6
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>A aula passada terminou numa soma: o total de todos os valores. Nos dois modelos vistos, o banco abre cada pedido inteiro para pegar só o campo <code>valor</code>. Se a pergunta que mais chega é essa, vale guardar o dado de outro jeito: uma coluna de cada vez.</p>
+
+<OneLiner>No modelo colunar, cada coluna da tabela vai para o seu próprio arquivo, com todos os valores juntos, e por isso uma consulta que olha uma coluna lê só aquele arquivo (e ainda o comprime bem).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Modelo colunar</strong>, avance até <code>SELECT SUM(valor) FROM pedidos</code> e veja quais arquivos o banco abre. No último passo, o banco busca o pedido 1042 inteiro: e conte quantos arquivos ele precisa abrir.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=column" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: a mesma tabela com um arquivo por coluna; SUM(valor) lê só um arquivo" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A mesma tabela <code>pedidos</code>, agora cortada na vertical: um arquivo para <code>id</code>, um para <code>cliente</code>, um para <code>produto</code>, um para <code>qtd</code>, um para <code>valor</code> e um para <code>cidade</code>. A posição liga os arquivos: o pedido 1042 é o segundo valor de cada um.</li>
+  <li>Para <code>SUM(valor)</code>, o banco abre <strong>só o arquivo <code>valor</code></strong>: <code>39.80, 89.90, 89.90, 19.90, 147.00, 19.90</code>. A soma dá <strong>R$ 406,40</strong> e os outros cinco arquivos nem são tocados.</li>
+  <li>Agora a compressão. Em cada arquivo só há valores do mesmo tipo e muitos se repetem. A coluna <code>cidade</code> tem só 3 valores diferentes, e o banco guarda um dicionário (<code>Rio=0, Recife=1, SP=2</code>) e grava <code>0, 1, 2, 1, 2, 2</code>. Se as linhas forem ordenadas por cidade, vira <code>Rio×1, Recife×2, SP×3</code>: o <code>SP, SP, SP</code> ocupa quase nada.</li>
+  <li>O custo vem do outro lado. Para devolver o pedido 1042 inteiro, o banco abre <strong>os 6 arquivos</strong> e junta o segundo valor de cada um. E gravar um pedido novo significa acrescentar um valor em 6 lugares.</li>
+  <li>Por isso o colunar serve para <strong>análise</strong> (somas, médias, relatórios sobre milhões de linhas) e raramente para o checkout da loja.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A pergunta "quanto vendemos no mês?" lê uma ou duas colunas de milhões de linhas. Colunar lê só elas, e comprimidas.</li>
+  <li>Menos bytes lidos e comprimidos significam menos disco e menos rede. Em escala de terabytes, isso decide o preço da consulta.</li>
+  <li>É a base de data warehouses e de motores de análise (Redshift, BigQuery, o modo columnstore do SQL Server).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os números da cena (exemplo)</h4>
+  <ul>
+    <li>Linha: lê 2 páginas de 8 KB (16 KB) para somar 6 valores. Coluna: lê o arquivo <code>valor</code>, de 6 números, uma fração disso.</li>
+    <li>Ao gravar, o modelo de linha acrescenta 1 linha em 1 página. O colunar acrescenta 6 valores em 6 arquivos.</li>
+  </ul>
+  <h4 class="deep-h">Compressão por dicionário e por repetição</h4>
+  <p>Dicionário troca o texto por um número pequeno. A codificação por repetição (run-length) guarda "valor e quantas vezes" em vez de repetir. As duas funcionam melhor quando a coluna tem poucos valores diferentes e está ordenada.</p>
+  <h4 class="deep-h">Colunar não é coluna larga</h4>
+  <p>O nome parece o mesmo, e é outra coisa. A aula 7 mostra o modelo de coluna larga, que pertence à família do Cassandra e do Bigtable e organiza as linhas de outro jeito.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Microsoft: visão geral dos índices columnstore", href: "https://learn.microsoft.com/pt-br/sql/relational-databases/indexes/columnstore-indexes-overview?view=sql-server-ver17" },
+    { label: "Apache Parquet: documentação", href: "https://parquet.apache.org/docs/" },
+    { label: "Wikipedia: SGBD orientado a colunas", href: "https://en.wikipedia.org/wiki/Column-oriented_DBMS" },
+  ]} />
+</Deep>
+
+<p>O colunar exige que toda linha tenha as mesmas colunas, e isso nem sempre combina com o que a loja guarda. Falta saber como organizar os dados quando cada cliente tem seu próprio conjunto de colunas e o que mais importa é gravar muito e rápido.</p>
+
+<Flashcards cards={[
+  { q: "Como o modelo colunar guarda a tabela <code>pedidos</code>?",
+    a: "Um arquivo por coluna, com todos os valores dela em sequência. A posição liga os arquivos: o pedido 1042 é o 2º valor de cada um." },
+  { q: "Quantos arquivos o <code>SUM(valor)</code> abre?",
+    a: "Um só, o de <code>valor</code>. A soma é R$ 406,40." },
+  { q: "Por que a coluna <code>cidade</code> comprime tão bem?",
+    a: "Tem poucos valores diferentes (Rio, Recife, SP). O dicionário troca cada um por um número, e com as linhas ordenadas as repetições (SP×3) ocupam quase nada." },
+  { q: "Qual o ponto fraco do colunar?",
+    a: "Ler ou gravar um pedido inteiro mexe em todos os arquivos (6 na tabela da loja)." },
+]} />

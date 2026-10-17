@@ -1,0 +1,78 @@
+---
+title: "B-Tree"
+order: 12
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>A LSM deixou a leitura espalhada por vários arquivos. A B-Tree faz a aposta contrária: mantém as chaves ordenadas num só lugar, e achar uma linha leva poucas leituras de página. É o índice padrão dos bancos relacionais, e vale ver quanto ele ganha da varredura.</p>
+
+<OneLiner>A B-Tree é uma árvore em que cada nó é uma página com muitas chaves, e por isso chega a qualquer linha lendo poucas páginas, da raiz até a folha.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>B-Tree</strong>, procure o pedido 1042 e olhe o contador de páginas lidas. Depois troque para o modo <strong>Varredura</strong> (sem índice) e compare. Em seguida use o simulador abaixo e suba o número de linhas para 1 milhão.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/indices-3d/?mode=btree" poster="labs/databases/indices-3d-previa.webp" title="Figura interativa: B-Tree: achar o pedido 1042 descendo da raiz até a folha" alt="Prévia da figura 3D: a B-Tree dos pedidos com a raiz 1043 e as duas folhas, o caminho até o pedido 1042 aceso" hint="Arraste para girar · descer da raiz até a folha, contando páginas lidas · troque para Varredura no painel" />
+
+<Widget name="btreesearch" title="Busca por B-Tree contra varredura" hint="Veja passo a passo quantas páginas cada jeito lê para achar um pedido. Depois escolha o tamanho da tabela e compare as contas." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Sem índice, <code>WHERE id = 1042</code> faz uma <strong>varredura</strong>: o banco lê as 2 páginas da tabela (o 1041 ao 1044 numa, o 1045 e o 1046 noutra), porque só ao fim sabe que não há outra linha com esse id.</li>
+  <li>Com a B-Tree, as chaves ficam <strong>ordenadas</strong> em páginas. A <strong>raiz</strong> tem a chave <code>1043</code>: tudo menor que ela está na folha da esquerda (<code>1041, 1042</code>), o resto na folha da direita (<code>1043 a 1046</code>).</li>
+  <li>Para o 1042, o banco lê a <strong>raiz</strong> (página 1), vê que 1042 é menor que 1043 e desce para a <strong>folha da esquerda</strong> (página 2), onde está a linha. São <strong>2 leituras de página</strong>.</li>
+  <li>Repare que a varredura também leu 2 páginas. Com 6 linhas, os dois <strong>empatam</strong>. A árvore só compensa quando a tabela cresce.</li>
+  <li>Com 1 milhão de pedidos de 2 KB, a varredura lê 250.000 páginas de 8 KB. A B-Tree, com cada página guardando centenas de chaves, tem poucos níveis: lê <strong>4 páginas</strong>. A árvore cresce em largura, e não em altura.</li>
+  <li>Quando um pedido novo enche uma folha, a folha se <strong>divide em duas</strong> e a chave do meio sobe para o nó de cima. A árvore continua equilibrada, e todas as buscas custam o mesmo número de níveis.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Como as chaves ficam ordenadas, a B-Tree também responde a faixas: "pedidos de 1042 a 1045" acha o 1042 e segue pelas folhas vizinhas.</li>
+  <li>É o índice padrão dos bancos transacionais (PostgreSQL, MySQL, SQL Server) para chaves primárias e índices secundários.</li>
+  <li>O preço está na escrita: cada pedido novo precisa achar a folha certa e, às vezes, dividir páginas. Gravar custa mais que numa LSM.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Os números da cena (exemplo)</h4>
+  <ul>
+    <li>6 linhas, 4 por página, 2 folhas e uma raiz. Achar o 1042: 2 leituras. A varredura: 2 leituras. Empate.</li>
+    <li>1 milhão de linhas de 2 KB: 250.000 páginas de 8 KB na varredura. Com ~400 chaves por página no nó interno (exemplo), a árvore tem 4 níveis, e a busca lê 4 páginas.</li>
+    <li>No InnoDB a folha do índice primário já guarda a linha inteira, e a conta de 2 leituras vale. No PostgreSQL o índice aponta para a página da tabela e a busca custa uma leitura a mais.</li>
+  </ul>
+  <h4 class="deep-h">B-Tree e B+Tree</h4>
+  <p>O artigo-base mistura "B-Tree" e "B+Tree". A estrutura que os bancos usam de verdade é a <strong>B+Tree</strong>: os dados (ou os ponteiros para eles) ficam só nas folhas, e as folhas são ligadas em sequência, o que faz as buscas por faixa serem baratas. O desenho da figura segue essa ideia.</p>
+  <h4 class="deep-h">Tempo logarítmico</h4>
+  <p>O número de níveis cresce com o logaritmo do número de linhas, e a base do logaritmo é o número de chaves por página (centenas). Por isso mil vezes mais linhas costumam custar um ou dois níveis a mais.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: índices B-Tree", href: "https://www.postgresql.org/docs/current/btree.html" },
+    { label: "MySQL: estrutura física de um índice do InnoDB", href: "https://dev.mysql.com/doc/refman/8.0/en/innodb-physical-structure.html" },
+    { label: "PostgreSQL: usando EXPLAIN (varredura contra índice)", href: "https://www.postgresql.org/docs/current/using-explain.html" },
+    { label: "Wikipedia: B-tree", href: "https://en.wikipedia.org/wiki/B-tree" },
+  ]} />
+</Deep>
+
+<p>A B-Tree é ótima quando há ordem e faixas. Mas e quando só se pergunta "o pedido é exatamente o 1042", sem nenhum interesse em ordem? Falta saber se existe um atalho ainda mais direto, e é o hashing.</p>
+
+<Flashcards cards={[
+  { q: "Como a B-Tree acha o pedido 1042?",
+    a: "Lê a raiz (chave 1043), vê que 1042 é menor e desce para a folha [1041, 1042]. São 2 leituras de página." },
+  { q: "Por que, com 6 linhas, a B-Tree não ganha da varredura?",
+    a: "A varredura também lê 2 páginas (4 linhas por página). O ganho aparece com tabelas grandes." },
+  { q: "Quantas páginas a busca lê com 1 milhão de linhas?",
+    a: "A varredura lê 250.000 páginas de 8 KB. A B-Tree, com centenas de chaves por página, lê 4." },
+  { q: "O que acontece quando uma folha enche?",
+    a: "Ela se divide em duas e a chave do meio sobe para o nó de cima. A árvore segue equilibrada." },
+  { q: "A B-Tree responde a faixas de valores?",
+    a: "Sim. As chaves ficam ordenadas e as folhas são ligadas em sequência." },
+]} />

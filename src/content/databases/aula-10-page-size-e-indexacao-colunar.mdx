@@ -1,0 +1,79 @@
+---
+title: "Page size e indexação colunar"
+order: 10
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Nos seis modelos a gente falou em "ler uma linha" como se o disco entregasse uma linha por vez. Não entrega. O banco lê e grava em blocos de tamanho fixo chamados páginas, e o tamanho da página decide quantas linhas vêm junto a cada leitura.</p>
+
+<OneLiner>O banco guarda os dados em páginas de tamanho fixo (4, 8 ou 16 KB) e toda leitura traz uma página inteira; páginas maiores favorecem ler muito de uma vez, páginas menores favorecem buscar um registro só, e o formato colunar põe cada coluna em segmentos seguidos para ler só o que a consulta pede.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Páginas de 8 KB e 16 KB</strong>, compare as páginas de 8 KB e 16 KB e veja quantas linhas de 2 KB cabem. Depois use a calculadora abaixo para achar quantas páginas as 6 linhas ocupam em cada tamanho.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=page" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: páginas de 8 KB e 16 KB e quantas linhas de 2 KB cabem em cada" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<Widget name="pagecalc" title="Calculadora de linhas por página" hint="Escolha o tamanho da página, o tamanho da linha e o número de linhas. Veja quantas páginas a tabela ocupa e o que uma busca por um pedido só desperdiça." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O banco divide cada tabela em <strong>páginas</strong> do mesmo tamanho. O PostgreSQL usa <strong>8 KB</strong>; o InnoDB, do MySQL, usa <strong>16 KB</strong>. Na figura, cada pedido ocupa ~2 KB: cabem 4 linhas numa página de 8 KB e 8 numa de 16 KB.</li>
+  <li>As 6 linhas de <code>pedidos</code> ocupam então <strong>2 páginas de 8 KB</strong> ou <strong>1 página de 16 KB</strong>. Ler o pedido 1042 custa uma leitura de página: 8 KB ou 16 KB, quando só interessavam ~2 KB.</li>
+  <li>Esse é o <strong>trade-off</strong>. Página grande: uma única leitura traz muitas linhas vizinhas, e a leitura de muitos pedidos em sequência faz menos idas ao disco. Página pequena: uma busca por um pedido só traz pouco lixo, e uma leitura longa faz mais idas.</li>
+  <li>Uma linha maior que a página (um pedido com um campo de 9 KB numa página de 8 KB) não cabe: o banco a divide em mais de uma página ou guarda o campo grande em outro lugar.</li>
+  <li>No formato <strong>colunar</strong>, a lógica é a mesma, mas as páginas e segmentos guardam <strong>uma coluna só</strong>. O <code>SUM(valor)</code> lê os segmentos de <code>valor</code> e ignora o resto. Como cada segmento tem valores parecidos, o banco os comprime por dicionário e por repetição, e lê menos bytes ainda.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O custo de uma consulta se conta em <strong>páginas lidas</strong>, e não em linhas. Esse número vai aparecer em todos os índices das próximas aulas.</li>
+  <li>Cada banco escolhe o tamanho com base no uso que imagina: transacional (muitas buscas pontuais) e analítico (varreduras longas) pedem coisas diferentes.</li>
+  <li>Conhecer o tamanho ajuda a ler o plano de execução do banco, que informa quantas páginas cada passo tocou.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Quem usa qual tamanho</h4>
+  <ul>
+    <li><strong>PostgreSQL:</strong> 8 KB, definido quando o servidor é compilado (na prática, ninguém muda).</li>
+    <li><strong>MySQL (InnoDB):</strong> 16 KB por padrão, escolhido quando a instância é inicializada.</li>
+    <li><strong>SQL Server:</strong> sempre 8 KB.</li>
+  </ul>
+  <p>O artigo-base fala em tamanho "fixo e configurável" e lista 4, 8 e 16 KB. Isso vale para alguns produtos, e em vários o valor é fixado na compilação ou na criação da instância, não ajustável depois.</p>
+  <h4 class="deep-h">Os números da calculadora são de exemplo</h4>
+  <p>Ela divide o tamanho da página pelo da linha e ignora o cabeçalho da página e a tabela de posições. Uma linha real de pedido é bem menor que 2 KB, e então cabem dezenas por página.</p>
+  <h4 class="deep-h">Indexação colunar na prática</h4>
+  <p>Arquivos colunares como o Parquet e os índices columnstore do SQL Server organizam as linhas em grupos grandes e, dentro de cada grupo, guardam cada coluna em um segmento comprimido. O banco guarda o mínimo e o máximo de cada segmento, e assim pula segmentos inteiros que não podem ter o valor procurado.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: layout de página do banco de dados", href: "https://www.postgresql.org/docs/current/storage-page-layout.html" },
+    { label: "MySQL: estrutura física de um índice do InnoDB (página de 16 KB)", href: "https://dev.mysql.com/doc/refman/8.0/en/innodb-physical-structure.html" },
+    { label: "Microsoft: arquitetura de páginas e extensões do SQL Server", href: "https://learn.microsoft.com/en-us/sql/relational-databases/pages-and-extents-architecture-guide?view=sql-server-ver17" },
+    { label: "Apache Parquet: codificações (dicionário e repetição)", href: "https://parquet.apache.org/docs/file-format/data-pages/encodings/" },
+    { label: "Microsoft: visão geral dos índices columnstore", href: "https://learn.microsoft.com/pt-br/sql/relational-databases/indexes/columnstore-indexes-overview?view=sql-server-ver17" },
+  ]} />
+</Deep>
+
+<p>Sabendo que o banco lê páginas, a pergunta passa a ser como organizá-las para que gravar não faça o disco esperar. Falta saber como uma estrutura que só acrescenta ao fim, a LSM-Tree, faz isso e o que cobra na leitura.</p>
+
+<Flashcards cards={[
+  { q: "O que é uma página de banco de dados?",
+    a: "Um bloco de tamanho fixo (4, 8 ou 16 KB) em que o banco lê e grava. Toda leitura traz uma página inteira." },
+  { q: "Quantas linhas de 2 KB cabem numa página de 8 KB e numa de 16 KB?",
+    a: "4 e 8. As 6 linhas de <code>pedidos</code> ocupam 2 páginas de 8 KB ou 1 de 16 KB." },
+  { q: "Qual o trade-off do tamanho da página?",
+    a: "Grande: menos leituras para dados em sequência, mas mais lixo por busca pontual. Pequena: o inverso." },
+  { q: "Qual o tamanho padrão no PostgreSQL e no InnoDB?",
+    a: "8 KB no PostgreSQL e 16 KB no InnoDB (MySQL)." },
+  { q: "Como o formato colunar reduz a leitura?",
+    a: "Cada coluna fica em segmentos próprios e comprimidos. A consulta lê só os segmentos das colunas de que precisa." },
+]} />

@@ -1,0 +1,36 @@
+---
+// Módulo Databases, Modelos de Dados e Indexação: as 15 aulas de src/content/databases/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/databases.css';
+
+const entries = (await getCollection('databases')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/databases/quiz/');
+---
+<ModuleLayout
+  title="Databases, Modelos de Dados e Indexação · SDLabs"
+  description="Databases, modelos de dados e indexação: tipos de banco, consistência, linha, documento, coluna, grafo, páginas, LSM-Tree, B-Tree, hash e índice invertido, com laboratórios interativos."
+  module="databases"
+  heading="Databases, Modelos de Dados e Indexação"
+  lead="Como o pedido 1042 da Lena fica guardado e quantas páginas o disco lê para achá-lo. A mesma loja, do começo ao fim."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/databases/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

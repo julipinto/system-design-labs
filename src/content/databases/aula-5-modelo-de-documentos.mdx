@@ -1,0 +1,81 @@
+---
+title: "Modelo de documentos"
+order: 5
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada a Lena apareceu em duas linhas soltas, o 1042 e o 1044, e o banco só as juntava na hora da consulta. Para a tela "Meus pedidos" da Lena, seria mais simples ler tudo dela de uma vez. É o que o modelo de documentos faz.</p>
+
+<OneLiner>No modelo de documentos, cada registro é um documento JSON autônomo que leva os dados relacionados dentro dele, e a Lena fica com seus pedidos aninhados, sem JOIN.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Modelo de documentos</strong>, abra o documento da Lena e ache o pedido 1044 sem fazer nenhum JOIN. Avance até a pergunta sobre o produto e responda: se o preço do gato de pelúcia mudar, em quantos documentos você teria de mexer?</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=doc" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: um documento JSON por cliente, com os pedidos 1042 e 1044 da Lena aninhados" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<pre><code>{`{
+  "_id": "lena",
+  "nome": "Lena",
+  "cidade": "Recife",
+  "pedidos": [
+    { "id": 1042, "produto": "gato de pelúcia", "qtd": 1, "valor": 89.90 },
+    { "id": 1044, "produto": "caneca azul",     "qtd": 1, "valor": 19.90 }
+  ]
+}`}</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Em vez de linhas em tabelas diferentes, o banco guarda <strong>um documento por cliente</strong>. O da Lena (acima) leva o nome, a cidade e a lista dos pedidos dela, o 1042 e o 1044.</li>
+  <li>Ao abrir "Meus pedidos", o programa pede o documento <code>lena</code> e recebe tudo numa leitura só. Como os pedidos estão dentro dele, <strong>não há JOIN</strong>. A conta da Lena (R$ 89,90 + R$ 19,90 = R$ 109,80) sai do mesmo objeto.</li>
+  <li>O documento não precisa ter os mesmos campos que o da Bia. Se a loja quiser guardar "presente: sim" só nos pedidos que são presente, basta escrever o campo. Não há migração de tabela para isso.</li>
+  <li>O custo aparece quando o mesmo dado se repete. Se o documento da Lena e o da Bia trazem o preço do gato de pelúcia (R$ 89,90) dentro dos seus pedidos, mudar o preço exige reescrever <strong>os dois documentos</strong>, e todos os outros compradores.</li>
+  <li>O banco deixa criar índices em campos de dentro do documento, como <code>pedidos.produto</code>. Assim a pergunta "quem comprou gato de pelúcia?" não precisa abrir todos os documentos.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Quando o programa quase sempre lê o objeto inteiro (a Lena e seus pedidos), guardar o objeto inteiro poupa JOINs e leituras.</li>
+  <li>O schema fica na cabeça do programa, não no banco. Isso acelera mudanças, e também deixa o programa responsável por não gravar um pedido sem valor ou com tipo errado.</li>
+  <li>É comum usar um banco de documentos como camada de consulta para leitura (CQRS): o banco transacional grava os pedidos e uma cópia em formato de documento alimenta as telas.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Usos comuns</h4>
+  <ul>
+    <li>Catálogo de produtos, histórico de clientes, prontuário de pacientes.</li>
+    <li>Armazenar o resultado de crawlers e agregar logs.</li>
+    <li>Camada de leitura de um sistema com CQRS.</li>
+  </ul>
+  <h4 class="deep-h">Onde o artigo-base precisa de ajuste</h4>
+  <p>O artigo diz que bancos de documentos oferecem "indexação invertida ou full-text search". Os bancos de documentos mais usados (como o MongoDB) indexam os campos com <strong>B-Tree</strong>, e têm um índice de texto básico. O índice invertido de verdade, com busca por termos e relevância, é o dos motores de busca (Elasticsearch, Solr). A aula 14 explica a diferença.</p>
+  <h4 class="deep-h">Referência ou cópia?</h4>
+  <p>Há duas formas de ligar a Lena ao gato de pelúcia: <strong>embutir</strong> (copiar nome e preço dentro do pedido) ou <strong>referenciar</strong> (guardar só o id do produto e buscar depois). Embutir lê mais rápido e envelhece o dado. Referenciar mantém um dado só e custa uma segunda leitura. O pedido guarda o preço pago na hora da compra, por isso embutir o preço faz sentido ali.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "MongoDB: introdução à modelagem de dados", href: "https://www.mongodb.com/docs/manual/core/data-modeling-introduction/" },
+    { label: "MongoDB: tipos de índice", href: "https://www.mongodb.com/docs/manual/core/indexes/index-types/" },
+    { label: "Wikipedia: banco de dados orientado a documentos", href: "https://en.wikipedia.org/wiki/Document-oriented_database" },
+  ]} />
+</Deep>
+
+<p>Um documento por cliente responde bem a "tudo da Lena". Falta saber o que acontece quando a pergunta é "qual o total de todos os valores", que olha uma só informação de todos os pedidos de todos os clientes.</p>
+
+<Flashcards cards={[
+  { q: "O que é um documento no banco de documentos?",
+    a: "Um registro autônomo em JSON (ou BSON) que carrega os dados relacionados dentro dele, como a Lena com seus pedidos 1042 e 1044." },
+  { q: "O que o aninhamento elimina?",
+    a: "O JOIN: os pedidos estão dentro do documento do cliente, e uma leitura traz tudo." },
+  { q: "Qual o custo de embutir o mesmo dado em muitos documentos?",
+    a: "Mudar esse dado exige reescrever todos os documentos que o carregam (o preço do gato nos documentos de todos os compradores)." },
+  { q: "Quem cuida do schema num banco de documentos?",
+    a: "O programa. O banco aceita campos variados, e o programa tem de respeitar o contrato." },
+]} />

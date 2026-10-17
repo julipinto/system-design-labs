@@ -1,0 +1,70 @@
+---
+title: "Modelo de grafos"
+order: 9
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada cada par chave e valor vivia sozinho. Só que a loja quer dizer na página do gato de pelúcia: "quem comprou este também comprou aquilo". Isso depende de ligações entre a Lena, a Bia, o gato e as canecas, e é com ligações que o modelo de grafos trabalha.</p>
+
+<OneLiner>No modelo de grafos, as entidades são nós, os relacionamentos são arestas, e as duas coisas são dados de primeira classe; assim, seguir de um nó ao vizinho é uma operação do banco, e não um JOIN montado na consulta.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Grafo</strong>, parta do nó <strong>gato de pelúcia</strong>, siga as arestas COMPROU até as compradoras e depois até o que elas também compraram. Anote qual produto aparece mais vezes.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=graph" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: nós e arestas COMPROU: quem comprou o gato também comprou caneca" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Cada cliente e cada produto vira um <strong>nó</strong>, com propriedades: o nó Lena tem <code>cidade: Recife</code> e o nó gato de pelúcia tem <code>preço: 89.90</code>.</li>
+  <li>Cada compra vira uma <strong>aresta</strong> com direção e nome: <code>(Lena)-[COMPROU]→(gato de pelúcia)</code> é o pedido 1042 e <code>(Bia)-[COMPROU]→(gato de pelúcia)</code> é o 1043. A caneca azul também recebe as arestas da Lena (pedido 1044) e da Bia (pedido 1046).</li>
+  <li>A pergunta "quem comprou o gato também comprou o quê?" é uma <strong>travessia</strong>: do gato, siga COMPROU para trás até Lena e Bia. De cada uma, siga COMPROU para frente até os outros produtos.</li>
+  <li>O resultado: as duas compraram a <strong>caneca azul</strong>. É a recomendação para quem está olhando o gato de pelúcia.</li>
+  <li>Em SQL, a mesma pergunta pede juntar a tabela <code>pedidos</code> com ela mesma. Com milhões de pedidos e muitos saltos, cada junção custa mais que a anterior. No grafo, cada salto parte do nó em que você está e olha só os vizinhos dele.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Quando a resposta está nas ligações (amigos de amigos, produtos comprados juntos, caminho entre dois pontos), o grafo guarda a ligação pronta em vez de recalculá-la.</li>
+  <li>Usos reais: recomendação de produtos, redes sociais, detecção de fraude (contas ligadas ao mesmo cartão), análise de ameaças e logística.</li>
+  <li>Para somar uma coluna ou buscar por id, o grafo não é a ferramenta. Ele ganha onde a pergunta se parece com um mapa.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Perguntas que o grafo responde bem</h4>
+  <ul>
+    <li>"Alunos da turma da manhã que moram no mesmo bairro e têm média acima de 8."</li>
+    <li>"Amigos de amigos que vivem na mesma cidade e trabalharam na mesma empresa."</li>
+    <li>"Quem comprou o gato de pelúcia também comprou o quê?" (a da loja).</li>
+  </ul>
+  <h4 class="deep-h">Cuidados de desempenho</h4>
+  <p>O custo depende do <strong>grau</strong> dos nós (quantas arestas saem de cada um). Um produto que milhões de pessoas compraram é um nó pesado, e passar por ele em toda travessia custa caro. Boas consultas começam por um nó pouco comum e limitam a profundidade.</p>
+  <h4 class="deep-h">Grafo é NoSQL, e é sobre relacionamento</h4>
+  <p>O artigo-base diz que os bancos NoSQL "não possuem relacionamentos diretos". Isso descreve chave-valor e documento. O banco de grafos é a exceção: foi feito para relacionamentos. O modelo, porém, abre mão do formato de tabela, por isso entra na família NoSQL.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Neo4j: conceitos de bancos de grafos", href: "https://neo4j.com/docs/getting-started/get-started-with-neo4j/graph-database/" },
+    { label: "Wikipedia: banco de dados de grafos", href: "https://en.wikipedia.org/wiki/Graph_database" },
+  ]} />
+</Deep>
+
+<p>Com isso, as seis formas de guardar o pedido 1042 estão vistas: linha, documento, coluna, coluna larga, chave-valor e grafo. Até aqui falamos de "ler" sem dizer o que o disco entrega por leitura. Falta saber como o banco divide tudo isso em páginas de tamanho fixo e como o tamanho da página muda o custo de achar uma linha.</p>
+
+<Flashcards cards={[
+  { q: "O que são nós e arestas?",
+    a: "Nós são as entidades (Lena, Bia, gato de pelúcia). Arestas são os relacionamentos entre elas (COMPROU), com direção e nome." },
+  { q: "Como fica o pedido 1042 num grafo?",
+    a: "Como a aresta <code>(Lena)-[COMPROU]→(gato de pelúcia)</code>." },
+  { q: "O que o banco faz para responder \"quem comprou o gato também comprou o quê\"?",
+    a: "Uma travessia: do gato até as compradoras (Lena e Bia) e delas até os outros produtos. Aparece a caneca azul." },
+  { q: "Por que o grafo ganha do JOIN em cadeias longas?",
+    a: "Cada salto parte do nó atual e olha só os vizinhos. O JOIN junta tabelas inteiras a cada passo." },
+]} />

@@ -1,0 +1,71 @@
+---
+title: "Modelo de coluna larga"
+order: 7
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O colunar da aula passada pede que toda linha tenha as mesmas colunas. A loja, porém, quer um jeito de gravar os pedidos de cada cliente à medida que chegam, em milhões de clientes, sem um schema único para todos. Esse é o terreno do modelo de coluna larga, que tem um nome parecido com o colunar e é outra coisa.</p>
+
+<OneLiner>No modelo de coluna larga, os dados se agrupam por chave de partição e cada linha pode ter as suas próprias colunas, de modo que a Lena guarda <code>pedido:1042</code> e <code>pedido:1044</code> numa partição só e cresce para o lado a cada compra.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Coluna larga</strong>, veja cada partição com um número diferente de colunas, leia a partição <code>cliente=Lena</code> inteira de uma vez e chegue ao último passo: buscar por produto, que esse banco recusa.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=wide" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: uma partição por cliente, com colunas que crescem a cada pedido" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A <strong>chave de partição</strong> é <code>cliente</code>. Todos os dados da Lena ficam juntos, e o banco usa a chave para decidir <strong>em qual servidor</strong> a partição mora.</li>
+  <li>Dentro da partição da Lena, cada pedido é uma <strong>coluna dinâmica</strong>: <code>pedido:1042 → {`{gato de pelúcia, 1, 89.90}`}</code> e <code>pedido:1044 → {`{caneca azul, 1, 19.90}`}</code>. A Bia, com os pedidos 1043 e 1046, tem as colunas dela, que não existem na linha da Lena.</li>
+  <li>Quando a Lena faz um pedido novo, o banco <strong>acrescenta uma coluna</strong> na partição dela. Não há ALTER TABLE e nenhuma outra linha é tocada.</li>
+  <li>Ler tudo da Lena é rápido, porque a partição está num lugar só. Perguntar "quais clientes compraram gato de pelúcia?" é caro: sem a chave, o banco teria de olhar todas as partições.</li>
+  <li>As colunas se agrupam em <strong>famílias de colunas</strong>: um grupo que o banco grava junto no disco (por exemplo, os dados do pedido num grupo e os da entrega em outro).</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Colunar e coluna larga não são a mesma coisa</h3>
+  <p>No <strong>colunar</strong> (aula 6) o corte é na vertical e serve para somar uma coluna de milhões de linhas. Na <strong>coluna larga</strong> a linha continua existindo, tem uma chave, e é o conjunto de colunas dela que varia. Os dois nomes confundem, e é por isso que o artigo-base os coloca em seções vizinhas.</p>
+</div>
+
+<WhyItMatters>
+  <li>É feito para escrever muito. Bancos como Cassandra, ScyllaDB e Bigtable gravam por acréscimo (aula 11) e se espalham por milhares de servidores.</li>
+  <li>Combina com dados esparsos e séries temporais: cada linha cresce com as colunas que realmente existem.</li>
+  <li>O preço é a consulta: boa quando você conhece a chave de partição, ruim para filtros livres. Transações são limitadas e JOINs são raros.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">A escolha da chave é a escolha do modelo</h4>
+  <p>Se a chave for <code>cliente</code>, "pedidos da Lena" é barato e "pedidos de hoje" é caro. Se a chave for o dia, o inverso. Em coluna larga, desenha-se a tabela a partir da consulta que mais acontece.</p>
+  <h4 class="deep-h">Consistência</h4>
+  <p>Esses bancos escolhem escala e disponibilidade, e por isso costumam oferecer consistência eventual, com quórum ajustável (módulo 3). A aula 11 mostra por dentro como gravam tão rápido.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "ScyllaDB: o que é um banco de coluna larga", href: "https://www.scylladb.com/glossary/wide-column-database/" },
+    { label: "ScyllaDB: famílias de colunas do Cassandra", href: "https://www.scylladb.com/glossary/cassandra-column-family/" },
+    { label: "Chang et al.: Bigtable, um sistema de armazenamento distribuído", href: "https://research.google/pubs/bigtable-a-distributed-storage-system-for-structured-data/" },
+    { label: "Wikipedia: wide-column store", href: "https://en.wikipedia.org/wiki/Wide-column_store" },
+  ]} />
+</Deep>
+
+<p>A coluna larga ainda tem linhas, partições e colunas para organizar. Falta saber qual é o modelo mais simples de todos, em que o banco só sabe achar um valor pela chave e não olha o que tem dentro dele.</p>
+
+<Flashcards cards={[
+  { q: "O que é a chave de partição na coluna larga?",
+    a: "O campo que agrupa os dados e decide em qual servidor a partição mora. No exemplo, <code>cliente</code>." },
+  { q: "Como a Lena guarda seus pedidos nesse modelo?",
+    a: "Na partição <code>cliente=Lena</code>, em colunas dinâmicas: <code>pedido:1042</code> e <code>pedido:1044</code>." },
+  { q: "Por que o pedido novo da Lena não exige ALTER TABLE?",
+    a: "Cada linha tem as suas colunas. O banco acrescenta uma coluna só na partição da Lena." },
+  { q: "Qual a diferença para o modelo colunar?",
+    a: "O colunar guarda um arquivo por coluna para somar rápido. A coluna larga mantém linhas com chave e colunas variáveis por linha, para gravar muito e escalar." },
+]} />

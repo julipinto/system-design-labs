@@ -1,0 +1,75 @@
+---
+title: "O que é um banco de dados"
+order: 1
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>No módulo 3 a loja copiou o estoque do gato de pelúcia em três bancos e discutiu o que cada cópia promete quando o cabo cai. Em nenhum momento a gente parou para perguntar o que um banco é, e o que ele faz que um arquivo de texto não faz. Vamos responder isso com a tabela <code>pedidos</code>, a mesma da loja do módulo 2.</p>
+
+<OneLiner>Um banco de dados é a camada entre o seu programa e o disco: você diz o que quer, e ele cuida de onde o dado fica, de como achá-lo rápido e de como guardá-lo com segurança.</OneLiner>
+
+<DoIt>
+  <p>Antes de ler, pense na tabela abaixo como um arquivo de texto com 6 linhas e pergunte: <strong>como eu acharia o pedido 1042?</strong> Depois imagine o mesmo arquivo com 6 milhões de linhas e responda de novo.</p>
+</DoIt>
+
+<pre><code>id    cliente  produto           qtd  valor   cidade
+1041  Caio     caneca azul       2    39.80   Rio
+1042  Lena     gato de pelúcia   1    89.90   Recife
+1043  Bia      gato de pelúcia   1    89.90   SP
+1044  Lena     caneca azul       1    19.90   Recife
+1045  Davi     camiseta preta    3    147.00  SP
+1046  Bia      caneca azul       1    19.90   SP</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena compra o gato de pelúcia e o programa da loja grava o <strong>pedido 1042</strong>. Com um arquivo de texto, o programa precisaria decidir sozinho em que posição do disco escrever, e como não perder a linha se a luz acabar no meio da gravação.</li>
+  <li>Um banco assume essas decisões. Você escreve <code>INSERT INTO pedidos ...</code> e ele aloca o espaço, grava no disco e <strong>confirma só depois</strong> de a linha estar segura.</li>
+  <li>Para ler, o programa escreve <code>SELECT * FROM pedidos WHERE id = 1042</code>. Ele só diz <strong>o que</strong> quer. Como achar a linha (varrer tudo ou seguir um índice) é problema do banco.</li>
+  <li>Com 6 linhas, varrer tudo é aceitável. Com 6 milhões, é a diferença entre um clique rápido e uma tela travada, e é aí que o <strong>índice</strong> entra: um atalho que o banco mantém para chegar direto à linha.</li>
+  <li>Quando a loja cresce, o banco também ajuda a <strong>distribuir</strong> e <strong>replicar</strong> os pedidos entre servidores, o que levou ao módulo 3 (CAP, ACID e BASE).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Sem um banco, cada programa reinventa alocação em disco, busca e recuperação de falhas. Cada reinvenção é uma chance de perder pedidos.</li>
+  <li>Cada banco guarda e procura de um jeito. A mesma tabela <code>pedidos</code> responde bem a umas perguntas e mal a outras, dependendo do jeito.</li>
+  <li>Entender esse jeito é o que permite escolher o banco pela pergunta que a loja mais faz, e não pela moda.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o banco faz entre o cliente e o dado</h4>
+  <ul>
+    <li><strong>Estrutura:</strong> tabelas, documentos, grafos ou pares chave e valor. É o formato em que o dado vive.</li>
+    <li><strong>Padrão de consulta:</strong> uma linguagem (SQL) ou uma API que diz como pedir o dado.</li>
+    <li><strong>Armazenamento:</strong> em quais páginas e arquivos o dado fica, em disco, em memória ou nos dois.</li>
+    <li><strong>Índice:</strong> o atalho para não ler tudo. Ele aparece nas aulas 11 a 14.</li>
+    <li><strong>Distribuição:</strong> em sistemas com vários servidores, a engine ainda decide qual servidor guarda cada pedaço e quantas cópias existem.</li>
+  </ul>
+  <h4 class="deep-h">Mesmo banco, papéis diferentes</h4>
+  <p>Num sistema distribuído, o banco ainda precisa decidir entre consistência forte e eventual, e entre replicar em regiões distantes ou perto de quem lê. O módulo 3 mostrou o preço dessas escolhas. As próximas aulas mostram como cada tipo de banco escolhe.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases, Modelos de Dados e Indexação (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+    { label: "Kleppmann: Designing Data-Intensive Applications (site do livro)", href: "https://dataintensive.net/" },
+  ]} />
+</Deep>
+
+<p>Já temos um banco com a tabela <code>pedidos</code>, mas o banco da loja não é o único jeito de guardar dados: o carrinho, as métricas e a busca por texto pedem outros. Falta saber que tipos de banco existem e o que cada um troca para ganhar velocidade ou escala.</p>
+
+<Flashcards cards={[
+  { q: "O que é um banco de dados, numa frase?",
+    a: "A camada entre o programa e o dado: guarda numa estrutura, responde a um padrão de consulta e cuida do disco e dos índices por você." },
+  { q: "O que o programa diz ao banco e o que o banco decide?",
+    a: "O programa diz <strong>o que</strong> quer (<code>WHERE id = 1042</code>). O banco decide <strong>como</strong> achar: varrer tudo ou seguir um índice." },
+  { q: "Por que um arquivo de texto não serve para a loja?",
+    a: "O programa teria de cuidar sozinho de alocação, busca e de não perder a linha numa falha. O banco já traz isso pronto." },
+  { q: "O que é um índice?",
+    a: "Um atalho que o banco mantém para chegar direto à linha, sem ler a tabela inteira." },
+]} />

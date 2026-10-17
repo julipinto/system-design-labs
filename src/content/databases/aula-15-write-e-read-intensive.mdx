@@ -1,0 +1,81 @@
+---
+title: "Escrita intensiva e leitura intensiva"
+order: 15
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada ficou a pergunta de como escolher entre tantos modelos e índices. A resposta começa por uma pergunta sobre a própria loja: o que mais acontece nela? A mesma loja tem pedidos que não podem errar, métricas que chegam aos milhões e um catálogo que a Lena folheia o dia todo.</p>
+
+<OneLiner>O banco certo é o que casa modelo, índice e consistência com a operação mais frequente: transacional pede B-Tree e consistência forte, escrita intensiva pede LSM e replicação assíncrona, leitura intensiva pede réplicas, cache e CQRS.</OneLiner>
+
+<DoIt>
+  <p>No escolhedor abaixo, passe pelas 6 situações da loja. Antes de abrir cada resposta, diga em voz alta o <strong>modelo</strong>, o <strong>índice</strong> e a <strong>consistência</strong> que você escolheria.</p>
+</DoIt>
+
+<Widget name="picker" title="Qual banco para cada situação da loja" hint="Toque numa situação e veja o modelo, o índice e a consistência que casam com ela, e o que se aceita perder." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Transacional.</strong> A Lena paga o gato de pelúcia: o pedido é gravado e o estoque diminui, tudo ou nada. Pede atomicidade, ACID e leitura imediata da última escrita. A escolha é um banco relacional com <strong>B-Tree</strong> em chaves e índices secundários. Quanto mais réplicas confirmam o commit, maior a latência. Escala vertical, ou NewSQL com consenso.</li>
+  <li><strong>Escrita intensiva.</strong> Chegam milhões de eventos por segundo (cliques, logs, sensores), e nenhum pode se perder. A escolha é NoSQL com <strong>LSM</strong> (Cassandra, ScyllaDB) e replicação assíncrona. Aceita-se consistência eventual e réplicas atrasadas por um tempo.</li>
+  <li><strong>Leitura intensiva.</strong> O catálogo e a lista de pedidos são lidos mil vezes mais do que gravados. A escolha é um banco primário consistente com <strong>réplicas de leitura</strong> e uma camada de <strong>cache</strong> (Redis, Memcached), que são chave-valor em memória.</li>
+  <li>Quando as telas pedem outro formato do que o banco transacional guarda, usa-se o <strong>CQRS</strong>: o banco transacional grava os pedidos e uma cópia, num modelo feito para leitura (documentos, ou colunar para os relatórios), alimenta as telas. A fonte de verdade fica protegida dos picos de leitura.</li>
+  <li>Na loja de verdade, <strong>tudo isso convive</strong>: relacional para pedidos, chave-valor para carrinho e sessão, motor de busca para "pelúcia", colunar para o relatório do mês. Cada um cuida da pergunta que lhe cabe.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Escolher pelo nome da moda dá um banco cheio de recursos que o produto não usa e sem o que ele precisa. A pergunta mais frequente decide.</li>
+  <li>Cada escolha tem um preço dito em voz alta: o transacional paga latência, o de escrita paga leitura mais complexa, o de leitura paga dado possivelmente velho.</li>
+  <li>A decisão é revisável. Quando o uso muda, o banco muda, e as aulas deste módulo dão as perguntas para reavaliar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Quadro de decisão da loja</h4>
+  <ul>
+    <li><strong>Pedido e pagamento:</strong> relacional, B-Tree, consistência forte (CP na partição).</li>
+    <li><strong>Eventos de clique e métricas:</strong> LSM ou séries temporais, eventual.</li>
+    <li><strong>Carrinho e sessão:</strong> chave-valor em memória, com prazo de validade.</li>
+    <li><strong>Busca por texto:</strong> índice invertido.</li>
+    <li><strong>"Quem comprou também comprou":</strong> grafo.</li>
+    <li><strong>Relatório de vendas:</strong> colunar.</li>
+  </ul>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li>O artigo lista o <strong>DynamoDB</strong> entre os motores LSM para escrita intensiva. O artigo científico do DynamoDB descreve B-tree e log de escrita antecipada. O DynamoDB serve bem a escrita intensiva por outros motivos (partições, replicação e escala gerenciada), e não pela LSM.</li>
+    <li>O artigo diz que cenários de escrita intensiva favorecem consistência eventual "porque o sistema não espera a replicação". É uma tendência, e não uma obrigação: Cassandra e ScyllaDB deixam ajustar o quórum por consulta.</li>
+  </ul>
+  <h4 class="deep-h">O que ficou para os próximos textos</h4>
+  <p>O artigo-base cita réplicas de leitura, cache e CQRS como técnicas que ele detalha em outros capítulos. Replicação, sharding e cache têm artigos próprios do mesmo autor, listados abaixo.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Matheus Fidelis: Replicação de Dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Matheus Fidelis: Sharding e Particionamento de Dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Matheus Fidelis: Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Matheus Fidelis: CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Elhemali et al. (2022): Amazon DynamoDB (USENIX ATC)", href: "https://www.usenix.org/conference/atc22/presentation/elhemali" },
+  ]} />
+</Deep>
+
+<p>A loja agora sabe qual banco usar para cada pergunta, mas um servidor só tem limite de disco, de memória e de falhas. Falta saber como dividir os dados entre vários servidores (sharding) e como copiá-los (replicação) sem perder a promessa de consistência que cada banco escolheu.</p>
+
+<Flashcards cards={[
+  { q: "O que pede um cenário transacional?",
+    a: "Atomicidade, ACID e leitura imediata da última escrita. Banco relacional com B-Tree e consistência forte." },
+  { q: "Qual estrutura e qual consistência combinam com escrita intensiva?",
+    a: "LSM (Cassandra, ScyllaDB), replicação assíncrona e consistência eventual." },
+  { q: "Como se escala uma loja com leitura intensiva?",
+    a: "Um primário consistente com réplicas de leitura e uma camada de cache em chave-valor (Redis, Memcached)." },
+  { q: "Para que serve o CQRS?",
+    a: "Gravar no banco transacional e servir as telas de um modelo de leitura derivado, protegendo a fonte de verdade dos picos." },
+  { q: "Por que uma loja real usa mais de um banco?",
+    a: "Cada pergunta (pedido, carrinho, busca, relatório) tem um modelo e um índice que a atendem melhor." },
+]} />

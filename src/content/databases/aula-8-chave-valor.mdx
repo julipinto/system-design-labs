@@ -1,0 +1,71 @@
+---
+title: "Modelo chave-valor"
+order: 8
+min: 4
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>A aula passada ainda tinha partições, famílias e colunas para organizar. Agora tire tudo isso: e se o banco só soubesse guardar um valor debaixo de um nome e devolvê-lo quando você disser o nome? É o modelo mais simples que existe, e é o que segura o carrinho e a sessão da Lena.</p>
+
+<OneLiner>No modelo chave-valor, o banco guarda pares (chave, valor), acha qualquer valor direto pela chave e trata o valor como um bloco fechado que ele não abre.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Chave-valor</strong>, peça <code>carrinho:lena</code> e veja a resposta chegar de uma vez. No último passo, tente perguntar "quais carrinhos têm gato de pelúcia?" e veja por que o banco não consegue responder sozinho.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/modelos-3d/?mode=kv" poster="labs/databases/modelos-3d-previa.webp" title="Figura interativa: a chave carrinho:lena devolvendo um valor fechado" alt="Prévia da figura 3D: os seis pedidos guardados em linhas, em duas páginas de 8 KB, com a linha 1042 da Lena acesa" hint="Arraste para girar · use ← → ou Próximo passo · troque o modelo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena põe o gato de pelúcia no carrinho. O programa grava o par <code>carrinho:lena → {`{1042}`}</code>. A chave é um nome que o programa monta e conhece; o valor é o que ele quiser guardar.</li>
+  <li>A sessão de login dela é outro par: <code>sessao:lena → tok_9f3a</code> (um token de exemplo). Pode ter prazo de validade, e o banco apaga o par sozinho quando o prazo passa.</li>
+  <li>Para ler, o programa diz a chave e o banco devolve o valor. <strong>Não há varredura</strong>: a chave leva direto ao lugar (a aula 13 mostra como, com hashing).</li>
+  <li>O valor é um <strong>bloco opaco</strong> (texto, número, JSON, um arquivo): o banco não sabe o que tem dentro. Perguntar "quais carrinhos têm o 1042?" obriga o programa a ler todos eles.</li>
+  <li>Como cada par é independente, é fácil dividir as chaves entre vários servidores. O banco usa o hash da chave para escolher o servidor, e para crescer só precisa mover parte das chaves (hashing consistente).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Para sessão, carrinho, cache e contadores, a pergunta é sempre "me dá o valor desta chave". Não existe nada mais rápido.</li>
+  <li>A simplicidade tem um custo: o banco não ajuda a procurar, filtrar nem juntar. Se a pergunta nova não for "esta chave", o programa faz o trabalho.</li>
+  <li>Redis, Valkey e Memcached são os exemplos mais conhecidos, em memória. Também dá para usar o DynamoDB, o MongoDB e outros como chave-valor, quando se modela assim.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que vai no valor</h4>
+  <ul>
+    <li>Texto, números e booleanos.</li>
+    <li>JSON ou outros formatos serializados.</li>
+    <li>Estruturas que o banco entende, em alguns produtos (listas, conjuntos, contadores), o que já é um passo além do valor opaco.</li>
+  </ul>
+  <h4 class="deep-h">Memória e durabilidade</h4>
+  <p>Quando o par vive só na RAM, reiniciar o servidor apaga tudo. Por isso carrinho e sessão podem viver ali (se sumirem, a Lena começa de novo), e o <strong>pedido confirmado</strong> vai para o banco durável.</p>
+  <h4 class="deep-h">Acesso</h4>
+  <p>O protocolo costuma ser simples (comandos sobre TCP ou uma API REST). Poucos recursos, pouca coisa para dar errado.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Redis: tipos de dados", href: "https://redis.io/docs/latest/develop/data-types/" },
+    { label: "Wikipedia: banco de dados chave-valor", href: "https://en.wikipedia.org/wiki/Key%E2%80%93value_database" },
+    { label: "Wikipedia: hashing consistente", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+  ]} />
+</Deep>
+
+<p>Num par chave-valor cada coisa vive sozinha e nenhuma sabe da outra. Falta saber como guardar as ligações entre a Lena, o gato de pelúcia e a Bia, para responder a "quem comprou isto também comprou aquilo".</p>
+
+<Flashcards cards={[
+  { q: "O que um banco chave-valor sabe fazer?",
+    a: "Guardar um valor debaixo de uma chave e devolvê-lo quando você diz a chave. Nada além disso." },
+  { q: "Por que o valor é chamado de opaco?",
+    a: "Porque o banco não olha o que tem dentro. Filtrar pelo conteúdo é trabalho do programa." },
+  { q: "Que pares a loja guarda para a Lena?",
+    a: "<code>carrinho:lena → {1042}</code> e <code>sessao:lena</code> → token de login." },
+  { q: "Como as chaves se espalham entre servidores?",
+    a: "O hash da chave escolhe o servidor. Com hashing consistente, ao adicionar um servidor só parte das chaves muda de lugar." },
+]} />

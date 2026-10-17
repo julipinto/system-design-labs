@@ -24,4 +24,9 @@ const capAcidBase = defineCollection({
   schema: lesson,
 });
 
-export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo, 'cap-acid-base': capAcidBase };
+const databases = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/databases' }),
+  schema: lesson,
+});
+
+export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo, 'cap-acid-base': capAcidBase, databases };

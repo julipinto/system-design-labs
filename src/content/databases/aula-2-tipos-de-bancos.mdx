@@ -1,0 +1,78 @@
+---
+title: "Tipos de bancos de dados"
+order: 2
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada a loja tinha um banco com a tabela <code>pedidos</code>. Só que a loja também guarda o carrinho da Lena, as métricas do site e as buscas por "pelúcia". O mesmo banco serve para tudo isso? Quase nunca. Cada tipo de banco abre mão de alguma coisa para ganhar outra.</p>
+
+<OneLiner>Os tipos de banco (SQL, NoSQL, NewSQL, em memória e de séries temporais) são cinco apostas diferentes sobre o que vale mais: regras rígidas, escala, os dois ao mesmo tempo, velocidade ou o tempo como eixo.</OneLiner>
+
+<DoIt>
+  <p>Para cada item da loja, escreva o tipo de banco que você usaria e <strong>o que você aceitaria perder</strong>: os pedidos, o carrinho da Lena, as métricas de tempo de resposta e uma sessão de login. Confira no quadro logo abaixo.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>SQL (relacional).</strong> Baseado no modelo de Edgar Codd (1970): tabelas com linhas e colunas, schema rígido, chaves estrangeiras e as garantias do ACID (Atomicidade, Consistência, Isolamento e Durabilidade). Um pedido só existe se o cliente existir, e o banco confere isso sozinho. É a escolha para os <code>pedidos</code>.</li>
+  <li><strong>NoSQL.</strong> Nasce para trocar parte dessas garantias por escala. Usa outros formatos (documento, chave-valor, coluna larga, grafo), tem schema flexível e muitas vezes consistência eventual. A Lena e o carrinho dela cabem aqui.</li>
+  <li><strong>NewSQL.</strong> Quer as duas coisas: SQL e transações como no relacional, com a escala horizontal do NoSQL. Para isso divide os dados em servidores e usa um protocolo de consenso (Raft ou Paxos) para confirmar cada escrita. O preço é latência de rede em cada commit.</li>
+  <li><strong>Em memória.</strong> Guarda tudo na RAM, onde ler leva nanossegundos em vez dos milissegundos do disco. Serve de cache e de sessão (<code>sessao:lena</code>). Se o servidor reinicia, o dado pode sumir, por isso só vale para dado que dá para reconstruir.</li>
+  <li><strong>Séries temporais.</strong> Cada registro leva um carimbo de tempo, e a gravação só acrescenta ao fim. Serve para métricas, logs e sensores: o tempo de resposta da loja a cada segundo. Também apaga sozinho o que ficou velho demais.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Resposta do exercício</h3>
+  <p><strong>Pedidos:</strong> SQL (abre mão de escala fácil). <strong>Carrinho da Lena:</strong> chave-valor, em memória ou NoSQL (aceita perder o carrinho se o servidor cair). <strong>Tempo de resposta por segundo:</strong> séries temporais (não serve para transação). <strong>Sessão de login:</strong> em memória (se sumir, a Lena entra de novo).</p>
+</div>
+
+<WhyItMatters>
+  <li>Cada recurso de um banco tem custo. Quem escolhe um banco com recursos que o produto não usa paga em latência, em dinheiro ou em operação.</li>
+  <li>Os pedidos pedem integridade. O carrinho pede velocidade. As métricas pedem volume. Num produto de verdade, a loja usa <strong>mais de um banco</strong>.</li>
+  <li>O tipo é só o começo da escolha. O que acontece por dentro depende do modelo de dados (aulas 4 a 9) e do índice (aulas 11 a 14).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde o artigo-base precisa de ajuste</h4>
+  <ul>
+    <li><strong>ACID com "Integridade".</strong> O artigo escreve o I como Integridade. O I é <strong>Isolamento</strong>: transações simultâneas não enxergam o meio uma da outra (módulo 3, aula 2).</li>
+    <li><strong>NoSQL "sem relacionamentos".</strong> O artigo diz que o NoSQL não tem relacionamentos diretos. Isso vale para chave-valor e documento. O banco de grafos (aula 9) é NoSQL e existe <em>para</em> guardar relacionamentos.</li>
+    <li><strong>"Not Only SQL".</strong> É o significado popular da sigla. Muitos bancos NoSQL também têm uma linguagem parecida com SQL.</li>
+    <li><strong>Séries temporais "sem garantia de ler o que escreveu".</strong> O artigo trata isso como regra do tipo. É escolha de cada produto: alguns confirmam a escrita antes de responder, outros enfileiram. Confira na documentação do que você usa.</li>
+  </ul>
+  <h4 class="deep-h">NewSQL e consenso</h4>
+  <p>O ACID de um banco distribuído exige que uma maioria de nós concorde antes do commit. Quanto mais longe os nós, mais lento o commit: é o mesmo raciocínio do quórum do módulo 3.</p>
+  <h4 class="deep-h">Em memória, mas durável?</h4>
+  <p>Alguns bancos em memória gravam um log em disco para sobreviver à reinicialização. Isso devolve durabilidade, ao custo de parte da velocidade.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+    { label: "dev.to: NoSQL, NewSQL e SQL distribuído, uma comparação", href: "https://dev.to/ankitmalikg/nosql-vs-newsql-vs-distributed-sql-a-comprehensive-comparison-lm7" },
+    { label: "Wikipedia: NewSQL", href: "https://en.wikipedia.org/wiki/NewSQL" },
+    { label: "Wikipedia: banco de dados em memória", href: "https://en.wikipedia.org/wiki/In-memory_database" },
+    { label: "Wikipedia: banco de dados de séries temporais", href: "https://en.wikipedia.org/wiki/Time_series_database" },
+  ]} />
+</Deep>
+
+<p>Todos esses bancos prometem "consistência" de algum jeito, e a promessa muda de um tipo para outro. Falta saber o que cada nível dessa promessa quer dizer quando a Lena grava o pedido 1042 e a Bia lê de outro servidor.</p>
+
+<Flashcards cards={[
+  { q: "Quem propôs o modelo relacional e quando?",
+    a: "Edgar F. Codd, em 1970." },
+  { q: "O que o NoSQL troca para ganhar escala?",
+    a: "Parte da rigidez e da consistência forte do SQL, por schema flexível e, muitas vezes, consistência eventual." },
+  { q: "O que o NewSQL tenta juntar?",
+    a: "As transações e o SQL do relacional com a escala horizontal do NoSQL, usando consenso (Raft ou Paxos) em cada commit." },
+  { q: "Para que serve um banco em memória na loja?",
+    a: "Cache e sessões (<code>sessao:lena</code>). Lê em nanossegundos, mas o dado pode sumir se o servidor reiniciar." },
+  { q: "O que caracteriza um banco de séries temporais?",
+    a: "Cada registro tem um carimbo de tempo, a gravação só acrescenta ao fim e o dado velho é apagado automaticamente." },
+]} />

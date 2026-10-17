@@ -1,0 +1,84 @@
+---
+title: "LSM-Trees"
+order: 11
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada vimos que o banco lê e grava páginas. Gravar uma linha no meio de uma tabela obriga o disco a pular até a página certa, e isso é lento. A LSM-Tree evita o salto: toda escrita vai para o fim de um arquivo, em sequência. É a estrutura de bancos feitos para gravar muito.</p>
+
+<OneLiner>Uma LSM-Tree grava primeiro num log e numa tabela em memória (a memtable), despeja a memtable em arquivos imutáveis no disco (SSTables) e, de tempos em tempos, junta esses arquivos; escrever fica rápido e ler precisa olhar mais de um lugar.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>LSM</strong>, grave o pedido 1046 e acompanhe o caminho: WAL, memtable, depois o despejo para uma SSTable, a compactação e a leitura com bloom filter. Em seguida use o simulador abaixo para atualizar o pedido 1042 e ver como a leitura procura a versão mais nova.</p>
+</DoIt>
+
+<Figure3D path="labs/databases/indices-3d/?mode=lsm" poster="labs/databases/indices-3d-previa.webp" title="Figura interativa: LSM-Tree: o pedido 1046 entra no WAL e na memtable, vira SSTable e passa por compactação" alt="Prévia da figura 3D: a B-Tree dos pedidos com a raiz 1043 e as duas folhas, o caminho até o pedido 1042 aceso" hint="Arraste para girar · escrever no WAL e na memtable, descer para SSTables e compactar · use ← → ou Próximo passo" />
+
+<Widget name="lsm" title="Simulador de LSM-Tree" hint="Grave pedidos, atualize o 1042, apague o 1044, compacte e depois leia um pedido. A memtable do exemplo comporta 4 entradas. Veja quais arquivos cada leitura abre." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Chega a escrita do <strong>pedido 1046</strong>. O banco a anota no fim do <strong>WAL</strong> (um log de escritas, em disco, só de acréscimo) para não perdê-la se a luz cair. Isso é uma escrita sequencial, a mais barata que o disco sabe fazer.</li>
+  <li>Em seguida a coloca na <strong>memtable</strong>, uma tabela ordenada na memória. Neste ponto o banco já responde "gravado" à loja. Nenhuma página do meio do disco foi tocada.</li>
+  <li>Quando a memtable enche (no exemplo, com 4 entradas), ela é <strong>despejada</strong> no disco como uma <strong>SSTable</strong>: um arquivo ordenado por chave e <strong>imutável</strong>. A memtable esvazia e o WAL correspondente pode ser descartado.</li>
+  <li>Atualizar o pedido 1042 não mexe na SSTable: o banco grava uma <strong>versão nova</strong> na memtable. Apagar o 1044 grava um marcador especial, o <strong>tombstone</strong>. As versões velhas continuam nos arquivos antigos por enquanto.</li>
+  <li>Para ler, o banco olha a <strong>memtable</strong>, depois as SSTables da <strong>mais nova para a mais antiga</strong>, e para na primeira que tem a chave. Um <strong>filtro de Bloom</strong> em cada SSTable diz "esta chave certamente não está aqui" e evita abrir o arquivo à toa.</li>
+  <li>Com o tempo as SSTables se acumulam e a leitura piora. A <strong>compactação</strong> junta várias numa só, mantém a versão mais nova de cada chave e joga fora as versões velhas e os pares apagados (tombstones).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Escrever vira acrescentar ao fim, o que o disco faz bem. Por isso LSM é a escolha de bancos que recebem milhões de escritas por segundo, como logs, sensores e feeds.</li>
+  <li>O preço é a leitura, que pode abrir várias SSTables, e a compactação, que gasta disco e CPU em segundo plano. É um custo que o banco paga para a escrita ser barata.</li>
+  <li>Cassandra, ScyllaDB e Bigtable usam esse desenho. O InfluxDB usa uma variante, o TSM, na mesma família.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde o artigo-base precisa de ajuste</h4>
+  <ul>
+    <li><strong>"LSM guarda todas as versões, ótimo para auditoria."</strong> A compactação descarta as versões antigas e os tombstones. A LSM <em>não</em> é um registro de auditoria. Para livro-caixa ou trilha de auditoria, modela-se uma tabela só de inserções de propósito (um ledger), e não se conta com o que a compactação ainda não limpou.</li>
+    <li><strong>DynamoDB como exemplo de LSM.</strong> O artigo científico do DynamoDB (USENIX ATC 2022) descreve cada réplica com um log de escrita antecipada e uma <strong>B-tree</strong>. O DynamoDB não deve entrar na lista de LSM.</li>
+    <li><strong>InfluxDB.</strong> Usa o TSM (Time-Structured Merge Tree), com cache, arquivos imutáveis e compactação em níveis. É da mesma família da LSM, e a documentação dele não chama de LSM.</li>
+    <li><strong>"Em detrimento de uma forte consistência eventual".</strong> A frase mistura os termos. O que a LSM não define é o nível de consistência: isso vem da replicação do banco por cima.</li>
+  </ul>
+  <h4 class="deep-h">Os números da cena (exemplo)</h4>
+  <ul>
+    <li>Memtable de 4 entradas: os pedidos 1041 a 1044 enchem a primeira e viram a SSTable 1. Os pedidos 1045 e 1046 ficam na memtable (e no WAL).</li>
+    <li>Em bancos de verdade a memtable tem dezenas de megabytes.</li>
+    <li>O filtro de Bloom pode errar para o lado seguro: dizer "talvez esteja" quando não está (e a leitura abre o arquivo à toa), mas nunca dizer "não está" quando está.</li>
+  </ul>
+  <h4 class="deep-h">O que o artigo original diz</h4>
+  <p>O artigo de O'Neil e colegas (1996) mostra que manter um índice B-tree em tempo real pode dobrar o custo de I/O de uma transação com muitas inserções, e que a LSM adia e agrupa as mudanças do índice. O próprio texto avisa que buscas que exigem resposta imediata perdem eficiência em alguns casos.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "O'Neil et al. (1996): The Log-Structured Merge-Tree (PDF)", href: "https://www.cs.umb.edu/~poneil/lsmtree.pdf" },
+    { label: "Apache Cassandra: storage engine", href: "https://cassandra.apache.org/doc/latest/cassandra/architecture/storage-engine.html" },
+    { label: "Chang et al.: Bigtable, um sistema de armazenamento distribuído", href: "https://research.google/pubs/bigtable-a-distributed-storage-system-for-structured-data/" },
+    { label: "RocksDB: wiki de compactação", href: "https://github.com/facebook/rocksdb/wiki/Compaction" },
+    { label: "Elhemali et al. (2022): Amazon DynamoDB (USENIX ATC)", href: "https://www.usenix.org/conference/atc22/presentation/elhemali" },
+  ]} />
+</Deep>
+
+<p>A LSM deixou a escrita barata e a leitura espalhada por vários arquivos. Falta saber qual estrutura faz o oposto: mantém tudo ordenado num lugar só para a leitura ser curta, a B-Tree.</p>
+
+<Flashcards cards={[
+  { q: "Por que a escrita numa LSM é rápida?",
+    a: "Vai para o fim do WAL e para a memtable, em memória: tudo sequencial, sem pular entre páginas do disco." },
+  { q: "O que é uma SSTable?",
+    a: "Um arquivo ordenado por chave e imutável, criado quando a memtable enche." },
+  { q: "Como a LSM atualiza o pedido 1042 e apaga o 1044?",
+    a: "Grava uma versão nova do 1042 e um tombstone para o 1044. Os arquivos antigos não mudam; a compactação limpa depois." },
+  { q: "Em que ordem a leitura procura?",
+    a: "Memtable, depois SSTables da mais nova para a mais antiga. O filtro de Bloom pula as que certamente não têm a chave." },
+  { q: "O que a compactação faz?",
+    a: "Junta SSTables, fica com a versão mais nova de cada chave e remove versões velhas e tombstones." },
+]} />

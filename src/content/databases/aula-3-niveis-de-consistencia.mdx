@@ -1,0 +1,72 @@
+---
+title: "Níveis de consistência"
+order: 3
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada cada tipo de banco prometeu uma "consistência" diferente. A Lena grava o pedido 1042 no servidor de Recife, a Bia consulta os pedidos pelo servidor de SP um instante depois, e a pergunta é: o que ela deve ver? A resposta muda conforme o nível de consistência.</p>
+
+<OneLiner>Consistência é uma escada: no degrau mais alto (forte), toda leitura vê a última escrita confirmada; no mais baixo (eventual), as cópias só concordam depois de um tempo; e há degraus no meio.</OneLiner>
+
+<DoIt>
+  <p>Imagine que a Lena grava o pedido 1042 às 10:00:00 em Recife e o servidor de SP só recebe a cópia às 10:00:02. Responda para cada nível: <strong>o que a Bia vê se consultar SP às 10:00:01?</strong></p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Consistência forte (linearizabilidade).</strong> Quando a Lena recebe o "pedido confirmado", toda leitura feita depois, em qualquer servidor, vê o pedido 1042. Para isso o banco confirma a escrita só depois que uma maioria de réplicas gravou (Raft, Paxos ou commit síncrono). A Bia, às 10:00:01, ou vê o 1042 ou espera. Nunca vê a lista sem ele.</li>
+  <li>Esse rigor tem preço. A escrita da Lena precisa esperar a resposta de outros servidores e, quanto mais longe eles estão, maior a espera. Na partição de rede do módulo 3, o lado sem maioria recusa o pedido: o banco escolhe <strong>consistência e perde disponibilidade (CP)</strong>.</li>
+  <li><strong>Consistência eventual.</strong> A Lena recebe a confirmação assim que <em>um</em> servidor grava, e as outras cópias recebem a escrita depois, de forma assíncrona. A Bia, às 10:00:01, vê a lista <strong>sem o 1042</strong>. Às 10:00:02 o servidor de SP alcança e ela vê. O sistema converge, e é rápido porque não espera ninguém.</li>
+  <li>Quando duas cópias aceitam escritas diferentes para o mesmo dado, o banco precisa de uma regra para decidir. <strong>Last-write-wins</strong> fica com o carimbo de tempo mais novo e pode descartar uma escrita boa. <strong>CRDTs</strong> usam estruturas que juntam as duas versões sem perder nenhuma.</li>
+  <li><strong>Entre os dois extremos há degraus.</strong> Leitura do que você mesmo escreveu (a Lena sempre vê o 1042 depois de gravá-lo, mesmo que a Bia ainda não veja) e consistência causal (se o pedido 1044 foi feito por causa do 1042, ninguém vê o 1044 sem o 1042) são promessas mais fracas que a forte e mais úteis que a eventual.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Cada degrau da escada troca latência e disponibilidade por segurança. O saldo da Lena e o estoque do gato de pelúcia pedem o degrau alto. A lista "pedidos recentes" da Bia aguenta o baixo.</li>
+  <li>A escolha pode ser por operação, no mesmo banco: algumas bases deixam o programa pedir uma leitura forte quando precisa e eventual quando não precisa.</li>
+  <li>Se o nível for eventual, o programa precisa saber lidar com leitura velha e com conflito de escrita. O banco não faz isso sozinho.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Forte é linearizabilidade, não "sequential consistency".</strong> O artigo trata os dois nomes como sinônimos. Sequential consistency só exige que todos vejam as escritas na <em>mesma ordem</em>, sem prender essa ordem ao tempo real. É um modelo mais fraco.</li>
+    <li><strong>"Todas as réplicas sempre retornam os mesmos dados."</strong> Mais exato: toda leitura vê a última escrita confirmada. Uma réplica pode estar atrasada por dentro, desde que o banco não responda a leitura com ela, ou consulte o líder.</li>
+    <li><strong>"Forte é CA."</strong> O CA do CAP só existe sem rede entre os nós (um banco único). Um banco distribuído forte, na partição, é CP.</li>
+    <li><strong>"Tudo o que não é forte é eventual."</strong> Existe a escada do passo 5. Ela é o que bancos reais oferecem.</li>
+    <li><strong>"Quórum de 2 de 3 deixa uma réplica desatualizada, logo é eventual."</strong> Se a escrita e a leitura usam maioria (R + W &gt; N), a leitura encontra a escrita nova. Segue forte do ponto de vista de quem lê com quórum.</li>
+  </ul>
+  <h4 class="deep-h">Os números do exemplo</h4>
+  <p>Os horários (10:00:00 a 10:00:02) são exemplo. Na prática, a janela de atraso da consistência eventual costuma ser de milissegundos a poucos segundos, mas depende da rede e da carga.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Databases (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Wikipedia: linearizabilidade", href: "https://en.wikipedia.org/wiki/Linearizability" },
+    { label: "Wikipedia: consistência sequencial", href: "https://en.wikipedia.org/wiki/Sequential_consistency" },
+    { label: "Wikipedia: modelos de consistência", href: "https://en.wikipedia.org/wiki/Consistency_model" },
+    { label: "Wikipedia: consistência eventual", href: "https://en.wikipedia.org/wiki/Eventual_consistency" },
+    { label: "crdt.tech: o que são CRDTs", href: "https://crdt.tech/" },
+  ]} />
+</Deep>
+
+<p>Com a promessa de consistência escolhida, o banco ainda precisa decidir como cada pedido fica guardado por dentro. Falta saber como o pedido 1042 vive no disco do modelo mais tradicional, a linha de uma tabela.</p>
+
+<Flashcards cards={[
+  { q: "O que a consistência forte garante?",
+    a: "Depois que a escrita é confirmada, toda leitura, em qualquer servidor, vê esse valor (linearizabilidade)." },
+  { q: "O que a consistência eventual garante?",
+    a: "Que as cópias convergem se as escritas pararem. Por um tempo, servidores diferentes podem responder valores diferentes." },
+  { q: "Por que a escrita forte é mais lenta?",
+    a: "Porque precisa de confirmação de uma maioria de réplicas antes de responder. Quanto mais longe, mais espera." },
+  { q: "O que é last-write-wins?",
+    a: "Resolver conflito ficando com a escrita de carimbo de tempo mais novo. Simples, mas pode descartar uma escrita válida." },
+  { q: "Existe algo entre forte e eventual?",
+    a: "Sim: ler o que você mesmo escreveu, consistência causal e outros degraus intermediários." },
+]} />
