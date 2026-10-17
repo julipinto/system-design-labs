@@ -118,6 +118,9 @@ FIGS3D.push({ id: 'modelos', name: 'Modelos', mod: (() => {
     B.l.visible = true; }
 
   // ── rótulos que olham para a câmera ──
+  // no claro, o cinza de texto (ink) e o vermelho de erro do pal3 ficam abaixo de 4.5:1 sobre os fundos dos cartões: escurecidos aqui
+  const palM = () => theme === 'light' ? { ...pal3(), ink: '#4f5357' } : pal3();
+  const BAD = () => theme === 'light' ? '#b3261e' : '#ff5a4a';
   const tags = []; let ZC = 1;
   function tag(h = 13) {
     const c = document.createElement('canvas'); let tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
@@ -127,15 +130,15 @@ FIGS3D.push({ id: 'modelos', name: 'Modelos', mod: (() => {
       set(text, tone = 'hi') { if (text !== t.text || tone !== t.tone || t.force) { t.text = text; t.tone = tone; t.force = false; draw(); } return t; },
       at(x, y, z) { sp.position.copy(W(x, y, z)); sp.visible = true; return t; }, hide() { sp.visible = false; return t; } };
     function draw() {
-      const P = 5, lines = String(t.text).split('\n'), C = pal3(), A_ = '#' + accent.getHexString(), x = c.getContext('2d');
+      const P = 5, lines = String(t.text).split('\n'), C = palM(), A_ = '#' + accent.getHexString(), x = c.getContext('2d');
       const fs = t.h * P, f1 = `600 ${fs}px ${MONO3}`, f2 = `${fs * 0.82}px ${MONO3}`, pad = fs * 0.45, lh = fs * 1.2, lh2 = fs * 0.82 * 1.3;
       x.font = f1; let w = x.measureText(lines[0]).width; x.font = f2; for (const l of lines.slice(1)) w = Math.max(w, x.measureText(l).width);
       const nw = Math.ceil(w + pad * 2), nh = Math.ceil(lh + (lines.length - 1) * lh2 + pad * 1.4);
       if (c.width !== nw || c.height !== nh) { c.width = nw; c.height = nh; tex.dispose(); tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; mat.map = tex; mat.needsUpdate = true; }
-      const accT = theme === 'light' ? C.hi : A_, col = t.tone === 'acc' ? accT : t.tone === 'bad' ? '#ff5a4a' : t.tone === 'dim' ? C.ink : C.inkHi;
+      const accT = theme === 'light' ? C.hi : A_, col = t.tone === 'acc' ? accT : t.tone === 'bad' ? BAD() : t.tone === 'dim' ? C.ink : C.inkHi;
       x.clearRect(0, 0, nw, nh); x.fillStyle = theme === 'light' ? 'rgba(246,246,245,.94)' : 'rgba(18,19,20,.9)';
       x.beginPath(); x.roundRect(1, 1, nw - 2, nh - 2, fs * 0.3); x.fill();
-      x.strokeStyle = t.tone === 'acc' ? A_ : t.tone === 'bad' ? '#ff5a4a' : C.line; x.lineWidth = Math.max(1, P * 0.4); x.stroke();
+      x.strokeStyle = t.tone === 'acc' ? A_ : t.tone === 'bad' ? BAD() : C.line; x.lineWidth = Math.max(1, P * 0.4); x.stroke();
       x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = col; x.font = f1; x.fillText(lines[0], nw / 2, pad * 0.7 + lh / 2);
       x.font = f2; x.fillStyle = t.tone === 'acc' || t.tone === 'bad' ? col : C.ink; lines.slice(1).forEach((l, i) => x.fillText(l, nw / 2, pad * 0.7 + lh + lh2 * (i + 0.5)));
       tex.needsUpdate = true; const k = innerWidth < 640 ? 1.45 : NARROW() ? 1.2 : 1; t.w0 = nw / P * TS * k; t.h0 = nh / P * TS * k; sp.scale.set(t.w0 * ZC, t.h0 * ZC, 1);
@@ -336,8 +339,7 @@ FIGS3D.push({ id: 'modelos', name: 'Modelos', mod: (() => {
   document.getElementById('info')?.addEventListener('click', e => { const b = e.target.closest('[data-sc]'); if (b && active === 'modelos') setSc(b.dataset.sc); });
 
   // ── telas ──
-  const colors = () => { const C = pal3(), A_ = '#' + accent.getHexString(); return { C, A_, acc: theme === 'light' ? C.hi : A_ }; };
-  const BAD = '#ff5a4a';
+  const colors = () => { const C = palM(), A_ = '#' + accent.getHexString(); return { C, A_, acc: theme === 'light' ? C.hi : A_ }; };
   const paint = (cv, key, fn) => { key += theme + accent.getHex(); if (cv.key === key) return; cv.key = key; const { x, P } = cv; x.clearRect(0, 0, cv.c.width, cv.c.height); fn(x, v => v * P, colors()); cv.tex.needsUpdate = true; };
   const bg = (x, cv, col) => { x.fillStyle = col || (theme === 'light' ? '#f6f6f5' : '#141516'); x.fillRect(0, 0, cv.c.width, cv.c.height); };
   const txt = (x, u, s, a, b, size, col, w = 400, al = 'left') => { x.font = `${w} ${u(size)}px ${MONO3}`; x.fillStyle = col; x.textAlign = al; x.textBaseline = 'middle'; x.fillText(s, u(a), u(b)); };
@@ -351,7 +353,7 @@ FIGS3D.push({ id: 'modelos', name: 'Modelos', mod: (() => {
       txt(x, u, 'APP DA LOJA', 5, 8, 7, C.ink, 600); txt(x, u, 'consulta → resposta', 165, 8, 6, C.ink, 400, 'right');
       (S.q || []).slice(0, 3).forEach((l, i) => fitTxt(x, u, l, 5, 20 + i * 11, 8.6, 160, C.inkHi, 600));
       x.strokeStyle = C.detail; x.lineWidth = u(0.6); x.beginPath(); x.moveTo(u(5), u(52)); x.lineTo(u(165), u(52)); x.stroke();
-      (S.res || []).slice(0, 4).forEach(([l, tone], i) => fitTxt(x, u, l, 5, 62 + i * 12.5, 9.6, 160, tone === 'bad' ? BAD : tone === 'dim' ? C.ink : tone === 'hi' ? C.inkHi : acc, tone === 'dim' ? 400 : 600));
+      (S.res || []).slice(0, 4).forEach(([l, tone], i) => fitTxt(x, u, l, 5, 62 + i * 12.5, 9.6, 160, tone === 'bad' ? BAD() : tone === 'dim' ? C.ink : tone === 'hi' ? C.inkHi : acc, tone === 'dim' ? 400 : 600));
       if (S.meter) { rr(x, u, 4, 112, 162, 25, 3, { stroke: acc, lw: 0.9 });
         fitTxt(x, u, S.meter[0], 8, 124.5, 7.2, 86, C.ink); fitTxt(x, u, S.meter[1], 162, 124.5, 13, 72, acc, 600, 'right'); } });
   }

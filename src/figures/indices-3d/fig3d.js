@@ -11,6 +11,11 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
   const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
   const ease = f => f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
   const lerp3 = (a, b, f) => a.map((v, i) => v + (b[i] - v) * f);
+  // cores de texto: no claro, versões bem escuras. O texto dos cartões é miúdo e a textura reduzida mistura o traço com o fundo,
+  // então o hex precisa de folga para o pixel na tela ainda dar ≥ 4.5:1 (WCAG AA). O escuro fica como estava.
+  const INK = () => theme === 'light' ? '#33373a' : pal3().ink;
+  const BAD = () => theme === 'light' ? '#a61f14' : '#ff5a4a';
+  const WARN = () => theme === 'light' ? '#6e4100' : '#ffb02e';
 
   // ── dados (os mesmos do texto, do quiz e do glossário) ──
   const ROW = { 1041: ['Caio', 'caneca azul', 2, '39.80', 'Rio'], 1042: ['Lena', 'gato de pelúcia', 1, '89.90', 'Recife'], 1043: ['Bia', 'gato de pelúcia', 1, '89.90', 'SP'],
@@ -125,12 +130,12 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
       x.font = f1; let w = x.measureText(lines[0]).width; x.font = f2; for (const l of lines.slice(1)) w = Math.max(w, x.measureText(l).width);
       const nw = Math.ceil(w + pad * 2), nh = Math.ceil(lh + (lines.length - 1) * lh2 + pad * 1.4);
       if (c.width !== nw || c.height !== nh) { c.width = nw; c.height = nh; tex.dispose(); tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; mat.map = tex; mat.needsUpdate = true; }
-      const accT = theme === 'light' ? C.hi : A_, col = t.tone === 'acc' ? accT : t.tone === 'dim' ? C.ink : t.tone === 'bad' ? '#ff5a4a' : C.inkHi;
+      const accT = theme === 'light' ? C.hi : A_, col = t.tone === 'acc' ? accT : t.tone === 'dim' ? INK() : t.tone === 'bad' ? BAD() : C.inkHi;
       x.clearRect(0, 0, nw, nh); x.fillStyle = theme === 'light' ? 'rgba(246,246,245,.94)' : 'rgba(18,19,20,.9)';
       x.beginPath(); x.roundRect(1, 1, nw - 2, nh - 2, fs * 0.3); x.fill();
-      x.strokeStyle = t.tone === 'acc' ? A_ : t.tone === 'bad' ? '#ff5a4a' : C.line; x.lineWidth = Math.max(1, P * 0.35); x.stroke();
+      x.strokeStyle = t.tone === 'acc' ? A_ : t.tone === 'bad' ? BAD() : C.line; x.lineWidth = Math.max(1, P * 0.35); x.stroke();
       x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = col; x.font = f1; x.fillText(lines[0], nw / 2, pad * 0.7 + lh / 2);
-      x.font = f2; x.fillStyle = t.tone === 'acc' || t.tone === 'bad' ? col : C.ink; lines.slice(1).forEach((l, i) => x.fillText(l, nw / 2, pad * 0.7 + lh + lh2 * (i + 0.5)));
+      x.font = f2; x.fillStyle = t.tone === 'acc' || t.tone === 'bad' ? col : INK(); lines.slice(1).forEach((l, i) => x.fillText(l, nw / 2, pad * 0.7 + lh + lh2 * (i + 0.5)));
       tex.needsUpdate = true; const k = innerWidth < 640 ? 1.35 : NARROW() ? 1.15 : 1; sp.scale.set(nw / P * TS * k, nh / P * TS * k, 1);
     }
     tags.push(t); return t;
@@ -417,8 +422,8 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
   function spec() { const o = base(); cur().f(o, lt); if (cur().sql) o.sql = cur().sql; return o; }
 
   // ── desenhos nas telas ──
-  const accC = () => theme === 'light' ? pal3().hi : '#' + accent.getHexString();
-  const toneC = tn => tn === 'bad' ? '#ff5a4a' : tn === 'warn' ? '#ffb02e' : tn === 'acc' ? accC() : pal3().ink;
+  const accC = () => theme === 'light' ? '#5e2c00' : '#' + accent.getHexString();
+  const toneC = tn => tn === 'bad' ? BAD() : tn === 'warn' ? WARN() : tn === 'acc' ? accC() : pal3().ink;
   function drawTile(T_, id, st) {
     const key = id + st + theme + accent.getHex(); if (T_.key === key) return; T_.key = key;
     const cv = T_.top, { x, P } = cv, u = v => v * P, C = pal3(), light = theme === 'light', on = st === 'hit' || st === 'cmp', acc = accC();
@@ -428,9 +433,9 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
     const r = ROW[id], dim = st === 'miss';
     x.textBaseline = 'middle'; x.textAlign = 'left';
     x.fillStyle = dim ? C.inkHi : acc; x.font = `600 ${u(10.5)}px ${MONO3}`; x.fillText(String(id), u(4), u(7.6));
-    x.fillStyle = dim ? C.ink : C.inkHi; x.font = `600 ${u(9)}px ${MONO3}`; x.fillText(r[0], u(40), u(7.6));
-    x.textAlign = 'right'; x.fillStyle = C.ink; x.font = `${u(6)}px ${MONO3}`; x.fillText(dim ? '≠' : '2 KB', u(166), u(7));
-    x.textAlign = 'left'; x.fillStyle = dim ? C.ink : C.inkHi; x.font = `${u(6.6)}px ${MONO3}`; x.fillText(`${r[1]} · ${r[2]} un · ${r[3]} · ${r[4]}`, u(4), u(17.2));
+    x.fillStyle = dim ? INK() : C.inkHi; x.font = `600 ${u(9)}px ${MONO3}`; x.fillText(r[0], u(40), u(7.6));
+    x.textAlign = 'right'; x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText(dim ? '≠' : '2 KB', u(166), u(7));
+    x.textAlign = 'left'; x.fillStyle = dim ? INK() : C.inkHi; x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText(`${r[1]} · ${r[2]} un · ${r[3]} · ${r[4]}`, u(4), u(17.2));
     cv.tex.needsUpdate = true;
     T_.mat.emissiveIntensity = st === 'hit' ? 1 : st === 'cmp' ? 0.7 : st === 'miss' ? 0 : 0.25;
   }
@@ -442,14 +447,14 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
       cv.tex.needsUpdate = true; }
     const cv = S.fr, { x, P } = cv, u = v => v * P; x.fillStyle = theme === 'light' ? '#f6f6f5' : '#141516'; x.fillRect(0, 0, cv.c.width, cv.c.height);
     x.textBaseline = 'middle'; x.textAlign = 'left'; x.fillStyle = d.read ? acc : C.inkHi; x.font = `600 ${u(8.5)}px ${MONO3}`; x.fillText(d.lab || '', u(3), u(7.2));
-    const lw = x.measureText(d.lab || '').width / P; x.fillStyle = C.ink; x.font = `${u(6.6)}px ${MONO3}`; x.fillText(d.sub || '', u(8 + lw), u(7.4));
+    const lw = x.measureText(d.lab || '').width / P; x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText(d.sub || '', u(8 + lw), u(7.4));
     if (d.note) { x.textAlign = 'right'; x.fillStyle = toneC(d.tone || 'acc'); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText(d.note, u(175), u(7.4)); }
     cv.tex.needsUpdate = true;
     S.mat.emissiveIntensity = d.read === 1 ? 0.55 : d.read === 2 ? 0.18 : 0;
   }
   function frameBox(cv, on, tone) { const { x, P } = cv, u = v => v * P, C = pal3(), light = theme === 'light';
     x.fillStyle = on ? (light ? '#f6ece2' : '#2a1d12') : C.recess; x.fillRect(0, 0, cv.c.width, cv.c.height);
-    x.strokeStyle = tone === 'bad' ? '#ff5a4a' : on ? accC() : C.line; x.lineWidth = u(on || tone === 'bad' ? 1.2 : 0.5); x.strokeRect(u(0.6), u(0.6), cv.c.width - u(1.2), cv.c.height - u(1.2));
+    x.strokeStyle = tone === 'bad' ? BAD() : on ? accC() : C.line; x.lineWidth = u(on || tone === 'bad' ? 1.2 : 0.5); x.strokeRect(u(0.6), u(0.6), cv.c.width - u(1.2), cv.c.height - u(1.2));
     x.textBaseline = 'middle'; return { x, u, C }; }
   const ckey = {};
   const once = (k, v) => { if (ckey[k] === v) return false; ckey[k] = v; return true; };
@@ -457,48 +462,48 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
     const I = o.idx, thm = theme + accent.getHex(), acc = accC();
     if (sc === 'btree' && once('root', I.root + thm)) {
       const { x, u, C } = frameBox(rootTop, I.root > 0, I.root === -1 ? 'bad' : ''); x.textAlign = 'left';
-      x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('RAIZ · 1 página', u(5), u(7));
-      x.textAlign = 'center'; x.fillStyle = I.root === -1 ? C.ink : acc; x.font = `600 ${u(17)}px ${MONO3}`; x.fillText('[ 1043 ]', u(89), u(24));
-      x.font = `${u(7)}px ${MONO3}`; x.fillStyle = C.inkHi; x.textAlign = 'left'; x.fillText('← < 1043', u(5), u(42)); x.textAlign = 'right'; x.fillText('≥ 1043 →', u(173), u(42));
+      x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('RAIZ · 1 página', u(5), u(7));
+      x.textAlign = 'center'; x.fillStyle = I.root === -1 ? INK() : acc; x.font = `600 ${u(17)}px ${MONO3}`; x.fillText('[ 1043 ]', u(89), u(24));
+      x.font = `600 ${u(7)}px ${MONO3}`; x.fillStyle = C.inkHi; x.textAlign = 'left'; x.fillText('← < 1043', u(5), u(42)); x.textAlign = 'right'; x.fillText('≥ 1043 →', u(173), u(42));
       rootTop.tex.needsUpdate = true; rootMat.emissiveIntensity = I.root === 1 ? 0.6 : I.root === 2 ? 0.2 : 0; }
     if (sc === 'hash') {
       if (once('fn', I.fn + thm)) { const { x, u, C } = frameBox(fnTop, I.fn > 0); x.textAlign = 'left';
-        x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('FUNÇÃO HASH', u(5), u(7));
+        x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('FUNÇÃO HASH', u(5), u(7));
         x.fillStyle = C.inkHi; x.font = `600 ${u(9)}px ${MONO3}`; x.fillText('hash(id) % 4', u(5), u(22));
-        x.fillStyle = I.fn > 0 ? acc : C.ink; x.font = `600 ${u(9)}px ${MONO3}`; x.fillText(I.fn > 0 ? '1042 % 4 = 2' : 'hash(id) = id', u(5), u(37));
-        x.fillStyle = C.ink; x.font = `${u(5.6)}px ${MONO3}`; x.fillText('(exemplo didático)', u(5), u(51)); fnTop.tex.needsUpdate = true; fnMat.emissiveIntensity = I.fn === 1 ? 0.6 : I.fn === 2 ? 0.2 : 0; }
+        x.fillStyle = I.fn > 0 ? acc : INK(); x.font = `600 ${u(9)}px ${MONO3}`; x.fillText(I.fn > 0 ? '1042 % 4 = 2' : 'hash(id) = id', u(5), u(37));
+        x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText('(exemplo didático)', u(5), u(51)); fnTop.tex.needsUpdate = true; fnMat.emissiveIntensity = I.fn === 1 ? 0.6 : I.fn === 2 ? 0.2 : 0; }
       BK.forEach((B, k) => { const lv = (I.bk || [])[k] || 0; if (!once('bk' + k, lv + '|' + I.hi + '|' + I.rng + thm)) return;
         const { x, u, C } = frameBox(B.top, lv === 1 || lv === 2 || lv === 3); x.textAlign = 'left';
         x.fillStyle = lv ? acc : C.inkHi; x.font = `600 ${u(8.5)}px ${MONO3}`; x.fillText('BALDE ' + k, u(5), u(7.5));
         BUCK[k].forEach((id, j) => { const a = heapAt(id), hi = I.hi === id || (I.rng && id >= 1042 && id <= 1045);
           x.fillStyle = hi ? acc : C.inkHi; x.font = `600 ${u(12)}px ${MONO3}`; x.fillText(String(id), u(5), u(22 + j * 20));
-          x.fillStyle = hi ? acc : C.ink; x.font = `600 ${u(7.6)}px ${MONO3}`; x.fillText(`→ pág ${a.p + 1} · ${a.off}`, u(5), u(32 + j * 20)); });
+          x.fillStyle = hi ? acc : INK(); x.font = `600 ${u(7.6)}px ${MONO3}`; x.fillText(`→ pág ${a.p + 1} · ${a.off}`, u(5), u(32 + j * 20)); });
         B.top.tex.needsUpdate = true; B.mat.emissiveIntensity = lv === 1 ? 0.6 : lv ? 0.2 : 0; });
     }
     if (sc === 'inverted') TM.forEach((M, k) => { const show = I.show == null ? 6 : I.show; M.g.visible = step > 0 && k < show;
       const on = I.inv === k; if (!once('tm' + k, on + '|' + I.inv + thm)) return;
       const { x, u, C } = frameBox(M.top, on); const [term, ids] = TERMS[k]; x.textAlign = 'left';
-      x.fillStyle = C.ink; x.font = `600 ${u(5.6)}px ${MONO3}`; x.fillText('TERMO', u(5), u(7));
+      x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText('TERMO', u(5), u(7));
       x.fillStyle = on ? acc : C.inkHi; x.font = `600 ${u(term.length > 7 ? 13 : 15)}px ${MONO3}`; x.fillText(term, u(5), u(22));
-      x.fillStyle = on ? acc : C.ink; x.font = `600 ${u(9)}px ${MONO3}`; ids.forEach((id, j) => x.fillText(String(id), u(5 + (j % 2) * 44), u(39 + Math.floor(j / 2) * 13)));
+      x.fillStyle = on ? acc : INK(); x.font = `600 ${u(9)}px ${MONO3}`; ids.forEach((id, j) => x.fillText(String(id), u(5 + (j % 2) * 44), u(39 + Math.floor(j / 2) * 13)));
       M.top.tex.needsUpdate = true; M.mat.emissiveIntensity = on ? 0.7 : 0; });
     if (sc === 'lsm') {
-      if (once('mem', I.mem + thm)) { { const { x, u, C } = frameBox(memTop, false); x.textAlign = 'center'; x.fillStyle = C.ink; x.font = `${u(6)}px ${MONO3}`;
+      if (once('mem', I.mem + thm)) { { const { x, u, C } = frameBox(memTop, false); x.textAlign = 'center'; x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`;
           [0, 1].forEach(k => { x.setLineDash([u(1.6), u(1.2)]); x.strokeStyle = C.line; x.lineWidth = u(0.5); x.strokeRect(u(21), u(9 + k * 32), u(172), u(25)); x.setLineDash([]); x.fillText('livre', u(107), u(21.5 + k * 32)); });
           memTop.tex.needsUpdate = true; }
         const cv = memFr, { x, P } = cv, u = v => v * P, C = pal3(); x.fillStyle = theme === 'light' ? '#f6f6f5' : '#141516'; x.fillRect(0, 0, cv.c.width, cv.c.height);
         x.textBaseline = 'middle'; x.textAlign = 'left'; x.fillStyle = C.inkHi; x.font = `600 ${u(8)}px ${MONO3}`; x.fillText('MEMTABLE', u(3), u(6.4));
-        x.fillStyle = C.ink; x.font = `${u(6.4)}px ${MONO3}`; x.fillText('memória (RAM) · ordenada', u(52), u(6.6));
-        x.textAlign = 'right'; x.fillStyle = I.mem === 'full' ? '#ffb02e' : accC(); x.font = `600 ${u(7)}px ${MONO3}`; x.fillText(I.mem === 'full' ? '2 de 2 · cheia' : I.mem === 'empty' ? '0 de 2' : '1 de 2', u(211), u(6.6));
+        x.fillStyle = INK(); x.font = `600 ${u(6.8)}px ${MONO3}`; x.fillText('memória (RAM) · ordenada', u(52), u(6.6));
+        x.textAlign = 'right'; x.fillStyle = I.mem === 'full' ? WARN() : accC(); x.font = `600 ${u(7)}px ${MONO3}`; x.fillText(I.mem === 'full' ? '2 de 2 · cheia' : I.mem === 'empty' ? '0 de 2' : '1 de 2', u(211), u(6.6));
         cv.tex.needsUpdate = true; memMat.emissiveIntensity = I.mem === 'full' ? 0.35 : 0; }
       if (once('wal', I.wal + '|' + I.walHi + '|' + I.walDrop + thm)) { const { x, u, C } = frameBox(walTop, I.walHi); x.textAlign = 'left';
-        x.fillStyle = C.inkHi; x.font = `600 ${u(8)}px ${MONO3}`; x.fillText('WAL', u(5), u(8)); x.fillStyle = C.ink; x.font = `${u(6)}px ${MONO3}`; x.fillText('disco · só acrescenta no fim', u(30), u(8.4));
+        x.fillStyle = C.inkHi; x.font = `600 ${u(8)}px ${MONO3}`; x.fillText('WAL', u(5), u(8)); x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText('disco · só acrescenta no fim', u(30), u(8.4));
         const lines = [['#1', 'PUT 1045 · Davi · camiseta preta · 147.00'], ['#2', 'PUT 1046 · Bia · caneca azul · 19.90']];
         lines.slice(0, I.wal || 0).forEach(([n, l], j) => { const y = 24 + j * 14, hi = I.walHi && j === 1;
-          x.fillStyle = I.walDrop ? C.ink : hi ? accC() : C.inkHi; x.font = `600 ${u(7.6)}px ${MONO3}`; x.fillText(`${n}  ${l}`, u(5), u(y));
-          if (I.walDrop) { const w = x.measureText(`${n}  ${l}`).width; x.strokeStyle = C.ink; x.lineWidth = u(0.5); x.beginPath(); x.moveTo(u(5), u(y)); x.lineTo(u(5) + w, u(y)); x.stroke(); } });
-        if (!I.wal) { x.fillStyle = C.ink; x.font = `${u(6.6)}px ${MONO3}`; x.fillText('(vazio: o que estava aqui já foi para as SSTables)', u(5), u(26)); }
-        if (I.walDrop) { x.fillStyle = C.ink; x.font = `${u(6.4)}px ${MONO3}`; x.fillText('já está na SST-3: pode ser descartado', u(5), u(56)); }
+          x.fillStyle = I.walDrop ? INK() : hi ? accC() : C.inkHi; x.font = `600 ${u(7.6)}px ${MONO3}`; x.fillText(`${n}  ${l}`, u(5), u(y));
+          if (I.walDrop) { const w = x.measureText(`${n}  ${l}`).width; x.strokeStyle = INK(); x.lineWidth = u(0.5); x.beginPath(); x.moveTo(u(5), u(y)); x.lineTo(u(5) + w, u(y)); x.stroke(); } });
+        if (!I.wal) { x.fillStyle = INK(); x.font = `600 ${u(6.6)}px ${MONO3}`; x.fillText('(vazio: o que estava aqui já foi para as SSTables)', u(5), u(26)); }
+        if (I.walDrop) { x.fillStyle = INK(); x.font = `600 ${u(6.8)}px ${MONO3}`; x.fillText('já está na SST-3: pode ser descartado', u(5), u(56)); }
         walTop.tex.needsUpdate = true; walMat.emissiveIntensity = I.walHi ? 0.4 : 0; }
     }
   }
@@ -507,18 +512,18 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
     const cv = scr, { x, P } = cv, u = v => v * P, C = pal3(), acc = accC();
     x.fillStyle = theme === 'light' ? '#f6f6f5' : '#141516'; x.fillRect(0, 0, cv.c.width, cv.c.height); x.textBaseline = 'middle'; x.textAlign = 'left';
     const L0 = 228;
-    x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('PÁGINAS LIDAS ATÉ AGORA', u(8), u(9));
+    x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('PÁGINAS LIDAS ATÉ AGORA', u(8), u(9));
     x.fillStyle = acc; x.font = `600 ${u(38)}px ${MONO3}`; x.fillText(String(o.reads), u(8), u(37));
-    x.fillStyle = C.ink; x.font = `${u(6.4)}px ${MONO3}`; x.fillText(o.cLab, u(80), u(27)); x.fillStyle = C.inkHi; x.font = `600 ${u(14)}px ${MONO3}`; x.fillText(String(o.cmps), u(80), u(41));
-    x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('COM 1 MILHÃO DE PEDIDOS', u(8), u(66));
-    x.fillStyle = o.milTone === 'bad' ? '#ff5a4a' : o.million === '—' ? C.ink : acc; let mf = 12; x.font = `600 ${u(mf)}px ${MONO3}`;
+    x.fillStyle = INK(); x.font = `600 ${u(6.8)}px ${MONO3}`; x.fillText(o.cLab, u(80), u(27)); x.fillStyle = C.inkHi; x.font = `600 ${u(14)}px ${MONO3}`; x.fillText(String(o.cmps), u(80), u(41));
+    x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('COM 1 MILHÃO DE PEDIDOS', u(8), u(66));
+    x.fillStyle = o.milTone === 'bad' ? BAD() : o.million === '—' ? INK() : acc; let mf = 12; x.font = `600 ${u(mf)}px ${MONO3}`;
     const mw = x.measureText(o.million).width; if (mw > u(214)) { mf *= u(214) / mw; x.font = `600 ${u(mf)}px ${MONO3}`; } x.fillText(o.million, u(8), u(81));
     x.strokeStyle = C.line; x.lineWidth = u(0.4); x.beginPath(); x.moveTo(u(L0 - 10), u(6)); x.lineTo(u(L0 - 10), u(94)); x.stroke();
-    x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('CONSULTA · ' + SCNAME[sc].toUpperCase(), u(L0), u(9));
+    x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('CONSULTA · ' + SCNAME[sc].toUpperCase(), u(L0), u(9));
     const sl = o.sql.split('\n'), fs = Math.max(...sl.map(l => l.length)) > 34 ? 8 : 10.5;
     x.fillStyle = C.inkHi; x.font = `600 ${u(fs)}px ${MONO3}`; sl.forEach((l, i) => x.fillText(l, u(L0), u(24 + i * (fs + 4))));
-    x.fillStyle = C.ink; x.font = `600 ${u(6.5)}px ${MONO3}`; x.fillText('RESPOSTA', u(L0), u(62));
-    x.font = `600 ${u(o.res.length > 1 ? 6.4 : 7)}px ${MONO3}`; x.fillStyle = o.res.length ? acc : C.ink;
+    x.fillStyle = INK(); x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText('RESPOSTA', u(L0), u(62));
+    x.font = `600 ${u(o.res.length > 1 ? 6.4 : 7)}px ${MONO3}`; x.fillStyle = o.res.length ? acc : INK();
     (o.res.length ? o.res : ['procurando…']).slice(0, 2).forEach((l, i) => x.fillText(l, u(L0), u(75 + i * 11)));
     cv.tex.needsUpdate = true;
   }
@@ -618,7 +623,20 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
     return false;
   }
   function click() { next(); }
-  themeHooks.push(() => { tags.forEach(t => { if (t.text != null) { t.force = true; t.set(t.text, t.tone); } });
+  // texto miúdo no claro: a textura reduzida (mipmap) mistura o traço com o fundo em luz linear, e tinta escura sobre fundo
+  // claro perde muito nessa conta (o contraste medido caía para ~2.5:1). No claro, a textura é lida crua e o shader converte
+  // de sRGB depois de filtrar: a média fica em gama, como a tela reduz texto. No escuro, nada muda (decodificação normal).
+  const CANV = () => [...IDS.map(id => TILE[id].top), ...SLAB.flatMap(S => [S.top, S.fr]), rootTop, fnTop, ...BK.map(B => B.top), ...TM.map(M => M.top), memTop, memFr, walTop, scr];
+  const GAM = { value: 0 };
+  CANV().forEach(cv => { cv.mesh.material.onBeforeCompile = sh => { sh.uniforms.uGam = GAM;
+    sh.fragmentShader = 'uniform float uGam;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#ifdef USE_MAP
+      vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+      if ( uGam > 0.5 ) sampledDiffuseColor.rgb = mix( pow( sampledDiffuseColor.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), sampledDiffuseColor.rgb * 0.0773993808, vec3( lessThanEqual( sampledDiffuseColor.rgb, vec3( 0.04045 ) ) ) );
+      diffuseColor *= sampledDiffuseColor;
+    #endif`); }; cv.mesh.material.needsUpdate = true; });
+  const crisp = light => { GAM.value = light ? 1 : 0; CANV().forEach(cv => { const cs = light ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+    if (cv.tex.colorSpace !== cs) { cv.tex.colorSpace = cs; cv.tex.needsUpdate = true; } }); };
+  themeHooks.push(t => { crisp(t === 'light'); tags.forEach(t => { if (t.text != null) { t.force = true; t.set(t.text, t.tone); } });
     for (const k in ckey) delete ckey[k]; SLAB.forEach(S => S.key = ''); IDS.forEach(id => TILE[id].key = '');
     beamOff.color.set(pal3().line); beamOn.color.copy(accent); headMat.color.copy(accent); });
   render();
