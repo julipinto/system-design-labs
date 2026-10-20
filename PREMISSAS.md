@@ -31,6 +31,12 @@ O objetivo é **inesquecível**: depois de mexer, ela tem que conseguir explicar
 18. Glossário por módulo com fichas tocáveis para quem é novo na área; quiz por módulo com botão fixo na barra.
 19. Conteúdo com palavras próprias, fontes primárias citadas e sem marca de curso.
 
+## Visual do site (sistema de design, ver docs/design/SISTEMA.md)
+18b. **O site fala a língua das figuras 3D**: chão grafite (claro: cinza frio), traço fino de 1px, rótulos e números em mono, e **uma cor só, o sódio das figuras, que acende no que está ativo** (aula atual na régua, "Faça agora", flashcard aberto, figura em foco). Selecionado ganha contorno; aceso com halo, só o "Faça agora" e a figura.
+18c. **Réguas em vez de caixas.** Caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa, borda colorida grossa na lateral, degradê roxo/azul, ícone em quadradinho sobre título, rótulo pequeno em cima do título nem Inter em tudo.
+18d. **Fonte feita para ler**: Atkinson Hyperlegible Next no texto e Atkinson Hyperlegible Mono nos rótulos e dados, servidas pelo próprio site. Todo texto passa de 4,5:1 nos dois temas.
+18e. **CSS em um lugar**: tokens em `public/shared/sdlabs.css`, peças de widget comuns em `src/styles/widgets.css`, quiz em `public/shared/quiz.css`. O CSS de um módulo só tem o que é dele. Usar `--accent-ink` (a figura embutida reescreve `--accent`). A página `/sistema-de-design/` mostra tudo em uso.
+
 ## Material que a Juliana passa (busca em profundidade)
 20. **Ler tudo o que ela colocar**: notas do canvas, MDs, imagens das aulas e links, por inteiro, antes de escrever. A lista de aulas da imagem define a ordem e os títulos; se a imagem cortar uma aula, conferir no artigo.
 21. **Seguir os links em profundidade**: abrir o artigo indicado, **todas as referências que ele usa** e, quando valer, **o link do link** (a fonte primária: RFC, documentação, paper). Conferir cada link (status 200) e só citar o que abre.
