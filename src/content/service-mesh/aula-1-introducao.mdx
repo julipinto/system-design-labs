@@ -1,0 +1,71 @@
+---
+title: "Introdução ao service mesh"
+order: 1
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O módulo 9 terminou com o <code>bff-app</code> montando a tela da Lena, com timeout e fallback para o que falhasse. Mas aquela tela é só a porta da frente. Atrás dela, a loja roda 30 pods que se chamam o tempo todo: o <code>pedidos</code> chama o <code>pagamentos</code> e o <code>estoque</code>, o <code>bff-app</code> chama o <code>catalogo</code>. Cada time escreveu, no seu serviço, o seu jeito de tentar de novo, de esperar, de cifrar e de medir. O problema deste módulo é tirar isso do código e colocar na rede, uma vez só, igual para todos.</p>
+
+<OneLiner>Service mesh (malha de serviço) é uma camada de rede que cuida da conversa entre os serviços, com um proxy ao lado de cada um, para que retry, timeout, TLS e métricas deixem de ser código de cada time.</OneLiner>
+
+<DoIt>
+  <p>Na figura, abra o botão <strong>Sem malha</strong> e avance pelos passos com a seta seta → do teclado. No primeiro, <em>O pedidos cobra o pedido 1048</em>, siga a luz do <code>pedidos</code> ao <code>pagamentos</code>. No passo <em>E se der errado: 5 retries sem espera</em>, conte no contador quantas chamadas o <code>pagamentos</code> recebe e quanto o <code>pedidos</code> espera entre elas. Nos passos do estoque e do catalogo, veja quem não cifra e quem não mede nada. Depois toque em <strong>Sidecar</strong> e responda: o que mudou no código dos serviços? (O contador "linhas mudadas no app" diz.)</p>
+</DoIt>
+
+<Figure3D path="labs/service-mesh/mesh-3d/?mode=sem" poster="labs/service-mesh/mesh-3d-previa.webp" title="Figura interativa: Sem malha: cada app do seu jeito" alt="Prévia da figura 3D: Sem malha: cada app do seu jeito" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O pedido 1048 da Lena, de 94.90, chega ao <code>pedidos</code>. Ele precisa cobrar, e chama o <code>pagamentos</code> como qualquer cliente HTTP chamaria: <code>POST http://pagamentos:8080/cobrancas</code>, com o corpo <code>{`{ "pedido_id": 1048, "valor": 94.90 }`}</code>.</li>
+  <li>O <code>pagamentos</code> responde <strong>503</strong>. Sem malha, quem decide o que fazer é o próprio <code>pedidos</code>, e o time dele escolheu tentar de novo <strong>5 vezes, sem esperar</strong> entre as tentativas. Se o <code>pagamentos</code> estava sobrecarregado, agora recebe 6 chamadas em vez de 1.</li>
+  <li>Cada outro serviço resolveu a sua parte de outro jeito. O <code>estoque</code> não usa TLS, então o que ele recebe e envia trafega em texto aberto. O <code>catalogo</code> não mede nada, então ninguém sabe quanto ele demora. E isso se repete em Go, em Node.js e em Java, cada um com a sua biblioteca.</li>
+  <li>A ideia da malha é tirar esse código dos serviços. Um <strong>proxy</strong> fica ao lado de cada app e intercepta a chamada que sai e a que entra. O app continua pedindo <code>http://pagamentos:8080/cobrancas</code>, sem saber que o proxy existe.</li>
+  <li>Como o retry, o TLS e a métrica agora moram nos proxies, a regra é escrita <strong>uma vez</strong>, num lugar só, e vale para os 30 pods, qualquer que seja a linguagem. Esse conjunto de proxies e o que o comanda é a malha.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>Um comportamento só.</strong> Em vez de três bibliotecas com três jeitos de errar, existe uma regra de retry, e ela é igual para todos.</li>
+  <li><strong>Troca sem redeploy.</strong> Mudar o limite de tentativas do <code>pedidos</code> deixa de ser um deploy de código e vira uma configuração.</li>
+  <li><strong>Visibilidade de graça.</strong> O proxy vê toda chamada, então latência e erro por par de serviços aparecem sem ninguém instrumentar o <code>catalogo</code>.</li>
+  <li><strong>O preço.</strong> Cada chamada passa por proxies a mais, e a malha vira um sistema a operar. O resto do módulo mostra quanto custa e quando compensa.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A definição original</h4>
+  <p>William Morgan, da Buoyant, definiu em 2017: um service mesh é uma camada de infraestrutura dedicada à comunicação serviço a serviço, em geral implementada como um conjunto de proxies leves instalados ao lado do código da aplicação, sem que ela perceba. Ele também mostra que a ideia não nasceu do nada: bibliotecas como Finagle, Stubby e Hystrix já faziam retry, deadline e balanceamento dentro do código, e foram as primeiras "malhas". O que mudou com contêineres e Kubernetes foi poder mover essa função para fora do código.</p>
+  <h4 class="deep-h">O que a malha não é</h4>
+  <p>Não é um balanceador no meio do caminho nem um gateway de borda (aula 6). É uma camada que vive entre os serviços de dentro, e por isso o artigo a trata como um <em>pattern</em> de networking, não como um produto.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo diz que os serviços "nem saibam que estão em uma malha". A chamada de saída não muda mesmo, mas a malha não é invisível: o tracing só junta os spans se o app repassar certos cabeçalhos (aula 2), o retry só é seguro em chamadas que podem se repetir (aula 2) e o proxy ocupa CPU e memória (aulas 4 e 5).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Service Mesh (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "William Morgan, \"What's a service mesh? And why do I need one?\" (Buoyant, 2017, cópia no Internet Archive)", href: "https://web.archive.org/web/20180104233448/https://buoyant.io/2017/04/25/whats-a-service-mesh-and-why-do-i-need-one/" },
+    { label: "Istio: o que é um service mesh", href: "https://istio.io/latest/about/service-mesh/" },
+    { label: "Red Hat: o que é um service mesh", href: "https://www.redhat.com/pt-br/topics/microservices/what-is-a-service-mesh" },
+    { label: "Cilium: o que é service mesh e quais requisitos ele atende", href: "https://docs.cilium.io/en/stable/network/servicemesh/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A malha tirou o retry do código do <code>pedidos</code>, mas ainda não dissemos o que o proxy faz com a chamada do pedido 1048 no caminho. Falta saber o que ele consegue fazer com ela: rotear, equilibrar, repetir com regra, cifrar, barrar e medir.</p>
+
+<Flashcards cards={[
+  { q: "O que é um service mesh, em uma frase?",
+    a: "Uma camada de rede que cuida da conversa entre os serviços com um proxy ao lado de cada um, para que retry, timeout, TLS e métricas não sejam código de cada time." },
+  { q: "Que problema da loja a malha resolve?",
+    a: "Cada time escrevia a sua versão de retry, TLS e métrica: o pedidos tenta 5 vezes sem esperar, o estoque não cifra, o catalogo não mede. A malha põe isso na rede, igual para todos." },
+  { q: "O app precisa mudar a chamada para usar a malha?",
+    a: "Não. O pedidos continua chamando http://pagamentos:8080/cobrancas. O proxy ao lado dele intercepta e aplica as regras." },
+  { q: "Quem são as primeiras 'malhas' da história?",
+    a: "Bibliotecas dentro do código, como Finagle, Stubby e Hystrix. A malha moderna move a mesma função para proxies fora do código." },
+]} />

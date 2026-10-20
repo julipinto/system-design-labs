@@ -17,6 +17,8 @@ const modules: Mod[] = [
     text: 'Tipos de banco, níveis de consistência, os seis modelos de dados, páginas, LSM-Tree, B-Tree, hash e índice invertido, com calculadoras e simuladores. Com quiz de 61 perguntas.' },
   { slug: 'cache', title: 'Estratégias de Cache', lessons: 7, poster: 'labs/cache/cache-3d-previa.webp', alt: 'Prévia da figura 3D de cache',
     text: 'Hit e miss, TTL, evicção (LRU, LFU e FIFO), hit rate, hashmap e Redis, cache-aside, write-through, write-behind e CDN, com um proxy em Go lido linha a linha. Com quiz de 46 perguntas.' },
+  { slug: 'service-mesh', title: 'Service Mesh', lessons: 6, poster: 'labs/service-mesh/mesh-3d-previa.webp', alt: 'Prévia da figura 3D de service mesh',
+    text: 'Retry, timeout, mTLS e métricas tirados do código e postos na rede: control plane e data plane, sidecar, proxyless, eBPF e ambient (ztunnel e waypoint), com calculadoras e quiz de 35 perguntas.' },
   { title: 'Em breve', text: 'O módulo 6 entra aqui.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');

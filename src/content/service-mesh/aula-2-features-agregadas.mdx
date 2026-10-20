@@ -1,0 +1,217 @@
+---
+title: "Features agregadas da malha"
+order: 2
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o proxy ficou ao lado de cada app e a regra saiu do código. Mas qual regra, exatamente? Pegue a chamada do pedido 1048, do <code>pedidos</code> ao <code>pagamentos</code>, e siga o que acontece com ela dentro da malha, na ordem em que acontece.</p>
+
+<OneLiner>Como o proxy vê toda chamada, ele pode rotear, equilibrar, repetir com regra, cifrar, barrar e medir sem uma linha nova no app; e o que ele faz de errado, também faz em todos.</OneLiner>
+
+<DoIt>
+  <p>Na figura, toque em <strong>Regras</strong> e vá até o passo <em>Retry: até 2 vezes, só em 503</em>: veja a primeira luz voltar vermelha até o proxy do <code>pedidos</code> e a segunda passar. Siga para <em>Só o pedidos pode cobrar: o catalogo leva 403</em> e note quem para no proxy do <code>pagamentos</code>. Depois toque em <strong>Falha</strong>, abra <em>E se der errado: 1 clique, 27 chamadas</em> e olhe o contador sobre o <code>pagamentos</code>; o passo seguinte, <em>A saída: repetir num lugar só</em>, mostra a mesma conta com 3.</p>
+</DoIt>
+
+<Figure3D path="labs/service-mesh/mesh-3d/?mode=regras&step=2" poster="labs/service-mesh/mesh-3d-previa.webp" title="Figura interativa: Regras: o control plane empurra" alt="Prévia da figura 3D: Regras: o control plane empurra" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Roteamento e balanceamento.</strong> O proxy do <code>pedidos</code> lê o destino e escolhe um dos 2 pods do <code>pagamentos</code> por round robin. Para o <code>catalogo</code>, que tem 10 pods, a escolha é por least request. Os algoritmos do módulo 7 passam a rodar no proxy de quem chama, sem um balanceador no meio. A mesma regra decide para onde vai o <strong>canary</strong>: <strong>10%</strong> das chamadas ao <code>pedidos</code> vão para a v2, ou só as que trazem o cabeçalho <code>x-versao: v2</code>.</li>
+  <li><strong>Identidade e autorização.</strong> Antes de enviar, os dois proxies fazem um handshake de <strong>mTLS</strong>: cada um apresenta um certificado que diz quem é, a identidade <code>spiffe://loja.local/ns/loja/sa/pedidos</code>. Em seguida o proxy do <code>pagamentos</code> confere a <strong>política de autorização</strong>: só o <code>pedidos</code> pode fazer <code>POST /cobrancas</code>. Se o <code>catalogo</code> tentar, volta <strong>403</strong> com o corpo <code>RBAC: access denied</code>, e o código do <code>pagamentos</code> nem ficou sabendo.</li>
+  <li><strong>Timeout e retry.</strong> O <code>pagamentos</code> responde 503 uma vez. O proxy do <code>pedidos</code> repete a chamada, até <strong>2 vezes</strong>, com <strong>25 ms</strong> entre as tentativas, só para erros 503. Se a chamada inteira passar de <strong>2 s</strong>, ele a cancela e responde 504. O app do <code>pedidos</code> só vê o resultado final.</li>
+  <li><strong>Telemetria.</strong> Cada proxy anota o que viu: latência (p50 e p99), taxa de erro e vazão por par de serviços, como <code>pedidos → pagamentos</code>, e emite um span de tracing com o <code>trace_id</code> do módulo 6. Ninguém instrumentou o <code>catalogo</code>, e ele aparece nos gráficos.</li>
+  <li><strong>Fault injection.</strong> Para testar o fallback do <code>bff-app</code> (módulo 9), a malha pode fingir uma falha: <strong>10%</strong> das chamadas ao <code>recomendacoes</code> recebem um 503, ou <strong>2 s</strong> de atraso. O <code>recomendacoes</code> não foi tocado; quem inventa a falha é o proxy de quem chama.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: a tempestade de retries</h3>
+
+<p>O retry do passo 3 só ajuda enquanto for pouco. Imagine que o <code>pagamentos</code> fique lento, e que cada salto tenha 3 tentativas: do app da Lena ao <code>bff-app</code>, do <code>bff-app</code> ao <code>pedidos</code>, do <code>pedidos</code> ao <code>pagamentos</code>. Cada tentativa de cima dispara 3 de baixo. Um clique vira 3 × 3 × 3 = <strong>27</strong> chamadas ao <code>pagamentos</code>, justo quando ele não aguenta uma. Isso é uma tempestade de retries: o remédio derruba quem ia curar.</p>
+
+<Widget name="retrystorm" title="Tempestade de retries" hint="Escolha em quantos saltos há retry e quantas tentativas cada salto faz. A conta mostra quantas chamadas chegam ao pagamentos sem limite, com retry só no último salto e com orçamento de retry." />
+
+<p>Retry no código do app e retry na malha também se multiplicam. Se o <code>pedidos</code> mantivesse as 5 tentativas do código (6 chamadas) e a malha somasse as suas 2 (3 por chamada), o <code>pagamentos</code> veria até 18 chamadas por pedido. Por isso a malha só ajuda se o retry sair do código.</p>
+
+<h3 class="sec">Quem pode chamar o pagamentos?</h3>
+
+<p>A autorização do passo 2 não tem jeito de sair "meio ligada": quando existe uma política ALLOW para o <code>pagamentos</code>, tudo o que ela não permite é negado. Experimente.</p>
+
+<Widget name="authz" title="Quem pode chamar?" hint="Escolha a política do pagamentos e veja, para cada origem e cada chamada, se volta 200 ou 403." />
+
+<WhyItMatters>
+  <li><strong>Regra única.</strong> A tentativa de retry, o timeout e a política de acesso são escritos uma vez e valem para as três linguagens da loja.</li>
+  <li><strong>Segurança sem código.</strong> O <code>pagamentos</code> passa a aceitar só quem tem a identidade certa, mesmo que ninguém lembre de pedir isso no código dele.</li>
+  <li><strong>Menos adivinhação.</strong> Com métrica por par de serviços, uma lentidão aponta para <code>pedidos → pagamentos</code>, e não para "algum lugar".</li>
+  <li><strong>O risco é o mesmo, em escala.</strong> Uma regra errada, como retry sem limite, também vale para todos os serviços de uma vez.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">As mesmas regras, em YAML do Istio</h4>
+  <p>Estas são configurações do Istio para o que a aula descreveu, com os nomes da loja. Os campos são os da referência oficial; só os valores são os da loja.</p>
+  <p><strong>Canary de 10% e roteamento por cabeçalho</strong> (VirtualService e DestinationRule do <code>pedidos</code>):</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pedidos
+  namespace: loja
+spec:
+  hosts:
+  - pedidos
+  http:
+  - match:
+    - headers:
+        x-versao:
+          exact: v2
+    route:
+    - destination:
+        host: pedidos
+        subset: v2
+  - route:
+    - destination:
+        host: pedidos
+        subset: v1
+      weight: 90
+    - destination:
+        host: pedidos
+        subset: v2
+      weight: 10
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pedidos
+  namespace: loja
+spec:
+  host: pedidos
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2`}</code></pre>
+  <p><strong>Algoritmo por serviço</strong> (<code>catalogo</code> com least request; para o <code>pagamentos</code>, troque por <code>ROUND_ROBIN</code>):</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: catalogo
+  namespace: loja
+spec:
+  host: catalogo
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST`}</code></pre>
+  <p><strong>Retry com regra e timeout</strong> para o <code>pagamentos</code>. O <code>attempts: 2</code> significa até 2 tentativas além da primeira, e o <code>backoff</code> é o intervalo mínimo entre elas (o padrão do Istio já é 25 ms). Como o padrão do <code>retryOn</code> não inclui o 503, ele vai escrito:</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pagamentos
+  namespace: loja
+spec:
+  hosts:
+  - pagamentos
+  http:
+  - route:
+    - destination:
+        host: pagamentos
+    timeout: 2s
+    retries:
+      attempts: 2
+      backoff: 25ms
+      retryOn: "503"`}</code></pre>
+  <p>Repetir um <code>POST /cobrancas</code> só é seguro se o <code>pagamentos</code> reconhece a repetição. Para esta aula, o <code>pedidos</code> manda <code>Idempotency-Key: pedido-1048</code> (um cabeçalho de exemplo) e o <code>pagamentos</code> cobra uma vez por chave. A malha não sabe disso: quem sabe se uma operação pode se repetir é o time do serviço.</p>
+  <p><strong>mTLS obrigatório</strong> no namespace (PeerAuthentication) e <strong>autorização</strong> do <code>pagamentos</code>. O Istio escreve a identidade nas políticas sem o prefixo <code>spiffe://</code>, no formato <code>domínio/ns/namespace/sa/conta</code>; o <code>loja.local</code> é o domínio de confiança de exemplo:</p>
+<pre><code>{String.raw`apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: loja
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pagamentos-so-pedidos
+  namespace: loja
+spec:
+  selector:
+    matchLabels:
+      app: pagamentos
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["loja.local/ns/loja/sa/pedidos"]
+    to:
+    - operation:
+        methods: ["POST"]
+        paths: ["/cobrancas"]`}</code></pre>
+  <p><strong>Fault injection</strong> no <code>recomendacoes</code>: 10% de 503. Para o atraso, troque o bloco <code>abort</code> por <code>delay</code> com <code>fixedDelay: 2s</code>:</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: recomendacoes
+  namespace: loja
+spec:
+  hosts:
+  - recomendacoes
+  http:
+  - fault:
+      abort:
+        httpStatus: 503
+        percentage:
+          value: 10
+    route:
+    - destination:
+        host: recomendacoes`}</code></pre>
+  <p>A documentação avisa que, com fault injection ligada no lado do cliente, os campos <code>timeout</code> e <code>retries</code> da mesma rota não entram em ação. Para testar o retry, use a falha de verdade ou outra rota.</p>
+  <h4 class="deep-h">O que a telemetria entrega, de verdade</h4>
+  <p>O Istio exporta métricas como <code>istio_requests_total</code>, já com rótulos de quem chamou e de quem respondeu (<code>source_workload</code>, <code>destination_workload</code>, <code>response_code</code>) e a marca <code>connection_security_policy="mutual_tls"</code> quando a chamada foi cifrada. Para o tracing, os proxies geram os spans sozinhos, mas o app precisa <strong>repassar os cabeçalhos de contexto</strong> (como o <code>traceparent</code>) nas chamadas que faz; sem isso, cada span fica solto e o trace não se monta.</p>
+  <h4 class="deep-h">Contra a tempestade</h4>
+  <ul>
+    <li><strong>Retry em um nível só.</strong> Se a malha repete, o código não repete.</li>
+    <li><strong>Orçamento de retry.</strong> O Envoy limita os retries simultâneos a uma fração das chamadas ativas (<code>retry_budget</code>, padrão de 20%, e ao menos 3 retries por vez). O Istio expõe um limite mais simples, <code>connectionPool.http.maxRetries</code>, o máximo de retries em andamento para o serviço.</li>
+    <li><strong>Remover o host ruim.</strong> A <code>outlierDetection</code> da DestinationRule tira da rotação o pod que só devolve 5xx.</li>
+  </ul>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li>O artigo lista "Least Request, Round Robin, IP-Hash e Least Connection". Na referência atual do Istio, o balanceamento simples tem round robin, least request, random e passthrough, e há o hash consistente (por cabeçalho, cookie ou IP de origem). Least connection existe só como opção obsoleta ("use LEAST_REQUEST"), e a própria documentação recomenda least request no lugar do round robin.</li>
+    <li>O artigo cita "fallbacks" entre os mecanismos que a malha executa sem a aplicação perceber. A malha repete, cancela, tira o host ruim e redireciona; <strong>o fallback</strong>, a resposta alternativa, é decisão do app (o do <code>bff-app</code> do módulo 9).</li>
+    <li>O artigo trata o tracing como "desacoplado das aplicações". Os spans sim, mas os cabeçalhos de contexto o app precisa repassar.</li>
+    <li>Sobre retry, o artigo só fala em benefícios. Ele só é seguro em chamada que pode se repetir, e sem limite vira tempestade.</li>
+  </ul>
+  <Sources items={[
+    { label: "Istio: VirtualService (rotas, retries, timeout, fault)", href: "https://istio.io/latest/docs/reference/config/networking/virtual-service/" },
+    { label: "Istio: DestinationRule (balanceamento, outlierDetection, connectionPool)", href: "https://istio.io/latest/docs/reference/config/networking/destination-rule/" },
+    { label: "Istio: PeerAuthentication", href: "https://istio.io/latest/docs/reference/config/security/peer_authentication/" },
+    { label: "Istio: AuthorizationPolicy", href: "https://istio.io/latest/docs/reference/config/security/authorization-policy/" },
+    { label: "Istio: tarefa de fault injection", href: "https://istio.io/latest/docs/tasks/traffic-management/fault-injection/" },
+    { label: "Envoy: retry budget (circuit breakers)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto" },
+  ]} />
+</Deep>
+
+<p class="gancho">Foram oito comportamentos novos na rede, e todos vêm de regras escritas em YAML, em algum lugar. Falta saber quem guarda essas regras, como elas chegam a cada proxy e o que acontece com a chamada se esse "algum lugar" cair.</p>
+
+<Flashcards cards={[
+  { q: "Que regras de retry a loja usa na malha?",
+    a: "Até 2 tentativas, com 25 ms entre elas, só para erro 503 e só em operações que podem se repetir. Timeout de 2 s para o pagamentos." },
+  { q: "Quantas chamadas o pagamentos recebe de um clique com 3 saltos de 3 tentativas?",
+    a: "27 (3 × 3 × 3). É a tempestade de retries. Orçamento de retry e retry em um nível só evitam." },
+  { q: "O que acontece quando o catalogo tenta POST /cobrancas?",
+    a: "403 com o corpo RBAC: access denied. A política de autorização barra no proxy, sem nenhuma linha de código no pagamentos." },
+  { q: "O que o mTLS acrescenta ao TLS do módulo 1?",
+    a: "Os dois lados apresentam certificado. Cada serviço prova quem é, por exemplo spiffe://loja.local/ns/loja/sa/pedidos." },
+  { q: "A malha faz o fallback do bff-app?",
+    a: "Não. A malha repete, cancela e tira o host ruim da rotação. A resposta alternativa continua sendo decisão do app." },
+]} />

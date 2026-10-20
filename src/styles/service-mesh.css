@@ -1,0 +1,15 @@
+/* SDLabs · Service Mesh: o que só este módulo usa (tempestade de retries, matriz de autorização, lista de sinais). Peças comuns em widgets.css */
+/* barra do pior caso (a tempestade) */
+.sdl-content .sr-fill.bad{background:var(--bad)}
+/* matriz origem x chamada: 200 aceito, 403 barrado */
+.sdl-content table.az-table{min-width:0}
+.sdl-content table.az-table th,.sdl-content table.az-table td{padding-right:var(--s-3)}
+.sdl-content table.az-table td.az-cell{font:700 14px var(--mono)}
+.sdl-content table.az-table td.az-cell.ok{color:var(--ok)}
+.sdl-content table.az-table td.az-cell.bad{color:var(--bad)}
+/* "a loja precisa de malha?": cada sinal ganha um peso e uma frase */
+.sdl-content .vm-list{display:grid;gap:var(--s-2);font:14px/1.5 var(--mono)}
+.sdl-content .vm-list li b{font-variant-numeric:tabular-nums}
+.sdl-content .vm-list .vm-for b{color:var(--ok)}
+.sdl-content .vm-list .vm-against b{color:var(--bad)}
+.sdl-content .vm-list .vm-flat b{color:var(--muted)}
