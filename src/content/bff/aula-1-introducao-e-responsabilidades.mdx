@@ -1,0 +1,97 @@
+---
+title: "Introdução e responsabilidades"
+order: 1
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O módulo 8 terminou com o <code>gw-loja</code> como porta única: <code>api.loja.com.br</code> confere o JWT, limita o robô e serve a v1 e a v2. A porta única resolveu quem entra, mas não o que a tela pede. A tela inicial do app da Lena precisa de 4 coisas de 4 serviços, e o site precisa das mesmas coisas em outro formato.</p>
+
+<OneLiner>Um BFF (Backend for Frontend) é um backend feito sob medida para um frontend: faz no lugar dele as chamadas que a tela precisa e devolve só o que a tela usa.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>sem BFF</strong>, avance os passos da tela inicial da Lena. Conte quantas chamadas o celular faz, olhe o relógio de milissegundos depois de cada uma e confira o tamanho da resposta no painel. O que chegou ao celular que a tela nem desenha?</p>
+</DoIt>
+
+<Figure3D path="labs/bff/bff-3d/?mode=sem" poster="labs/bff/bff-3d-previa.webp" title="Figura interativa: Sem BFF: 4 chamadas pelo 4G" alt="Prévia da figura 3D: Sem BFF: 4 chamadas pelo 4G" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<p>Vamos seguir a Lena, em Recife, no 4G. Ela abre o app e a tela inicial pede quatro coisas, cada uma de um serviço diferente.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O app precisa do gato de pelúcia (produto 42, R$ 79,90) do <code>catalogo</code>, do carrinho (1 item) do <code>carrinho</code>, do "quem comprou também comprou" (a caneca azul) do <code>recomendacoes</code> e do status do pedido <strong>1048</strong> ("a caminho") do <code>pedidos</code>.</li>
+  <li>Sem BFF, o celular fala com o gateway uma vez para cada serviço, e cada chamada espera a anterior voltar para saber o que pedir em seguida. Cada ida e volta no 4G leva <strong>120 ms</strong>.</li>
+  <li>Quatro viagens em fila somam 4 × 120 = <strong>480 ms</strong> só de rede, antes de a tela ficar inteira.</li>
+  <li>As respostas foram feitas para o site: descrição longa, 8 fotos em alta e campos internos como <code>custo_fornecedor</code>. Juntas, chegam <strong>180 KB</strong> de JSON ao celular.</li>
+  <li>O app joga fora quase tudo isso. A tela usa um nome, um preço, uma foto pequena, um número de itens e uma frase de status.</li>
+</ol>
+</HowItWorks>
+
+<p>O pedaço de resposta abaixo é um exemplo escrito para a aula, no estilo do que o site recebe. Repare no último campo.</p>
+
+<pre><code>{String.raw`GET /produtos/42            (resposta feita para o site)
+{
+  "id": 42,
+  "nome": "gato de pelúcia",
+  "preco": 79.90,
+  "descricao": "Gato de pelúcia macio, 30 cm, enchimento antialérgico ... (3 parágrafos)",
+  "fotos": ["gato-1.jpg", "gato-2.jpg", "... (8 fotos em alta)"],
+  "custo_fornecedor": 31.20
+}`}</code></pre>
+
+<p>Esse último campo nunca devia sair da rede da loja, e o celular da Lena já o recebeu. Alguém precisa ficar entre a tela e os serviços para decidir o que passa, e esse alguém é o BFF.</p>
+
+<WhyItMatters>
+  <li><strong>Menos viagens.</strong> O celular faz uma chamada e o BFF faz as outras quatro, dentro da rede da loja, onde cada viagem custa poucos milissegundos.</li>
+  <li><strong>Menos bytes.</strong> O BFF corta o que a tela não usa. Fica mais barato no plano de dados e mais rápido no 4G.</li>
+  <li><strong>Menos exposição.</strong> Campos internos como <code>custo_fornecedor</code> são filtrados antes de sair.</li>
+  <li><strong>Dono claro.</strong> O time do app escreve o BFF do app. Quem muda a tela muda também o que ela pede.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O que um BFF assume</h4>
+  <ul>
+    <li><strong>Autenticação e autorização:</strong> lê o token que o gateway já conferiu e decide o que aquele usuário pode ver.</li>
+    <li><strong>Várias chamadas:</strong> chama os serviços que a tela precisa (é a composição da aula 2).</li>
+    <li><strong>Composição do payload:</strong> junta as respostas num JSON só.</li>
+    <li><strong>Adaptação de contrato:</strong> renomeia campos, formata preço, corta o que sobra e ordena listas.</li>
+    <li><strong>Cache e fallback:</strong> guarda o que pode e responde de um jeito mais simples quando um serviço falha (aula 6).</li>
+  </ul>
+  <h4 class="deep-h">Quem é e quem não é BFF</h4>
+  <p>O BFF parece um componente de infraestrutura, mas é uma aplicação: tem código de produto, escala por conta própria e tem dono. O gateway, o balanceador e o proxy reverso são infraestrutura genérica. O BFF fica atrás deles e é um dos destinos que eles escolhem. A aula 8 compara os dois com calma.</p>
+  <h4 class="deep-h">De onde veio</h4>
+  <p>O padrão nasceu no SoundCloud. Phil Calçado conta que o termo BFF foi cunhado por Nick Fisher, tech lead de web da empresa, e que a API pública, genérica demais, obrigava os clientes a fazer muitas requisições. Sam Newman deu o nome ao padrão no artigo "Backends For Frontends" e atribui a Calçado a expressão.</p>
+  <h4 class="deep-h">Correções e notas sobre o artigo-base</h4>
+  <ul>
+    <li>O artigo não conta a origem do padrão (SoundCloud, Phil Calçado, Sam Newman). Entra aqui porque as duas fontes primárias a contam.</li>
+    <li>Newman começa dizendo "um backend por experiência de usuário", mas diz preferir <strong>um BFF para cada tipo de cliente</strong> (web, iOS e Android separados). A loja junta iOS e Android no <code>bff-app</code> porque mostram a mesma tela: é uma escolha do exemplo, com o custo de os dois compartilharem código e ritmo de deploy.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "Phil Calçado: The Back-end for Front-end Pattern (BFF), SoundCloud", href: "https://philcalcado.com/2015/09/18/the_back_end_for_front_end_pattern_bff.html" },
+    { label: "microservices.io: padrão API Gateway / Backends for frontends", href: "https://microservices.io/patterns/apigateway.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Quem faz as quatro chamadas no lugar do celular fica dentro da rede da loja, a poucos milissegundos dos serviços. Falta saber como o BFF faz as quatro chamadas ao mesmo tempo e junta as respostas numa só.</p>
+
+<Flashcards cards={[
+  { q: "O que é um BFF, em uma frase?",
+    a: "Um backend sob medida para um frontend: faz as chamadas que a tela precisa e devolve só o que ela usa." },
+  { q: "Quanto custava a tela inicial da Lena sem BFF?",
+    a: "4 chamadas em fila no 4G: 4 × 120 ms = 480 ms, e 180 KB de JSON feito para o site." },
+  { q: "Por que o <code>custo_fornecedor</code> é um problema na resposta do site?",
+    a: "É um campo interno. Sem ninguém filtrando, ele chega ao celular de quem abriu o app." },
+  { q: "O BFF é infraestrutura, como o gateway?",
+    a: "Não. É uma aplicação com código de produto, escala própria e dono. Fica atrás do gateway." },
+  { q: "Quem cunhou o termo BFF e onde?",
+    a: "Nick Fisher, tech lead de web do SoundCloud, segundo Phil Calçado. Sam Newman popularizou o padrão." },
+]} />

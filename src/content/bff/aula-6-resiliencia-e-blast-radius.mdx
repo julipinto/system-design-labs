@@ -1,0 +1,112 @@
+---
+title: "Resiliência e blast radius"
+order: 6
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula 5 a tela nova está em 10% e o v3 segue vivo, e todos dependem dos mesmos serviços. O que acontece quando o <code>recomendacoes</code> cai bem na hora em que a Lena abre o app? A tela inicial depende dos quatro serviços, como a aula 2 avisou.</p>
+
+<OneLiner>Um BFF precisa de timeout em cada chamada e de um plano para quando ela falha (fallback), senão um serviço lento derruba a tela inteira.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>falha</strong>, avance os passos com o <code>recomendacoes</code> fora do ar: primeiro com timeout de 100 ms e depois o "e se der errado", sem timeout. Compare o que a Lena vê em cada um. Por fim, derrube o <code>catalogo</code> e veja quantos canais sentem.</p>
+</DoIt>
+
+<Figure3D path="labs/bff/bff-3d/?mode=falha" poster="labs/bff/bff-3d-previa.webp" title="Figura interativa: Timeout, fallback e raio de explosão" alt="Prévia da figura 3D: Timeout, fallback e raio de explosão" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena abre o app e o <code>bff-app</code> chama os quatro serviços ao mesmo tempo. O <code>recomendacoes</code> não responde.</li>
+  <li>O BFF espera no máximo <strong>100 ms</strong> por cada serviço. Passado o prazo, ele desiste daquela chamada, e só daquela.</li>
+  <li>Em vez de falhar, ele usa o plano B (fallback): monta a tela <strong>sem</strong> a seção "quem comprou também comprou", com <code>"recomendado": []</code>.</li>
+  <li>Se o <code>pedidos</code> cai, a seção do pedido mostra "status indisponível agora". O resto da tela continua inteiro.</li>
+  <li>A Lena nem percebe: a tela chegou, só um pouco menor.</li>
+</ol>
+</HowItWorks>
+
+<p>Mexa no tempo de resposta do <code>recomendacoes</code> e compare com e sem timeout.</p>
+
+<Widget name="timeout" title="Timeout e fallback" hint="Escolha quanto o recomendacoes demora e se o BFF tem timeout de 100 ms. Veja o que a Lena vê e quanto a tela leva." />
+
+<p>E se der errado? Sem timeout, o <code>bff-app</code> espera o <code>recomendacoes</code> por 30 s. Enquanto isso, chegam mais telas, cada uma presa na mesma espera. As conexões se acumulam até o BFF cair, e a tela inicial inteira some. Um serviço que só enfeita a tela derrubou o app.</p>
+
+<p>Em código, o timeout de 100 ms e o fallback ficam juntos. Exemplo escrito para a aula (Go):</p>
+
+<pre><code>{String.raw`func recomendados(ctx context.Context, id int) []Produto {
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+
+	r, err := recomendacoes.Para(ctx, id)
+	if err != nil { // timeout, erro ou serviço fora
+		return []Produto{} // fallback: tela sem a seção
+	}
+	return r
+}`}</code></pre>
+
+<p>E se você usa Resilience4j, o mesmo limite é uma configuração (YAML do Spring Boot):</p>
+
+<pre><code>{String.raw`resilience4j:
+  timelimiter:
+    instances:
+      recomendacoes:
+        timeoutDuration: 100ms
+  circuitbreaker:
+    instances:
+      recomendacoes:
+        failureRateThreshold: 50       # abre o circuito acima de 50% de falhas
+        waitDurationInOpenState: 10s   # fica aberto 10 s antes de testar de novo`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>A falha fica pequena.</strong> Um serviço de enfeite não derruba a tela.</li>
+  <li><strong>O timeout é do BFF.</strong> Quem monta a tela sabe qual parte é opcional e qual é indispensável.</li>
+  <li><strong>O raio de explosão continua.</strong> <code>bff-app</code> e <code>bff-web</code> dependem do mesmo <code>catalogo</code>. Se ele cai, os dois canais sentem.</li>
+  <li><strong>O que fica aberto:</strong> separar BFF por canal não separa as dependências compartilhadas. Isolar chamadas dentro de cada BFF (bulkhead) é assunto de resiliência, fora deste módulo.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Raio de explosão (blast radius)</h4>
+  <p>É o alcance de uma falha: quantos canais e usuários sentem quando um pedaço cai. Com BFF por canal, um BFF que cai derruba só o seu canal. Mas se <code>bff-app</code> e <code>bff-web</code> chamam o mesmo <code>catalogo</code>, a falha dele atinge os dois.</p>
+  <h4 class="deep-h">Por que as conexões se acumulam</h4>
+  <p>Conta de exemplo: se chegam 100 telas por segundo e cada uma fica presa 30 s, o BFF segura 100 × 30 = 3.000 conexões abertas. Com timeout de 100 ms, cada tela libera a conexão em 0,1 s e sobram umas 10.</p>
+  <h4 class="deep-h">Quais telas aceitam fallback</h4>
+  <ul>
+    <li><strong>Enfeite</strong> (recomendações): some a seção.</li>
+    <li><strong>Informação</strong> (status do pedido): mostra "indisponível agora".</li>
+    <li><strong>Indispensável</strong> (preço do carrinho no checkout): a tela deve avisar e não deixar pagar com dado errado.</li>
+  </ul>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo cita canary e blue-green como forma de reduzir o blast radius. Eles reduzem o raio de uma <strong>versão ruim do BFF</strong>, não o de um serviço que cai. Para a segunda falha, valem timeout, fallback, circuit breaker e bulkhead.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Resilience4j: CircuitBreaker (parâmetros)", href: "https://resilience4j.readme.io/docs/circuitbreaker" },
+    { label: "Polly: estratégia de circuit breaker", href: "https://www.pollydocs.org/strategies/circuit-breaker.html" },
+    { label: "MDN: cabeçalho Retry-After", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After" },
+  ]} />
+</Deep>
+
+<p class="gancho">O app aguentou a queda do <code>recomendacoes</code> e ninguém reclamou. Mas como a loja soube que isso aconteceu, e como saberia que o app está pior que o site? Falta saber o que cada BFF mede que o serviço sozinho não enxerga.</p>
+
+<Flashcards cards={[
+  { q: "O que o <code>bff-app</code> faz se o <code>recomendacoes</code> demora mais de 100 ms?",
+    a: "Desiste daquela chamada e responde a tela sem a seção, com <code>\"recomendado\": []</code>." },
+  { q: "O que acontece sem timeout?",
+    a: "O BFF espera 30 s, as conexões se acumulam até ele cair e a tela inicial inteira some." },
+  { q: "O que a Lena vê se o <code>pedidos</code> cai?",
+    a: "A tela inteira, com a seção do pedido dizendo \"status indisponível agora\"." },
+  { q: "O que é raio de explosão?",
+    a: "O alcance de uma falha. Se o <code>catalogo</code> cai, <code>bff-app</code> e <code>bff-web</code> sentem juntos." },
+  { q: "BFF por canal separa as dependências?",
+    a: "Não. Separa os canais, mas eles continuam chamando os mesmos serviços." },
+]} />
