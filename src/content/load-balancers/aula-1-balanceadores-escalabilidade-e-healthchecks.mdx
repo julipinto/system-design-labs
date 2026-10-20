@@ -1,0 +1,80 @@
+---
+title: "Balanceadores, escalabilidade e healthchecks"
+order: 1
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O módulo 6 terminou com a loja partida em serviços e o <code>catalogo</code> rodando em várias réplicas na Black Friday. Só que a Lena digita <code>loja.com.br</code> e o DNS (módulo 1) devolve <strong>um</strong> IP. Qual réplica responde? Sem ninguém no meio, todo mundo cai na mesma, a <code>catalogo-1</code>, que satura enquanto as outras ficam paradas. É a fila do mercadinho com um caixa só, e as réplicas dos outros caixas olhando.</p>
+
+<OneLiner>Um balanceador de carga fica na frente das réplicas, recebe todos os pedidos num endereço só e escolhe, pedido a pedido, quem responde; um healthcheck tira do pool a réplica que parou de responder.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Sem LB</strong>, avance até <strong>9 pedidos, 1 réplica: CPU em 100%</strong> e olhe a CPU de cada réplica. Depois troque para <strong>Health</strong> e siga até <strong>E se der errado: 20:00:00, o catalogo-2 trava</strong> e <strong>3 falhas seguidas: fora do pool às 20:00:15</strong>. Quantas réplicas trabalharam no primeiro modo? E quantos pedidos falharam até a <code>catalogo-2</code> sair do pool?</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=sem" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: Sem balanceador" alt="Prévia da figura 3D: Sem balanceador" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Sem balanceador.</strong> O único endereço que o DNS conhece é o da <code>catalogo-1</code> (<code>10.0.1.11</code>). Os 9 primeiros pedidos vão todos para ela: CPU em <strong>100%</strong>, enquanto a <code>catalogo-2</code> (<code>10.0.1.12</code>) e a <code>catalogo-3</code> (<code>10.0.1.13</code>) ficam em <strong>0%</strong>. A página do gato, que levava <strong>20 ms</strong>, passa a levar <strong>1,8 s</strong>.</li>
+  <li><strong>Com balanceador.</strong> O DNS passa a devolver o IP do <code>lb-loja</code>, o <code>203.0.113.10</code> (uma faixa de documentação, exemplo). O <code>lb-loja</code> mantém uma lista das réplicas, o <strong>pool</strong>, e repassa cada pedido para uma delas, na porta <code>8080</code>. A Lena nunca vê as réplicas, só o balanceador.</li>
+  <li><strong>Healthcheck.</strong> Para não mandar pedido a quem não responde, o balanceador faz <code>GET /health</code> em cada réplica a cada <strong>5 s</strong>, com <strong>timeout de 1 s</strong>. Três falhas seguidas tiram a réplica do pool. Dois sucessos seguidos a devolvem.</li>
+  <li><strong>Quando a réplica trava.</strong> Às 20:00:00 a <code>catalogo-2</code> trava. Os checks das 20:00:05, 20:00:10 e 20:00:15 falham, e ela sai do pool às <strong>20:00:15</strong>. Nesses <strong>15 s</strong>, <strong>1 de cada 3</strong> pedidos cai nela e volta com erro (502 ou 504). Depois disso, 100% dos pedidos vão para a 1 e a 3.</li>
+  <li><strong>Quando ela volta, e quando a loja cresce.</strong> A <code>catalogo-2</code> volta às 20:05:00. Os checks das 20:05:05 e 20:05:10 passam, e às <strong>20:05:10</strong> ela está de novo no pool. Para escalar, entra a <code>catalogo-4</code> (<code>10.0.1.14</code>): assim que o primeiro healthcheck dela passa, o balanceador já manda pedidos para ela, sem ninguém avisar a Lena.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="health" title="Relógio do healthcheck" hint="Mude o intervalo, o timeout, o limiar e a quantidade de pedidos por segundo. Veja em quantos segundos a réplica travada sai do pool e quantos pedidos falham até lá." />
+
+<WhyItMatters>
+  <li><strong>Escala sem mudar de endereço.</strong> Entrar a <code>catalogo-4</code> não muda nada para quem está do lado de fora, que continua falando com <code>203.0.113.10</code>.</li>
+  <li><strong>Falha vira degradação.</strong> Com 3 réplicas, uma travada derruba um terço dos pedidos por 15 s, e não a loja inteira.</li>
+  <li><strong>Manutenção sem susto.</strong> Tirar uma réplica do pool para atualizar é o mesmo gesto que o healthcheck faz sozinho quando ela quebra.</li>
+  <li><strong>O preço.</strong> O balanceador passa a ser o novo ponto único de falha. Por isso, em produção, ele mesmo é duplicado.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A janela de 15 s é uma escolha</h4>
+  <ul>
+    <li><strong>Tempo até sair:</strong> intervalo × limiar (5 s × 3 = 15 s). Se a réplica travar em vez de recusar a conexão, o último check só falha ao fim do timeout (1 s a mais).</li>
+    <li><strong>Intervalo menor</strong> acha o problema mais cedo e cria mais tráfego de check. <strong>Limiar maior</strong> evita tirar do pool por um tropeço de 1 s, e demora mais para reagir.</li>
+    <li><strong>Devolver exige menos que tirar</strong> (2 contra 3) de propósito: a réplica que acabou de voltar costuma estar frágil, e a assimetria evita que ela entre e saia do pool toda hora.</li>
+  </ul>
+  <h4 class="deep-h">Healthcheck ativo e passivo</h4>
+  <p>O que a loja faz aqui é o <strong>ativo</strong>: o balanceador pergunta. O <strong>passivo</strong> olha os pedidos reais e tira a réplica que está falhando (no Envoy se chama outlier detection). Na documentação do Envoy, sem healthcheck ativo configurado no cluster, todos os membros contam como saudáveis.</p>
+  <h4 class="deep-h">O que o artigo-base deixa de fora</h4>
+  <ul>
+    <li>O artigo diz que o balanceador oferece "mecanismos para verificar constantemente a saúde dos hosts", sem números. Os de 5 s, 1 s, 3 e 2 desta aula são os da loja, como exemplo, e não valores padrão de nenhuma ferramenta.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: health checking (ativo, por cluster, espera 200 por padrão)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking" },
+    { label: "Envoy: outlier detection (o healthcheck passivo)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier" },
+    { label: "NGINX: balanceamento de carga HTTP", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "AWS: o que é um Application Load Balancer", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+  ]} />
+</Deep>
+
+<p>O <code>lb-loja</code> faz o que o NGINX na frente do <code>pagamentos</code> também parece fazer: fica entre a Lena e os servidores. Falta saber se os dois são a mesma coisa ou se a diferença está em quantos servidores existem atrás.</p>
+
+<Flashcards cards={[
+  { q: "Por que um só IP não basta para as réplicas do catálogo?",
+    a: "O DNS devolve um endereço, e quem chega nele cai na mesma réplica. A <code>catalogo-1</code> vai a 100% de CPU e as outras ficam em 0%." },
+  { q: "O que o <code>lb-loja</code> faz com cada pedido?",
+    a: "Recebe em <code>203.0.113.10</code>, escolhe uma réplica do pool (porta 8080) e repassa. A Lena nunca vê as réplicas." },
+  { q: "Como funciona o healthcheck da loja?",
+    a: "<code>GET /health</code> a cada 5 s, timeout de 1 s. Três falhas seguidas tiram do pool, dois sucessos devolvem." },
+  { q: "Em que horário a <code>catalogo-2</code> sai do pool, e quantos pedidos falham até lá?",
+    a: "Trava às 20:00:00 e sai às 20:00:15 (5 s × 3). Nesses 15 s, 1 de cada 3 pedidos cai nela e falha com 502 ou 504." },
+  { q: "O que acontece quando entra a <code>catalogo-4</code>?",
+    a: "Assim que o primeiro healthcheck dela passa, o balanceador começa a mandar pedidos para ela. Quem está de fora não percebe." },
+]} />

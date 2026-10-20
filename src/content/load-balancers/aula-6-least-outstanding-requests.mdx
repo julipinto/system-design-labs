@@ -1,0 +1,74 @@
+---
+title: "Least outstanding requests"
+order: 6
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada o least connection mandou a busca para a <code>catalogo-2</code>, que já tinha três buscas pesadas, porque olhou conexões em vez de trabalho. A pergunta certa é: quantos pedidos esta réplica recebeu e <strong>ainda não respondeu</strong>? É o <strong>least outstanding requests</strong>, o LOR.</p>
+
+<OneLiner>LOR manda o próximo pedido para a réplica com menos pedidos pendentes, isto é, que já entraram e ainda não tiveram resposta; é o que mais se aproxima de medir quanto trabalho cada réplica tem agora.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>LOR</strong>, avance até <strong>O mesmo instante: 0 · 3 · 1 pendentes</strong> e depois <strong>O P9 vai para o catalogo-1: 20 ms</strong>. Qual réplica o LOR escolhe? Compare com a escolha do least connection (modo <strong>LC</strong>). Por fim, veja <strong>E se der errado: a réplica que erra rápido</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=lor" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: Least outstanding requests" alt="Prévia da figura 3D: Least outstanding requests" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Pedido pendente.</strong> Um pedido pendente é o que o balanceador já repassou e ainda não recebeu a resposta. Uma conexão ociosa não tem nenhum; uma conexão com uma busca de 900 ms no meio tem um.</li>
+  <li><strong>A foto do mesmo instante.</strong> <code>catalogo-1</code>: 5 conexões ociosas, <strong>0 pendentes</strong>. <code>catalogo-2</code>: 3 conexões fazendo busca, <strong>3 pendentes</strong>. <code>catalogo-3</code>: 4 conexões, <strong>1 pendente</strong>.</li>
+  <li><strong>A escolha.</strong> O LOR compara os pendentes (0, 3 e 1) e manda o pedido para a <code>catalogo-1</code>, a única livre de verdade. O least connection tinha escolhido a 2 pelo mesmo cenário.</li>
+  <li><strong>Na fila de 9 pedidos.</strong> Os pedidos chegam um a cada 100 ms. A busca de 900 ms deixa a réplica "ocupada" por vários pedidos seguintes, e o LOR desvia os gatos para as outras. No fim, cada réplica tem <strong>940 ms</strong> de trabalho (uma busca e dois gatos).</li>
+  <li><strong>O que o ALB da AWS chama assim.</strong> No Application Load Balancer, o algoritmo se chama <code>least_outstanding_requests</code>, ao lado do <code>round_robin</code> (o padrão) e do <code>weighted_random</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lor" title="LOR na mesma fila" hint="Veja o trabalho de cada réplica no fim da fila. Troque entre round robin, least connection e LOR para comparar os totais." />
+
+<WhyItMatters>
+  <li><strong>Mede saturação.</strong> Quanto mais pendentes, mais fila e mais tempo de resposta. O LOR é o que mais se aproxima disso sem olhar dentro da réplica.</li>
+  <li><strong>Serve a pedidos desiguais.</strong> A busca de 900 ms e o gato de 20 ms no mesmo pool são o caso para o qual ele existe.</li>
+  <li><strong>Tem custo.</strong> O balanceador precisa saber quando <em>cada</em> pedido termina, o que é mais difícil do que contar conexões.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Diferença para o least connection</h4>
+  <p>O artigo resume assim: o least connection olha "quantas conexões" estão ativas, e o LOR olha "quantas requisições" ainda estão sendo processadas. Uma conexão persistente com 1 pedido pendente e uma com 10 contam igual no primeiro e muito diferente no segundo.</p>
+  <h4 class="deep-h">Limites</h4>
+  <ul>
+    <li><strong>Mais estado:</strong> acompanhar o início e o fim de cada pedido, em tempo real, em vários balanceadores ao mesmo tempo.</li>
+    <li><strong>Saber quando acabou:</strong> o artigo lembra que determinar com precisão quando um pedido terminou pode ser difícil (respostas em fluxo, por exemplo).</li>
+    <li><strong>Pedido pendente não é CPU:</strong> um pedido que espera o banco conta como pendente sem gastar CPU na réplica.</li>
+  </ul>
+  <h4 class="deep-h">Onde aparece</h4>
+  <p>No ALB, ele é uma opção por <em>target group</em>. O <code>LEAST_REQUEST</code> do Envoy também conta pedidos ativos (aula 4), o que o aproxima do LOR mais do que do "least request" do artigo.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "AWS ALB: algoritmos de roteamento (round_robin, least_outstanding_requests, weighted_random)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html" },
+    { label: "AWS: introdução ao Application Load Balancer (padrão round robin, ou LOR)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+    { label: "Envoy: LEAST_REQUEST e pedidos ativos", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+  ]} />
+</Deep>
+
+<p>Os quatro algoritmos até aqui escolhem pela carga e não ligam para quem pediu. Só que o carrinho da Lena pode viver na memória de uma réplica, e então importa que o próximo pedido dela volte para a mesma. Falta saber como fazer o balanceador lembrar quem é quem sem guardar uma tabela de clientes.</p>
+
+<Flashcards cards={[
+  { q: "O que é um pedido pendente?",
+    a: "Um pedido que o balanceador repassou e ainda não recebeu resposta. Conexão ociosa não tem pedido pendente." },
+  { q: "Na foto da loja, qual réplica o LOR escolhe e por quê?",
+    a: "A <code>catalogo-1</code>: 0 pendentes, contra 3 na <code>catalogo-2</code> e 1 na <code>catalogo-3</code>. O least connection tinha escolhido a 2." },
+  { q: "Qual é a diferença entre least connection e LOR?",
+    a: "Least connection conta quantas conexões estão abertas. LOR conta quantos pedidos ainda estão sendo processados." },
+  { q: "Qual é o custo do LOR?",
+    a: "O balanceador precisa acompanhar o início e o fim de cada pedido, o que dá mais estado e mais trabalho que girar um índice." },
+]} />

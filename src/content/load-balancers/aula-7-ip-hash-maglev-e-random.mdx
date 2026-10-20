@@ -1,0 +1,101 @@
+---
+title: "IP hash, Maglev e random"
+order: 7
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Os quatro algoritmos anteriores escolhem pela carga, e por isso a Lena pode cair numa réplica agora e noutra no pedido seguinte. Se o carrinho dela está na memória da <code>catalogo-2</code>, o segundo pedido chega numa réplica que não o conhece. O balanceador precisa lembrar quem é quem. Em vez de guardar uma tabela de clientes, ele pode <strong>calcular</strong> a réplica a partir do IP: é o <strong>IP hash</strong>.</p>
+
+<OneLiner>IP hash transforma o IP do cliente num número e usa o resto da divisão pelo tamanho do pool como escolha; o mesmo cliente cai sempre na mesma réplica, ao custo de uma distribuição que pode desequilibrar e de mudar tudo quando o pool muda.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Hash</strong>, veja <strong>A fila inteira: cada cliente na sua réplica</strong> e depois <strong>E se der errado: 500 pessoas atrás de um IP</strong>. Em seguida, siga <strong>E se der errado: sai o catalogo-3 e 2/3 trocam</strong> e <strong>Hashing consistente (Maglev): só 1/3 troca</strong> e conte quantos clientes trocaram de réplica nos dois. Por último, troque para <strong>Random</strong> e veja <strong>E se der errado: 10 pedidos dão 2 · 5 · 3</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=hash" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: IP hash e Maglev" alt="Prévia da figura 3D: IP hash e Maglev" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A conta.</strong> O balanceador calcula <code>hash(IP) % 3</code>. Na figura e no widget desta aula, o hash de exemplo usa os dois últimos números do IP: <code>octeto3 × 256 + octeto4</code>. A Lena (<code>177.38.20.5</code>) dá 20 × 256 + 5 = 5.125, e 5.125 % 3 = 1: <strong>sempre <code>catalogo-2</code></strong>, a cada pedido. A Bia, o Caio e o Davi também têm a sua réplica fixa.</li>
+  <li><strong>Para que serve.</strong> Sessão na memória da réplica, cache local, pedidos que precisam ser resolvidos em ordem pelo mesmo servidor. Nada precisa ser guardado no balanceador: o IP e a conta bastam.</li>
+  <li><strong>E se der errado: o NAT.</strong> Um escritório em SP tem <strong>500 pessoas</strong> atrás de <strong>um IP</strong> público (NAT). Todas dão o mesmo hash e caem na mesma réplica, que recebe 500 vezes a carga de uma pessoa sozinha, enquanto as outras duas sobram.</li>
+  <li><strong>E se der errado: o pool muda.</strong> Tirar a <code>catalogo-3</code> troca o <code>% 3</code> por <code>% 2</code>. Só fica onde estava quem tem <code>h % 6</code> em {"{"}0, 1{"}"}: cerca de <strong>2/3 dos clientes trocam de réplica</strong>, e cada um perde a sessão que tinha.</li>
+  <li><strong>Hashing consistente e Maglev.</strong> Com hashing consistente, quando a <code>catalogo-3</code> sai, só os clientes que estavam nela (cerca de <strong>1/3</strong>) mudam. O <strong>Maglev</strong>, do Google, é um balanceador de camada 4 que usa uma variante dessa ideia para mudar o mínimo possível quando uma réplica entra ou sai.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-hash" title="IP hash e random na mesma fila" hint="Escolha 'IP hash' e veja onde cai o IP de cada cliente. Escolha 'Random' e sorteie de novo para ver como o resultado varia." />
+
+<Widget name="remap" title="Quantos clientes trocam de réplica?" hint="Escolha o tamanho do pool e quantos clientes existem. Veja a fração que muda com o módulo e com o hashing consistente quando sai uma réplica." />
+
+<h3 class="sec">Random: o mais simples</h3>
+
+<p>O <strong>random</strong> sorteia a réplica a cada pedido, sem olhar nada. Não guarda estado, decide em tempo mínimo e escala fácil. O custo está no pouco tráfego: <strong>10 pedidos</strong> sorteados entre três réplicas podem dar <strong>2 / 5 / 3</strong>, uma réplica com mais que o dobro de outra. Com <strong>10.000</strong> pedidos, o resultado tende a ficar perto de um terço para cada uma.</p>
+
+<WhyItMatters>
+  <li><strong>Afinidade sem tabela.</strong> O hash dá "o mesmo cliente, a mesma réplica" sem o balanceador guardar nada.</li>
+  <li><strong>O módulo é frágil.</strong> Entrar ou sair uma réplica embaralha cerca de 2/3 dos clientes, e a loja perde as sessões justo quando está escalando ou se recuperando.</li>
+  <li><strong>Esconde desequilíbrio.</strong> IP não é pessoa: NAT e proxies juntam gente num IP só.</li>
+  <li><strong>O random só é bom no volume.</strong> Quando a carga é grande e uniforme, a lei dos grandes números faz o trabalho do balanceador.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O código do artigo, por dentro</h4>
+<pre><code>{String.raw`hasher := md5.New()
+hasher.Write([]byte(clientIP))
+hashBytes := hasher.Sum(nil)
+
+hashIndex := binary.BigEndian.Uint32(hashBytes[:4]) % uint32(len(ipb.hosts))
+return ipb.hosts[hashIndex]`}</code></pre>
+  <ul>
+    <li>O artigo usa o MD5 do texto do IP, pega os 4 primeiros bytes como um número de 32 bits e divide pelo número de hosts. O widget desta aula troca o MD5 por uma conta mais curta, só para dar para fazer de cabeça.</li>
+    <li>Com os 7 IPs de teste do artigo, a saída é sempre a mesma por IP: <code>192.168.1.1</code> vai sempre ao <code>host1</code>, por exemplo.</li>
+  </ul>
+  <h4 class="deep-h">Como o hashing consistente evita a troca</h4>
+  <p>Em vez de dividir por N, o hashing consistente espalha réplicas e clientes numa roda de números. Cada cliente vai para a primeira réplica que encontra andando pela roda. Quando uma réplica sai, só quem apontava para ela anda até a próxima. O trabalho original é de Karger e outros (1997).</p>
+  <h4 class="deep-h">O Maglev</h4>
+  <ul>
+    <li>É o balanceador de rede em software do Google, descrito num artigo do NSDI 2016. O artigo diz que ele atende o tráfego do Google <strong>desde 2008</strong>.</li>
+    <li>Ele roda em <strong>servidores Linux comuns</strong>, sem hardware dedicado. Um servidor só consegue saturar um link de 10 Gbps com pacotes pequenos.</li>
+    <li>Usa um hash consistente próprio (o hashing Maglev, com uma tabela de busca) e guarda o estado das conexões, para uma conexão que já existe não mudar de réplica quando o pool muda. A troca mínima não é exatamente 1/3: o Maglev aceita um pouco mais de mudança em troca de uma tabela bem equilibrada.</li>
+    <li>Na ferramenta, o Envoy tem as políticas <code>RING_HASH</code> e <code>MAGLEV</code>, e o NGINX tem <code>hash ... consistent</code>.</li>
+  </ul>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li>O artigo chama o IP hash de "hash consistente". O que ele mostra, <code>hash % N</code>, <strong>não</strong> é consistente: muda quase tudo quando N muda. O hashing consistente é outra técnica, usada pelo Maglev e pelo <code>RING_HASH</code>.</li>
+    <li>O artigo diz que o Maglev "requer hardware e software específicos" e que ainda "não é amplamente utilizado". O artigo do Google diz o contrário: ele roda em servidores comuns, e está em produção desde 2008.</li>
+    <li>O <code>ip_hash</code> do NGINX usa só os <strong>três primeiros octetos</strong> do IPv4 (ou o IPv6 inteiro) como chave, então uma faixa /24 inteira cai junta. O exemplo desta aula usa os dois últimos números do IP, só para a conta caber na tela.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Maglev: a fast and reliable software network load balancer (Google, NSDI 2016)", href: "https://research.google/pubs/maglev-a-fast-and-reliable-software-network-load-balancer/" },
+    { label: "Karger et al., 1997: consistent hashing and random trees (PDF)", href: "https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf" },
+    { label: "NGINX: ip_hash, hash e random no módulo upstream", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+    { label: "Envoy: RING_HASH, MAGLEV e RANDOM", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "HAProxy: balance source (hash do IP de origem)", href: "https://docs.haproxy.org/3.0/configuration.html" },
+  ]} />
+</Deep>
+
+<p>Com os seis jeitos de escolher, o balanceador decide bem, mas só enxerga o que consegue ler do pedido. Falta saber o que ele vê quando olha só o IP e a porta, e o que muda quando abre o pedido e lê o caminho.</p>
+
+<Flashcards cards={[
+  { q: "Como o IP hash escolhe a réplica?",
+    a: "Calcula um número a partir do IP do cliente e usa o resto da divisão pelo tamanho do pool (<code>hash % 3</code>). O mesmo IP cai sempre na mesma réplica." },
+  { q: "Onde a Lena (<code>177.38.20.5</code>) cai no exemplo da loja?",
+    a: "Sempre na <code>catalogo-2</code>: o hash de exemplo dá 5.125, e 5.125 % 3 = 1." },
+  { q: "O que dá errado com 500 pessoas atrás de um IP?",
+    a: "O NAT dá um IP só para todas, então todas têm o mesmo hash e caem na mesma réplica." },
+  { q: "Quantos clientes trocam de réplica quando sai a <code>catalogo-3</code>?",
+    a: "Com módulo (% 3 vira % 2), cerca de 2/3. Com hashing consistente ou Maglev, só cerca de 1/3: quem estava nela." },
+  { q: "O que o random mostra com 10 pedidos e com 10.000?",
+    a: "Com 10, pode dar 2 / 5 / 3, desigual. Com 10.000, tende a um terço para cada réplica." },
+]} />

@@ -1,0 +1,87 @@
+---
+title: "Least request"
+order: 4
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O round robin girou sem olhar ninguém, e a <code>catalogo-2</code> ficou com as três buscas. A saída óbvia é olhar: guardar quantos pedidos cada réplica já atendeu e mandar o próximo para a que atendeu menos. É o <strong>least request</strong>, na forma que o artigo descreve.</p>
+
+<OneLiner>Least request mantém um contador de pedidos por réplica e manda o próximo para a de menor contador; funciona quando os pedidos são parecidos, e quebra quando entra uma réplica nova com o contador em zero.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>LR</strong>, avance <strong>Least request: vai para quem atendeu menos</strong> e <strong>Juntas desde o começo: igual ao round robin</strong> e veja o contador de cada réplica subir. Depois siga para <strong>Entra o catalogo-4 com contador 0</strong> e <strong>E se der errado: os próximos 3.000 vão para o catalogo-4</strong>. Para onde vão os pedidos seguintes?</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=lr" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: Least request" alt="Prévia da figura 3D: Least request" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O contador.</strong> O balanceador guarda um número por réplica: <code>catalogo-1</code>, <code>catalogo-2</code> e <code>catalogo-3</code> começam em 0. A cada pedido enviado, o contador da escolhida sobe 1.</li>
+  <li><strong>A escolha.</strong> Chega o P1: os três têm 0, e o empate vai para a primeira (<code>catalogo-1</code>). Chega o P2: a 1 tem 1, a 2 e a 3 têm 0, e ele vai para a 2. O P3 vai para a 3, e o P4 volta à 1.</li>
+  <li><strong>O resultado na fila de 9.</strong> Com as três juntas desde o início, a ordem sai igual à do round robin (1, 2, 3, 1, 2, 3, 1, 2, 3), e as buscas P2, P5 e P8 caem outra vez na <code>catalogo-2</code>. Contar pedidos enxerga quantidade, não duração.</li>
+  <li><strong>Onde ele brilha.</strong> Num serviço de consulta que recebe um id e devolve o recurso rápido, todos os pedidos custam o mesmo, e o contador equilibra de verdade.</li>
+  <li><strong>E se der errado.</strong> A loja cresce: entra a <code>catalogo-4</code> com contador <strong>0</strong>, enquanto as outras três estão em <strong>3.000</strong>. Pela regra, os próximos <strong>3.000 pedidos vão todos para ela</strong>, até empatar. É uma negação de serviço involuntária no host novo, justo quando ele acabou de subir.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lr" title="Least request na mesma fila" hint="Veja a distribuição dos 9 pedidos. Depois ligue 'entra a catalogo-4 com contador 0' e veja para onde vai cada pedido." />
+
+<WhyItMatters>
+  <li><strong>Um passo além do rodízio.</strong> O balanceador passa a ter memória e a decidir pelo que aconteceu, não pela posição.</li>
+  <li><strong>Pede cuidado com o contador.</strong> Um contador que só cresce faz o host novo parecer sempre o menos usado. Por isso as implementações zeram ou janelam a contagem.</li>
+  <li><strong>O nome engana.</strong> No artigo, "least request" conta pedidos <em>atendidos</em>. Nas ferramentas reais, a mesma sigla conta pedidos <em>em andamento</em>, o que é parecido com a aula 6.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O código do artigo, por dentro</h4>
+<pre><code>{String.raw`minIndex := 0
+minRequests := lr.requests[0]
+
+for i, reqs := range lr.requests {
+	if reqs < minRequests {
+		minIndex = i
+		minRequests = reqs
+	}
+}
+
+lr.requests[minIndex]++
+return lr.hosts[minIndex]`}</code></pre>
+  <ul>
+    <li>O laço percorre os contadores e guarda o menor. O <code>&lt;</code> estrito faz o empate ficar com o primeiro host.</li>
+    <li>O <code>++</code> no final é o que faz o contador subir, e nada o faz descer: é por isso que o host novo, com 0, vira alvo de tudo.</li>
+    <li>Com 30 pedidos, a saída do artigo é <code>[10 10 10]</code>: distribuição perfeita porque todos os pedidos da simulação são iguais.</li>
+  </ul>
+  <h4 class="deep-h">Correções e cuidados com o artigo-base</h4>
+  <ul>
+    <li>O artigo define o least request pelo menor número de pedidos <strong>processados até o momento</strong>. O <code>LEAST_REQUEST</code> do Envoy usa o número de pedidos <strong>ativos</strong>, e em vez de olhar todas as réplicas sorteia duas ao acaso e escolhe a que tem menos (<em>power of two choices</em>). Com pedidos ativos, o host novo não monopoliza a fila por muito tempo. O exemplo desta aula segue o artigo, e a aula 6 mostra a versão por pedidos pendentes.</li>
+    <li>O Envoy pondera o resultado por <code>load_balancing_weight / (pedidos ativos + 1)</code> (com o expoente padrão 1,0). Com expoente 0 ele se comporta como round robin.</li>
+    <li>O contador de 3.000 é um número de exemplo para a conta ficar redonda.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: LEAST_REQUEST, pedidos ativos e power of two choices", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "NGINX: módulo upstream (métodos disponíveis)", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+  ]} />
+</Deep>
+
+<p>O least request escolheu pelo contador, e um contador conta o passado, não o que está acontecendo agora. Falta saber se, em vez de pedidos já atendidos, o balanceador pode olhar as conexões que cada réplica tem abertas neste instante.</p>
+
+<Flashcards cards={[
+  { q: "Como o least request escolhe a réplica?",
+    a: "Pelo menor contador de pedidos atendidos até agora. O empate fica com a primeira da lista." },
+  { q: "Na fila de 9 pedidos, o que o least request muda em relação ao round robin?",
+    a: "Nada: com as três réplicas juntas desde o início, a ordem é a mesma (1, 2, 3, 1, 2, 3, 1, 2, 3) e as buscas caem todas na <code>catalogo-2</code>." },
+  { q: "O que acontece quando a <code>catalogo-4</code> entra com contador 0 e as outras estão em 3.000?",
+    a: "Os próximos 3.000 pedidos vão todos para ela: uma negação de serviço involuntária. A saída é zerar ou janelar os contadores." },
+  { q: "O que o Envoy chama de LEAST_REQUEST?",
+    a: "Escolher entre duas réplicas sorteadas a que tem menos pedidos ativos (em andamento), e não menos pedidos já atendidos como no artigo." },
+]} />

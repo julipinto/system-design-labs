@@ -1,0 +1,94 @@
+---
+title: "Round robin"
+order: 3
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada ficou a pergunta de como o <code>lb-loja</code> escolhe entre três réplicas. A resposta mais simples é não escolher: dar um pedido para cada uma, em volta. É o <strong>round robin</strong>. Vamos soltar nele a mesma fila de 9 pedidos que vai atravessar as próximas cinco aulas.</p>
+
+<OneLiner>Round robin entrega cada pedido para a próxima réplica da lista, em círculo, sem olhar quanto trabalho o pedido dá nem como a réplica está; é justo na contagem e cego no trabalho.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>RR</strong>, avance <strong>Round robin: cada uma na sua vez</strong> e <strong>9 pedidos: 3 para cada</strong> e compare os três números de trabalho (ms). Depois veja <strong>Com peso: o catalogo-3 tem o dobro de CPU</strong>, <strong>Com quantum: a vez dura 300 ms</strong> e <strong>E se der errado: as 3 buscas no catalogo-2</strong>. Os números batem, mesmo com 3 pedidos para cada uma?</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=rr" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: Round robin" alt="Prévia da figura 3D: Round robin" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A fila.</strong> Chegam 9 pedidos, nesta ordem: P1 Lena (gato) · P2 Bia (busca) · P3 Caio (gato) · P4 Davi (gato) · P5 Lena (busca) · P6 Bia (gato) · P7 Caio (gato) · P8 Davi (busca) · P9 Lena (gato). O <strong>gato</strong> é <code>GET /produtos/42</code> e leva <strong>20 ms</strong>. A <strong>busca</strong> é <code>GET /busca?q=pelucia&amp;ordem=preco</code> e leva <strong>900 ms</strong>.</li>
+  <li><strong>O rodízio.</strong> O balanceador guarda só um número, o índice da próxima réplica, e o avança a cada pedido: 1, 2, 3, 1, 2, 3, 1, 2, 3. Cada réplica recebe 3 pedidos. A conta parece justa.</li>
+  <li><strong>O problema.</strong> As três buscas (P2, P5 e P8) caíram todas no <code>catalogo-2</code>: ela tem <strong>2,7 s</strong> de trabalho (3 × 900 ms), enquanto a 1 e a 3 têm <strong>60 ms</strong> cada (3 × 20 ms). O round robin contou pedidos e não olhou o que cada um custava.</li>
+  <li><strong>Com quantum.</strong> O código Go do artigo troca de réplica só depois de um tempo, o <em>quantum</em>: com 300 ms de quantum e um pedido a cada 200 ms, cada réplica recebe <strong>2 pedidos seguidos</strong>. Se vier um pico dentro do quantum, ele inteiro cai numa réplica só.</li>
+  <li><strong>Com peso.</strong> Se o <code>catalogo-3</code> tem o dobro de CPU, ele ganha <strong>peso 2</strong> e entra duas vezes por volta: 1, 2, 3, 3. É o round robin ponderado, e ele cuida da diferença entre as máquinas, não da diferença entre os pedidos.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-rr" title="A mesma fila, três rodízios" hint="Escolha a regra e veja para onde vai cada pedido e quanto trabalho (ms) cada réplica acumula. Comece pelo round robin e troque por 'RR com quantum' e 'RR com peso'." />
+
+<WhyItMatters>
+  <li><strong>É o ponto de partida.</strong> Sem estado, sem medir nada, funciona bem quando os pedidos custam parecido e as réplicas são iguais. É o padrão do NGINX e do ALB.</li>
+  <li><strong>Mostra o que "justo" esconde.</strong> Três pedidos para cada uma é justo na contagem. Na CPU, uma réplica trabalhou 45 vezes mais que as outras.</li>
+  <li><strong>Abre o caminho para as próximas regras.</strong> Todas as outras aulas do módulo tentam enxergar o que o round robin não vê: quantos pedidos cada uma já atendeu, quantas conexões tem, quantos pedidos ainda não terminou.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">De onde vem o nome</h4>
+  <p>Round robin nasceu no escalonamento de processos da CPU: cada processo da fila usa a CPU por um <strong>quantum</strong> e volta para o fim da fila, e assim ninguém espera para sempre (a inanição, ou <em>starvation</em>, que o artigo explica). No balanceador, o "processo" virou o pedido.</p>
+  <h4 class="deep-h">O código do artigo, por dentro</h4>
+<pre><code>{String.raw`func (rb *RoundRobin) getHost() string {
+	rb.mutex.Lock()
+	defer rb.mutex.Unlock()
+
+	// ainda dentro do quantum: continua no mesmo host
+	if time.Now().Before(rb.ultimoAcesso.Add(rb.quantum)) {
+		return rb.hosts[rb.index]
+	}
+
+	// o quantum acabou: avança para o próximo host
+	rb.ultimoAcesso = time.Now()
+	rb.index = (rb.index + 1) % len(rb.hosts)
+	return rb.hosts[rb.index]
+}`}</code></pre>
+  <ul>
+    <li>O <code>mutex</code> existe porque vários pedidos chegam ao mesmo tempo e todos mexem em <code>index</code>.</li>
+    <li>O <code>% len(rb.hosts)</code> faz o índice voltar a 0 depois do último host. É o "em círculo".</li>
+    <li>Com <code>quantum = 300 ms</code> e um pedido a cada 200 ms, a saída do artigo é: pedidos 1 e 2 em <code>host1</code>, 3 e 4 em <code>host2</code>, 5 e 6 em <code>host3</code>, e assim por diante.</li>
+  </ul>
+  <h4 class="deep-h">Correções e cuidados com o artigo-base</h4>
+  <ul>
+    <li>O artigo trata o quantum como parte do round robin de balanceamento. As ferramentas reais (Envoy, NGINX, HAProxy) giram por <strong>pedido</strong>, com <strong>pesos</strong>. O quantum de tempo é do escalonador de CPU e do exemplo em Go.</li>
+    <li>O repositório de exemplos do autor chama o peso do Envoy (<code>load_balancing_weight</code>) de "quantum". Peso decide <em>quantos pedidos por volta</em>; quantum decide <em>por quanto tempo</em>. São ideias diferentes (aula 10).</li>
+    <li>Na fila da loja, o resultado do round robin ponderado (1, 2, 3, 3) distribui as buscas pelas três réplicas, mas só porque a fila é curta e a ordem ajuda. Com outra ordem, o problema volta.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: ROUND_ROBIN é um round robin ponderado", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "NGINX: o round robin é o método padrão e aceita pesos", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "HAProxy: balance roundrobin (cada servidor por vez, segundo o peso)", href: "https://docs.haproxy.org/3.0/configuration.html" },
+    { label: "AWS ALB: algoritmos de roteamento dos target groups (round_robin é o padrão)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html" },
+    { label: "Scaler: round robin no escalonamento de processos", href: "https://www.scaler.com/topics/round-robin-scheduling-in-os/" },
+  ]} />
+</Deep>
+
+<p>O round robin deu 3 pedidos para cada réplica e ainda assim uma delas ficou com 2,7 s de trabalho. O erro foi contar pedidos sem perguntar quem estava ocupada. Falta saber se, em vez de girar às cegas, o balanceador pode mandar o próximo pedido para quem atendeu menos até agora.</p>
+
+<Flashcards cards={[
+  { q: "Como o round robin escolhe a réplica?",
+    a: "Guarda um índice e o avança a cada pedido, em círculo: 1, 2, 3, 1, 2, 3. Não olha o pedido nem a réplica." },
+  { q: "Por que a conta do round robin parece justa e não é?",
+    a: "Cada réplica recebe 3 pedidos, mas as 3 buscas de 900 ms caem todas na <code>catalogo-2</code>: 2,7 s de trabalho contra 60 ms nas outras." },
+  { q: "O que o quantum muda no round robin?",
+    a: "A réplica só troca depois de um tempo. Com 300 ms de quantum e um pedido a cada 200 ms, cada réplica recebe 2 seguidos. Um pico dentro do quantum cai numa réplica só." },
+  { q: "Para que serve o peso no round robin?",
+    a: "Para compensar máquinas diferentes: a <code>catalogo-3</code> com o dobro de CPU tem peso 2 e entra duas vezes por volta. Não compensa pedidos diferentes." },
+]} />
