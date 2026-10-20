@@ -1,0 +1,102 @@
+---
+title: "Rate limiting, throttling, token bucket e leaky bucket"
+order: 5
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o gateway passou a saber quem chama, e isso não segurou o robô do concorrente: ele pede <code>GET /api/v1/produtos/42</code> 500 vezes por segundo, e o catálogo aguenta 100 sem degradar. Para barrar o excesso antes que ele chegue ao serviço, o gateway conta os pedidos de cada cliente. Falta decidir como contar, porque a Lena também manda pedidos em grupo e não pode ser tratada como o robô.</p>
+
+<OneLiner>Rate limiting é uma regra fixa que barra quem passa do limite (429); token bucket deixa passar rajada até esvaziar o balde, leaky bucket entrega num ritmo constante; throttling é o gateway apertando o limite quando o serviço atrás dele adoece.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Token</strong>, clique em <strong>Próximo passo</strong> e anote, em cada passo, quantos pedidos passam e quantos levam 429: a rajada de 200 do robô, os 12 pedidos da Lena no balde dividido e os 12 da Lena no balde dela ("Um balde por chave"). No último passo, veja os cabeçalhos da resposta recusada. Depois clique em <strong>Leaky</strong> e em <strong>Throttle</strong> e compare a saída: ela é lisa ou em rajada? Por fim, em <strong>Réplicas</strong>, conte quantos pedidos por segundo o robô consegue com três contadores locais.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/limite-3d/?mode=token" poster="labs/api-gateways/limite-3d-previa.webp" title="Figura interativa: Token bucket" alt="Prévia da figura 3D: Token bucket" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="buckets" title="Simulador: token bucket e leaky bucket" hint="Escolha o balde, a capacidade e a taxa, e dispare a rajada da Lena ou o robô. Veja quantos passam, quantos levam 429 e como é a saída a cada 100 ms." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O limite por cliente.</strong> A loja decide que cada chave pode fazer <strong>10 pedidos por segundo</strong>. O décimo primeiro, dentro do mesmo segundo, não chega ao catálogo: o gateway responde <strong>429 Too Many Requests</strong>, com <code>Retry-After: 1</code> (espere 1 segundo), <code>RateLimit-Limit: 10</code> e <code>RateLimit-Remaining: 0</code>. O limite é uma medida preventiva, aplicada antes de o serviço sofrer.</li>
+  <li><strong>Token bucket.</strong> Um balde guarda tokens, com uma capacidade máxima, e ganha tokens novos num ritmo fixo. Cada pedido gasta um token, e sem token o pedido é recusado. No exemplo do artigo, o balde tem <strong>200 tokens</strong> e ganha <strong>100 por segundo</strong>: uma rajada de 200 pedidos de uma vez passa inteira, e depois só passam 100 por segundo.</li>
+  <li><strong>A Lena e o robô no mesmo balde.</strong> Por chave, a loja usa um balde de <strong>20 tokens</strong> com reposição de <strong>10 por segundo</strong>. A Lena abre o app e dispara 12 pedidos de uma vez (lista, fotos, preço): passam todos, e sobram 8 tokens. O robô, com 500 por segundo, esgota os 20 tokens em menos de 1 segundo. Daí em diante só passa o que o balde repõe, uns 10 por segundo. Dos 500 pedidos do primeiro segundo, cerca de 30 passam e 470 levam 429.</li>
+  <li><strong>Leaky bucket.</strong> Aqui o balde é uma <strong>fila</strong> de tamanho fixo, com um furo no fundo que deixa sair os pedidos num <strong>ritmo constante</strong>. Na loja: fila de 50 e saída de 50 por segundo. A rajada da Lena entra na fila e sai em cerca de um quarto de segundo. Se a fila enche, o pedido que sobra é descartado. O catálogo nunca recebe mais de 50 por segundo, nem quando 500 chegam juntos.</li>
+  <li><strong>Throttling.</strong> O catálogo começou a demorar 2 segundos para responder. O gateway, sem ninguém pedir, reduz o limite global de 100 para <strong>50 por segundo</strong>, até o tempo de resposta voltar ao normal. O rate limiting é a regra que a loja escreveu antes, e o throttling é a reação do gateway ao que está acontecendo agora.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: três gateways, três contadores</h3>
+
+<ol class="flow steps">
+  <li><strong>Cada réplica conta sozinha.</strong> A aula 3 pediu três réplicas do gateway. Cada uma guarda na memória o seu contador, com limite de 10 por segundo por chave.</li>
+  <li><strong>O robô se espalha.</strong> O balanceador reparte os pedidos do robô entre as três réplicas. Cada uma vê cerca de um terço, ainda abaixo de 10 por segundo cada, e libera. Somando, o robô consegue <strong>30 por segundo</strong>, o triplo do limite.</li>
+  <li><strong>É o problema do cache local do módulo 5.</strong> Cada réplica tem a sua cópia da verdade, e a soma não confere.</li>
+  <li><strong>O conserto é um contador compartilhado.</strong> As três réplicas leem e gravam o contador no Redis. O limite volta a ser 10 por segundo, com uma ressalva: o artigo avisa que essa consistência é eventual, e alguns pedidos a mais podem passar entre uma leitura e a gravação seguinte.</li>
+</ol>
+
+<p>Depois dos quatro mecanismos, o gateway já tem várias respostas possíveis para a mesma chamada. O simulador abaixo reúne tudo o que as duas últimas aulas definiram: a rota, a credencial e a cota decidem entre 200, 401, 403, 404 e 429.</p>
+
+<Widget name="resposta" title="Qual resposta a chamada recebe?" hint="Monte a chamada: a rota, quem chama e se a cota do cliente já estourou. O gateway avalia na ordem em que o Kong executa: rota, autenticação, autorização e limite." />
+
+<WhyItMatters>
+  <li><strong>O limite protege o serviço.</strong> O catálogo aguenta 100 por segundo, e o gateway impede que um cliente use isso sozinho.</li>
+  <li><strong>O limite também é um produto.</strong> O artigo lembra que limites maiores podem ser vendidos a clientes com planos melhores. O parceiro poderia ter 50 por segundo, e o robô, nenhum.</li>
+  <li><strong>Rajada boa e rajada ruim se parecem.</strong> A Lena com 12 pedidos e o robô com 500 chegam rápido, e a diferença está no tamanho e na duração. O token bucket deixa passar a primeira e corta a segunda.</li>
+  <li><strong>O contador precisa ser de todos.</strong> Com mais de uma réplica do gateway, um contador local deixa passar N vezes o limite.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Token bucket e leaky bucket lado a lado</h4>
+  <ul>
+    <li><strong>Token bucket:</strong> permite rajada, limitada pela capacidade do balde, e a média a longo prazo é a taxa de reposição. A saída acompanha a chegada, até os tokens acabarem.</li>
+    <li><strong>Leaky bucket (fila):</strong> a saída é constante, e a rajada espera na fila. Um pedido pode demorar alguns milissegundos a mais, e o serviço nunca vê um pico.</li>
+  </ul>
+  <p>Para a loja: o token bucket é melhor para a API pública, onde o app dispara várias chamadas ao abrir uma tela. O leaky bucket é melhor na frente do que não tolera pico, como um serviço antigo que cai com mais de 50 pedidos por segundo.</p>
+  <h4 class="deep-h">Onde cada um aparece nos produtos</h4>
+  <ul>
+    <li>O API Gateway da AWS limita com token bucket: a taxa de throttling é o ritmo em que os tokens são repostos, e o burst é a capacidade do balde.</li>
+    <li>O filtro de limite local do Envoy também descreve um token bucket.</li>
+    <li>O módulo <code>limit_req</code> do NGINX diz que usa o método do "leaky bucket", com <code>burst</code> para o tamanho da fila (o padrão é zero).</li>
+  </ul>
+  <h4 class="deep-h">Quem é "o cliente"</h4>
+  <p>O gateway precisa de uma chave para contar. Com login, usa a chave de API ou o cliente do token. Sem login, como em <code>GET /api/v1/produtos/42</code>, resta o endereço IP, e aí o escritório do módulo 7, com 500 pessoas atrás de um IP, divide um balde só. A RFC 6585 diz que o 429 pode valer para um recurso, para o servidor inteiro ou para um conjunto de servidores, e não define como identificar o usuário.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Leaky bucket.</strong> O artigo diz que o balde tem "tamanho igual à taxa de reposição" (50 tokens por segundo e balde de 50). O que define o leaky bucket é outra coisa: uma fila que vaza em ritmo constante. O tamanho da fila é livre. Na loja: fila de 50, saída de 50 por segundo, e os dois números podiam ser diferentes. A Wikipedia descreve duas versões, o leaky bucket como medidor e como fila, e a aula usa a segunda.</li>
+    <li><strong>"Não permite requests além da taxa".</strong> No leaky bucket em fila, a rajada é aceita até a fila encher. O que ele não permite é a saída acima da taxa.</li>
+    <li><strong>Referências.</strong> O artigo cita uma página sobre thermal throttling (o processador que reduz a frequência quando esquenta) e outra sobre throttling no WCF. Servem de analogia, mas nenhuma delas trata de gateways.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 6585: 429 Too Many Requests", href: "https://datatracker.ietf.org/doc/html/rfc6585" },
+    { label: "Wikipedia: token bucket", href: "https://en.wikipedia.org/wiki/Token_bucket" },
+    { label: "Wikipedia: leaky bucket", href: "https://en.wikipedia.org/wiki/Leaky_bucket" },
+    { label: "NGINX: módulo limit_req (leaky bucket e burst)", href: "https://nginx.org/en/docs/http/ngx_http_limit_req_module.html" },
+    { label: "AWS API Gateway: throttling com token bucket", href: "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora segura o robô sem barrar a Lena. Falta saber o que o gateway faz quando a própria loja precisa mudar a API: como o app antigo continua funcionando enquanto o app novo usa uma resposta de outro formato.</p>
+
+<Flashcards cards={[
+  { q: "O que o gateway responde a um cliente que passou do limite?",
+    a: "429 Too Many Requests, com Retry-After: 1, RateLimit-Limit: 10 e RateLimit-Remaining: 0 no exemplo da loja (10 pedidos por segundo por chave)." },
+  { q: "Como funciona um token bucket de 200 tokens e reposição de 100 por segundo?",
+    a: "Uma rajada de 200 pedidos passa de uma vez (gasta os tokens); depois só passam 100 por segundo, o que o balde repõe." },
+  { q: "O que define um leaky bucket?",
+    a: "Uma fila de tamanho fixo que vaza em ritmo constante (fila de 50, saída de 50 por segundo). A rajada espera na fila, e o excedente, com a fila cheia, é descartado." },
+  { q: "Qual a diferença entre rate limiting e throttling?",
+    a: "Rate limiting é preventivo: uma regra fixa por cliente. Throttling é reativo: o gateway reduz o limite global (100 para 50 por segundo) quando o serviço atrás dele fica lento." },
+  { q: "Por que três réplicas do gateway com contador local deixam o robô passar 30 por segundo?",
+    a: "Cada réplica conta sozinha e libera até 10 por segundo, e a soma é 3 × 10. Com um contador compartilhado no Redis, o limite volta a ser 10 (com consistência eventual)." },
+]} />

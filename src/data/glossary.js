@@ -3,6 +3,7 @@ import { capAcidBase } from './glossary-cap-acid-base.js';
 import { databases } from './glossary-databases.js';
 import { cache } from './glossary-cache.js';
 import { microsservicos } from './glossary-microsservicos.js';
+import { apiGateways } from './glossary-api-gateways.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -68,5 +69,6 @@ export const glossaries = {
   'cap-acid-base': capAcidBase,
   databases,
   cache,
-  microsservicos
+  microsservicos,
+  'api-gateways': apiGateways
 };

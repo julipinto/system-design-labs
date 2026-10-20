@@ -1,0 +1,77 @@
+---
+title: "API Gateway vs Load Balancer"
+order: 3
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o gateway escondeu os endereços dos serviços, mas a loja já tinha o <code>lb-loja</code>, que o módulo 7 colocou na frente das réplicas do catálogo. Os dois recebem um pedido e o passam adiante, e é fácil achar que um deles sobra. Não sobra: cada um responde a uma pergunta diferente.</p>
+
+<OneLiner>O load balancer escolhe entre N réplicas da mesma coisa; o gateway escolhe entre APIs diferentes e decide quem pode chamar o quê, quanto e em qual versão.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>LB</strong>, clique em <strong>Próximo passo</strong> e acompanhe o <code>GET /api/v1/produtos/42</code> da Lena do app até uma réplica do catálogo. Anote <strong>em que passo o serviço é escolhido</strong> ("O gateway decide qual API, quem e quanto") e <strong>em que passo a réplica é escolhida</strong> ("O LB decide qual réplica"). Siga até <strong>"E se der errado: só o LB na frente"</strong> e veja o que o robô consegue sem o gateway.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/gateway-3d/?mode=lb" poster="labs/api-gateways/gateway-3d-previa.webp" title="Figura interativa: Gateway + load balancer" alt="Prévia da figura 3D: Gateway + load balancer" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A pergunta do load balancer.</strong> O <code>lb-catalogo</code> tem três réplicas iguais, <code>catalogo-1</code> (10.0.1.11), <code>catalogo-2</code> (10.0.1.12) e <code>catalogo-3</code> (10.0.1.13). Chega um pedido, e a única decisão é qual delas atende. Ele não olha quem é o cliente nem quantas vezes esse cliente já pediu.</li>
+  <li><strong>A pergunta do gateway.</strong> O <code>gw-loja</code> recebe <code>GET /api/v1/produtos/42</code> e precisa decidir outras coisas: esse caminho é do <code>catalogo</code> ou do <code>pedidos</code>? Precisa de login? O cliente já passou do limite? É a versão 1 ou a 2? Nenhuma dessas perguntas faz sentido para um balanceador de réplicas.</li>
+  <li><strong>Os dois, um atrás do outro.</strong> O caminho completo é <code>app → gw-loja → lb-catalogo → catalogo-1/2/3</code>. O gateway decide o <strong>serviço</strong>, e o load balancer decide a <strong>réplica</strong>.</li>
+  <li><strong>Cada um cuida do que sabe.</strong> O health check das réplicas e o algoritmo de distribuição (módulo 7) ficam com o load balancer. Token, limite e versão ficam com o gateway. Por isso o gateway aponta para o endereço do <code>lb-catalogo</code>, e não para os três IPs das réplicas: se apontasse, teria de refazer a distribuição e os health checks por conta própria.</li>
+  <li><strong>O mesmo software pode fazer os dois papéis.</strong> Envoy e NGINX balanceiam e também funcionam como gateway. A diferença entre os dois está no papel que cada um desempenha na arquitetura, e não no programa que roda.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o gateway é a porta de todos</h3>
+
+<ol class="flow steps">
+  <li><strong>Uma réplica só do gateway.</strong> A loja sobe um único <code>gw-loja</code>. Ele trava às 20:00, e o catálogo, o carrinho e os pedidos estão todos saudáveis, mas ninguém de fora consegue chegar a nenhum deles.</li>
+  <li><strong>O gateway também precisa de réplicas.</strong> A loja sobe <code>gw-loja-1</code>, <code>gw-loja-2</code> e <code>gw-loja-3</code> e põe um load balancer na frente deles, com health check. O problema que o módulo 7 resolveu para o catálogo volta uma camada acima.</li>
+  <li><strong>O preço aparece na aula 5.</strong> Com três réplicas do gateway, quem conta os pedidos de cada cliente? Se cada uma tem o seu contador, o robô passa 3 vezes mais do que o limite.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Um não substitui o outro.</strong> Sem o balanceador, o gateway precisaria distribuir entre réplicas. Sem o gateway, o balanceador não sabe de login nem de versão.</li>
+  <li><strong>As camadas ficam simples.</strong> Cada uma resolve uma pergunta, e a figura mostra isso como duas estações em sequência.</li>
+  <li><strong>O gateway é um ponto de falha novo.</strong> Todo pedido de fora passa por ele, e por isso ele também precisa de réplicas e de um balanceador na frente.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Gateway, proxy reverso e balanceador</h4>
+  <p>Os três recebem um pedido e o repassam, e os produtos se misturam: o NGINX é proxy reverso, balanceador e, com configuração, gateway. O módulo 7 separou o proxy reverso (1 para 1) do balanceador (1 para N). O gateway acrescenta o conhecimento da API: quais rotas existem e quem pode usá-las.</p>
+  <h4 class="deep-h">E o balanceamento dentro do gateway?</h4>
+  <p>Alguns gateways trazem balanceamento embutido. O Kong, por exemplo, tem a entidade Upstream, com alvos (targets) e pesos. Para poucas réplicas serve, mas a loja já tem o <code>lb-catalogo</code> com health check, e repetir essa lógica no gateway é manter duas regras de distribuição.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo separa os dois pelo protocolo: o balanceador serve "qualquer coisa" e o gateway serve REST. A separação que se sustenta é o papel. O balanceador escolhe a réplica e o gateway governa o acesso, e ambos já funcionam com HTTP, gRPC e WebSocket.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "GeeksforGeeks: o que é um API gateway em system design", href: "https://www.geeksforgeeks.org/what-is-api-gateway-system-design/" },
+    { label: "microservices.io: padrão API Gateway", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "Kong: a entidade Upstream (alvos, pesos e balanceamento)", href: "https://developer.konghq.com/gateway/entities/upstream/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora tem o gateway na frente do balanceador, e o gateway é o único que enxerga a requisição inteira. Falta saber o que ele faz com ela: como escolhe a rota, como descobre quem é a Lena e como decide o que a Lena pode fazer.</p>
+
+<Flashcards cards={[
+  { q: "Qual pergunta o load balancer responde e qual o gateway responde?",
+    a: "O load balancer: qual réplica atende. O gateway: qual serviço, se essa pessoa pode chamar, se passou do limite e qual versão." },
+  { q: "Qual é o caminho de um pedido do app ao catálogo?",
+    a: "app → gw-loja → lb-catalogo → catalogo-1/2/3. O gateway escolhe o serviço e o load balancer escolhe a réplica." },
+  { q: "Por que o gateway aponta para o lb-catalogo e não para os 3 IPs?",
+    a: "Porque o health check e o algoritmo de distribuição já são do load balancer. Apontar para os IPs obrigaria o gateway a refazer isso." },
+  { q: "O que acontece se a loja tiver uma réplica só do gateway?",
+    a: "Se ela cair, a loja inteira some para quem está de fora, mesmo com todos os serviços saudáveis. O gateway também precisa de réplicas e de um balanceador na frente." },
+]} />

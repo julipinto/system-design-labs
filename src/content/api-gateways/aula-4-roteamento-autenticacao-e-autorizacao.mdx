@@ -1,0 +1,88 @@
+---
+title: "Roteamento, autenticação e autorização"
+order: 4
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada ficou claro que o gateway é o único ponto que enxerga o pedido inteiro antes de qualquer serviço. É a hora de usar isso. Hoje, o <code>catalogo</code> aceita qualquer um, o <code>pedidos</code> confere um token e o <code>pagamentos</code> confere outro. Se o gateway conferir uma vez só, os serviços param de repetir a conferência. Mas antes de conferir quem chama, ele precisa saber para onde o pedido vai.</p>
+
+<OneLiner>O gateway escolhe a rota pelo método e pelo caminho, descobre quem chama pelo token (autenticação) e decide o que essa pessoa pode fazer pelos escopos (autorização): 401 quando não sabe quem é, 403 quando sabe e não deixa.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Auth</strong>, clique em <strong>Próximo passo</strong> e anote o código de três chamadas: a da Lena com o token válido ("A Lena manda o JWT"), uma sem token nenhum ("Sem token: 401 no portão") e a do parceiro tentando <code>POST /api/v1/pedidos</code> ("O parceiro sem escopo: 403"). Pare no último passo, <strong>"E se der errado: chamada direta ao pedidos"</strong>, e veja por onde a chamada entra.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/gateway-3d/?mode=auth" poster="labs/api-gateways/gateway-3d-previa.webp" title="Figura interativa: Autenticação e autorização" alt="Prévia da figura 3D: Autenticação e autorização" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Rota por método e caminho.</strong> A loja decide separado cada combinação. <code>GET /api/v1/produtos/*</code> vai para o <code>catalogo</code> e é público, sem login. <code>POST /api/v1/pedidos</code> vai para o <code>pedidos</code> e exige login. <code>GET /api/v1/pedidos/1048</code> vai para o mesmo serviço, exige login e exige que a pessoa seja a dona do pedido.</li>
+  <li><strong>Quem é você (autenticação).</strong> A Lena abre o app e faz o pedido. O app manda <code>Authorization: Bearer eyJ…</code>, um <strong>JWT</strong>. O gateway confere duas coisas: se a assinatura foi feita com a chave da loja, e se o instante <code>exp</code> ainda não passou. Um token com assinatura errada ou vencido recebe <strong>401 Unauthorized</strong>, e a chamada nem chega ao serviço.</li>
+  <li><strong>O que o token diz.</strong> O payload de exemplo é <code>{`{ "sub": "lena-77", "nome": "Lena", "escopos": ["pedidos:ler", "pedidos:criar"], "exp": 1792000000 }`}</code>. Com a assinatura conferida, o gateway pode confiar no <code>sub</code> e repassa ao serviço o cabeçalho <code>X-Cliente-Id: lena-77</code>. Se o cliente já tiver mandado um <code>X-Cliente-Id</code> por conta própria, o gateway o descarta e põe o dele.</li>
+  <li><strong>O que você pode (autorização).</strong> A chave do parceiro, <code>marketplace-xyz</code>, vale só para o escopo <code>produtos:ler</code>. Quando ele tenta <code>POST /api/v1/pedidos</code>, o gateway sabe quem é, vê que falta <code>pedidos:criar</code> e responde <strong>403 Forbidden</strong>. Sem token, a resposta é 401, porque o gateway ainda não sabe quem chama.</li>
+  <li><strong>De quem é o pedido.</strong> Para <code>GET /api/v1/pedidos/1048</code>, o escopo <code>pedidos:ler</code> não basta. O gateway não sabe de quem é o pedido 1048, e quem sabe é o serviço <code>pedidos</code>. Ele compara o <code>X-Cliente-Id</code> com o dono gravado no pedido e, se for outra pessoa, recusa.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: alguém chama o serviço direto</h3>
+
+<ol class="flow steps">
+  <li><strong>O serviço confia no cabeçalho.</strong> O <code>pedidos</code> aceita qualquer <code>X-Cliente-Id</code> porque "o gateway já conferiu". Dentro da rede da loja isso funciona.</li>
+  <li><strong>Alguém chega pela porta dos fundos.</strong> Um acesso à rede interna (uma máquina comprometida, um serviço mal configurado) chama o <code>pedidos</code> direto, sem passar pelo gateway, com <code>X-Cliente-Id: lena-77</code> escrito à mão. O serviço acredita.</li>
+  <li><strong>O pedido da Lena vaza.</strong> A resposta traz o pedido 1048, com endereço e total, para quem nunca teve um token.</li>
+  <li><strong>O conserto tem duas partes.</strong> Fechar a rede interna, para que só o gateway alcance os serviços, e fazer o serviço também conferir o token, em vez de confiar no cabeçalho. A segunda parte cobre o caso de a primeira falhar.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Uma conferência, não seis.</strong> O token é validado num lugar só, e o time de pedidos não precisa reescrever a lógica quando o de pagamentos muda a dele.</li>
+  <li><strong>O código diz o motivo da recusa.</strong> 401 diz "não sei quem você é", e o cliente pode tentar de novo com credenciais novas. 403 diz "sei quem você é, e a resposta é não", e tentar de novo não adianta.</li>
+  <li><strong>O gateway decide o que dá para decidir sem dados.</strong> Escopo e validade do token ele sabe. De quem é um pedido, só o serviço sabe.</li>
+  <li><strong>Confiar no gateway tem limite.</strong> Se a rede interna está aberta, o gateway deixa de ser a única porta e a conferência dele perde o valor.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O que é um JWT</h4>
+  <p>Um JWT tem três partes separadas por ponto: cabeçalho, payload e assinatura. As duas primeiras são JSON codificado em base64url, o que significa que <strong>qualquer pessoa consegue ler</strong> o payload. A assinatura não esconde nada: ela garante que ninguém alterou o conteúdo sem a chave. Por isso não se põe segredo dentro do token.</p>
+  <p>Os campos <code>sub</code> (de quem é o token) e <code>exp</code> (a partir de quando ele não vale mais, em segundos desde 1970) são claims registrados na RFC 7519. O campo <code>escopos</code> da loja é um nome combinado entre a loja e o app.</p>
+  <h4 class="deep-h">Quem emite o token</h4>
+  <p>O gateway confere o token, mas não o emite. Quem faz o login da Lena e assina o token é um serviço de identidade, que costuma seguir o OAuth 2.0 (RFC 6749). O artigo lembra que muitos gateways precisam se integrar a um provedor de identidade externo. No Kong, o plugin JWT aceita tokens assinados com HS256 ou RS256 e pode conferir <code>exp</code> e <code>nbf</code>. Para o parceiro, o plugin de chave de API (<code>key-auth</code>) faz o mesmo papel com uma chave fixa.</p>
+  <h4 class="deep-h">O que a RFC diz de 401 e 403</h4>
+  <ul>
+    <li><strong>401:</strong> a requisição não foi aplicada porque falta uma credencial de autenticação válida para o recurso.</li>
+    <li><strong>403:</strong> o servidor entendeu a requisição e se recusa a cumpri-la.</li>
+  </ul>
+  <p>Na prática, uma recusa por falta de escopo é 403, e uma por token vencido ou ausente é 401. Quem quiser não revelar que um pedido existe pode responder 404 no lugar do 403.</p>
+  <h4 class="deep-h">Esse erro tem nome</h4>
+  <p>Deixar uma pessoa ler o pedido de outra, trocando só o número na URL, é o primeiro item da lista de riscos de API da OWASP, <em>Broken Object Level Authorization</em>. O gateway sozinho não impede, porque a regra depende do dado do pedido.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 7519: JSON Web Token (sub, exp e a estrutura de 3 partes)", href: "https://datatracker.ietf.org/doc/html/rfc7519" },
+    { label: "jwt.io: introdução ao JSON Web Token", href: "https://jwt.io/introduction" },
+    { label: "RFC 9110: HTTP Semantics (401, 403 e 404)", href: "https://datatracker.ietf.org/doc/html/rfc9110" },
+    { label: "Kong: plugin JWT", href: "https://developer.konghq.com/plugins/jwt/" },
+    { label: "OWASP API Security 2023: Broken Object Level Authorization", href: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora o gateway sabe para onde vai cada chamada e quem a fez, e o app da Lena, o site e o parceiro passam por ele. O robô do concorrente também passa: com uma chave válida ou sem nenhuma, ele continua pedindo o preço do gato 500 vezes por segundo, e o catálogo aguenta 100. Falta saber como o gateway segura um cliente que pede demais.</p>
+
+<Flashcards cards={[
+  { q: "Qual a diferença entre autenticação e autorização?",
+    a: "Autenticação: quem é você (o gateway confere assinatura e exp do JWT). Autorização: o que você pode fazer (o gateway confere os escopos)." },
+  { q: "Quando o gateway responde 401 e quando responde 403?",
+    a: "401: sem token, token vencido ou assinatura inválida (não sabe quem é). 403: token válido, mas sem o escopo da rota (sabe quem é e recusa)." },
+  { q: "Que cabeçalho o gateway repassa ao serviço e o que ele faz com o que o cliente mandou?",
+    a: "X-Cliente-Id: lena-77, tirado do sub do token. Se o cliente mandar um X-Cliente-Id próprio, o gateway o descarta." },
+  { q: "Por que o gateway não consegue decidir sozinho se o pedido 1048 é da Lena?",
+    a: "Ele só enxerga o token e a URL. Quem sabe o dono do pedido é o serviço pedidos, que compara com o X-Cliente-Id." },
+  { q: "O que acontece se alguém chamar o pedidos direto pela rede interna?",
+    a: "Se o serviço confia no X-Cliente-Id, a pessoa escreve o cabeçalho que quiser e lê o pedido da Lena. Conserto: rede fechada e o serviço também conferindo o token." },
+]} />

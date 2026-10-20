@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
@@ -9,34 +10,13 @@ const lesson = z.object({
   min: z.number(),     // tempo de leitura em minutos
 });
 
-const protocolosDeRede = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/protocolos-de-rede' }),
-  schema: lesson,
-});
+// Cada pasta de src/content/ (menos as que começam com "_") é um módulo: a coleção tem o nome da pasta.
+// Módulo novo não precisa mexer aqui; basta criar src/content/<slug>/.
+const slugs = readdirSync('./src/content', { withFileTypes: true })
+  .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
+  .map((d) => d.name);
 
-const storageRaidIo = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/storage-raid-io' }),
+export const collections = Object.fromEntries(slugs.map((slug) => [slug, defineCollection({
+  loader: glob({ pattern: '*.mdx', base: `./src/content/${slug}` }),
   schema: lesson,
-});
-
-const capAcidBase = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/cap-acid-base' }),
-  schema: lesson,
-});
-
-const databases = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/databases' }),
-  schema: lesson,
-});
-
-const cache = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/cache' }),
-  schema: lesson,
-});
-
-const microsservicos = defineCollection({
-  loader: glob({ pattern: '*.mdx', base: './src/content/microsservicos' }),
-  schema: lesson,
-});
-
-export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo, 'cap-acid-base': capAcidBase, databases, cache, microsservicos };
+})]));

@@ -1,0 +1,78 @@
+---
+title: "Introdução e problemas operacionais"
+order: 1
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O módulo 7 terminou com o <code>lb-loja</code> distribuindo o catálogo entre as réplicas e roteando por caminho em L7. Só que a loja abriu duas portas novas: um app de celular, que a Lena usa em Recife, e uma API para parceiros, o <code>marketplace-xyz</code>, que revende o gato de pelúcia. Quem bate na loja agora é gente que a loja não controla, e cada serviço do módulo 6 continua atendendo do seu jeito: o <code>catalogo</code> aceita qualquer um, o <code>pedidos</code> confere um token e o <code>pagamentos</code> confere outro. Para o parceiro, são seis URLs e três jeitos de provar quem é.</p>
+
+<OneLiner>Um API Gateway é a porta única da loja: todo pedido de fora entra por <code>api.loja.com.br</code>, e as regras que valem para todos (rota, identidade, limite, versão) são aplicadas ali, uma vez.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Sem</strong>, clique em <strong>Próximo passo</strong> até o fim e conte três coisas: quantos endereços o app precisa conhecer, em quantos lugares alguém teria de conferir o login e onde dá para bloquear o robô. Pare no último passo, <strong>"E se der errado: o pedidos muda de endereço"</strong>, e veja quem precisa mudar. Depois clique em <strong>Rota</strong> e leia o primeiro passo, <strong>"Uma porta só: api.loja.com.br"</strong>, para contar de novo.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/gateway-3d/?mode=sem" poster="labs/api-gateways/gateway-3d-previa.webp" title="Figura interativa: Sem gateway" alt="Prévia da figura 3D: Sem gateway" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Seis endereços.</strong> Sem gateway, o app da Lena conhece <code>catalogo.loja.com.br</code>, <code>carrinho.loja.com.br</code>, <code>pedidos.loja.com.br</code> e mais três. O parceiro recebe a mesma lista, com a documentação de cada uma.</li>
+  <li><strong>Seis jeitos de conferir quem chama.</strong> O <code>catalogo</code> deixa qualquer um entrar, o <code>pedidos</code> pede um token e o <code>pagamentos</code> pede outro. Cada time implementou do seu modo, e nada garante que o modo é o mesmo nem que está certo.</li>
+  <li><strong>Trocar um serviço vira problema do cliente.</strong> Se o <code>pedidos</code> for substituído por um serviço novo em outro endereço, o app e o parceiro precisam mudar de URL. O app só muda quando a Lena o atualiza, e o parceiro só muda quando o time dele tiver espaço na sprint.</li>
+  <li><strong>O robô.</strong> Na Black Friday, um robô de um concorrente pede <code>GET /produtos/42</code> a 500 pedidos por segundo. O <code>catalogo</code> aguenta 100 por segundo sem degradar. Para barrar o robô, é preciso configurar cada um dos serviços que ele pode alcançar.</li>
+  <li><strong>O custo de operar.</strong> Seis certificados TLS para renovar, seis lugares para bloquear um IP e seis logs em seis formatos para ler quando algo dá errado.</li>
+</ol>
+</HowItWorks>
+
+<p>Com um monolito nada disso existia, porque a loja era uma URL só (a aula 2 mostra por quê). O API Gateway devolve essa URL única. O <code>gw-loja</code> escuta em <code>api.loja.com.br</code>, recebe todo pedido de fora e o encaminha ao serviço certo. Atrás dele ficam os load balancers de cada serviço, do módulo 7, e as réplicas. O app passa a conhecer um endereço só, o parceiro também, e o robô tem um único lugar por onde entrar.</p>
+
+<WhyItMatters>
+  <li><strong>Um endereço, uma documentação.</strong> O parceiro integra uma vez, e a loja troca o que está atrás da porta sem avisar ninguém, desde que o contrato (as rotas e as respostas) continue o mesmo.</li>
+  <li><strong>Uma regra, aplicada uma vez.</strong> Conferir o token, contar os pedidos de cada cliente e registrar o log passam a acontecer no gateway. Os serviços deixam de repetir o mesmo código seis vezes.</li>
+  <li><strong>Um lugar para olhar.</strong> Certificado, bloqueio do robô e log ficam num ponto só. Quando o robô aparece, a loja sabe onde agir.</li>
+  <li><strong>O preço.</strong> Todo pedido de fora passa por um componente a mais, que precisa estar no ar. As aulas 3 e 5 voltam a isso.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O que um gateway costuma fazer</h4>
+  <ul>
+    <li><strong>Roteamento:</strong> olhar método e caminho e escolher o serviço (aulas 2 e 4).</li>
+    <li><strong>Autenticação e autorização:</strong> conferir quem chama e o que essa pessoa pode fazer (aula 4).</li>
+    <li><strong>Limite de uso:</strong> rate limiting e throttling (aula 5).</li>
+    <li><strong>Versão e reescrita de caminho:</strong> v1 e v2 lado a lado (aula 6).</li>
+    <li><strong>Outros:</strong> cache de respostas, firewall de aplicação, modificação de cabeçalhos e de corpo, métricas e log.</li>
+  </ul>
+  <h4 class="deep-h">Um padrão, não um produto</h4>
+  <p>O gateway é um padrão de arquitetura, descrito há anos para microsserviços. Kong, NGINX, Envoy e os gateways gerenciados das nuvens são implementações dele. A aula 7 usa o Kong só porque o laboratório público dele é fácil de rodar.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo diz que gateways são "primariamente intermediários de APIs REST". Na prática, os produtos também lidam com gRPC e WebSocket: a página do plugin JWT do Kong lista <code>grpc</code>, <code>grpcs</code>, <code>ws</code> e <code>wss</code> ao lado de <code>http</code> e <code>https</code>. O artigo, aliás, cita WebSockets na seção de balanceadores.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "microservices.io: padrão API Gateway", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "HubSpot: o que é um API gateway e como funciona", href: "https://blog.hubspot.com/website/api-gateway" },
+    { label: "Microsoft Azure: padrão Gateway Offloading", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/gateway-offloading" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe o que quer: uma porta só, com as regras comuns na frente. Falta saber por que a loja precisou dela só depois de partir o programa em serviços, e o que o monolito escondia do cliente sem que ninguém precisasse construir nada.</p>
+
+<Flashcards cards={[
+  { q: "O que é um API Gateway, em uma frase?",
+    a: "A porta única de uma arquitetura: recebe todo pedido de fora, aplica as regras comuns (rota, identidade, limite, versão) e entrega ao serviço certo." },
+  { q: "Quais problemas operacionais aparecem sem gateway?",
+    a: "O cliente conhece 6 URLs, cada serviço confere o login do seu jeito, trocar um serviço obriga o cliente a mudar de endereço, e bloquear um robô, renovar certificado e ler log acontece em 6 lugares." },
+  { q: "Qual é o robô do módulo e por que ele importa?",
+    a: "Um robô de concorrente pede o preço do gato 500 vezes por segundo, e o catálogo aguenta 100. Sem um lugar único para barrá-lo, o bloqueio precisa ser feito serviço por serviço." },
+  { q: "Quem fica atrás do gw-loja?",
+    a: "Os load balancers de cada serviço (módulo 7) e, atrás deles, as réplicas: app → gw-loja → lb-catalogo → catalogo-1/2/3." },
+]} />

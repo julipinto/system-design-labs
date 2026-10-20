@@ -1,0 +1,12 @@
+/* SDLabs · API Gateways: o que só este módulo usa (gráfico dos baldes, campo de caminho). Peças comuns em widgets.css */
+/* simulador de baldes: cada coluna são 100 ms; cinza chegou, aceso saiu para o catálogo */
+.sdl-content .bk-chart{display:flex;align-items:flex-end;gap:2px;height:96px;margin:var(--s-2) 0 0;padding:6px;border:var(--hair) solid var(--line-strong);border-radius:var(--r-1);background:var(--sunken)}
+.sdl-content .bk-col{position:relative;flex:1 1 0;min-width:0;height:100%}
+.sdl-content .bk-col i{position:absolute;left:0;right:0;bottom:0;display:block;min-height:0}
+.sdl-content .bk-in{background:var(--line-strong)}
+.sdl-content .bk-out{background:var(--accent-fill);box-shadow:var(--glow);width:60%;left:20%;right:auto}
+.sdl-content .bk-legend{margin:6px 0 var(--s-2)}
+.sdl-content .sr-ctl input[type="range"]{min-height:44px}
+.sdl-content .pc-table td{overflow-wrap:anywhere}
+/* laboratório: o código lido linha a linha e o trecho de configuração que não é do repositório */
+.sdl-content pre.lab-code{margin:var(--s-3) 0}

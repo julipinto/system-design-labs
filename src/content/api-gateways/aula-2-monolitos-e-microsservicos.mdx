@@ -1,0 +1,78 @@
+---
+title: "Monolitos e microsserviços"
+order: 2
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o gateway virou a porta única da loja, mas ficou uma pergunta: por que a loja não tinha esse problema antes de ser partida em serviços? Porque o monolito já era uma porta única. O cliente chamava um endereço, e o que existia por trás dele (catálogo, carrinho, pedidos) era assunto de dentro do processo. Quando o módulo 6 partiu o programa, a divisão interna passou a aparecer na URL.</p>
+
+<OneLiner>No monolito o cliente via uma URL só; nos microsserviços ele passou a ver a divisão interna da loja, e o gateway esconde essa divisão de novo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Rota</strong>, clique em <strong>Próximo passo</strong> até <strong>"GET /api/v1/produtos/42 vai ao catálogo"</strong> e depois até <strong>"strip_path: o catálogo recebe /produtos/42"</strong>. Veja <strong>qual endereço a Lena digitou</strong> e <strong>qual caminho o catálogo recebeu</strong>: são iguais? Depois clique em <strong>Sem</strong>, avance até <strong>"E se der errado: o pedidos muda de endereço"</strong> e observe o que muda no app e o que muda no gateway.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/gateway-3d/?mode=rota" poster="labs/api-gateways/gateway-3d-previa.webp" title="Figura interativa: Roteamento e strip_path" alt="Prévia da figura 3D: Roteamento e strip_path" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Monolito.</strong> A Lena chama <code>GET loja.com.br/produtos/42</code> e depois <code>POST loja.com.br/pedidos</code>. O endereço é o mesmo, o balanceador escolhe uma das cópias do programa, e catálogo e pedidos conversam por chamada de função dentro dela. A divisão em módulos existe, mas só quem mexe no código a vê.</li>
+  <li><strong>Microsserviços.</strong> O módulo 6 partiu o programa. Cada serviço ganhou o seu endereço, e a divisão em módulos virou a lista de URLs que o cliente precisa saber. Quem decidiu como organizar os times acabou decidindo o que o parceiro digita.</li>
+  <li><strong>Gateway.</strong> A loja publica uma URL só, <code>api.loja.com.br</code>, e distingue os serviços pelo começo do caminho: <code>/api/v1/produtos</code> vai para o <code>catalogo</code>, <code>/api/v1/carrinho</code> para o <code>carrinho</code>, <code>/api/v1/pedidos</code> para o <code>pedidos</code> e <code>/api/v1/clientes</code> para o <code>clientes</code>. Para o cliente, é uma API só com quatro assuntos.</li>
+  <li><strong>O caminho muda no trajeto.</strong> O gateway recebe <code>/api/v1/produtos/42</code>, tira o prefixo da rota (<code>strip_path</code>) e entrega <code>/produtos/42</code> ao catálogo. O serviço não sabe que existe um <code>/api/v1</code>, e quem decide o prefixo público é o gateway.</li>
+  <li><strong>Trocar um serviço por baixo.</strong> O time de pedidos publica um serviço novo, em outro endereço interno. A loja muda a rota <code>/api/v1/pedidos</code> no gateway, num lugar só, e o app e o parceiro nem ficam sabendo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: a troca com contrato diferente</h3>
+
+<ol class="flow steps">
+  <li><strong>O endereço é o mesmo, a resposta não.</strong> O serviço novo de pedidos devolve <code>{`{ "id": 1048, "total": { "valor": 94.90, "moeda": "BRL" } }`}</code>, e o antigo devolvia <code>{`{ "id": 1048, "total": 94.90 }`}</code>.</li>
+  <li><strong>O app quebra.</strong> Ele lê <code>total</code> esperando um número e recebe um objeto. A URL não mudou e o gateway funcionou, mas a tela de confirmação da Lena não mostra o valor.</li>
+  <li><strong>O gateway esconde o endereço, não o contrato.</strong> Quando a resposta muda de forma, a troca precisa de outra rota ou de outra versão. É o assunto da aula 6.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>O cliente fica livre da organização interna.</strong> Se o time de pedidos for dividido em dois serviços amanhã, a rota continua sendo <code>/api/v1/pedidos</code>.</li>
+  <li><strong>A troca vira uma mudança de configuração.</strong> Mudar uma rota é uma alteração de configuração no gateway. Mudar a URL em todos os clientes depende de cada cliente, e o parceiro não tem pressa nenhuma.</li>
+  <li><strong>O contrato é o que o cliente enxerga.</strong> Rotas, métodos e formato das respostas são o que precisa continuar valendo, e o gateway ajuda a protegê-los mas não os cria sozinho.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Dois jeitos de escolher o serviço</h4>
+  <ul>
+    <li><strong>Pelo começo do caminho:</strong> <code>/api/v1/produtos/*</code> vai para o catálogo, seja o método que for. É o mais simples.</li>
+    <li><strong>Por método e caminho:</strong> <code>GET /api/v1/pedidos/*</code> pode ir para um serviço de leitura e <code>POST /api/v1/pedidos</code> para outro de escrita. A aula 4 usa isso para decidir quem precisa de login.</li>
+  </ul>
+  <h4 class="deep-h">Porta para fora e porta para dentro</h4>
+  <p>O artigo lembra que o padrão serve tanto para expor serviços ao público quanto para organizar a comunicação entre sistemas de uma mesma empresa. Na loja, o <code>gw-loja</code> é o gateway externo. Nada impede que um time de logística tenha um gateway interno para os serviços dele.</p>
+  <h4 class="deep-h">Onde isso aparece no módulo 6</h4>
+  <p>A lei de Conway diz que o desenho do sistema acaba espelhando o desenho dos times. A URL por serviço é um exemplo concreto: sem gateway, o organograma da loja vira o endereço que o parceiro digita.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "microservices.io: padrão API Gateway", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "Microsoft Azure: padrão Gateway Routing", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/gateway-routing" },
+    { label: "Kong: a entidade Route (paths e strip_path)", href: "https://developer.konghq.com/gateway/entities/route/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O gateway agora esconde os endereços, mas a loja já tinha um componente na frente das réplicas, o <code>lb-loja</code> do módulo 7. Falta saber se o gateway o substitui, ou se os dois fazem trabalhos diferentes e podem ficar um atrás do outro.</p>
+
+<Flashcards cards={[
+  { q: "O que o cliente enxergava no monolito e o que passou a enxergar nos microsserviços?",
+    a: "No monolito, uma URL só. Nos microsserviços, uma URL por serviço: a divisão interna da loja apareceu para quem chama." },
+  { q: "O que é strip_path?",
+    a: "O gateway tira da URL o prefixo da rota antes de entregar ao serviço: recebe /api/v1/produtos/42 e entrega /produtos/42 ao catálogo." },
+  { q: "O que fica igual para o app quando a loja troca o serviço pedidos por um novo?",
+    a: "A URL pública, /api/v1/pedidos. Só a rota no gateway muda, para apontar ao serviço novo." },
+  { q: "Por que a troca ainda pode quebrar o app?",
+    a: "Porque o gateway esconde o endereço, não o contrato. Se a resposta mudar de forma (total de número para objeto), o app quebra mesmo com a URL igual." },
+]} />

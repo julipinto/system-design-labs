@@ -1,0 +1,89 @@
+---
+title: "Versionamento de APIs"
+order: 6
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o gateway aprendeu a segurar o robô sem barrar a Lena, e a loja ficou com um problema de outro tipo: a própria API precisa mudar. O time de pedidos quer devolver o total como um objeto, com valor e moeda, e o app antigo da Lena, que lê o total como um número, não pode quebrar no dia em que isso for ao ar. Na aula 2, a troca de contrato foi o "e se der errado". Agora ela é o assunto.</p>
+
+<OneLiner>Versionar é deixar a versão antiga e a nova da API no ar ao mesmo tempo, cada uma numa rota; o gateway reescreve o caminho para o serviço certo e pode mandar uma fatia do tráfego (canary) para uma implementação nova.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Versão</strong>, clique em <strong>Próximo passo</strong> e compare as respostas dos passos <strong>"v1: o total é um número"</strong> e <strong>"v2: o total vira objeto"</strong>. Avance pelo <strong>"Canary: 10% → 50% → 100%"</strong> e observe quanto do tráfego vai para cada serviço. No último passo, <strong>"E se der errado: a v1 desligada cedo"</strong>, veja o que o parceiro recebe.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/gateway-3d/?mode=versao" poster="labs/api-gateways/gateway-3d-previa.webp" title="Figura interativa: Versionamento e canary" alt="Prévia da figura 3D: Versionamento e canary" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="reescrita" title="Para onde vai este caminho?" hint="Digite um caminho ou escolha um pronto e veja qual rota o gateway casa, qual serviço recebe, qual caminho chega a ele e o que ele responde." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Duas rotas, dois serviços.</strong> <code>/api/v1/pedidos</code> vai para o serviço <code>pedidos</code>, que responde <code>{`{ "id": 1048, "total": 94.90 }`}</code>. <code>/api/v2/pedidos</code> vai para o <code>pedidos-v2</code>, que responde <code>{`{ "id": 1048, "total": { "valor": 94.90, "moeda": "BRL" } }`}</code>. Um campo mudou de forma, e isso quebra o contrato da v1.</li>
+  <li><strong>Cada app fica na sua versão.</strong> O app antigo da Lena continua chamando a v1 e continua lendo um número. O app novo chama a v2. Quem decide quando mudar de versão é o cliente.</li>
+  <li><strong>A reescrita do caminho.</strong> O gateway recebe <code>/api/v2/pedidos/1048</code>, tira o prefixo da rota e entrega <code>/pedidos/1048</code> ao <code>pedidos-v2</code>. O serviço novo não sabe que existe "v2" na URL: ele só conhece <code>/pedidos</code>. A versão é um assunto do gateway.</li>
+  <li><strong>Canary na mesma versão.</strong> Às vezes a loja reescreve o <code>pedidos</code> com o <strong>mesmo contrato</strong> da v1, só que com uma implementação melhor. Em vez de trocar tudo de uma vez, o gateway manda <strong>10%</strong> do tráfego da v1 para a implementação nova.</li>
+  <li><strong>Subir aos poucos.</strong> Se os erros não aumentam, o gateway passa para 50% e depois para 100%. Se aumentam, volta para 0% sem o cliente notar. O canary só vale se os dois lados respeitam o mesmo contrato.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o v1 desligado cedo</h3>
+
+<ol class="flow steps">
+  <li><strong>O v2 está estável, e alguém desliga o v1.</strong> O time acha que ninguém mais o usa e remove a rota <code>/api/v1/pedidos</code> do gateway.</li>
+  <li><strong>O parceiro ainda usa.</strong> O <code>marketplace-xyz</code> integrou na v1 e nunca atualizou. Na manhã seguinte, cada chamada dele recebe <strong>404</strong>, e os pedidos do marketplace param de entrar.</li>
+  <li><strong>O conserto é avisar com prazo e medir.</strong> A v1 passa a responder com os cabeçalhos <code>Deprecation</code> (já é considerada antiga) e <code>Sunset</code> (a data em que vai parar), e o gateway conta, por cliente, quem ainda a chama. Ele só é desligado quando essa contagem chega a zero, ou quando o prazo combinado acaba.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>O app antigo não quebra.</strong> A Lena que não atualizou o app continua comprando.</li>
+  <li><strong>O serviço novo fica simples.</strong> Ele não carrega "v1" e "v2" dentro do código, porque o gateway cuida da versão.</li>
+  <li><strong>A troca é gradual.</strong> O canary transforma uma virada arriscada em três passos pequenos, cada um com a possibilidade de voltar.</li>
+  <li><strong>A saída da v1 é um processo.</strong> Aviso, prazo e medição evitam que o parceiro descubra pelo 404.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde pôr a versão</h4>
+  <ul>
+    <li><strong>No caminho</strong> (<code>/api/v2/pedidos</code>): é o que a loja usa, e o mais fácil de rotear e de ver nos logs.</li>
+    <li><strong>Num cabeçalho ou na query:</strong> a URL não muda, e o gateway precisa olhar o cabeçalho para escolher o serviço. Funciona, mas é mais difícil de testar com um navegador.</li>
+  </ul>
+  <h4 class="deep-h">O que é uma mudança que quebra</h4>
+  <p>Acrescentar um campo novo costuma ser seguro, porque o app antigo o ignora. Tirar um campo, mudar o tipo (de número para objeto) ou mudar o significado quebra. O <code>total</code> da loja é do segundo tipo, e por isso ganhou a v2.</p>
+  <h4 class="deep-h">Os cabeçalhos de aviso</h4>
+  <ul>
+    <li><code>Deprecation</code> (RFC 9745): avisa que o recurso está ou será descontinuado. O valor é uma data, como <code>Deprecation: @1688169599</code>.</li>
+    <li><code>Sunset</code> (RFC 8594): avisa o momento em que a URL deve parar de responder.</li>
+  </ul>
+  <p>A loja mandaria os dois na v1, e o parceiro com um monitor de cabeçalhos descobre o prazo antes do desligamento.</p>
+  <h4 class="deep-h">Canary é um padrão de lançamento</h4>
+  <p>O nome vem do canário que mineiros levavam para a mina: se o canário adoecesse, havia gás. Na prática, uma fatia pequena do tráfego sofre primeiro, e os erros dela avisam o resto. O gateway só consegue repartir o tráfego, e a decisão de subir de 10% para 50% depende de medir os erros.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 9745: cabeçalho Deprecation", href: "https://datatracker.ietf.org/doc/html/rfc9745" },
+    { label: "RFC 8594: cabeçalho Sunset", href: "https://datatracker.ietf.org/doc/html/rfc8594" },
+    { label: "Martin Fowler: Canary Release", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+    { label: "Kong: a entidade Route (strip_path e path_handling)", href: "https://developer.konghq.com/gateway/entities/route/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com rota, login, limite e versão, o <code>gw-loja</code> tem as quatro peças do módulo. Falta saber como isso aparece num gateway de verdade: o que há num arquivo de configuração do Kong, linha por linha, e o que o laboratório público deixa de fora.</p>
+
+<Flashcards cards={[
+  { q: "Por que a loja precisou de uma v2 de pedidos?",
+    a: "O campo total mudou de forma (de número para objeto com valor e moeda), o que quebra o contrato da v1. O app antigo continua na v1, e o app novo usa a v2." },
+  { q: "O que o gateway faz com /api/v2/pedidos/1048?",
+    a: "Casa a rota da v2, tira o prefixo e entrega /pedidos/1048 ao serviço pedidos-v2." },
+  { q: "Como funciona o canary da loja?",
+    a: "10% do tráfego da v1 vai para a implementação nova, com o mesmo contrato. Sobe para 50% e 100% se os erros não aumentarem; volta se aumentarem." },
+  { q: "O que acontece se o v1 for desligado com o parceiro ainda usando?",
+    a: "O parceiro recebe 404 e para de funcionar. O certo é avisar com Deprecation e Sunset e medir no gateway quem ainda chama a v1." },
+]} />

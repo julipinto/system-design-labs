@@ -17,3 +17,5 @@ public/labs/cache/*-3d/
 .claude/skills/impeccable/scripts/bin/
 .impeccable/hook.cache.json
 public/labs/microsservicos/*-3d/
+public/labs/api-gateways/*-3d/
+node_modules

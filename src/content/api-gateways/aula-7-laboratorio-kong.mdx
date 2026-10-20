@@ -1,0 +1,178 @@
+---
+title: "Laboratório Kong"
+order: 7
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o <code>gw-loja</code> ficou com as quatro peças do módulo: rota, login, limite e versão. Tudo isso foi desenhado com a loja, e falta ver como fica num gateway de verdade. O laboratório público do autor usa o Kong, e a parte que interessa cabe em 39 linhas de YAML. Vamos ler esse arquivo do começo ao fim, mapear cada nome para a loja e depois acrescentar o que o laboratório deixou de fora: o limite de pedidos.</p>
+
+<OneLiner>No Kong, um arquivo YAML declara os serviços (para onde ir) e as rotas (o que casa), e o <code>strip_path</code> tira o prefixo da rota antes de entregar; o limite entra como um plugin, e a <code>policy</code> do plugin decide se o contador é de cada nó ou de todos.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Réplicas</strong>, clique em <strong>Próximo passo</strong> e compare três passos: <strong>"Um gateway: o robô passa 10 por segundo"</strong>, <strong>"3 réplicas, 3 contadores: passam 30"</strong> e <strong>"Um contador no Redis: 10 de novo"</strong>. É a mesma <code>policy</code> do plugin que o final desta aula liga no <code>kong.yml</code>. Depois siga até <strong>"E se der errado: o Redis cai"</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/api-gateways/limite-3d/?mode=replicas" poster="labs/api-gateways/limite-3d-previa.webp" title="Figura interativa: Réplicas × Redis" alt="Prévia da figura 3D: Réplicas × Redis" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<p>O arquivo abaixo é o <code>kong.yml</code> da pasta <code>exemplos/api-gateway</code> do repositório público de exemplos de Matheus Fidelis. Só tirei os espaços que sobravam no fim de algumas linhas, e os números à esquerda foram acrescentados para a leitura. Leia <code>users</code> como os clientes da loja, <code>products</code> como o catálogo e <code>orders</code> como os pedidos.</p>
+
+<pre class="lab-code"><code>{String.raw` 1  # kong.yml
+ 2  _format_version: "3.0"
+ 3  _transform: true
+ 4
+ 5  services:
+ 6    - name: users-service
+ 7      url: http://users-service:8081/users
+ 8      routes:
+ 9        - name: users-route
+10          paths:
+11            - /api/v1/users
+12          strip_path: true
+13          path_handling: v1
+14
+15    - name: products-service
+16      url: http://products-service:8082/products
+17      routes:
+18        - name: products-route
+19          paths:
+20            - /api/v1/products
+21          strip_path: true
+22          path_handling: v1
+23
+24    - name: orders-service
+25      url: http://orders-service:8083/orders
+26      routes:
+27        - name: orders-route
+28          paths:
+29            - /api/v1/orders
+30          strip_path: true
+31          path_handling: v1
+32
+33    - name: orders-service-v2
+34      url: http://orders-service-v2:8084/orders
+35      routes:
+36        - name: orders-route-v2
+37          paths:
+38            - /api/v2/orders
+39          strip_path: true`}</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Linhas 2 e 3: o formato do arquivo.</strong> <code>_format_version: "3.0"</code> diz qual versão do formato declarativo o Kong deve ler. A linha <code>_transform: true</code> só repete o valor padrão. O <code>docker-compose.yml</code> do laboratório liga o Kong sem banco (<code>KONG_DATABASE: "off"</code>), aponta para o arquivo (<code>KONG_DECLARATIVE_CONFIG: /kong/kong.yml</code>) e monta o arquivo como somente leitura (<code>:ro</code>). Esse é o modo <strong>DB-less</strong>: a configuração inteira é este arquivo, lido quando o Kong sobe.</li>
+  <li><strong>Linhas 6 e 7: o <code>service</code> é o destino.</strong> O <code>users-service</code> aponta para <code>http://users-service:8081/users</code>: o host (o nome do contêiner no compose), a porta e um <strong>caminho-base</strong>, o <code>/users</code>. O que o gateway entrega vai sempre ser somado a esse caminho. Para a loja, é o serviço <code>clientes</code>.</li>
+  <li><strong>Linhas 8 a 11: a <code>route</code> é o que casa.</strong> Dentro de cada service, a rota <code>users-route</code> tem uma lista de <code>paths</code>: tudo o que começa com <code>/api/v1/users</code> pertence a esse service. É o mesmo "método + caminho para um serviço" da aula 4, só que sem o método, porque o laboratório não restringe nenhum.</li>
+  <li><strong>Linhas 12 e 13: o que chega ao serviço.</strong> Com <code>strip_path: true</code>, o Kong tira da URL o prefixo da rota (<code>/api/v1/users</code>) e soma o resto ao caminho do service (<code>/users</code>). Para <code>/api/v1/products</code> sobra nada, e o <code>products-service</code> recebe <code>GET /products</code>. Para <code>/api/v1/products/42</code> sobra <code>/42</code>, e ele recebe <code>/products/42</code>. O <code>path_handling: v1</code> escolhe o algoritmo que junta os pedaços: o <code>v1</code> é o jeito do Kong 1.x, e a documentação atual recomenda o <code>v0</code>. Com <code>strip_path</code> ligado, os dois dão o mesmo caminho aqui.</li>
+  <li><strong>Linhas 33 a 39: a v2 é só mais um service.</strong> O <code>orders-service-v2</code> aponta para a porta 8084, e a rota <code>/api/v2/orders</code> chega nele como <code>/orders</code>. O serviço novo não sabe que existe "v2" na URL, e quem decide é o gateway, como na aula 6. A rota da v2 não traz <code>path_handling</code>, e o Kong usa o <code>v0</code>, com o mesmo resultado.</li>
+</ol>
+</HowItWorks>
+
+<p>Com o laboratório no ar (<code>docker-compose up -d --build</code>), o gateway escuta na porta 8000 e responde assim. A resposta vem dos campos que o código Go dos apps monta, e o <code>timestamp</code> muda a cada chamada.</p>
+
+<pre class="lab-code"><code>{String.raw`curl localhost:8000/api/v1/products
+{ "app": "App 2 - Products Service", "message": "Products Service V1", "timestamp": "…", "port": "8082" }
+
+curl localhost:8000/api/v2/orders
+{ "app": "App 3 - Orders Service", "message": "Orders Service V2", "timestamp": "…", "port": "8084" }`}</code></pre>
+
+<p>Nenhuma dessas rotas tem login ou limite. Para ligar o limite, a loja acrescentaria um plugin ao mesmo arquivo. Este trecho é um <strong>exemplo meu</strong>, e não faz parte do repositório.</p>
+
+<pre class="lab-code"><code>{String.raw`# trecho de EXEMPLO (não está no repositório): vai no mesmo kong.yml, no fim
+plugins:
+  - name: rate-limiting
+    service: products-service
+    config:
+      second: 10          # 10 pedidos por segundo
+      limit_by: ip        # quem conta: o IP de quem chama
+      policy: local       # contador na memória de cada nó
+
+# para o contador compartilhado, troque só a policy e diga onde fica o Redis
+# (nomes da 3.4, a versão do docker-compose; as versões novas aninham em redis:)
+#     policy: redis
+#     redis_host: redis
+#     redis_port: 6379`}</code></pre>
+
+<p>Do 11º pedido do mesmo IP dentro do mesmo segundo em diante, o Kong responde sozinho, sem chamar o <code>products-service</code>. O corpo é o texto <code>API rate limit exceeded</code>, e os cabeçalhos seguem a documentação do plugin (os valores abaixo são de exemplo).</p>
+
+<pre class="lab-code"><code>{String.raw`HTTP/1.1 429 Too Many Requests
+RateLimit-Limit: 10
+RateLimit-Remaining: 0
+RateLimit-Reset: 1
+X-RateLimit-Limit-Second: 10
+X-RateLimit-Remaining-Second: 0
+Retry-After: 1
+
+{ "message": "API rate limit exceeded" }`}</code></pre>
+
+<Widget name="replicas" title="Calculadora: quantos nós do gateway, onde mora o contador" hint="Escolha quantos nós do Kong estão atrás do balanceador, e se a policy é local ou redis. A conta mostra quantos pedidos por segundo o robô de 500 consegue passar." />
+
+<h3 class="sec">E se der errado: dois nós do Kong com <code>policy: local</code></h3>
+
+<ol class="flow steps">
+  <li><strong>O laboratório tem um Kong só.</strong> Com um nó, o contador local está certo: 10 por segundo é 10 por segundo.</li>
+  <li><strong>Em produção, a loja sobe dois.</strong> Os dois leem o mesmo <code>kong.yml</code>, mas no modo DB-less os nós são independentes: nenhum sabe o que o outro contou.</li>
+  <li><strong>O robô se espalha.</strong> O balanceador reparte os 30 pedidos por segundo de um cliente em 15 para cada nó. Cada nó libera 10 e barra 5, e passam <strong>20</strong>, o dobro do limite. Com três nós, como na figura, seriam 30.</li>
+  <li><strong>O conserto é <code>policy: redis</code>.</strong> Os nós passam a somar no mesmo contador, e o limite volta a ser 10. O custo é uma ida ao Redis a cada pedido, e a documentação do plugin só chama o resultado de exato quando a sincronização é imediata (<code>sync_rate: 0</code>). A outra opção, <code>cluster</code>, guarda o contador no banco do Kong, que o laboratório não tem.</li>
+</ol>
+
+<WhyItMatters>
+  <li>Com 39 linhas de configuração o gateway já tem serviços, rotas e <code>strip_path</code>. Rota, login, limite e versão são, no Kong, entradas de um arquivo.</li>
+  <li>Quem lê o <code>kong.yml</code> sabe responder "para onde vai esta chamada" sem rodar nada: soma o caminho do service ao que sobra depois do <code>strip_path</code>.</li>
+  <li>O contador do limite mora num lugar, e esse lugar é uma escolha de configuração. É o problema do cache local do módulo 5, agora numa linha de YAML.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O que o laboratório deixa de fora</h4>
+  <ul>
+    <li><strong>Login e limite:</strong> nenhum plugin está ligado. O <code>jwt</code> e o <code>key-auth</code> (aula 4) e o <code>rate-limiting</code> (aula 5) são plugins que se ligam a um service ou a uma rota.</li>
+    <li><strong>Canary:</strong> a v2 é um service à parte, mas não há divisão do tráfego. Para mandar 10% para outra implementação, o Kong usa uma entidade <code>upstream</code> com alvos e pesos.</li>
+    <li><strong>Balanceamento:</strong> cada service aponta para um contêiner só, então não há réplicas atrás do gateway.</li>
+    <li><strong>Aviso de descontinuação:</strong> nada acrescenta os cabeçalhos <code>Deprecation</code> e <code>Sunset</code> às respostas da v1.</li>
+  </ul>
+  <h4 class="deep-h">Pontas soltas do repositório (conferidas lendo o código)</h4>
+  <ul>
+    <li>O <code>setup-kong.sh</code> e o <code>test-kong.sh</code> ainda chamam <code>/api/users</code>, <code>/api/products</code> e <code>/api/orders</code>, e o <code>kong.yml</code> usa <code>/api/v1/...</code>. Os <code>curl</code> deste texto, que são os do README, seguem o <code>kong.yml</code>.</li>
+    <li>Os apps só respondem a <code>/users</code>, <code>/products</code> e <code>/orders</code> exatos. Um <code>curl localhost:8000/api/v1/products/42</code> chega ao app como <code>/products/42</code>, e esse caminho não existe lá (404). O <code>strip_path</code> funcionou, e quem recusou foi o app.</li>
+    <li>O <code>healthcheck</code> do compose pede <code>/health</code> ao <code>users-service</code>, mas esse app expõe <code>/users/health</code>. O contêiner tende a ficar marcado como <em>unhealthy</em>.</li>
+    <li>O README manda rodar <code>make kong-run</code>, e a pasta não tem Makefile. O jeito que funciona é o <code>docker-compose up -d --build</code>.</li>
+    <li>O compose publica a Admin API (porta 8001) em <code>0.0.0.0</code>, sem autenticação. É conveniente num laboratório e perigoso em qualquer rede aberta. No modo DB-less ela só aceita leitura.</li>
+  </ul>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li>O artigo explica rate limiting com <strong>token bucket</strong>. O plugin <code>rate-limiting</code> do Kong, no entanto, é descrito pela documentação como um limite de pedidos por período (<code>second</code>, <code>minute</code>, <code>hour</code>…). Ele não tem um balde com capacidade de rajada separada da taxa. O token bucket da aula 5 é o algoritmo; o plugin é uma contagem por janela.</li>
+    <li>Imagens novas do Kong: a documentação atual diz que, a partir da 3.14, as rotas aceitam só HTTPS por padrão. O compose do laboratório fixa a <code>kong:3.4</code>, que não tem essa regra.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre API Gateways (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "Repositório público de exemplos de Matheus Fidelis, pasta exemplos/api-gateway (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/api-gateway" },
+    { label: "Kong: a entidade Route (strip_path e path_handling)", href: "https://developer.konghq.com/gateway/entities/route/" },
+    { label: "Kong: a entidade Gateway Service", href: "https://developer.konghq.com/gateway/entities/service/" },
+    { label: "Kong: modo DB-less e configuração declarativa", href: "https://developer.konghq.com/gateway/db-less-mode/" },
+    { label: "Kong: plugin Rate Limiting (policy local, cluster e redis)", href: "https://developer.konghq.com/plugins/rate-limiting/" },
+  ]}  />
+</Deep>
+
+<p class="gancho">A loja agora tem uma porta só, e todo cliente passa por ela do mesmo jeito. Só que o app de celular precisa de uma tela que junta catálogo, carrinho e recomendações numa resposta só, e o site precisa de outra forma de resposta. Falta saber o que acontece quando um gateway único tenta atender todos os clientes e vira um gargalo de decisões.</p>
+
+<Flashcards cards={[
+  { q: "O que o strip_path: true faz no kong.yml do laboratório?",
+    a: "Tira da URL o prefixo da rota (/api/v1/products) e soma o que sobra ao caminho do service (/products). /api/v1/products/42 chega ao app como /products/42." },
+  { q: "Qual a diferença entre service e route no Kong?",
+    a: "O service é o destino (nome e url, com host, porta e caminho-base). A route é o que casa (os paths) e aponta para um service." },
+  { q: "O que quer dizer o Kong rodar em DB-less?",
+    a: "Sem banco: a configuração vem do arquivo kong.yml, lido na partida. Cada nó é independente dos outros, e a Admin API só aceita leitura." },
+  { q: "Como a loja mapeia users, products e orders do laboratório?",
+    a: "users é clientes, products é o catálogo (produtos), orders é pedidos, e o orders-service-v2 é o pedidos-v2." },
+  { q: "Dois nós do Kong com rate-limiting second: 10 e policy: local. Quantos pedidos passam de um cliente que faz 30 por segundo?",
+    a: "20: cada nó recebe 15 e libera 10. Com policy: redis o contador é um só, e o limite volta a 10." },
+  { q: "O plugin rate-limiting do Kong é um token bucket?",
+    a: "Não. A documentação o descreve como um limite de pedidos por período (segundo, minuto, hora). Não tem balde com capacidade de rajada." },
+]} />
