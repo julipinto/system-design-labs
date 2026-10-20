@@ -96,7 +96,7 @@ spacing:
   s-6: "32px"
   s-7: "48px"
   s-8: "64px"
-  gutter: "16px"
+  gutter: "16px (20px até 480px)"
 components:
   button:
     backgroundColor: "{colors.surface}"
@@ -311,15 +311,15 @@ Os ícones são desenhados em CSS com traço (check, setas, mais/menos, o caret 
 
 ### Navigation
 - **Barra de estado:** status da aula em Atkinson 650 a 15px, com reticências quando não cabe; botões quadrados de 48px com setas desenhadas; quiz em mono caixa alta. Aberto, o status ganha `--ring` e o caret vira e acende.
-- **Régua graduada:** um traço de 5px por aula em traço forte a 55%; marcos com 9px; a aula atual sobe para 12px em sódio com brilho; concluída fica verde; a atual concluída fica verde com contorno de sódio. Ao marcar "Entendi", o traço cresce e assenta de sódio para verde em 900ms.
+- **Régua graduada:** três estados e só três: não lida é um traço de 4px em traço forte a 55%; entendida é o mesmo traço em verde; a atual sobe para 12px (10px no celular) em sódio com brilho; a atual entendida fica verde com contorno de sódio. O marco a cada 5 aulas é um risco de escala de 1px no vão, nunca um traço mais alto (parecia a aula atual). Ao marcar "Entendi", o traço cresce e assenta de sódio para verde em 900ms.
 - **Índice:** linhas de 48px separadas por régua, número mono fraco à esquerda; a aula atual em sódio e peso 750; a concluída leva um check verde desenhado.
-- **Mobile:** barra mais baixa; o número da aula some do status.
+- **Mobile (até 560px):** barra com 8px de respiro; setas de 44×48px; o status mostra só o título da aula, em até duas linhas (sem "Aula N de T" nem minutos, que estão no cabeçalho da aula logo abaixo). A barra continua fixa: o progresso fica sempre à vista.
 
 ### Prancha do widget (signature)
 Fundo de chão, traço fino, cantos de 3px, marcas de registro nos quatro cantos. Título em mono caixa alta com um ponto vazio; com o foco dentro, as marcas e o ponto acendem e a borda esquenta para uma mistura de sódio com traço.
 
 ### Figura 3D (signature)
-Prancha escura nos dois temas, cantos de 6px, marcas de registro 5px para fora da prancha. No desktop é um iframe que acende (borda sódio mais halo) com o foco; no celular é a prévia com um botão sódio "Abrir a figura 3D". Legenda em mono embaixo: rótulo com ponto, dica e "Abrir em tela cheia".
+Prancha escura nos dois temas, cantos de 6px, marcas de registro 5px para fora da prancha. No desktop é um iframe que acende (borda sódio mais halo) com o foco; no celular é a prévia com um botão sódio "Abrir a figura 3D". Legenda em mono embaixo: rótulo com ponto, dica e "Abrir em tela cheia". No celular, só o rótulo fica, no canto de cima da prancha, em `--on-plate`.
 
 ### Flashcards
 Lista de linhas tocáveis de 56px entre réguas; a pergunta em Atkinson 650; à direita, uma pílula mono "Ver resposta" que vira "Esconder" em sódio; a aberta acende o ponto. A resposta aparece num poço com cantos de 6px.

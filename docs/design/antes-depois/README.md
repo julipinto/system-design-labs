@@ -10,3 +10,14 @@ Capturas headless (Chrome, `prefers-reduced-motion`), viewport sem rolar a pági
 | Rede, aula 3 (widget de IP), 1280px, escuro | rede-1280-dark-antes.webp | rede-1280-dark-depois.webp |
 | Cache, aula 2 (Faça agora + figura), 390px, claro | cache-390-light-mid-antes.webp | cache-390-light-mid-depois.webp |
 | Quiz de Databases, 390px, escuro | quiz-390-dark-antes.webp | quiz-390-dark-depois.webp |
+
+## Refinamento mobile
+
+Mesmas capturas headless, a 1,5x. "Antes" é a main em 5bf79c6; "depois" é a main com os commits do refinamento mobile.
+
+| Tela | Antes | Depois |
+|---|---|---|
+| Cache, aula 3 (topo: cabeçalho, barra e régua), 390px, escuro | mobile-aula-topo-antes.webp | mobile-aula-topo-depois.webp |
+| Cache, aula 1 ("Faça agora" + figura + "Como funciona"), 390px, escuro | mobile-aula-figura-antes.webp | mobile-aula-figura-depois.webp |
+| Home, 360px, escuro | mobile-home-antes.webp | mobile-home-depois.webp |
+| Quiz de Cache (tópicos e rodada), 360px, escuro | mobile-quiz-antes.webp | mobile-quiz-depois.webp |

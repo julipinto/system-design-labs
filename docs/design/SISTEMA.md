@@ -64,9 +64,24 @@ Fontes: Atkinson Hyperlegible Next (variável, com itálico) e Atkinson Hyperleg
 | Home (`src/pages/index.astro`) | um item por módulo, na ordem da história | número mono, título, prévia da figura no desktop, progresso salvo |
 | Quiz | `public/labs/<módulo>/quiz/` | opção escolhida com `--ring`; certo verde, errado vermelho |
 
+## Celular (390px e 360px)
+
+Regras fixadas no refinamento mobile. Valem para tudo até 480px, salvo quando dito.
+
+1. **Grade de 4/8px.** Entre blocos da aula (frase, "Faça agora", figura, widget): 24px. Antes de um título de seção (`h3.sec`): 48px, e nada além disso (a legenda solta da figura somava ~30px a mais). Mais espaço acima do título que abaixo.
+2. **Respiro lateral de 20px** (`--gutter` vira 20px até 480px). As marcas de registro da figura, 5px para fora da prancha, ficam a 15px da borda.
+3. **Cabeçalho do módulo curto:** marca e rótulo, título a 28px e a descrição numa linha só, com o botão "mais" (44px de toque) que abre o resto. Sem JS a descrição aparece inteira. Até 400px o rótulo do topo fica só "N aulas".
+4. **Barra fixa continua fixa.** 8px de respiro, setas de 44×48, quiz compacto, título da aula em até duas linhas (nunca "Introdução ao cac…"). Régua: não lida apagada, entendida verde, atual alta em sódio; marco de 5 em 5 é risco de escala no vão.
+5. **Figura 3D:** no celular a legenda vira rótulo no canto da prancha ("Fig N"), em `--on-plate` (a prancha é escura nos dois temas).
+6. **Alvos de toque ≥ 44px** em tudo que não é termo dentro de frase: marca do topo, links do glossário completo, botão fechar da ficha, chips (também de largura), sliders, caixas de marcar (o rótulo inteiro conta), links de ação do quiz. Termos do glossário dentro do texto ficam como texto (exceção de alvo em linha).
+7. **Tabelas e código rolam dentro do bloco** (`.sr-tablewrap`, `pre`). Tabela de resultado de duas colunas (`.pc-table`) deixa o rótulo quebrar, para o valor não virar uma tira de 10px.
+8. **Home:** o número do módulo fica na linha do título e o texto usa a largura toda (até 760px).
+9. **Quiz:** links de ação ("Desmarcar todos", "Zerar progresso") alinhados à borda do conteúdo, sem recuo; cartões de tópico com 12×16px de respiro, 12px entre eles e a segunda linha do título alinhada depois do ponto; rodada 5/10/20 com o número em mono 18px e "perguntas" como rótulo embaixo; 24px entre a pergunta e as opções; a tecla da opção alinha com a primeira linha.
+10. **Fim da aula:** depois dos flashcards não há segunda régua; a mensagem vazia do "Entendi" não reserva espaço.
+
 ## Como verificar
 
 - `npm run build` sem erro.
-- Capturas em 390×835 e 1280×800, claro e escuro, sem scroll lateral e com console limpo (ver CLAUDE.md).
+- Capturas em 390×844, 360×780 e 1280×800, claro e escuro, sem scroll lateral e com console limpo (ver CLAUDE.md). A 360px, conferir também os widgets dos 5 módulos em "Ver tudo em uma página": nada pode passar da moldura (ela corta com `overflow:hidden`, então o estouro some em vez de aparecer).
 - Contraste: texto ≥ 4,5:1; borda de controle ≥ 3:1. Os números estão na seção "Cor" da página viva.
 - Antes e depois desta mudança: `docs/design/antes-depois/`.
