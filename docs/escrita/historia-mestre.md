@@ -17,9 +17,10 @@ Cada módulo é um capítulo do mesmo problema: **a loja que vende o gato de pel
 | 1041–1046 | 4 | tabela de exemplo (1042 = Lena, gato, 89.90) |
 | 1047 | 6 | Lena, gato 79.90 + frete 15.00 = 94.90 (estoque do gato 3 → 2) |
 | 1048 | 8–10 | Lena pelo app, mesmo valor 94.90 (estoque 2 → 1) |
-| 1049 | 11 | Bia × Caio disputando o último gato (estoque 1) |
-| 1050 | 12 | Davi paga com PSP externo (webhook) |
-| 1051+ | 13 em diante | um novo por módulo, registrado aqui |
+| 1049 | 11 | Bia × Caio disputando o último gato (estoque 1 → 0); Bia leva: gato 79.90 + frete SP 9.00 = 88.90; o Caio recebe `409` e não consome número |
+| 1050 | 12 | Davi (caneca azul 19.90 + frete SP 9.00 = 28.90) paga com Pix por PSP externo (webhook, cobrança `c-7731`) |
+| 1051 | 13 | Lena, 2 canecas azuis 39.80 + frete 15.00 = 54.80; eventos `e-901` a `e-904` no tópico `pedidos` do Kafka (estoque da caneca 40 → 38) |
+| 1052+ | 14 em diante | um novo por módulo, registrado aqui |
 
 ## Capítulos
 1. **Protocolos de Rede**: a Lena manda a foto do gato ao irmão; a viagem do dado pela rede (OSI, TCP/UDP, TLS, DNS, DHCP, HTTP).
