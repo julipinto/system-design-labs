@@ -14,3 +14,5 @@ public/labs/cache/*-3d/
 .claude/skills/impeccable/
 .claude/agents/impeccable-*.md
 .claude/settings.local.json
+.claude/skills/impeccable/scripts/bin/
+.impeccable/hook.cache.json

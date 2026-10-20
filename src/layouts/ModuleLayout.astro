@@ -1,10 +1,11 @@
 ---
-// Página de módulo: topo "← SDLabs", título, barra fixa de progresso com índice e o modo foco
+// Página de módulo: topo "SDLabs", título, barra fixa de progresso com índice e o modo foco
 // (src/scripts/focus-mode.js). As aulas (<Lesson>) entram no slot, dentro de <main class="sdl-content">.
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.js';
 import '../styles/lesson.css';
 import '../styles/module.css';
+import '../styles/widgets.css';
 import '../styles/glossary.css';
 import Glossary from '../components/Glossary.astro';
 import { glossaries } from '../data/glossary.js';
@@ -18,9 +19,10 @@ interface Props {
   lead: string;           // frase abaixo do h1
   lessons: LessonRef[];   // na ordem, para o índice
   quizHref?: string;      // link do quiz no painel (opcional)
+  terms?: typeof glossaries[string]; // glossário próprio (a página do sistema de design usa)
 }
 const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
-const terms = glossaries[module] ?? [];
+const terms = Astro.props.terms ?? glossaries[module] ?? [];
 const label = `${heading} · ${lessons.length} tópicos`;
 ---
 <BaseLayout title={title} description={description}>
@@ -32,7 +34,7 @@ const label = `${heading} · ${lessons.length} tópicos`;
       import '../scripts/glossary.js';
     </script>
   </Fragment>
-  <div class="sdl-top"><a href={withBase('')}>← SDLabs</a><span>Módulo · {heading}</span></div>
+  <div class="sdl-top"><a class="sdl-brand" href={withBase('')} aria-label="SDLabs: voltar para os módulos"><i class="lit" aria-hidden="true"></i>SDLabs</a><span class="label">{lessons.length} aulas{terms.length > 0 && ' · glossário'}{quizHref && ' · quiz'}</span></div>
   <header class="sdl-hero">
     <h1>{heading}</h1>
     <p>{lead}</p>
@@ -40,21 +42,21 @@ const label = `${heading} · ${lessons.length} tópicos`;
   <main class="sdl-content" data-module={module}>
     <div class="sdl-progress">
       <div class="pg-row">
-        <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior">‹</button>
-        <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">{label}</span><span class="pg-caret" aria-hidden="true">▾</span></button>
-        <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula">›</button>
+        <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior"></button>
+        <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">{label}</span><span class="pg-caret" aria-hidden="true"></span></button>
+        <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula"></button>
         {quizHref && <a class="pg-quizbtn" href={quizHref} aria-label="Fazer o quiz do módulo">Quiz</a>}
       </div>
       <div class="pg-meter">
         <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
-        <span class="pg-count">0/{lessons.length} ✓</span>
+        <span class="pg-count">0/{lessons.length}</span>
       </div>
       <div class="pg-panel" id="sdl-panel">
-        {quizHref && <a class="btn big primary pg-quiz" href={quizHref} style="display:flex;justify-content:center;margin-bottom:10px">Fazer o quiz do módulo →</a>}
+        {quizHref && <a class="btn big primary pg-quiz" href={quizHref}>Fazer o quiz do módulo<i class="ico ico-next" aria-hidden="true"></i></a>}
         <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
-        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <span aria-hidden="true">↓</span></button>}
+        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <i class="ico ico-down" aria-hidden="true"></i></button>}
         <nav class="toc" aria-label="Aulas do módulo">
-          <p class="toc-title">{label}</p>
+          <p class="toc-title label">{label}</p>
           <ol>
             {lessons.map((l, i) => <li><a href={`#${l.id}`}><span>{i + 1}</span> {l.title}</a></li>)}
           </ol>
@@ -65,9 +67,5 @@ const label = `${heading} · ${lessons.length} tópicos`;
     <slot />
     {terms.length > 0 && <Glossary terms={terms} lessons={lessons} />}
   </main>
-<style is:global>
-  .sdl-content .pg-quizbtn{flex:none;display:grid;place-items:center;min-width:56px;min-height:48px;padding:0 12px;border-radius:12px;background:var(--accent);color:#1b1306;font:700 14px var(--sans);text-decoration:none}
-  .sdl-content .pg-quizbtn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-</style>
   <footer class="sdl-credit">Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
 </BaseLayout>

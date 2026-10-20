@@ -21,9 +21,10 @@ Esta pasta não é uma collection (não está em `src/content.config.js`) e não
 4. Widgets: o JS do módulo vai em `src/scripts/<novo-modulo>/widgets.js`, importado num `<script>` dentro de
    `<Fragment slot="head">` na página (veja a de protocolos). Cada widget procura `[data-widget="<nome>"]`
    e se monta ali; no MDX use `<Widget name="<nome>" title="..." hint="..." />`.
-   Os estilos próprios vão em `src/styles/<novo-modulo>.css`, importado na página. A base das aulas
+   Os estilos próprios vão em `src/styles/<novo-modulo>.css`, importado na página (só o que é do módulo; peças
+   que outro módulo já usa ficam em `src/styles/widgets.css`, veja docs/design/SISTEMA.md). O quiz usa `public/shared/quiz.css`. A base das aulas
    (`src/styles/lesson.css`) e o modo foco (`src/scripts/focus-mode.js`) já vêm do `ModuleLayout`.
 5. Figuras: cada uma em `src/figures/<nome>/`, com um componente em `src/components/` que gera o HTML em tempo
    de build (modelo: `OsiFigure2D.astro`).
-6. Adicione o card do módulo em `src/pages/index.astro`, com `href={withBase('labs/<novo-modulo>/')}`.
+6. Adicione o módulo no array `modules` de `src/pages/index.astro` (slug, título, aulas, prévia da figura e texto).
 7. `npm run build` e confira as telas em 390px e 1280px, claro e escuro.

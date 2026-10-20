@@ -1,8 +1,17 @@
 /* Topo, título e rodapé das páginas de módulo (ModuleLayout) */
-.sdl-top{max-width:960px;margin:0 auto;padding:20px 16px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;font:12px/1.4 var(--mono);color:var(--muted)}
-.sdl-top a{color:var(--muted);text-decoration:none}.sdl-top a:hover{color:var(--fg)}
-.sdl-hero{max-width:960px;margin:0 auto;padding:28px 16px 0}
-.sdl-hero h1{margin:0 0 8px;font-size:clamp(30px,7vw,46px);line-height:1.1;letter-spacing:-.02em}
-.sdl-hero p{margin:0;max-width:640px;color:var(--muted);font-size:17px}
-.sdl-credit{max-width:960px;margin:0 auto;padding:0 16px 48px;font:12px/1.6 var(--mono);color:var(--muted)}
-.sdl-credit a{color:var(--muted)}
+.sdl-top{max-width:var(--page);margin:0 auto;padding:18px var(--gutter) 0;display:flex;justify-content:space-between;align-items:center;gap:var(--s-3)}
+.sdl-brand{display:inline-flex;align-items:center;gap:10px;min-height:40px;font:700 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-hi);text-decoration:none}
+.sdl-brand:hover{color:var(--accent-ink)}
+.sdl-top .label{text-align:right}
+.sdl-hero{max-width:var(--page);margin:0 auto;padding:var(--s-6) var(--gutter) var(--s-5)}
+.sdl-hero h1{margin:0 0 var(--s-3);font-size:var(--fs-h1);font-weight:800;line-height:1.04;letter-spacing:-.028em;max-width:18ch}
+.sdl-hero p{margin:0;max-width:56ch;color:var(--muted);font-size:var(--fs-lead);line-height:1.5}
+.sdl-credit{max-width:var(--page);margin:0 auto;padding:var(--s-5) var(--gutter) var(--s-7);border-top:var(--hair) solid var(--line);font:13px/1.6 var(--mono);color:var(--muted)}
+.sdl-credit a{color:var(--ink)}
+/* celular: topo compacto, para o "Faça agora" da primeira aula começar acima da dobra */
+@media (max-width:480px){
+  .sdl-top{padding-top:10px}
+  .sdl-hero{padding:var(--s-4) var(--gutter) var(--s-3)}
+  .sdl-hero h1{font-size:28px;margin-bottom:4px}
+  .sdl-hero p{font-size:15px;line-height:1.4}
+}

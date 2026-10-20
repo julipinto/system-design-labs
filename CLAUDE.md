@@ -21,11 +21,14 @@ Não citar curso nem marca de terceiros no site; não reproduzir títulos/duraç
     `DoneButton`, `Widget` (lugar com `data-widget`) e `OsiFigure2D`.
   - `src/scripts/focus-mode.js`: modo foco, barra de estado, "Entendi" (localStorage `sdl-<módulo>:`) e flashcards.
   - `src/scripts/<slug>/widgets.js`: JS puro dos widgets do módulo (cada um se monta em `[data-widget="<nome>"]`).
-  - `src/styles/lesson.css` (base das aulas), `module.css` (topo/rodapé do módulo), `<slug>.css` (widgets do módulo).
-  - `public/shared/sdlabs.css`: tokens de cor (claro/escuro, segue prefers-color-scheme; `data-theme` força).
+  - `src/styles/lesson.css` (base das aulas, barra, botões, moldura do widget), `widgets.css` (peças de widget usadas por mais de um módulo),
+    `module.css` (topo/rodapé do módulo), `glossary.css`, `home.css`, `<slug>.css` (só o que é do módulo).
+  - `public/shared/sdlabs.css`: tokens (cor claro/escuro, tipo, espaço, raio, traço, brilho, movimento) e fontes de `public/shared/fonts/`.
+    Segue prefers-color-scheme; `data-theme` força. Use `--accent-ink`, não `--accent` (a figura embutida reescreve `--accent`).
+  - `public/shared/quiz.css`: CSS de todos os quizzes. Sistema de design: `docs/design/SISTEMA.md` e a página `src/pages/sistema-de-design.astro`.
   - `src/figures/`: figuras. `anatomy/iso-kit.mjs` (kit da skill anatomy), `osi/` (figura 2D: `osi-figure.mjs`,
     `osi-data.js`, `osi-data.css`), `osi-3d/` (build da 3D + `fig3d.js`). `tools/iso-glow/gallery-3d.html` é o modelo 3D.
-  - `public/labs/protocolos-de-rede/quiz/`: quiz standalone (HTML/JS puro, sem build).
+  - `public/labs/<slug>/quiz/`: quiz standalone (HTML/JS puro, sem build); o `index.html` aponta para `../../../shared/quiz.css`.
 - Figuras isométricas interativas são feitas com a skill `anatomy`. A 2D entra na página em tempo de build
   (`OsiFigure2D.astro` chama `buildOsiFigure()` e injeta css/html/script).
 

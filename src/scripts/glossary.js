@@ -119,7 +119,8 @@
     if (here && here.id === t.lesson) elSeen.textContent = 'Explicado nesta aula';
     else if (n) {
       var a = document.createElement('a');
-      a.href = '#' + t.lesson; a.textContent = 'Aula ' + n + ' →';
+      a.href = '#' + t.lesson; a.textContent = 'Aula ' + n;
+      var ic = document.createElement('i'); ic.className = 'ico ico-next'; ic.setAttribute('aria-hidden', 'true'); a.appendChild(ic);
       elSeen.appendChild(document.createTextNode('Visto em: ')); elSeen.appendChild(a);
     }
     card.classList.toggle('gl-sheet', !isDesktop());
