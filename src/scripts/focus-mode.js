@@ -37,7 +37,8 @@
     var dc = doneCount(), l = lessons[cur];
     statusText.textContent = '';
     var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = 'Aula ' + (cur + 1) + ' de ' + N + ' · ';
-    statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l) + ' · ~' + l.getAttribute('data-min') + ' min'));
+    var pm = document.createElement('span'); pm.className = 'pg-min'; pm.textContent = ' · ~' + l.getAttribute('data-min') + ' min';
+    statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l))); statusText.appendChild(pm);
     count.textContent = dc + '/' + N;
     track.setAttribute('aria-valuenow', String(dc));
     track.setAttribute('aria-valuetext', dc + ' de ' + N + ' aulas entendidas');

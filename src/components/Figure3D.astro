@@ -62,5 +62,11 @@ const src = withBase(path);
   .f3d-full{display:inline-flex;align-items:center;gap:6px;min-height:40px;color:var(--ink-hi);text-decoration:none;letter-spacing:.04em}
   .f3d-full i{width:8px;height:8px;border-top:var(--stroke) solid currentColor;border-right:var(--stroke) solid currentColor}
   .f3d-full:hover{color:var(--accent-ink)}
-  @media (max-width:719px){.f3d-hint,.f3d-full{display:none}}
+  /* celular: só sobra o rótulo; ele entra no canto da prancha, como o "Fig N" das figuras, em vez de ficar solto embaixo */
+  @media (max-width:719px){
+    .f3d-wrap{position:relative}
+    .f3d-bar{position:absolute;top:var(--s-3);left:var(--s-3);z-index:2;margin:0;pointer-events:none}
+    .f3d-tag{color:var(--on-plate)}
+    .f3d-hint,.f3d-full{display:none}
+  }
 </style>

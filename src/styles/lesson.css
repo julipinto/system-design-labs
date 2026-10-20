@@ -22,6 +22,7 @@
 .sdl-content .lesson>*:not(.widget):not(.osi-wrap):not(.f3d-wrap):not(details.deep){max-width:var(--measure)}
 .sdl-content .deep>*:not(.layers):not(.versions):not(.map):not(.rtt-table-wrap):not(.hdr-pair):not(.sr-tablewrap){max-width:var(--measure)}
 .sdl-content .lesson{padding-top:var(--s-6);scroll-margin-top:104px}
+@media (max-width:560px){.sdl-content .lesson{padding-top:var(--s-5);scroll-margin-top:84px}.sdl-content .lm-word{display:none}}
 .sdl-content .lesson[hidden]{display:none}
 
 /* cabeçalho da aula: título primeiro, depois a linha de estado em mono */
@@ -136,13 +137,16 @@
 .sdl-content .btn[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .btn.primary[aria-pressed="true"]{color:var(--on-accent)}
 .sdl-content .btn.big{font-size:17px;min-height:56px;padding:12px 22px;border-radius:var(--r-3);text-align:center}
-.sdl-content .chip{font:600 13px/1.2 var(--mono);color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)}
+.sdl-content .chip{font:600 13px/1.2 var(--mono);color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;min-width:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)}
 .sdl-content .chip:hover{border-color:var(--accent-ink)}
 .sdl-content .chip[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .counter{font:600 13px var(--mono);color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
 .sdl-content .widget input[type="text"],.sdl-content .widget input[type="number"],.sdl-content .widget select{font:16px var(--mono);color:var(--ink-hi);background:var(--sunken);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:8px 12px;min-height:44px;width:100%;max-width:260px}
 .sdl-content .widget input[type="text"][aria-invalid="true"]{border-color:var(--bad)}
-.sdl-content .widget input[type="range"]{accent-color:var(--accent-fill)}
+.sdl-content .widget input[type="range"]{accent-color:var(--accent-fill);min-height:44px}
+/* toque: a caixa de marcar vale pela linha inteira do rótulo */
+.sdl-content .widget label:has(>input[type="checkbox"]),.sdl-content .widget label:has(>input[type="radio"]){min-height:44px}
+.sdl-content .widget input[type="checkbox"],.sdl-content .widget input[type="radio"]{width:20px;height:20px;flex:none;margin:0;accent-color:var(--accent-fill)}
 .sdl-content .widget label{font-size:var(--fs-sm)}
 .sdl-content .live{min-height:1.5em}
 .sdl-content .note-box{background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px 12px;font-size:16px;margin-top:var(--s-3)}
@@ -185,12 +189,13 @@
 /* régua: um traço por aula; o atual acende, o entendido fica verde */
 .sdl-content .pg-meter{display:flex;align-items:center;gap:var(--s-3);margin-top:10px}
 .sdl-content .pg-track{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:12px}
-.sdl-content .pg-seg{height:5px;border-radius:1px;background:var(--line-strong);opacity:.55;transition:height var(--dur-2) var(--ease-out),background var(--dur-2)}
-.sdl-content .pg-seg.done{background:var(--ok);opacity:1}
-.sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill);opacity:1;box-shadow:var(--glow)}
+/* três estados e só três: não lida = traço baixo e apagado; entendida = traço baixo verde; atual = traço alto em sódio */
+.sdl-content .pg-seg{position:relative;height:4px;border-radius:1px;background:color-mix(in srgb,var(--line-strong) 55%,transparent);transition:height var(--dur-2) var(--ease-out),background var(--dur-2)}
+.sdl-content .pg-seg.done{background:var(--ok)}
+.sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill);box-shadow:var(--glow)}
 .sdl-content .pg-seg.cur.done{background:var(--ok);box-shadow:0 0 0 1.5px var(--bg),0 0 0 3px var(--accent-fill)}
-.sdl-content .pg-seg.major{height:9px;opacity:.9}
-.sdl-content .pg-seg.cur{height:12px}
+/* marco a cada 5 aulas: um risco de escala no vão, não um traço mais alto (que parecia a aula atual) */
+.sdl-content .pg-seg.major::after{content:"";position:absolute;right:-2px;bottom:0;width:1px;height:10px;background:var(--line-strong)}
 /* o momento da aula: o traço vira verde com um brilho que assenta */
 .sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
 @keyframes sdl-settle{0%{background:var(--accent-fill);box-shadow:0 0 14px var(--accent-fill);transform:scaleY(2.2)}100%{box-shadow:0 0 0 transparent;transform:none}}
@@ -223,5 +228,16 @@
 .sdl-content .toc a[aria-current="true"]>span:first-child{color:var(--accent-ink)}
 .sdl-content .toc a:hover,.sdl-content .toc a:focus-visible{color:var(--accent-ink)}
 
-@media (max-width:560px){.sdl-content .sdl-progress{padding:6px var(--gutter) 8px}.sdl-content .pg-text{font-size:14px}.sdl-content .pg-meter{margin-top:8px}.sdl-content .pg-n{display:none}}
+/* celular: barra de 48px com o título da aula em até duas linhas (sem "Aula N de T" nem minutos, que estão logo abaixo, no cabeçalho da aula) */
+@media (max-width:560px){
+  .sdl-content .sdl-progress{padding:var(--s-2) var(--gutter)}
+  .sdl-content .pg-status{padding:4px 10px;gap:var(--s-2)}
+  .sdl-content .pg-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal;font-size:14px;line-height:1.25}
+  .sdl-content .pg-n,.sdl-content .pg-min{display:none}
+  .sdl-content .pg-step{width:44px}
+  .sdl-content .pg-quizbtn{min-width:0;padding:0 10px}
+  .sdl-content .pg-meter{margin-top:var(--s-2)}
+  .sdl-content .pg-track{height:10px}
+  .sdl-content .pg-seg.cur{height:10px}
+}
 @media (prefers-reduced-motion:reduce){.sdl-content .doit h3::before,.sdl-content .pg-seg.just{animation:none}}

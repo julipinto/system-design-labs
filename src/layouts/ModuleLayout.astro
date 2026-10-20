@@ -34,11 +34,25 @@ const label = `${heading} · ${lessons.length} tópicos`;
       import '../scripts/glossary.js';
     </script>
   </Fragment>
-  <div class="sdl-top"><a class="sdl-brand" href={withBase('')} aria-label="SDLabs: voltar para os módulos"><i class="lit" aria-hidden="true"></i>SDLabs</a><span class="label">{lessons.length} aulas{terms.length > 0 && ' · glossário'}{quizHref && ' · quiz'}</span></div>
+  <div class="sdl-top"><a class="sdl-brand" href={withBase('')} aria-label="SDLabs: voltar para os módulos"><i class="lit" aria-hidden="true"></i>SDLabs</a><span class="label">{lessons.length} aulas<span class="sdl-top-more">{terms.length > 0 && ' · glossário'}{quizHref && ' · quiz'}</span></span></div>
   <header class="sdl-hero">
     <h1>{heading}</h1>
-    <p>{lead}</p>
+    <div class="sdl-lead"><p id="sdl-lead">{lead}</p><button type="button" class="sdl-lead-more" aria-expanded="false" aria-controls="sdl-lead" hidden><span>mais</span><i class="ico ico-down" aria-hidden="true"></i></button></div>
   </header>
+  <script is:inline>
+    // celular: a descrição fica numa linha; "mais" abre o resto. Sem JS ela aparece inteira.
+    (function () {
+      var hero = document.currentScript.previousElementSibling, p = document.getElementById('sdl-lead'), b = p && p.nextElementSibling;
+      if (!b) return;
+      hero.classList.add('clamp');
+      function fit() { if (b.getAttribute('aria-expanded') !== 'true') b.hidden = p.scrollHeight <= p.clientHeight + 1; }
+      fit(); addEventListener('resize', fit);
+      b.addEventListener('click', function () {
+        var open = b.getAttribute('aria-expanded') !== 'true';
+        b.setAttribute('aria-expanded', String(open)); p.classList.toggle('open', open); b.firstChild.textContent = open ? 'menos' : 'mais';
+      });
+    })();
+  </script>
   <main class="sdl-content" data-module={module}>
     <div class="sdl-progress">
       <div class="pg-row">
