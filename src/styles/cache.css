@@ -17,6 +17,5 @@
 .sdl-content .ev-slot.empty{border-color:var(--line-strong);border-style:dashed;color:var(--faint);background:transparent}
 .sdl-content .ev-say{margin:0 0 var(--s-1);font-size:14.5px;line-height:1.5;min-height:3em}
 .sdl-content .ev-hist{overflow-wrap:anywhere}
-/* chave do proxy */
-.sdl-content .ck-in{width:100%;min-height:44px;padding:var(--s-2) 10px;border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);background:var(--sunken);color:var(--ink-hi);font:14px var(--mono);box-sizing:border-box;margin:0 0 6px}
+/* chave do proxy: o campo de texto .ck-in está em widgets.css */
 .sdl-content table.pc-table td.ck-long{word-break:break-all}

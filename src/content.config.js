@@ -34,4 +34,9 @@ const cache = defineCollection({
   schema: lesson,
 });
 
-export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo, 'cap-acid-base': capAcidBase, databases, cache };
+const apiGateways = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/api-gateways' }),
+  schema: lesson,
+});
+
+export const collections = { 'protocolos-de-rede': protocolosDeRede, 'storage-raid-io': storageRaidIo, 'cap-acid-base': capAcidBase, databases, cache, 'api-gateways': apiGateways };

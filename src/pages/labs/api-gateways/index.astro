@@ -1,0 +1,36 @@
+---
+// Módulo API Gateways: as 7 aulas de src/content/api-gateways/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/api-gateways.css';
+
+const entries = (await getCollection('api-gateways')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/api-gateways/quiz/');
+---
+<ModuleLayout
+  title="API Gateways · SDLabs"
+  description="API Gateways: porta única, gateway e load balancer, roteamento, JWT, autenticação e autorização, rate limiting com token bucket e leaky bucket, throttling, versionamento e canary, com o Kong lido linha a linha."
+  module="api-gateways"
+  heading="API Gateways"
+  lead="A loja abriu um app de celular e uma API para parceiros, e um robô pede o preço do gato 500 vezes por segundo. Como uma porta só aplica as regras comuns uma vez: para onde vai cada chamada, quem pode fazer o quê, quanto cada cliente pode pedir e qual versão da API ele usa."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/api-gateways/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>
