@@ -50,7 +50,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
   const cli = (lab, sub) => block(CW, 56, 22, lab, sub), svc = (lab, sub) => block(SW, SD, 26, lab, sub);
   const B = {
     app: cli('APP', 'Lena · Recife'), site: cli('SITE', 'navegador'), parc: cli('PARCEIRO', 'marketplace'), robo: cli('ROBÔ', 'concorrente'),
-    cat: svc('CATALOGO', 'via lb-catalogo'), car: svc('CARRINHO', 'via lb'), ped: svc('PEDIDOS', 'via lb'), cli: svc('CLIENTES', 'via lb'),
+    cat: svc('CATALOGO', 'via lb-loja'), car: svc('CARRINHO', 'via lb'), ped: svc('PEDIDOS', 'via lb'), cli: svc('CLIENTES', 'via lb'),
     pag: svc('PAGAMENTOS', ''), est: svc('ESTOQUE', ''), ent: svc('ENTREGAS', ''),
     lbc: svc('LB-CATALOGO', 'round robin'), c1: svc('CATALOGO-1', '10.0.1.11'), c2: svc('CATALOGO-2', '10.0.1.12'), c3: svc('CATALOGO-3', '10.0.1.13'),
     pnovo: svc('PEDIDOS·NOVO', 'v1 · por dentro'), pv2: svc('PEDIDOS-V2', 'contrato v2'),
@@ -397,12 +397,12 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
           if (t > 4.4) { T(o, [400, 462, 30], 'passou por fora\ndo portão', 'bad'); T(o, RG(0), 'conserto: só o gateway\nalcança os serviços', 'acc'); } } },
     ],
     lb: [
-      { id: 'cadeia', dur: 6, title: 'app → gw-loja → lb-catalogo → réplica',
-        story: 'Atrás do gateway continuam os load balancers do módulo 7. A Lena pede GET /api/v1/produtos/42: o gw-loja escolhe o serviço, o catálogo, e entrega ao lb-catalogo. O lb-catalogo escolhe uma das 3 réplicas iguais, em round robin, e a vez é da catalogo-1 (10.0.1.11:8080).',
+      { id: 'cadeia', dur: 6, title: 'app → gw-loja → lb-loja → réplica',
+        story: 'Atrás do gateway continuam os load balancers do módulo 7. A Lena pede GET /api/v1/produtos/42: o gw-loja escolhe o serviço, o catálogo, e entrega ao lb-loja. O lb-loja escolhe uma das 3 réplicas iguais, em round robin, e a vez é da catalogo-1 (10.0.1.11:8080).',
         look: 'A luz atravessa as três peças: o portão, o LB-CATALOGO e a CATALOGO-1, que acende.',
         key: 'Juntos: o gateway escolhe qual API; o load balancer escolhe qual cópia.',
         f(o, t) { meters(o, ['PEDIDOS', t > 3.4 ? '1' : '0', 'acc'], ['RÉPLICAS', '3', 'hi'], ['PÁGINA DO GATO', '20 ms', 'acc']); o.on.app = 1;
-          o.req = ['GET /api/v1/produtos/42', 'Host: api.loja.com.br', '→ lb-catalogo 203.0.113.10', '→ catalogo-1 10.0.1.11:8080'];
+          o.req = ['GET /api/v1/produtos/42', 'Host: api.loja.com.br', '→ lb-loja 203.0.113.10', '→ catalogo-1 10.0.1.11:8080'];
           send(o, t, 0.3, 1.1, R.cg(0), 'GET /api/v1/produtos/42', 'hi', 0.2);
           if (t > 1.1) { lit(o, 'rota', t < 2.2 ? 1 : 2); o.srows.rota = stRows('rota', ['→ catalogo', 9.4, 'acc'], ['(qual API)', 8.6, 'dim']); }
           if (send(o, t, 1.6, 2.4, R.gs(0), 'GET /produtos/42', 'hi', 0.2)) o.on.lbc = 1;
@@ -424,7 +424,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
           if (send(o, t, 5.7, 6.3, R.l2r(2), '→ 10.0.1.12', 'acc', 0.2)) { o.on.c2 = 1; res(o, '200 OK', 'acc', '{"id":42,"preco":79.90}', '(da catalogo-2)'); }
           if (t > 4.6) T(o, LG(3), 'regras por cliente\nficam no portão', 'acc'); } },
       { id: 'rr', dur: 6, title: 'O LB decide qual réplica',
-        story: 'O lb-catalogo não sabe de chave, escopo nem versão. Ele vê três réplicas iguais e reparte: depois da catalogo-2, o próximo pedido vai à catalogo-3, o seguinte volta à 1. É ele também que tira do pool a réplica que falha no health check. Funciona com qualquer protocolo, em L4 ou em L7.',
+        story: 'O lb-loja não sabe de chave, escopo nem versão. Ele vê três réplicas iguais e reparte: depois da catalogo-2, o próximo pedido vai à catalogo-3, o seguinte volta à 1. É ele também que tira do pool a réplica que falha no health check. Funciona com qualquer protocolo, em L4 ou em L7.',
         look: 'Três pedidos chegam ao LB-CATALOGO, e cada um vai para uma réplica diferente.',
         key: 'Load balancer: N cópias da mesma coisa, com a carga repartida entre elas.',
         f(o, t) { o.rows.lbc = svcRows('round robin', '3 → 1 → 2', 'hi', 'acc'); let n = 0;
@@ -435,7 +435,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
           if (n) res(o, '200 OK', 'acc', `(da catalogo-${[3, 1, 2][n - 1]})`);
           if (t > 5.0) T(o, RG(3), 'LB: reparte entre\ncópias iguais', 'acc'); } },
       { id: 'robo', dur: 6.5, title: 'O robô para no portão',
-        story: 'O robô do concorrente manda 500 pedidos por segundo, com a chave dele. A estação LIMITE deixa passar 10 por segundo por chave e responde 429 Too Many Requests aos outros 490, com Retry-After: 1. Atrás do portão, o lb-catalogo reparte só esses 10 entre as 3 réplicas, e a página da Lena continua em 20 ms.',
+        story: 'O robô do concorrente manda 500 pedidos por segundo, com a chave dele. A estação LIMITE deixa passar 10 por segundo por chave e responde 429 Too Many Requests aos outros 490, com Retry-After: 1. Atrás do portão, o lb-loja reparte só esses 10 entre as 3 réplicas, e a página da Lena continua em 20 ms.',
         look: 'A LIMITE acende. Quase todos os pontos do ROBÔ voltam vermelhos; só um fio fino segue até o LB.',
         key: 'O limite por cliente fica no gateway, antes de a carga chegar ao serviço.',
         f(o, t) { const r = Math.min(500, Math.round(t * 260)); meters(o, ['429 POR SEGUNDO', String(Math.max(0, r - 10)), 'bad'], ['PASSAM AO LB', r ? '10/s' : '0', 'acc'], ['PÁGINA DO GATO', '20 ms', 'acc']);
@@ -447,7 +447,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
           if (t > 1.4) { o.beams.push({ pts: R.gs(0), on: true, dots: [(t * 0.7) % 1] }); o.on.lbc = 1; [1, 2, 3].forEach(k => o.beams.push({ pts: R.l2r(k), on: true, dots: [((t * 0.7) + k / 3) % 1] })); }
           if (t > 3.4) T(o, LG(2), '490/s → 429\n10/s passam', 'bad'); } },
       { id: 'errado', dur: 7, title: 'E se der errado: só o LB na frente',
-        story: 'Agora tire o gateway e deixe o lb-catalogo exposto. Ele faz o que sabe fazer: reparte. Os 500 pedidos por segundo do robô viram uns 167 em cada réplica, e o catálogo aguenta 100 por segundo. As três ficam lentas juntas, e a página da Lena vai de 20 ms para 2 s. O LB espalhou o ataque por igual, porque barrar abuso não é trabalho dele.',
+        story: 'Agora tire o gateway e deixe o lb-loja exposto. Ele faz o que sabe fazer: reparte. Os 500 pedidos por segundo do robô viram uns 167 em cada réplica, e o catálogo aguenta 100 por segundo. As três ficam lentas juntas, e a página da Lena vai de 20 ms para 2 s. O LB espalhou o ataque por igual, porque barrar abuso não é trabalho dele.',
         look: 'O portão some. Os pontos do ROBÔ vão direto ao LB-CATALOGO, e as três réplicas ficam vermelhas.',
         key: 'Load balancer distribui; quem aplica regra por cliente é o gateway.',
         f(o, t) { o.hideGw = true; o.beams = [{ pts: R.rlb }, ...[1, 2, 3].map(r => ({ pts: R.l2r(r) }))];
@@ -596,7 +596,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
       <table class="h3-sum"><tr><th>chamada</th><th>resposta</th></tr><tr><td>sem token ou token vencido</td><td>401 Unauthorized</td></tr><tr><td>parceiro (só produtos:ler) cria pedido</td><td>403 Forbidden</td></tr><tr><td>Lena, escopo pedidos:criar</td><td>201 · pedido 1048</td></tr><tr><td>chamada direta ao pedidos pela rede interna</td><td class="h3-dim">200 (o erro)</td></tr></table>
       <li>Conserto: rede interna fechada (só o gateway alcança os serviços) e/ou o serviço também confere o token</li>${EX}`,
     lb: () => `<table class="h3-sum"><tr><th></th><th>gateway</th><th>load balancer</th></tr><tr><td>reparte entre</td><td>várias APIs diferentes</td><td>N réplicas iguais</td></tr><tr><td>decide</td><td>rota, quem, quanto, versão</td><td>qual réplica</td></tr><tr><td>camada</td><td>L7 (HTTP)</td><td>L4 ou L7</td></tr></table>
-      <li>Cadeia: <b>app → gw-loja → lb-catalogo (203.0.113.10) → catalogo-1/2/3</b> (10.0.1.11–13:8080)</li><li>Limite: <b>10 pedidos/s por chave</b>; acima, <b>429</b> com <b>Retry-After: 1</b>, <b>RateLimit-Limit: 10</b>, <b>RateLimit-Remaining: 0</b></li><li>Sem gateway: 500/s ÷ 3 ≈ <b>167/s</b> por réplica; a página do gato vai de <b>20 ms a 2 s</b></li>${EX}`,
+      <li>Cadeia: <b>app → gw-loja → lb-loja (203.0.113.10) → catalogo-1/2/3</b> (10.0.1.11–13:8080)</li><li>Limite: <b>10 pedidos/s por chave</b>; acima, <b>429</b> com <b>Retry-After: 1</b>, <b>RateLimit-Limit: 10</b>, <b>RateLimit-Remaining: 0</b></li><li>Sem gateway: 500/s ÷ 3 ≈ <b>167/s</b> por réplica; a página do gato vai de <b>20 ms a 2 s</b></li>${EX}`,
     versao: () => `<table class="h3-sum"><tr><th>rota</th><th>serviço</th><th>resposta</th></tr><tr><td>/api/v1/pedidos/1048</td><td>pedidos</td><td>{ "id": 1048, "total": 94.90 }</td></tr><tr><td>/api/v2/pedidos/1048</td><td>pedidos-v2</td><td>{ "id": 1048, "total": { "valor": 94.90, "moeda": "BRL" } }</td></tr></table>
       <li>Reescrita: entra <b>/api/v2/pedidos/1048</b>, o pedidos-v2 recebe <b>/pedidos/1048</b></li><li>Canary da v1: <b>10% → 50% → 100%</b> se os erros não aumentarem</li><li>Antes de desligar: cabeçalhos <b>Deprecation</b> e <b>Sunset</b> na v1, e medir no gateway quem ainda chama</li>${EX}`,
   };

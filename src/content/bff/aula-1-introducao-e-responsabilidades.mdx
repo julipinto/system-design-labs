@@ -26,7 +26,7 @@ import Figure3D from '../../components/Figure3D.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>O app precisa do gato de pelúcia (produto 42, R$ 79,90) do <code>catalogo</code>, do carrinho (1 item) do <code>carrinho</code>, do "quem comprou também comprou" (a caneca azul) do <code>recomendacoes</code> e do status do pedido <strong>1048</strong> ("a caminho") do <code>pedidos</code>.</li>
+  <li>O app precisa do gato de pelúcia (produto 42, R$ 79,90) do <code>catalogo</code>, do carrinho (1 item) do <code>carrinho</code>, do "quem comprou também comprou" (a caneca azul) do <code>recomendacoes</code> (o serviço novo que lê o grafo do módulo 4) e do status do pedido <strong>1048</strong> ("a caminho"; é o que ela fez no módulo 8) do <code>pedidos</code>.</li>
   <li>Sem BFF, o celular fala com o gateway uma vez para cada serviço, e cada chamada espera a anterior voltar para saber o que pedir em seguida. Cada ida e volta no 4G leva <strong>120 ms</strong>.</li>
   <li>Quatro viagens em fila somam 4 × 120 = <strong>480 ms</strong> só de rede, antes de a tela ficar inteira.</li>
   <li>As respostas foram feitas para o site: descrição longa, 8 fotos em alta e campos internos como <code>custo_fornecedor</code>. Juntas, chegam <strong>180 KB</strong> de JSON ao celular.</li>

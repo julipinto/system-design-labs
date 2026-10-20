@@ -24,10 +24,10 @@ import Figure3D from '../../components/Figure3D.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>A pergunta do load balancer.</strong> O <code>lb-catalogo</code> tem três réplicas iguais, <code>catalogo-1</code> (10.0.1.11), <code>catalogo-2</code> (10.0.1.12) e <code>catalogo-3</code> (10.0.1.13). Chega um pedido, e a única decisão é qual delas atende. Ele não olha quem é o cliente nem quantas vezes esse cliente já pediu.</li>
+  <li><strong>A pergunta do load balancer.</strong> O <code>lb-loja</code>, quando está na frente do catálogo, tem três réplicas iguais, <code>catalogo-1</code> (10.0.1.11), <code>catalogo-2</code> (10.0.1.12) e <code>catalogo-3</code> (10.0.1.13). Chega um pedido, e a única decisão é qual delas atende. Ele não olha quem é o cliente nem quantas vezes esse cliente já pediu.</li>
   <li><strong>A pergunta do gateway.</strong> O <code>gw-loja</code> recebe <code>GET /api/v1/produtos/42</code> e precisa decidir outras coisas: esse caminho é do <code>catalogo</code> ou do <code>pedidos</code>? Precisa de login? O cliente já passou do limite? É a versão 1 ou a 2? Nenhuma dessas perguntas faz sentido para um balanceador de réplicas.</li>
-  <li><strong>Os dois, um atrás do outro.</strong> O caminho completo é <code>app → gw-loja → lb-catalogo → catalogo-1/2/3</code>. O gateway decide o <strong>serviço</strong>, e o load balancer decide a <strong>réplica</strong>.</li>
-  <li><strong>Cada um cuida do que sabe.</strong> O health check das réplicas e o algoritmo de distribuição (módulo 7) ficam com o load balancer. Token, limite e versão ficam com o gateway. Por isso o gateway aponta para o endereço do <code>lb-catalogo</code>, e não para os três IPs das réplicas: se apontasse, teria de refazer a distribuição e os health checks por conta própria.</li>
+  <li><strong>Os dois, um atrás do outro.</strong> O caminho completo é <code>app → gw-loja → lb-loja → catalogo-1/2/3</code>. O gateway decide o <strong>serviço</strong>, e o load balancer decide a <strong>réplica</strong>.</li>
+  <li><strong>Cada um cuida do que sabe.</strong> O health check das réplicas e o algoritmo de distribuição (módulo 7) ficam com o load balancer. Token, limite e versão ficam com o gateway. Por isso o gateway aponta para o endereço do <code>lb-loja</code>, e não para os três IPs das réplicas: se apontasse, teria de refazer a distribuição e os health checks por conta própria.</li>
   <li><strong>O mesmo software pode fazer os dois papéis.</strong> Envoy e NGINX balanceiam e também funcionam como gateway. A diferença entre os dois está no papel que cada um desempenha na arquitetura, e não no programa que roda.</li>
 </ol>
 </HowItWorks>
@@ -50,7 +50,7 @@ import Figure3D from '../../components/Figure3D.astro';
   <h4 class="deep-h">Gateway, proxy reverso e balanceador</h4>
   <p>Os três recebem um pedido e o repassam, e os produtos se misturam: o NGINX é proxy reverso, balanceador e, com configuração, gateway. O módulo 7 separou o proxy reverso (1 para 1) do balanceador (1 para N). O gateway acrescenta o conhecimento da API: quais rotas existem e quem pode usá-las.</p>
   <h4 class="deep-h">E o balanceamento dentro do gateway?</h4>
-  <p>Alguns gateways trazem balanceamento embutido. O Kong, por exemplo, tem a entidade Upstream, com alvos (targets) e pesos. Para poucas réplicas serve, mas a loja já tem o <code>lb-catalogo</code> com health check, e repetir essa lógica no gateway é manter duas regras de distribuição.</p>
+  <p>Alguns gateways trazem balanceamento embutido. O Kong, por exemplo, tem a entidade Upstream, com alvos (targets) e pesos. Para poucas réplicas serve, mas a loja já tem o <code>lb-loja</code> com health check, e repetir essa lógica no gateway é manter duas regras de distribuição.</p>
   <h4 class="deep-h">Correção ao artigo-base</h4>
   <ul>
     <li>O artigo separa os dois pelo protocolo: o balanceador serve "qualquer coisa" e o gateway serve REST. A separação que se sustenta é o papel. O balanceador escolhe a réplica e o gateway governa o acesso, e ambos já funcionam com HTTP, gRPC e WebSocket.</li>
@@ -69,8 +69,8 @@ import Figure3D from '../../components/Figure3D.astro';
   { q: "Qual pergunta o load balancer responde e qual o gateway responde?",
     a: "O load balancer: qual réplica atende. O gateway: qual serviço, se essa pessoa pode chamar, se passou do limite e qual versão." },
   { q: "Qual é o caminho de um pedido do app ao catálogo?",
-    a: "app → gw-loja → lb-catalogo → catalogo-1/2/3. O gateway escolhe o serviço e o load balancer escolhe a réplica." },
-  { q: "Por que o gateway aponta para o lb-catalogo e não para os 3 IPs?",
+    a: "app → gw-loja → lb-loja → catalogo-1/2/3. O gateway escolhe o serviço e o load balancer escolhe a réplica." },
+  { q: "Por que o gateway aponta para o lb-loja e não para os 3 IPs?",
     a: "Porque o health check e o algoritmo de distribuição já são do load balancer. Apontar para os IPs obrigaria o gateway a refazer isso." },
   { q: "O que acontece se a loja tiver uma réplica só do gateway?",
     a: "Se ela cair, a loja inteira some para quem está de fora, mesmo com todos os serviços saudáveis. O gateway também precisa de réplicas e de um balanceador na frente." },

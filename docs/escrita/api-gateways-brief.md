@@ -20,7 +20,7 @@ Módulo 7 terminou com o `lb-loja` distribuindo o catálogo entre as réplicas e
 - Com monolito era uma URL só; com microsserviços (módulo 6) o cliente passou a ver a divisão interna. O gateway esconde de novo.
 
 ### Gateway vs load balancer (aula 3)
-- LB distribui **N réplicas da mesma coisa** (qualquer protocolo, L4 ou L7). Gateway expõe **várias APIs diferentes** com regras de governança (quem pode chamar o quê, quanto, em qual versão). Juntos: `app → gw-loja → lb-catalogo → catalogo-1/2/3`.
+- LB distribui **N réplicas da mesma coisa** (qualquer protocolo, L4 ou L7). Gateway expõe **várias APIs diferentes** com regras de governança (quem pode chamar o quê, quanto, em qual versão). Juntos: `app → gw-loja → lb-loja → catalogo-1/2/3`.
 
 ### Roteamento, autenticação e autorização (aula 4)
 - Roteamento granular por método + caminho: `GET /api/v1/produtos/*` → catálogo (público, sem login); `POST /api/v1/pedidos` → pedidos (precisa login); `GET /api/v1/pedidos/1048` → pedidos (precisa login **e** ser a dona do pedido).
@@ -57,7 +57,7 @@ O `exemplos/api-gateway/` do repositório: explicar `kong.yml` (services, routes
 ## Figuras 3D (Opus) e modes
 ### `gateway-3d` (aulas 1–4, 6): a porta única da loja
 Clientes à esquerda (app da Lena, site, parceiro, robô), o gateway no meio como um portão com estações (rota, auth, limite, versão), os serviços (com seus LBs) à direita.
-modes: `sem` (6 URLs, cada serviço com seu login), `rota` (método + caminho → serviço; strip_path), `auth` (JWT: confere assinatura e exp, repassa X-Cliente-Id; 401 sem token, 403 parceiro sem escopo; e se der errado: chamada direta ao pedidos pela rede interna), `lb` (gw → lb-catalogo → 3 réplicas: quem faz o quê), `versao` (v1/v2 com a resposta real lado a lado, canary 10% → 50% → 100%; e se der errado: v1 desligado cedo, 404 para o parceiro).
+modes: `sem` (6 URLs, cada serviço com seu login), `rota` (método + caminho → serviço; strip_path), `auth` (JWT: confere assinatura e exp, repassa X-Cliente-Id; 401 sem token, 403 parceiro sem escopo; e se der errado: chamada direta ao pedidos pela rede interna), `lb` (gw → lb-loja → 3 réplicas: quem faz o quê), `versao` (v1/v2 com a resposta real lado a lado, canary 10% → 50% → 100%; e se der errado: v1 desligado cedo, 404 para o parceiro).
 ### `limite-3d` (aulas 5, 7): os baldes
 Um balde de tokens (gotas = tokens repondo em ritmo fixo) e um balde furado (fila que vaza constante), lado a lado, com a mesma rajada entrando.
 modes: `token` (200 de capacidade, 100/s; rajada passa, depois ritmo; robô 500/s recebe 429 com cabeçalhos reais), `leaky` (fila 50, saída 50/s; saída lisa, excedente descartado), `throttle` (catálogo lento → limite global cai de 100/s para 50/s e volta), `replicas` (3 gateways com contador local = 30/s; com Redis = 10/s).

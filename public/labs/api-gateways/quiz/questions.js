@@ -53,10 +53,10 @@
     "O app da Lena para de funcionar."
   ], 0, "Sem uma porta única, o bloqueio, o certificado e o log existem em seis lugares, e cada um precisa ser configurado.");
   choice("t1", 5, 3, "Qual é o caminho de um pedido na loja com gateway e load balancer?", [
-    "app → catalogo-1 → gw-loja → lb-catalogo",
-    "app → lb-catalogo → gw-loja → catalogo-1/2/3",
-    "app → gw-loja → lb-catalogo → catalogo-1/2/3",
-    "app → gw-loja → catalogo-1 → lb-catalogo"
+    "app → catalogo-1 → gw-loja → lb-loja",
+    "app → lb-loja → gw-loja → catalogo-1/2/3",
+    "app → gw-loja → lb-loja → catalogo-1/2/3",
+    "app → gw-loja → catalogo-1 → lb-loja"
   ], 2, "O gateway recebe primeiro e escolhe o serviço; o load balancer do serviço escolhe a réplica.");
   tf("t1", 6, 2, "Com um gateway, a loja pode trocar o que está atrás da porta sem o parceiro mudar de URL, desde que o contrato continue o mesmo.", true,
     "A URL pública fica no gateway. O que muda é a configuração da rota, e o parceiro nem fica sabendo.");
@@ -102,7 +102,7 @@
     "Este cliente passou do limite de 10 pedidos por segundo?",
     "Qual o IP da réplica catalogo-2."
   ], 2, "Limite por cliente, login e versão são governança de API, e o balanceador não conhece nada disso.");
-  tf("t3", 3, 2, "O gateway deve apontar diretamente para os IPs das três réplicas do catálogo, sem o lb-catalogo.", false,
+  tf("t3", 3, 2, "O gateway deve apontar diretamente para os IPs das três réplicas do catálogo, sem o lb-loja.", false,
     "O health check e a distribuição já são do balanceador. Apontar para os IPs obrigaria o gateway a refazer isso.");
   choice("t3", 4, 3, "A loja tem um único gw-loja, que trava às 20:00. Todos os serviços atrás dele estão saudáveis. O que os clientes veem?", [
     "Só o catálogo fica fora do ar.",
