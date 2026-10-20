@@ -1,0 +1,33 @@
+/* SDLabs · Load Balancers e Proxies Reversos: o que só este módulo usa (fila de pedidos, relógio do healthcheck, campos L4/L7). Peças comuns em widgets.css */
+/* fila P1–P9: cada pedido é uma linha; a busca (900 ms) tem a borda acesa */
+.sdl-content .lb-queue{list-style:none;margin:0 0 var(--s-2);padding:0;display:grid;gap:6px}
+.sdl-content .lb-row{display:grid;grid-template-columns:auto 1fr auto;gap:2px var(--s-2);align-items:baseline;border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:6px 10px;background:var(--surface);min-width:0}
+.sdl-content .lb-row.heavy{border-color:var(--signal)}
+.sdl-content .lb-p{font:700 13px var(--mono);color:var(--ink-hi)}
+.sdl-content .lb-who{font-size:14px;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.sdl-content .lb-to{font:700 13px var(--mono);color:var(--accent-ink);white-space:nowrap}
+.sdl-content .lb-meta{grid-column:1 / -1;font:12.5px/1.4 var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.sdl-content .lb-counters{font:600 13px/1.5 var(--mono);color:var(--muted);margin:0 0 var(--s-2);overflow-wrap:anywhere}
+.sdl-content .lb-out .sr-bar{grid-template-columns:minmax(96px,150px) 1fr}
+.sdl-content .lb-out .btn,.sdl-content [data-widget] > .btn{min-height:44px;margin:0 0 var(--s-2)}
+.sdl-content .lb-table{min-width:0}
+/* relógio do healthcheck */
+.sdl-content .lb-read{margin:var(--s-2) 0 6px;font:700 14px var(--mono);color:var(--ink-hi)}
+.sdl-content .hc-ticks{list-style:none;margin:0 0 var(--s-2);padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.sdl-content .hc-tick{font:700 12.5px var(--mono);color:var(--bad);border:var(--hair) solid var(--bad);border-radius:var(--r-1);padding:4px 8px;background:var(--surface)}
+.sdl-content .sr-fact .lb-sub{text-transform:none;letter-spacing:0;font-weight:600}
+/* L4 ou L7: um campo por linha, com os dois botões embaixo */
+.sdl-content .lb-fields{list-style:none;margin:0 0 var(--s-2);padding:0;display:grid;gap:var(--s-2)}
+.sdl-content .lb-field{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0}
+.sdl-content .lb-field.yes{border-color:var(--ok)}
+.sdl-content .lb-field.no{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.sdl-content .lb-fh{display:flex;flex-wrap:wrap;gap:4px var(--s-2);align-items:baseline;margin-bottom:6px}
+.sdl-content .lb-fn{font-weight:700;color:var(--ink-hi)}
+.sdl-content .lb-fh code{overflow-wrap:anywhere}
+.sdl-content .lb-field .sr-chips{margin:0}
+.sdl-content .lb-why{margin:6px 0 0;font-size:14px;line-height:1.5;color:var(--muted);min-height:0}
+.sdl-content .lb-why:empty{display:none}
+@media (max-width:480px){
+  .sdl-content .lb-out .sr-bar{grid-template-columns:1fr}
+}
+.sdl-content [data-widget] [hidden]{display:none}

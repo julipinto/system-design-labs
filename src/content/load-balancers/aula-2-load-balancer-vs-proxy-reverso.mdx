@@ -1,0 +1,73 @@
+---
+title: "Load balancer vs proxy reverso"
+order: 2
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada o <code>lb-loja</code> ficou na frente das três réplicas do catálogo, escolhendo uma para cada pedido. Só que o <code>pagamentos</code>, o serviço mais sensível da loja, roda num host só, e mesmo assim ninguém o deixa de cara para a internet: existe um NGINX na frente dele. Ele também fica entre a Lena e o servidor. Então é um balanceador?</p>
+
+<OneLiner>Proxy reverso e load balancer são dois padrões de rede que a mesma ferramenta pode fazer: o proxy reverso fica na frente de um servidor (1:1) e cuida dele, o balanceador fica na frente de vários (1:N) e escolhe entre eles.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Proxy</strong>, avance de <strong>A Lena fala com o NGINX, não com o pagamentos</strong> até <strong>Barra um upload de 5 MB na porta</strong> e anote o que o NGINX faz com o pedido antes de ele chegar ao servidor. Depois siga para <strong>1:N: o lb-loja na frente de 3 réplicas</strong> e compare <strong>E se der errado: o pagamentos cai</strong> com <strong>Com 1:N, uma réplica cai e a loja segue</strong>. O que muda no meio do caminho: a decisão ou o cuidado?</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/camadas-3d/?mode=proxy" poster="labs/load-balancers/camadas-3d-previa.webp" title="Figura interativa: Proxy 1:1 × LB 1:N" alt="Prévia da figura 3D: Proxy 1:1 × LB 1:N" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Proxy reverso 1:1.</strong> O NGINX fica na frente do <code>pagamentos</code>, que é um host só. A Lena fala com o proxy e <strong>nunca</strong> com o <code>pagamentos</code>: o IP interno do servidor fica escondido, e o pedido dela só chega até lá depois de passar pelas regras do proxy.</li>
+  <li><strong>O que o proxy cuida.</strong> Ele termina o TLS (o certificado fica nele, e o servidor atrás fala HTTP simples), limita o upload a <strong>1 MB</strong> e guarda cache das respostas que podem se repetir. Nada disso é escolher entre servidores: é cuidar de um.</li>
+  <li><strong>Load balancer 1:N.</strong> O <code>lb-loja</code> fica na frente das três réplicas do <code>catalogo</code>. O trabalho dele é outro: decidir qual das três recebe o pedido (as próximas aulas) e tirar do pool a que parou de responder (aula 1).</li>
+  <li><strong>Padrão não é produto.</strong> Envoy, NGINX e HAProxy fazem os dois papéis. Um Envoy pode ser o proxy reverso 1:1 ao lado de cada serviço (o sidecar de uma malha de serviços) e outro Envoy pode ser o balanceador da entrada.</li>
+  <li><strong>Os dois se misturam.</strong> Um proxy reverso pode ter mais de um host atrás e rotear por caminho, e um balanceador pode terminar TLS e guardar cache. Por isso a pergunta útil é "quantos servidores existem atrás, e o que eu preciso dele?", e não "qual é o nome da ferramenta?".</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>Esconder a rede interna.</strong> Quem só vê o proxy não tem o IP do <code>pagamentos</code> para atacar direto.</li>
+  <li><strong>Tirar trabalho comum dos servidores.</strong> Certificado, limite de upload e cache num lugar só, em vez de cada serviço reimplementar.</li>
+  <li><strong>Escolher a ferramenta pelo problema.</strong> Um host só com TLS e limite de upload pede proxy reverso. Muitos hosts com entrada e saída constante pedem balanceador, com healthcheck.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Quando cada padrão aparece no dia a dia</h4>
+  <ul>
+    <li><strong>Proxy reverso 1:1:</strong> NGINX na frente de uma aplicação PHP-FPM, Node.js, Java ou Go. O artigo cita também o sidecar de Envoy no Kubernetes.</li>
+    <li><strong>Balanceador 1:N:</strong> a entrada de um serviço com várias réplicas, com hosts entrando e saindo o tempo todo (escalabilidade horizontal).</li>
+    <li><strong>Misto:</strong> um proxy com vários hosts e rotas por caminho, host ou cabeçalho. É o que a aula 8 mostra na camada 7.</li>
+  </ul>
+  <h4 class="deep-h">O limite de 1 MB</h4>
+  <p>O valor da loja (1 MB de upload) é de exemplo, mas coincide com o padrão do NGINX para o corpo de um pedido (<code>client_max_body_size</code>). Um proxy corta o upload grande antes de ele ocupar o servidor.</p>
+  <h4 class="deep-h">Observação sobre as fontes do artigo</h4>
+  <ul>
+    <li>As duas páginas de glossário que o artigo cita (o que é balanceamento, proxy reverso vs balanceador) hoje redirecionam para páginas da F5. A distinção que elas fazem é a mesma desta aula.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "NGINX: balanceamento de carga HTTP (o mesmo NGINX faz os dois papéis)", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "Envoy: algoritmos de balanceamento de carga do upstream", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "RFC 9110: semântica HTTP (proxies, gateways e túneis)", href: "https://www.rfc-editor.org/rfc/rfc9110" },
+  ]} />
+</Deep>
+
+<p>O <code>lb-loja</code> é o balanceador, e ele tem três réplicas à escolha. Falta saber como ele escolhe, e o jeito mais simples é um depois do outro.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre proxy reverso e load balancer?",
+    a: "O proxy reverso fica na frente de um servidor (1:1) e cuida dele: TLS, limite de upload, cache, IP escondido. O balanceador fica na frente de vários (1:N) e escolhe entre eles." },
+  { q: "O que o NGINX faz na frente do <code>pagamentos</code>?",
+    a: "Termina o TLS, limita o upload a 1 MB, esconde o IP interno e guarda cache. A Lena nunca fala direto com o <code>pagamentos</code>." },
+  { q: "Envoy, NGINX e HAProxy são balanceadores ou proxies reversos?",
+    a: "Os dois: são ferramentas que implementam os dois padrões. O padrão depende de como se usa." },
+  { q: "Que pergunta ajuda a escolher o padrão?",
+    a: "Quantos servidores existem atrás e o que eu preciso dele: só cuidar de um, ou escolher entre vários e tirar do pool o que parou?" },
+]} />

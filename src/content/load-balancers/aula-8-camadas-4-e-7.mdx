@@ -1,0 +1,76 @@
+---
+title: "Camadas 4 e 7"
+order: 8
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Nas aulas anteriores o balanceador escolheu a réplica olhando carga ou IP. Mas a loja não tem só o <code>catalogo</code>: tem também o <code>carrinho</code> e os <code>pedidos</code> (módulo 6), e o mesmo endereço <code>loja.com.br</code> precisa levar cada pedido para o serviço certo. Para isso, o balanceador precisa ler o pedido. E o que ele consegue ler depende da <strong>camada</strong> em que trabalha, as mesmas camadas do modelo OSI do módulo 1.</p>
+
+<OneLiner>Um balanceador de camada 4 enxerga só o envelope de fora (IP e porta) e repassa a conexão inteira, rápido; um de camada 7 termina o TLS, abre o pedido HTTP e pode rotear pelo caminho, ao custo de mais CPU e mais latência.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>L4</strong>, veja <strong>O L4 lê só IP e porta</strong> e <strong>Escolhe a réplica e repassa a conexão</strong>. Depois troque para <strong>L7</strong> e siga <strong>O L7 termina o TLS e abre o pedido</strong> e <strong>Lê o caminho e escolhe o serviço</strong>: o que apareceu que antes estava fechado, e o que foi preciso fazer com o TLS para isso? Por fim, veja <strong>E se der errado: /busca sem regra</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/camadas-3d/?mode=l4" poster="labs/load-balancers/camadas-3d-previa.webp" title="Figura interativa: Camada 4 (L4)" alt="Prévia da figura 3D: Camada 4 (L4)" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Camada 4 (transporte).</strong> O balanceador vê só <code>TCP 177.38.20.5:51514 → 203.0.113.10:443</code>: o IP e a porta de quem pede, o IP e a porta de quem recebe. Não lê HTTP. Escolhe uma réplica e <strong>repassa a conexão inteira</strong> para ela, sem abrir o conteúdo, que continua cifrado.</li>
+  <li><strong>Camada 7 (aplicação).</strong> O balanceador abre o pedido e lê <code>GET /produtos/42 HTTP/1.1</code>, <code>Host: loja.com.br</code> e <code>Cookie: sessao=…</code>. Com isso, pode decidir pelo caminho, pelo host, por um cabeçalho ou pelo cookie.</li>
+  <li><strong>O preço de abrir.</strong> Para ler o HTTP, o balanceador precisa <strong>terminar o TLS</strong>: o certificado de <code>loja.com.br</code> fica nele (módulo 1, aula 5), e ele conversa em HTTP simples, ou numa nova conexão cifrada, com a réplica.</li>
+  <li><strong>O que isso rende.</strong> O L7 roteia pelo caminho: <code>/produtos/*</code> vai para o <code>catalogo</code>, <code>/carrinho/*</code> para o <code>carrinho</code> e <code>/pedidos/*</code> para os <code>pedidos</code>. Com L4, os três serviços teriam que ter um endereço e uma porta cada um.</li>
+  <li><strong>O custo.</strong> No exemplo da loja, o L7 gasta mais CPU e soma cerca de <strong>1 ms</strong> por pedido, e o L4 soma quase nada, cerca de <strong>0,1 ms</strong>. Os dois números são de exemplo, mas a proporção é a ideia: ler custa.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="camadas" title="L4 ou L7 enxerga isto?" hint="Cada linha é um dado do pedido da Lena. Escolha quem enxerga: só a camada 7, ou também a camada 4." />
+
+<WhyItMatters>
+  <li><strong>Velocidade ou inteligência.</strong> L4 serve onde o que importa é vazão (milhões de conexões, protocolos que não são HTTP). L7 serve onde o roteamento depende do conteúdo.</li>
+  <li><strong>Um endereço para vários serviços.</strong> O L7 deixa a loja ter um <code>loja.com.br</code> só, com os serviços do módulo 6 escondidos atrás.</li>
+  <li><strong>O mesmo passo serve a outros trabalhos.</strong> Quem termina o TLS e lê o pedido pode também guardar cache, comprimir e recusar pedidos ruins. É aqui que o balanceador começa a parecer um proxy reverso (aula 2).</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As duas camadas na nuvem</h4>
+  <ul>
+    <li><strong>AWS:</strong> o <em>Application Load Balancer</em> (ALB) é L7 (HTTP, HTTPS, gRPC), com roteamento por caminho, host e cabeçalho. O <em>Network Load Balancer</em> (NLB) é L4 (TCP, UDP, TLS), pensado para vazão e latência baixas.</li>
+    <li><strong>Misto:</strong> é comum ter um L4 na frente, que reparte o tráfego entre vários L7, que por sua vez roteiam para os serviços.</li>
+  </ul>
+  <h4 class="deep-h">O que o L4 faz com a conexão</h4>
+  <p>Sem ler a aplicação, o L4 só precisa que todos os pacotes de uma mesma conexão (o mesmo par IP e porta de origem e destino) cheguem à mesma réplica. Por isso ele pode usar IP hash ou hashing consistente (aula 7) com facilidade: a decisão sai dos números do envelope.</p>
+  <h4 class="deep-h">Nota sobre o TLS</h4>
+  <p>Terminar o TLS no balanceador é o <em>offload</em> de TLS do artigo: tira das réplicas o trabalho de cifrar e decifrar. Em troca, o tráfego entre o balanceador e a réplica passa em claro, a menos que se cifre de novo (o que muita gente faz).</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "AWS: Application Load Balancer, camada 7", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+    { label: "AWS: Network Load Balancer, camada 4", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html" },
+    { label: "Envoy: algoritmos de balanceamento (funcionam em L4 e L7)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "RFC 9110: semântica HTTP", href: "https://www.rfc-editor.org/rfc/rfc9110" },
+  ]} />
+</Deep>
+
+<p>Já se sabe o que cada camada vê e o que cada uma custa. Falta saber que ferramentas fazem isso na prática, qual delas a loja usaria e quando cada uma nasceu.</p>
+
+<Flashcards cards={[
+  { q: "O que um balanceador de camada 4 enxerga do pedido da Lena?",
+    a: "Só <code>TCP 177.38.20.5:51514 → 203.0.113.10:443</code>: IP e porta. Não lê HTTP e repassa a conexão inteira para uma réplica." },
+  { q: "O que o de camada 7 lê que o de camada 4 não lê?",
+    a: "<code>GET /produtos/42 HTTP/1.1</code>, o <code>Host: loja.com.br</code> e o <code>Cookie: sessao=…</code>. Por isso pode rotear por caminho." },
+  { q: "O que o balanceador precisa fazer para operar em camada 7 com HTTPS?",
+    a: "Terminar o TLS: o certificado de <code>loja.com.br</code> fica nele, para que ele consiga ler o pedido." },
+  { q: "Para onde vão <code>/produtos/*</code>, <code>/carrinho/*</code> e <code>/pedidos/*</code>?",
+    a: "Para os serviços <code>catalogo</code>, <code>carrinho</code> e <code>pedidos</code>, respectivamente. É o roteamento por caminho da camada 7." },
+  { q: "Qual é o custo de cada camada no exemplo?",
+    a: "L7: cerca de 1 ms a mais por pedido e mais CPU. L4: cerca de 0,1 ms. São números de exemplo." },
+]} />

@@ -1,0 +1,74 @@
+---
+title: "Least connection"
+order: 5
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O contador do least request olhava o passado, e por isso a <code>catalogo-4</code> nova virava alvo de tudo. A saída é olhar o presente: quantas conexões cada réplica tem abertas <strong>agora</strong>. É o <strong>least connection</strong>, e ele é a primeira regra do módulo que enxerga o estado das réplicas.</p>
+
+<OneLiner>Least connection manda o próximo pedido para a réplica com menos conexões abertas neste instante; conexão aberta, porém, não é trabalho, e uma réplica cheia de conexões ociosas pode parecer mais ocupada do que está.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>LC</strong>, avance <strong>Conexão aberta não é pedido</strong> e <strong>O instante: 5 · 3 · 4 conexões</strong>: quantas conexões cada réplica tem e quantas estão trabalhando de verdade. Depois veja <strong>E se der errado: o P9 cai no mais ocupado</strong>. Para onde o least connection manda o P9? Essa réplica é a menos ocupada?</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/balanceador-3d/?mode=lc" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Figura interativa: Least connection" alt="Prévia da figura 3D: Least connection" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Conexão aberta.</strong> Um navegador abre uma conexão TCP com o servidor e, com o <strong>keep-alive</strong>, a mantém aberta depois da resposta para o próximo pedido sair mais rápido (módulo 1). Enquanto não fecha, o balanceador a conta.</li>
+  <li><strong>A regra.</strong> Chega um pedido novo. O balanceador compara quantas conexões cada réplica tem abertas e escolhe a de menor número. Não conta pedidos atendidos, só o que está aberto.</li>
+  <li><strong>A foto do instante.</strong> A <code>catalogo-1</code> tem <strong>5</strong> conexões, todas ociosas: navegadores esquecidos de aba aberta. A <code>catalogo-2</code> tem <strong>3</strong>, e as três estão fazendo uma busca pesada. A <code>catalogo-3</code> tem <strong>4</strong>, com uma busca em andamento.</li>
+  <li><strong>O erro.</strong> O least connection escolhe a <code>catalogo-2</code>, a de menor número (3), que é justamente a mais ocupada. A <code>catalogo-1</code>, com 5 conexões paradas e CPU livre, fica de fora. Conexão aberta não é trabalho.</li>
+  <li><strong>Quando funciona.</strong> Em conexões de vida longa e parecidas (WebSocket, gRPC), cada conexão é, de fato, uma carga. Aí contar conexões é contar trabalho.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lc" title="Least connection com conexões ociosas" hint="Veja a fila de 9 pedidos. Depois marque '5 conexões ociosas na catalogo-1' e veja o que acontece com ela." />
+
+<WhyItMatters>
+  <li><strong>Olha o presente.</strong> Uma réplica nova entra com 0 conexões e começa a receber, mas sem a avalanche do contador que só cresce.</li>
+  <li><strong>Mede a coisa errada, às vezes.</strong> Keep-alive, WebSocket e gRPC fazem uma conexão ficar aberta por minutos. O número de conexões deixa de dizer o tamanho do trabalho.</li>
+  <li><strong>Custa para o balanceador.</strong> Ele precisa acompanhar cada conexão abrindo e fechando, o que dá mais trabalho do que girar um índice.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O que o artigo diz</h4>
+  <p>O artigo define a conexão ativa como a "sessão ou interação em andamento entre cliente e servidor", mesmo que o pedido já tenha sido processado, como nas implementações que suportam keep-alive, WebSockets e gRPC persistentes. Com 5 conexões num host e 3 em outro, o próximo pedido vai para o de 3, "mesmo que essas possam ser tarefas de menor demanda". É exatamente a foto desta aula.</p>
+  <h4 class="deep-h">Nas ferramentas</h4>
+  <ul>
+    <li><strong>NGINX:</strong> a diretiva <code>least_conn</code> no bloco <code>upstream</code>.</li>
+    <li><strong>HAProxy:</strong> <code>balance leastconn</code>, recomendado para sessões longas.</li>
+    <li><strong>Envoy:</strong> a política parecida, o <code>LEAST_REQUEST</code>, conta pedidos ativos, a ideia da próxima aula.</li>
+  </ul>
+  <h4 class="deep-h">Os números da foto</h4>
+  <p>Conexões 5, 3 e 4 e pedidos pendentes 0, 3 e 1 (aula 6) são números de exemplo da loja, no mesmo instante. O que importa é a diferença entre as duas colunas: a de conexões diz onde há sockets abertos, a de pendentes diz onde há trabalho.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Load Balancers e Proxies Reversos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "NGINX: least_conn e os demais métodos do módulo upstream", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+    { label: "NGINX: balanceamento de carga HTTP (least connected)", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "HAProxy: balance leastconn", href: "https://docs.haproxy.org/3.0/configuration.html" },
+  ]} />
+</Deep>
+
+<p>O least connection viu conexões e foi enganado por conexões paradas. Falta saber como contar o que realmente interessa: os pedidos que já entraram na réplica e ainda não voltaram.</p>
+
+<Flashcards cards={[
+  { q: "O que o least connection conta?",
+    a: "As conexões abertas em cada réplica neste instante, tenham ou não pedido em andamento." },
+  { q: "Na foto da loja, para onde ele manda o próximo pedido, e por que está errado?",
+    a: "Para a <code>catalogo-2</code> (3 conexões), a mais ocupada: as 3 estão numa busca pesada. A <code>catalogo-1</code> tem 5 conexões ociosas e CPU livre." },
+  { q: "O que é keep-alive e por que ele atrapalha o least connection?",
+    a: "É manter a conexão aberta depois da resposta. Cria conexões ociosas, que contam como se fossem trabalho." },
+  { q: "Quando o least connection funciona bem?",
+    a: "Em conexões longas e parecidas, como WebSocket e gRPC: cada conexão é uma carga de verdade." },
+]} />

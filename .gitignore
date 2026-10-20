@@ -19,3 +19,4 @@ public/labs/cache/*-3d/
 public/labs/microsservicos/*-3d/
 public/labs/api-gateways/*-3d/
 node_modules
+public/labs/load-balancers/*-3d/

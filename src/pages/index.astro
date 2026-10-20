@@ -19,8 +19,9 @@ const modules: Mod[] = [
     text: 'Hit e miss, TTL, evicção (LRU, LFU e FIFO), hit rate, hashmap e Redis, cache-aside, write-through, write-behind e CDN, com um proxy em Go lido linha a linha. Com quiz de 46 perguntas.' },
   { slug: 'microsservicos', title: 'Microsserviços, Monolitos e Domínios', lessons: 8, poster: 'labs/microsservicos/monolito-3d-previa.webp', alt: 'Prévia da figura 3D do monolito',
     text: 'Quando e como partir o programa da loja: monolito, microsserviços, DDD (contextos, agregados, eventos), Lei de Conway e um case com o pedido 1047, com calculadoras e simuladores. Com quiz de 51 perguntas.' },
-  { n: 7, title: 'Em breve', text: 'O módulo 7, Load Balancers, entra aqui.' },
-  { n: 8, slug: 'api-gateways', title: 'API Gateways', lessons: 7, poster: 'labs/api-gateways/gateway-3d-previa.webp', alt: 'Prévia da figura 3D do API Gateway',
+  { slug: 'load-balancers', title: 'Load Balancers e Proxies Reversos', lessons: 10, poster: 'labs/load-balancers/balanceador-3d-previa.webp', alt: 'Prévia da figura 3D do balanceador de carga',
+    text: 'Healthcheck, proxy reverso, round robin, least request, least connection, LOR, IP hash, Maglev e random, camadas 4 e 7, e um laboratório com Envoy lido linha a linha. Com quiz de 56 perguntas.' },
+  { slug: 'api-gateways', title: 'API Gateways', lessons: 7, poster: 'labs/api-gateways/gateway-3d-previa.webp', alt: 'Prévia da figura 3D do API Gateway',
     text: 'A porta única da loja: roteamento por método e caminho, JWT, escopos, rate limiting com token bucket e leaky bucket, throttling, versionamento e canary, com o Kong lido linha a linha. Com quiz de 43 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');

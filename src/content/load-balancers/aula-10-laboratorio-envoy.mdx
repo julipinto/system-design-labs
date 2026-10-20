@@ -1,0 +1,237 @@
+---
+title: "Laboratório com Envoy"
+order: 10
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada ficou a pergunta de como um Envoy de verdade escreve em YAML o que o <code>lb-loja</code> fez neste módulo. O repositório público de exemplos do autor responde com a pasta <code>envoy-patterns</code>: sete containers, um balanceador na frente, três proxies reversos no meio e uma aplicação Node.js atrás de cada um. Vamos ler o arquivo do balanceador, porque cada bloco dele é uma ideia das aulas anteriores.</p>
+
+<OneLiner>No laboratório, um Envoy faz o papel de balanceador (um na frente de três proxies, em round robin, com healthcheck) e outros três fazem o papel de proxy reverso (um na frente de cada aplicação): os dois padrões da aula 2, rodando com a mesma ferramenta.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Lab</strong>, avance os cinco passos: <strong>docker compose up</strong>, <strong>curl 1, 2 e 3</strong>, <strong>curl 4, 5 e 6</strong>, <strong>E se der errado: docker compose stop reverse-proxy-2</strong> e <strong>O health check tira o proxy-2 do pool</strong>. No passo da queda, conte quantos dos três curls falham. No passo seguinte, conte quantos falham depois que o proxy sai do pool.</p>
+</DoIt>
+
+<Figure3D path="labs/load-balancers/camadas-3d/?mode=lab" poster="labs/load-balancers/camadas-3d-previa.webp" title="Figura interativa: Laboratório Envoy" alt="Prévia da figura 3D: Laboratório Envoy" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os sete containers.</strong> O <code>docker compose up</code> sobe <code>backend-app-1</code>, <code>backend-app-2</code> e <code>backend-app-3</code> (Node.js, porta 3000), os Envoys <code>reverse-proxy-1</code>, <code>reverse-proxy-2</code> e <code>reverse-proxy-3</code> (publicados nas portas 8081, 8082 e 8083 do seu computador) e o <code>load-balancer</code>, na porta 80. Cada proxy aponta para a sua aplicação: o 1 para a <code>backend-app-1</code>, e assim por diante.</li>
+  <li><strong>O curl entra pela porta 80.</strong> <code>curl -si http://localhost/</code> chega ao <code>load-balancer</code>. Ele escolhe um proxy pelo round robin da aula 3, repassa o pedido, e o proxy repassa à sua aplicação.</li>
+  <li><strong>Seis curls, dois para cada.</strong> Com os três pesos iguais, os curls 1 a 6 passam pelos proxies 1, 2, 3, 1, 2, 3. A ordem pode começar em outro proxy, porque cada <em>worker</em> do Envoy gira a sua própria vez, mas a divisão fica por igual: 2 / 2 / 2. Cada resposta traz o cabeçalho <code>x-proxy-server</code>, que diz por qual proxy ela passou.</li>
+  <li><strong>E se der errado.</strong> <code>docker compose stop reverse-proxy-2</code>. Enquanto o healthcheck não perceber, o balanceador segue a vez e 1 de cada 3 pedidos cai no proxy parado e volta com <code>503</code>.</li>
+  <li><strong>O healthcheck resolve.</strong> O <code>load-balancer.yaml</code> verifica <code>GET /health</code> a cada 10 s, com timeout de 1 s, e 3 falhas seguidas tiram o host. Em até 30 s o <code>reverse-proxy-2</code> sai do pool e nenhum curl novo falha. Dois checks bons o devolvem, como na aula 1.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Lendo o load-balancer.yaml</h3>
+
+<p>O trecho abaixo é a parte do <code>envoy-configs/load-balancer.yaml</code> que importa para este módulo (do repositório público, sem alteração; deixei de fora o formato do log de acesso, que só imprime uma linha por pedido). Primeiro, o <strong>listener</strong>: o ouvido do balanceador.</p>
+
+<pre><code>{String.raw`static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 80
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: load_balancer_service
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/"
+                route:
+                  cluster: reverse_proxy_cluster
+                  timeout: 30s
+                response_headers_to_add:
+                - header:
+                    key: "X-Load-Balancer"
+                    value: "envoy-lb"
+                - header:
+                    key: "X-Pattern"
+                    value: "Load-Balancer"`}</code></pre>
+
+<ul>
+  <li><code>port_value: 80</code> é a porta do <code>lb-loja</code> no desenho: o que o DNS devolve para <code>loja.com.br</code>.</li>
+  <li><code>http_connection_manager</code> faz o balanceador entender HTTP. É o que o torna um balanceador de <strong>camada 7</strong> (aula 8): ele lê o pedido, em vez de só repassar bytes.</li>
+  <li><code>match: prefix: "/"</code> pega todos os caminhos e manda tudo para o mesmo cluster. É a versão mais simples do roteamento por caminho; trocar por <code>/produtos</code>, <code>/carrinho</code> e <code>/pedidos</code> daria a tabela da aula 8.</li>
+  <li><code>timeout: 30s</code> é quanto o balanceador espera a resposta antes de desistir do pedido.</li>
+  <li><code>response_headers_to_add</code> carimba a resposta com <code>X-Load-Balancer: envoy-lb</code>. Quem olha os cabeçalhos sabe que passou por ali.</li>
+</ul>
+
+<p>O listener diz <em>para onde</em> mandar. O <strong>cluster</strong> diz <em>quem</em> está no pool e <em>como escolher</em>, e é a parte que as aulas 3 a 7 explicaram em português.</p>
+
+<pre><code>{String.raw`  clusters:
+  - name: reverse_proxy_cluster
+    connect_timeout: 30s
+    type: STRICT_DNS
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN
+
+    round_robin_lb_config:
+      slow_start_config:
+        slow_start_window: 60s
+
+    load_assignment:
+      cluster_name: reverse_proxy_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: reverse-proxy-1
+                port_value: 8080
+          load_balancing_weight: 1
+        - endpoint:
+            address:
+              socket_address:
+                address: reverse-proxy-2
+                port_value: 8080
+          load_balancing_weight: 1
+        - endpoint:
+            address:
+              socket_address:
+                address: reverse-proxy-3
+                port_value: 8080
+          load_balancing_weight: 1
+
+    health_checks:
+    - timeout: 1s
+      interval: 10s
+      unhealthy_threshold: 3
+      healthy_threshold: 2
+      http_health_check:
+        path: "/health"
+        expected_statuses:
+        - start: 200
+          end: 299`}</code></pre>
+
+<ul>
+  <li><code>lb_policy: ROUND_ROBIN</code> é a aula 3. Trocar por <code>LEAST_REQUEST</code> daria a aula 4, e por <code>RING_HASH</code> ou <code>MAGLEV</code>, a aula 7. É uma linha.</li>
+  <li><code>load_assignment</code> é o <strong>pool</strong>: três endereços, <code>reverse-proxy-1</code>, <code>-2</code> e <code>-3</code>, na porta 8080 da rede interna do Docker (a 8081 a 8083 do seu computador são só a porta de fora).</li>
+  <li><code>load_balancing_weight: 1</code> nos três é o round robin com pesos iguais. Com peso 2 num deles, ele entraria duas vezes por volta, como a <code>catalogo-3</code> com o dobro de CPU na aula 3.</li>
+  <li><code>type: STRICT_DNS</code> faz o Envoy perguntar ao DNS os endereços de cada nome e refazer a pergunta de tempos em tempos. Um host novo aparece no pool sem reiniciar o balanceador.</li>
+  <li><code>slow_start_window: 60s</code> é a resposta do Envoy à armadilha do <code>catalogo-4</code> da aula 4: um host recém-adicionado ao pool recebe uma parte crescente dos pedidos durante 60 s, em vez de ser inundado.</li>
+  <li><code>health_checks</code> é a aula 1 em YAML: <code>GET /health</code> a cada <code>interval: 10s</code>, <code>timeout: 1s</code>, <code>unhealthy_threshold: 3</code> falhas para sair, <code>healthy_threshold: 2</code> sucessos para voltar, e qualquer status de 200 a 299 conta como saudável. Na loja eram 5 s; aqui são 10 s, então a saída leva até 30 s.</li>
+</ul>
+
+<h3 class="sec">O outro lado: o proxy reverso</h3>
+
+<p>Cada <code>reverse-proxy-N.yaml</code> tem a mesma forma, mas um cluster de <strong>um</strong> endereço só. Este é o trecho do <code>reverse-proxy-1.yaml</code> que o diferencia do balanceador.</p>
+
+<pre><code>{String.raw`          http_filters:
+          - name: envoy.filters.http.local_ratelimit
+            typed_config:
+              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+              type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              value:
+                stat_prefix: local_rate_limiter
+                token_bucket:
+                  max_tokens: 10        # Máximo 10 requisições
+                  tokens_per_fill: 10   # Repor 10 tokens
+                  fill_interval: 60s    # A cada 60 segundos
+          ...
+                route:
+                  cluster: backend_service
+                  timeout: 1s
+                response_headers_to_add:
+                - header:
+                    key: "X-Proxy-Server"
+                    value: "reverse-proxy-1"
+          ...
+  clusters:
+  - name: backend_service
+    connect_timeout: 1s
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: backend_service
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: backend-app-1
+                port_value: 3000`}</code></pre>
+
+<ul>
+  <li>Um endereço só, <code>backend-app-1</code>: não há o que escolher, então <code>ROUND_ROBIN</code> aqui é decoração. É o 1:1 da aula 2.</li>
+  <li><code>X-Proxy-Server: reverse-proxy-1</code> é o carimbo que o curl mostra na resposta. É assim que se vê, de fora, por qual proxy o pedido passou.</li>
+  <li><code>local_ratelimit</code> é o que faz do proxy mais que um repassador: ele deixa passar 10 pedidos por minuto e recusa o resto. É um dos trabalhos do proxy reverso que a aula 2 listou, e vai importar no fim desta aula.</li>
+</ul>
+
+<WhyItMatters>
+  <li><strong>As aulas viram linhas de YAML.</strong> Algoritmo, pool, pesos, healthcheck e camada 7 estão todos no arquivo que você acabou de ler. Quem leu as aulas 1 a 8 lê um <code>load-balancer.yaml</code> sem se perder.</li>
+  <li><strong>A mesma ferramenta, dois padrões.</strong> O <code>load-balancer</code> e o <code>reverse-proxy-1</code> rodam a mesma imagem do Envoy. O que muda é o arquivo: três endereços no pool ou um.</li>
+  <li><strong>"E se der errado" tem número.</strong> Com healthcheck de 10 s e limiar de 3, a queda de um proxy custa até 30 s de 1 pedido em 3. Para baixar isso, é só trocar <code>interval</code> e <code>unhealthy_threshold</code>, e o relógio da aula 1 mostra a conta.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Como rodar</h4>
+<pre><code>{String.raw`# dentro da pasta envoy-patterns
+docker compose up --build -d
+
+curl -si http://localhost/ | grep -i x-proxy-server    # repita 6 vezes
+curl -s http://localhost:9900/clusters | grep reverse_proxy_cluster | grep health_flags
+
+docker compose stop reverse-proxy-2                    # e se der errado
+curl -si http://localhost/ | head -1                   # 1 em 3 volta 503, até o healthcheck tirar o proxy-2`}</code></pre>
+  <ul>
+    <li>A porta <code>9900</code> é a interface de administração do <code>load-balancer</code>. O caminho <code>/clusters</code> lista cada host do pool com os seus <code>health_flags</code> (<code>healthy</code> ou <code>failed_active_hc</code>), e é onde se vê o <code>reverse-proxy-2</code> sair e voltar.</li>
+    <li>O <code>test-patterns.sh</code> do repositório faz 12 curls e conta quantos caem em cada proxy. O <code>test-weighted-quantum.sh</code> mostra pesos diferentes, mas espera pesos 5, 3 e 2, que não são os do <code>load-balancer.yaml</code> (todos 1). Para ver o 5 / 3 / 2, mude os pesos no arquivo.</li>
+    <li>Cada proxy deixa passar só 10 pedidos por minuto (o <code>local_ratelimit</code>). Seis curls cabem com folga; um laço de centenas de curls vai ver <code>429</code> depois de uns 30 pedidos no total.</li>
+    <li>Não rodei este laboratório. Li os arquivos do repositório e escrevi o que eles dizem. Se um número sair diferente na sua máquina (por exemplo, a ordem dos três primeiros curls), confie no que o seu terminal mostrou.</li>
+  </ul>
+  <h4 class="deep-h">Correções e cuidados com o repositório e o artigo-base</h4>
+  <ul>
+    <li><strong>Uma aplicação ou três?</strong> O README do repositório desenha <em>um</em> backend atrás dos três proxies. O <code>docker-compose.yml</code> sobe <strong>três</strong> (<code>backend-app-1</code>, <code>-2</code> e <code>-3</code>), cada proxy aponta para a sua. Vale o compose.</li>
+    <li><strong>Healthcheck ativo existe.</strong> A ideia de que "sem healthcheck o Envoy só percebe pela <em>outlier detection</em>" não vale aqui: o <code>load-balancer.yaml</code> tem <code>health_checks</code>. A outlier detection (tirar do pool o host que devolve muitos erros, sem ninguém perguntar <code>/health</code>) é uma segunda camada que este laboratório <strong>não configura</strong>.</li>
+    <li><strong>O peso não é o quantum.</strong> Os comentários do YAML chamam <code>load_balancing_weight</code> de "quantum". Peso decide <em>quantos pedidos por volta</em>; o quantum da aula 3 decide <em>por quanto tempo</em> ficar numa réplica. O Envoy só tem o peso.</li>
+    <li><strong>As portas de administração.</strong> No <code>docker-compose.yml</code>, o <code>reverse-proxy-2</code> publica <code>9902:9902</code>, mas o <code>reverse-proxy-2.yaml</code> deixa a administração na 9901. O healthcheck do Docker desse container (<code>curl localhost:9902/ready</code>) falha, e ele aparece como <em>unhealthy</em> no <code>docker compose ps</code>, mesmo atendendo pedidos. Não afeta o healthcheck do Envoy, que usa <code>/health</code> na porta 8080.</li>
+    <li><strong>Onde está o cabeçalho.</strong> O <code>x-proxy-server</code> é adicionado à <em>resposta</em>. O <code>test-patterns.sh</code> o procura no JSON do corpo (que ecoa os cabeçalhos do <em>pedido</em>), então é provável que ele conte "erro ao obter proxy". Use <code>curl -sI</code>, como o README, para ver o cabeçalho.</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório público de exemplos do autor: exemplos/load-balancing/envoy-patterns", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-balancing/envoy-patterns" },
+    { label: "Envoy: tipos de balanceadores (ROUND_ROBIN, LEAST_REQUEST, RING_HASH, MAGLEV)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "Envoy: health checking ativo", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking" },
+    { label: "Envoy: outlier detection", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier" },
+    { label: "Envoy: slow start", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/slow_start" },
+    { label: "Envoy: filtro local rate limit", href: "https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/local_rate_limit_filter" },
+  ]} />
+</Deep>
+
+<p>Os três proxies do laboratório limitam 10 pedidos por minuto cada um, e cada um conta sozinho: o mesmo cliente passa em um e é recusado no outro. Na loja, o <code>catalogo</code>, o <code>carrinho</code> e o <code>pedidos</code> também conferem o login, limitam abuso e mantêm as versões da API cada um por conta própria, o que repete o mesmo trabalho em todo serviço. Falta saber se esse trabalho pode ser feito uma só vez, na porta, antes de o pedido chegar a qualquer serviço.</p>
+
+<Flashcards cards={[
+  { q: "Que papel cada Envoy tem no laboratório?",
+    a: "O <code>load-balancer</code> (porta 80) é o balanceador 1:N, em round robin, na frente de 3 proxies. Cada <code>reverse-proxy-N</code> é um proxy reverso 1:1 na frente da sua <code>backend-app-N</code>." },
+  { q: "O que <code>lb_policy: ROUND_ROBIN</code> e <code>load_balancing_weight: 1</code> fazem?",
+    a: "O primeiro escolhe o algoritmo da aula 3. O segundo dá peso igual aos três proxies, então 6 curls dão 2 para cada." },
+  { q: "Como o <code>health_checks</code> do YAML se compara ao da loja?",
+    a: "É o mesmo mecanismo: <code>GET /health</code>, timeout de 1 s, 3 falhas para sair, 2 sucessos para voltar. No laboratório o intervalo é de 10 s, então a saída leva até 30 s." },
+  { q: "O que acontece com os pedidos entre a queda do <code>reverse-proxy-2</code> e o healthcheck tirá-lo do pool?",
+    a: "O balanceador ainda o considera do pool e segue a vez: 1 de cada 3 pedidos cai nele e volta 503. Depois que sai do pool, nenhum pedido novo falha." },
+  { q: "Para que serve o <code>slow_start_window: 60s</code>?",
+    a: "Para um host recém-adicionado ao pool receber uma parte crescente dos pedidos durante 60 s, em vez de tudo de uma vez. Evita o problema do <code>catalogo-4</code> da aula 4." },
+]} />
