@@ -1,0 +1,78 @@
+---
+title: "Introdução ao cache"
+order: 1
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>O módulo 4 terminou com a loja bem guardada: a tabela <code>pedidos</code> no PostgreSQL, o pedido 1042 da Lena no lugar certo, o índice achando a linha em duas páginas. A aula 15 deixou uma frase solta, "leitura intensiva pede cache", e agora ela tem cara. A página do gato de pelúcia (produto 42) ficou lenta, porque todo mundo abre: a Lena em Recife, a Bia, o Caio e o Davi, e mais milhares. Cada visita faz o banco ler a mesma linha, que não mudou desde ontem, em 40 ms.</p>
+
+<OneLiner>Cache é uma cópia do dado guardada num lugar mais rápido ou mais perto de quem pergunta; vale a pena quando o dado é muito lido e pouco alterado.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Aside</strong>, avance os passos do pedido do <code>produto:42</code> e observe o contador de milissegundos. Compare o que ele marca depois do <strong>primeiro</strong> pedido com o que acrescenta o <strong>segundo</strong>. Qual das duas leituras foi ao banco?</p>
+</DoIt>
+
+<Figure3D path="labs/cache/cache-3d/?mode=aside" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: o app pede o produto:42: miss, banco em 40 ms, guarda no Redis por 60 s, hit em 1 ms" alt="Prévia da figura 3D: o app, o Redis e o banco com o produto:42; o painel marca 10 pedidos, 8 hits e 2 misses" hint="Arraste para girar · use ← → ou Próximo passo · troque o modo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena abre a página do gato de pelúcia. O app precisa dos dados do <code>produto:42</code> e, antes de ir ao banco, <strong>pergunta ao cache</strong>. A chave é o nome da cópia: <code>produto:42</code>.</li>
+  <li>O cache está vazio. Essa pergunta sem resposta é um <strong>miss</strong>. O app então lê o banco, que devolve <code>{`{ "nome": "gato de pelúcia", "preco": 89.90, "estoque": 3 }`}</code> em <strong>40 ms</strong>.</li>
+  <li>Antes de responder à Lena, o app <strong>guarda uma cópia</strong> no cache, com validade de 60 segundos (o TTL). Em Redis, seria <code>SET produto:42 ... EX 60</code>.</li>
+  <li>Chega o pedido seguinte, da Lena ou de outra pessoa. O cache já tem a chave, e a resposta é um <strong>hit</strong>: o dado sai do cache em <strong>1 ms</strong>, sem tocar no banco.</li>
+  <li>A mesma cópia atende todo mundo até os 60 segundos acabarem. Quando acabam, a cópia some, o próximo pedido é um miss e o ciclo recomeça.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>Velocidade.</strong> Do banco para o Redis, 40 ms viram 1 ms (40 vezes menos). Do Redis para um hashmap na memória do app, 1 ms vira 0,05 ms. Os três números são de exemplo, e é a proporção entre eles que importa.</li>
+  <li><strong>Alívio do banco.</strong> Cada hit é uma leitura que o banco não precisou fazer. Com a página mais vista da loja no cache, o banco fica livre para os pedidos que só ele sabe gravar.</li>
+  <li><strong>Fôlego numa falha.</strong> Se o banco ficar fora do ar por um minuto, as cópias que já estão no cache continuam saindo, até o TTL vencer.</li>
+  <li><strong>O preço.</strong> A cópia pode ficar diferente do original. Todo o resto do módulo gira em torno disso.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Por que dá certo: localidade</h4>
+  <ul>
+    <li><strong>Localidade temporal:</strong> o que foi lido agora tende a ser lido de novo daqui a pouco. O produto 42 é lido milhares de vezes e a maioria dos outros quase nunca.</li>
+    <li><strong>Localidade espacial:</strong> o que está perto do que foi lido tende a ser lido em seguida. É por isso que o banco lê uma página inteira de 8 KB (módulo 4) e a CPU lê linhas de 64 bytes, e não um byte de cada vez.</li>
+  </ul>
+  <p>Se todos os produtos fossem lidos com a mesma frequência, o cache só ajudaria se coubesse a loja inteira.</p>
+  <h4 class="deep-h">Cache em camadas</h4>
+  <p>Entre a Lena e o banco há várias cópias: o navegador dela, a CDN, a memória do app, o Redis e, dentro do próprio banco, as páginas de 8 KB já lidas, que o PostgreSQL mantém na memória (o <code>shared_buffers</code>). Cada camada guarda um pedaço e pergunta à seguinte quando não tem.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo avisa que Redis, CDN e proxy reverso "não definem" o cache, só o possibilitam. Está certo, e vale levar a sério: um <code>map</code> de Go com um mutex (aula 5) também é um cache.</li>
+  </ul>
+  <h4 class="deep-h">Quando o cache não ajuda</h4>
+  <p>Quando o dado muda a cada instante, ou quando quase ninguém pede duas vezes a mesma coisa. Na aula 4 isso vira conta: com 1 ms de cache e 40 ms de banco, o cache só compensa acima de 2,5% de acertos.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Wikipedia: cache (computação)", href: "https://en.wikipedia.org/wiki/Cache_(computing)" },
+    { label: "Wikipedia: localidade de referência", href: "https://en.wikipedia.org/wiki/Locality_of_reference" },
+    { label: "Prisma Data Guide: introdução ao cache de banco de dados", href: "https://www.prisma.io/dataguide/managing-databases/introduction-database-caching" },
+  ]} />
+</Deep>
+
+<p>A cópia do gato de pelúcia foi guardada às 10h00 com o preço de 89.90. Às 10h20, o preço no banco muda. Falta saber por quanto tempo essa cópia pode continuar dizendo o valor antigo e quem decide isso.</p>
+
+<Flashcards cards={[
+  { q: "O que é um cache, em uma frase?",
+    a: "Uma cópia do dado guardada mais perto, ou num lugar mais rápido, de quem pergunta." },
+  { q: "O que é hit e o que é miss?",
+    a: "Hit: o cache tinha o dado e respondeu. Miss: não tinha, e o app foi buscar na origem (o banco)." },
+  { q: "Quanto custa cada leitura no exemplo da loja?",
+    a: "Banco: 40 ms. Redis: 1 ms. Hashmap na memória do app: 0,05 ms. São números de exemplo." },
+  { q: "Por que o cache funciona?",
+    a: "Por localidade: poucos dados são lidos muitas vezes (o produto 42), e o que foi lido agora tende a ser lido de novo." },
+  { q: "Cache é a mesma coisa que Redis?",
+    a: "Não. Redis, CDN e hashmap só implementam a ideia. Um map em memória no seu programa já é um cache." },
+]} />

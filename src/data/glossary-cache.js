@@ -1,0 +1,38 @@
+// Glossário do módulo Estratégias de Cache. Mesmo formato do módulo 1 (veja glossary.js).
+const [L1, L2, L3, L4, L5, L6, L7] = ['aula-1-introducao-ao-cache', 'aula-2-consistencia-e-ttl', 'aula-3-eviccao-e-invalidacao',
+  'aula-4-hit-miss-e-hit-rate', 'aula-5-memoria-e-distribuido', 'aula-6-cache-aside-write-through-write-behind-e-cdn', 'aula-7-criando-uma-cdn'];
+
+export const cache = [
+  { term: 'Cache', aliases: ['cache', 'caches'], short: 'Uma cópia do dado guardada mais perto, ou num lugar mais rápido, de quem pergunta. Na loja, o produto 42 sai em 1 ms em vez de 40 ms.', lesson: L1 },
+  { term: 'Chave', aliases: ['chave', 'chaves'], short: 'O nome da cópia no cache, como produto:42. O app pergunta pela chave e recebe o valor.', lesson: L1 },
+  { term: 'Cache hit', aliases: ['hit', 'hits', 'cache hit'], short: 'O cache tinha o dado e respondeu sozinho, sem ir ao banco.', lesson: L1 },
+  { term: 'Cache miss', aliases: ['miss', 'misses', 'cache miss'], short: 'O cache não tinha o dado, e o app foi buscar na origem (o banco) e, em geral, guardou uma cópia.', lesson: L1 },
+  { term: 'Origem', aliases: ['origem'], short: 'A fonte de verdade de onde o cache copia: o banco, no caso do produto 42, ou o servidor de São Paulo, no caso da foto.', lesson: L1 },
+  { term: 'Localidade', aliases: ['localidade', 'localidade temporal', 'localidade espacial'], short: 'Poucos dados são pedidos muitas vezes, e o que foi lido agora tende a ser lido de novo. É por isso que o cache funciona.', lesson: L1 },
+  { term: 'Redis', aliases: ['Redis'], short: 'Banco chave-valor em memória, muito usado como cache compartilhado entre as réplicas do app. Lê em cerca de 1 ms no exemplo.', lesson: L1 },
+  { term: 'Dado velho (stale)', aliases: ['dado velho', 'stale'], short: 'Uma cópia que continua no cache depois de o original mudar. O cache diz 89.90 e o banco já diz 79.90.', lesson: L2 },
+  { term: 'TTL', aliases: ['TTL'], short: 'Time to live: o prazo de validade da chave. Depois de 60 s a cópia some e o próximo pedido é um miss.', lesson: L2 },
+  { term: 'Cache stampede', aliases: ['cache stampede', 'stampede'], short: 'Muitas chaves vencendo juntas, ou um cache esvaziado, mandam uma onda de misses ao banco de uma vez.', lesson: L2 },
+  { term: 'Invalidação', aliases: ['invalidação', 'invalidar', 'invalida'], short: 'Declarar uma cópia inválida por um evento: um comando como DEL produto:42, ou uma regra do programa.', lesson: L3 },
+  { term: 'Evicção', aliases: ['evicção', 'eviccao'], short: 'Tirar uma cópia do cache porque ele encheu e chegou uma chave nova. A política escolhe quem sai.', lesson: L3 },
+  { term: 'LRU', aliases: ['LRU'], short: 'Least recently used: sai a cópia que ficou mais tempo sem ser pedida.', lesson: L3 },
+  { term: 'LFU', aliases: ['LFU'], short: 'Least frequently used: sai a cópia que foi pedida menos vezes. O empate se desfaz, por exemplo, pela mais antiga.', lesson: L3 },
+  { term: 'FIFO', aliases: ['FIFO'], short: 'First in, first out: sai quem entrou primeiro, mesmo que seja a mais pedida.', lesson: L3 },
+  { term: 'Hit rate', aliases: ['hit rate', 'taxa de acerto', 'taxa de acertos'], short: 'A fração dos pedidos que o cache respondeu: hits ÷ (hits + misses). Com 8 hits e 2 misses, 80%.', lesson: L4 },
+  { term: 'Tempo médio', aliases: ['tempo médio'], short: 'O tempo de um pedido ponderado pelo hit rate. Com 80%: 0,8 × 1 + 0,2 × 41 = 9 ms.', lesson: L4 },
+  { term: 'Cache frio', aliases: ['cache frio', 'frio', 'fria', 'frias'], short: 'Um cache recém-iniciado ou esvaziado, sem nada dentro. Todo pedido é miss até ele se encher.', lesson: L4 },
+  { term: 'Hashmap', aliases: ['hashmap', 'hashmaps'], short: 'Um mapa chave-valor na memória do programa. Lê em 0,05 ms no exemplo, mas só o processo dele enxerga.', lesson: L5 },
+  { term: 'Mutex', aliases: ['mutex', 'RWMutex'], short: 'Trava que impede duas partes do programa de mexerem no mesmo mapa ao mesmo tempo.', lesson: L5 },
+  { term: 'Réplica', aliases: ['réplica', 'réplicas'], short: 'Uma cópia do app rodando em paralelo. Cada réplica é um processo, com a sua própria memória.', lesson: L5 },
+  { term: 'Cache compartilhado', aliases: ['cache compartilhado', 'Redis compartilhado'], short: 'Um cache fora do app, como o Redis, que todas as réplicas leem e gravam. Existe uma cópia só de cada chave.', lesson: L5 },
+  { term: 'Cache-aside', aliases: ['cache-aside', 'lazy loading'], short: 'O app pergunta ao cache; no miss, lê o banco, guarda a cópia e responde. O cache só tem o que já foi pedido.', lesson: L6 },
+  { term: 'Write-through', aliases: ['write-through', 'escrita dupla'], short: 'A escrita vai ao banco e ao cache na mesma operação. Mais lenta, e a leitura nunca vê o dado antigo.', lesson: L6 },
+  { term: 'Write-behind', aliases: ['write-behind', 'escrita adiada'], short: 'A escrita vai só ao cache, e uma fila grava no banco depois. Muito rápida, mas se o cache cair antes da fila, a escrita se perde.', lesson: L6 },
+  { term: 'CDN', aliases: ['CDN', 'CDNs'], short: 'Rede de servidores espalhados que guardam cópias de arquivos (como fotos) perto de quem pede.', lesson: L6 },
+  { term: 'Edge', aliases: ['edge', 'edges'], short: 'O servidor da CDN mais perto do usuário. Para a Lena, o edge de Recife.', lesson: L6 },
+  { term: 'Cache-Control', aliases: ['Cache-Control', 'max-age'], short: 'Cabeçalho HTTP com que a origem diz como guardar a resposta: public, max-age=3600 vale por uma hora.', lesson: L6 },
+  { term: 'Age', aliases: ['Age'], short: 'Cabeçalho que diz há quantos segundos a cópia foi gerada ou validada pela origem. Age: 12.', lesson: L6 },
+  { term: 'Revalidação e 304', aliases: ['revalidação', 'revalida', 'If-None-Match', '304', 'ETag'], short: 'Quando a cópia vence, o edge pergunta à origem com If-None-Match e o ETag. Se não mudou, vem 304 Not Modified, sem corpo.', lesson: L7 },
+  { term: 'Proxy', aliases: ['proxy'], short: 'Um servidor no meio do caminho: recebe o pedido do cliente e o repassa à origem. O proxy do laboratório guarda as respostas.', lesson: L7 },
+  { term: 'SHA-1', aliases: ['SHA-1', 'sha1'], short: 'Função que transforma um texto em um código fixo de 40 caracteres. O proxy usa o código como nome do arquivo de cache.', lesson: L7 }
+];

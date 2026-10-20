@@ -10,3 +10,7 @@ src/figures/osi/osi-figure-light.html
 public/labs/storage-raid-io/*-3d/
 public/labs/cap-acid-base/*-3d/
 public/labs/databases/*-3d/
+public/labs/cache/*-3d/
+.claude/skills/impeccable/
+.claude/agents/impeccable-*.md
+.claude/settings.local.json

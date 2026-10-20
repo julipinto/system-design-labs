@@ -1,0 +1,79 @@
+---
+title: "Evicção e invalidação"
+order: 3
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada o cache da loja ganhou prazo de validade, mas ainda tem um limite que o TTL não resolve: a memória acaba. Imagine um cache de apenas 3 vagas, com o gato de pelúcia (produto 42) e outros dois produtos (7 e 13) dentro, e um pedido do Davi chegando para o produto 99. Para entrar, alguém tem que sair. Quem?</p>
+
+<OneLiner>Evicção tira uma cópia por falta de espaço, TTL tira por tempo e invalidação tira por evento; a política de evicção (LRU, LFU, FIFO) é a regra que escolhe quem sai.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance os passos da sequência de acessos e observe qual chave sai quando a 5ª chega. Troque a política no painel (<strong>LRU</strong>, <strong>LFU</strong> ou <strong>FIFO</strong>) e repita: a chave que sai muda? O último passo pede o <code>produto:42</code> mais uma vez: veja qual política erra. Depois reproduza a sequência no simulador abaixo.</p>
+</DoIt>
+
+<Figure3D path="labs/cache/cache-3d/?mode=evict" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: cache com 3 vagas e a sequência 42, 7, 42, 13, 99 sob LRU, LFU ou FIFO" alt="Prévia da figura 3D: o app, o Redis e o banco com o produto:42; o painel marca 10 pedidos, 8 hits e 2 misses" hint="Arraste para girar · use ← → ou Próximo passo · troque o modo no painel" />
+
+<Widget name="evict" title="Simulador de evicção: LRU, LFU e FIFO com 3 vagas" hint="Clique nos produtos para pedi-los, na ordem que quiser, e veja quem sai quando o cache enche, nas três políticas lado a lado. A sequência pronta é produto:42, 7, 42, 13, 99." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O cache tem <strong>3 vagas</strong>. Os acessos chegam nesta ordem: <code>produto:42</code>, <code>produto:7</code>, <code>produto:42</code>, <code>produto:13</code>, <code>produto:99</code>. Os dois primeiros são misses e o terceiro é um hit (o 42 já estava lá). O 13 é miss e enche a terceira vaga: <code>[42, 7, 13]</code>.</li>
+  <li>O <code>produto:99</code> é miss e <strong>não tem vaga</strong>. É a hora da evicção, e a política decide quem sai.</li>
+  <li>Na <strong>LRU</strong> (menos recentemente usado), sai o que ficou mais tempo sem ser pedido. O 42 foi pedido há 2 acessos, o 13 há 1 e o 7 há 3, então sai o <code>produto:7</code>.</li>
+  <li>Na <strong>LFU</strong> (menos frequentemente usado), sai o que foi pedido menos vezes. O 42 tem 2 pedidos, o 7 e o 13 têm 1 cada. Desse empate, sai o mais antigo, o <code>produto:7</code>. A regra do desempate muda de um produto para outro.</li>
+  <li>Na <strong>FIFO</strong> (primeiro a entrar, primeiro a sair), sai quem entrou antes, mesmo que seja o mais pedido. Sai o <code>produto:42</code>, justamente a página do gato de pelúcia. No pedido seguinte ao 42, LRU e LFU dão hit e a FIFO dá miss.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A política precisa casar com o padrão de acesso. A FIFO é a mais simples de fazer e a que mais erra aqui: ela não olha para uso nenhum.</li>
+  <li>A LRU assume que o que foi usado há pouco será usado de novo (a localidade da aula 1). A LFU assume que quem é muito pedido continuará sendo, mas guarda um contador por chave e demora a esquecer o que esfriou.</li>
+  <li>Evicção só acontece com o cache cheio. TTL e invalidação acontecem com ele cheio ou vazio.</li>
+  <li>O resultado de uma boa política aparece num número só, o hit rate. Esse é o assunto da próxima aula.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Três jeitos de sair do cache</h4>
+  <ul>
+    <li><strong>Por tempo (TTL):</strong> o prazo da chave acabou (aula 2).</li>
+    <li><strong>Por espaço (evicção):</strong> o cache encheu e a política escolheu uma chave.</li>
+    <li><strong>Por evento (invalidação):</strong> alguém ou alguma regra declarou a cópia inválida. Pode ser dentro do algoritmo (o item não serve mais), manual (um comando, como <code>DEL produto:42</code>, para uma chave ou para um grupo) ou automática, via TTL.</li>
+  </ul>
+  <h4 class="deep-h">E o aleatório?</h4>
+  <p>O artigo cita também a substituição <strong>aleatória</strong> (RR): sai uma chave sorteada. É simples e não precisa guardar nada sobre o uso. Sozinha, às vezes sorteia justamente o produto 42.</p>
+  <h4 class="deep-h">No Redis</h4>
+  <p>O Redis só faz evicção quando bate no limite de memória (<code>maxmemory</code>). A política vem de <code>maxmemory-policy</code>: há versões de LRU e LFU por todas as chaves (<code>allkeys-lru</code>, <code>allkeys-lfu</code>), versões só para chaves com TTL (<code>volatile-*</code>), a aleatória e a <code>noeviction</code>, que não tira nada e devolve erro nas gravações. O LRU e o LFU do Redis são <strong>aproximados</strong>: ele sorteia algumas chaves e tira a pior delas, em vez de ordenar todas.</p>
+  <h4 class="deep-h">O que fica para depois da evicção</h4>
+  <p>Uma chave tirada do cache continua existindo no banco. O próximo pedido por ela é um miss, e o app a traz de volta. Evicção não perde dado, só perde velocidade.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Redis: políticas de evicção (LRU e LFU aproximados)", href: "https://redis.io/docs/latest/develop/reference/eviction/" },
+    { label: "Wikipedia: políticas de substituição de cache", href: "https://en.wikipedia.org/wiki/Cache_replacement_policies" },
+    { label: "Redis: comando EXPIRE", href: "https://redis.io/docs/latest/commands/expire/" },
+  ]} />
+</Deep>
+
+<p>Com uma boa política, o cache guarda o que mais se pede. Mas "mais se pede" ainda é uma impressão, e a loja precisa de um número. Falta saber como medir o quanto o cache acerta e quanto isso vale em milissegundos.</p>
+
+<Flashcards cards={[
+  { q: "O que é evicção?",
+    a: "Tirar uma cópia do cache porque ele encheu e chegou uma chave nova." },
+  { q: "Na sequência 42, 7, 42, 13, 99 com 3 vagas, quem sai em cada política?",
+    a: "LRU: sai o 7. LFU: sai o 7 (empate com o 13, vence o mais antigo). FIFO: sai o 42." },
+  { q: "Por que a FIFO erra tanto na loja?",
+    a: "Porque ela só olha a ordem de entrada. Tira o produto 42, o mais pedido, só porque foi o primeiro a entrar." },
+  { q: "Qual a diferença entre evicção, TTL e invalidação?",
+    a: "Evicção sai por falta de espaço, TTL por tempo e invalidação por evento (um comando ou uma regra)." },
+  { q: "O Redis ordena todas as chaves para fazer LRU?",
+    a: "Não. Ele sorteia uma amostra e tira a pior dela. Por isso o LRU e o LFU dele são aproximados." },
+]} />

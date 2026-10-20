@@ -1,0 +1,111 @@
+---
+title: "Cache-aside, write-through, write-behind e CDN"
+order: 6
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada ficou aberta a pergunta de quem enche o cache e de quem o atualiza quando o preço muda. Há três respostas clássicas, e a diferença entre elas é a ordem em que o app fala com o cache e com o banco. A ordem decide o que a Lena lê e, quando algo cai, o que a loja perde.</p>
+
+<OneLiner>Cache-aside lê do cache e, no miss, busca no banco e guarda; write-through grava no banco e no cache na mesma operação; write-behind grava só no cache e deixa uma fila gravar no banco depois.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Through</strong>, avance os passos da escrita dupla (a mudança de preço para 79.90) e veja <strong>onde o preço novo aparece primeiro</strong> e quanto tempo a escrita leva. Depois troque para o modo <strong>Behind</strong> (escrita adiada), avance até o Redis cair antes de a fila esvaziar e observe o que o banco diz no fim.</p>
+</DoIt>
+
+<Figure3D path="labs/cache/cache-3d/?mode=through" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: escrita dupla no Redis e no banco, e escrita adiada com fila" alt="Prévia da figura 3D: o app, o Redis e o banco com o produto:42; o painel marca 10 pedidos, 8 hits e 2 misses" hint="Arraste para girar · use ← → ou Próximo passo · troque o modo no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Cache-aside (leitura sob demanda).</strong> O app pergunta ao cache. No miss, lê o banco (40 ms), guarda a cópia com TTL de 60 s e responde. O pedido seguinte é um hit, em 1 ms. O cache só tem o que alguém já pediu, e quem comanda tudo é o app.</li>
+  <li><strong>Write-through (escrita dupla).</strong> O preço muda para 79.90. O app grava no <strong>banco</strong> e, na mesma operação, no <strong>cache</strong>. A escrita leva a soma dos dois (no exemplo, 40 + 1 = 41 ms), e em troca nenhuma leitura volta a ver o 89.90.</li>
+  <li><strong>A ordem importa.</strong> Gravar o banco primeiro e o cache depois é a ordem segura. Se o cache falhar, fica o 89.90 velho até o TTL vencer (ou até um <code>DEL</code>). Na ordem invertida, o cache ficaria com um 79.90 que o banco nunca recebeu, e a loja venderia um preço que não existe.</li>
+  <li><strong>Write-behind (escrita adiada).</strong> O app grava <strong>só no cache</strong> (1 ms) e responde "gravado". Uma fila e um processo à parte passam o 79.90 para o banco depois. A escrita é a mais rápida, e o banco fica atrás do cache enquanto a fila não esvazia.</li>
+  <li><strong>E se o Redis cair antes de a fila esvaziar?</strong> O 79.90 some junto com a fila. O banco continua dizendo 89.90, e o dono da loja acha que o preço mudou. É a única das três estratégias em que um dado confirmado se perde.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Estratégia</th><th>Leitura</th><th>Escrita</th><th>O que pode dar errado</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Cache-aside</th><td>Hit 1 ms; miss 41 ms</td><td>Vai ao banco; o cache espera TTL ou <code>DEL</code></td><td>Dado velho até o TTL</td></tr>
+    <tr><th scope="row">Write-through</th><td>Sempre fresca</td><td>40 + 1 = 41 ms</td><td>Cache falha depois do banco: dado velho</td></tr>
+    <tr><th scope="row">Write-behind</th><td>Sempre fresca no cache</td><td>1 ms</td><td>Cache cai antes da fila: escrita perdida</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O cache-aside e o write-through convivem bem, e é o que a maioria das lojas faz: lê sob demanda e, quando o preço muda, grava nos dois. Este é o trecho do cache-aside, adaptado do exemplo do artigo para a loja (o do artigo tem dois erros, explicados no Aprofundar):</p>
+
+<pre><code>{String.raw`valor, err := rdb.Get(ctx, "produto:"+id).Result()
+if err == redis.Nil { // miss: o cache não tem a chave
+	err = db.QueryRow("SELECT preco FROM produtos WHERE id = ?", id).Scan(&valor)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// guarda com TTL de 60 s (0 guardaria para sempre)
+	rdb.Set(ctx, "produto:"+id, valor, 60*time.Second)
+}`}</code></pre>
+
+<p>Há ainda um cache que fica longe do app e perto da Lena. A Lena abre a foto <code>gato.jpg</code> (120 KB) da página, e a origem das fotos fica em São Paulo. Uma CDN guarda cópias em servidores espalhados (os edges), e ela usa o mesmo raciocínio do cache-aside: no 1º acesso o edge de Recife não tem a foto (<code>X-Cache: MISS</code>), busca na origem (~50 ms de ida e volta) e guarda. No 2º acesso responde ele mesmo (<code>X-Cache: HIT</code>), em cerca de <strong>5 ms</strong>, com <code>Age: 12</code>. O TTL aqui vem da origem, no cabeçalho <code>Cache-Control: public, max-age=3600</code>.</p>
+
+<WhyItMatters>
+  <li>Cache-aside é o ponto de partida quando se lê muito mais do que se grava. É simples, e se o cache cair o app vai direto ao banco.</li>
+  <li>Write-through serve quando a leitura logo depois da escrita precisa estar fresca. O custo é a escrita mais lenta e o cache cheio de dados que talvez ninguém peça.</li>
+  <li>Write-behind serve para o que pode se perder: um contador de visitas, não o preço.</li>
+  <li>A CDN faz com a foto o que o Redis faz com o produto, só que mais perto da Lena. Com 50 ms contra 5 ms, a diferença se vê a olho nu.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Outras duas combinações</h4>
+  <ul>
+    <li><strong>Read-through:</strong> o app só fala com o cache, e é o próprio cache que vai ao banco no miss.</li>
+    <li><strong>Write-around:</strong> a escrita vai só para o banco, e o cache se atualiza no próximo miss.</li>
+  </ul>
+  <h4 class="deep-h">Correções aos exemplos do artigo-base</h4>
+  <ul>
+    <li>No cache-aside, o artigo compara o erro com <code>rdb.Nil</code>. O cliente <code>rdb</code> não tem esse campo: o certo é <code>redis.Nil</code>, e do jeito que está o código não compila. O mesmo exemplo grava com TTL <code>0</code>, que no cliente Go quer dizer "sem validade", contra o que o artigo defende sobre TTL.</li>
+    <li>No write-through, o artigo grava <code>"pedido:"+pedidoID</code> na coluna <code>id</code> do banco, mas lê o banco com <code>pedidoID</code> puro. A chave do cache (<code>pedido:1</code>) e o id do banco (<code>1</code>) são coisas diferentes, e o prefixo só vale no cache.</li>
+    <li>O texto do write-through fala de falha do banco depois de o cache ser gravado, mas o código grava o banco primeiro, que é a ordem segura.</li>
+  </ul>
+  <h4 class="deep-h">Lendo os cabeçalhos da CDN</h4>
+  <ul>
+    <li><code>public</code> libera a resposta para caches compartilhados, como a CDN (um <code>private</code> ficaria só no navegador).</li>
+    <li><code>max-age=3600</code> diz que a resposta é fresca por 3600 s.</li>
+    <li><code>Age: 12</code> é a estimativa, em segundos, do tempo desde que a origem gerou ou validou a resposta (RFC 9111).</li>
+    <li><code>X-Cache: HIT</code> e <code>MISS</code> <strong>não são padrão</strong>. Cada CDN dá o seu nome: a Cloudflare usa <code>cf-cache-status</code>, com HIT, MISS, EXPIRED e REVALIDATED.</li>
+  </ul>
+  <h4 class="deep-h">Quando a foto muda</h4>
+  <p>Com <code>max-age=3600</code>, a foto nova só aparece depois de até uma hora. Duas saídas: trocar o nome do arquivo na troca da foto (<code>gato-v2.jpg</code>) ou pedir à CDN para apagar a cópia. O artigo diz que essas rotinas de invalidação são quase indispensáveis num fluxo de entrega contínua.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "AWS: padrões de cache em bancos de dados com Redis (lazy loading e write-through)", href: "https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html" },
+    { label: "Microsoft Azure: padrão cache-aside", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cache-aside" },
+    { label: "GeeksforGeeks: write-through e write-back", href: "https://www.geeksforgeeks.org/write-through-and-write-back-in-cache/" },
+    { label: "MDN: cabeçalho Cache-Control", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control" },
+    { label: "Cloudflare: o cabeçalho cf-cache-status e as respostas do cache", href: "https://developers.cloudflare.com/cache/concepts/cache-responses/" },
+  ]} />
+</Deep>
+
+<p>A CDN guardou o gato.jpg de 120 KB em Recife seguindo poucas regras: uma chave, um arquivo, um prazo. Falta saber como se escreve um desses, linha a linha, e o que um proxy de 85 linhas ainda não faz.</p>
+
+<Flashcards cards={[
+  { q: "Como funciona o cache-aside?",
+    a: "O app pergunta ao cache. No miss, lê o banco, guarda a cópia com TTL e responde. O próximo pedido é hit." },
+  { q: "O que o write-through faz com a mudança para 79.90?",
+    a: "Grava no banco e no cache na mesma operação. A escrita é mais lenta (40 + 1 ms) e a leitura nunca vê o 89.90." },
+  { q: "Por que gravar o banco antes do cache?",
+    a: "Se o cache falhar, o pior é um dado velho por um tempo. Na ordem contrária, o cache teria um preço que o banco nunca recebeu." },
+  { q: "O que se perde no write-behind quando o Redis cai?",
+    a: "As escritas que ainda estavam na fila. O 79.90 some e o banco continua com 89.90." },
+  { q: "O que dizem X-Cache e Age na resposta da CDN?",
+    a: "X-Cache: HIT ou MISS (nome de convenção, não padrão). Age: 12 diz que a cópia tem cerca de 12 s desde que a origem a gerou ou validou." },
+]} />

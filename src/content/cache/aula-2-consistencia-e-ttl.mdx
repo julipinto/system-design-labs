@@ -1,0 +1,78 @@
+---
+title: "Consistência e TTL"
+order: 2
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Na aula passada a cópia do <code>produto:42</code> entrou no cache com o preço de 89.90. Só que o preço do gato de pelúcia pode mudar no banco, e o cache não fica sabendo. A Bia abre a página logo depois da mudança e vê 89.90, enquanto o banco já diz 79.90. Quem confere o preço do cache contra o do banco?</p>
+
+<OneLiner>O cache pode estar desatualizado, e o TTL é o prazo que limita por quanto tempo; quando o dado não pode esperar o prazo, quem grava no banco também apaga a chave.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>TTL</strong>, avance os passos até o preço mudar para 79.90 e observe o que o <strong>cache</strong> responde e o que o <strong>banco</strong> responde logo depois. Continue avançando até a resposta do cache mudar e veja o que fez a mudança acontecer. Depois, no relógio abaixo, mova o instante da mudança de preço e veja quanto tempo o dado velho dura.</p>
+</DoIt>
+
+<Figure3D path="labs/cache/cache-3d/?mode=ttl" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: o preço muda para 79.90 no banco e o Redis ainda serve 89.90 até o TTL vencer" alt="Prévia da figura 3D: o app, o Redis e o banco com o produto:42; o painel marca 10 pedidos, 8 hits e 2 misses" hint="Arraste para girar · use ← → ou Próximo passo · troque o modo no painel" />
+
+<Widget name="ttl" title="Relógio de TTL com o preço velho" hint="O cache foi gravado em t = 0 com TTL de 60 s. Escolha quando o preço muda no banco, escolha se a loja apaga a chave e arraste o relógio para ver o que a Bia lê." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Em <strong>t = 0 s</strong>, o primeiro pedido é um miss. O app lê o banco (89.90) e grava <code>produto:42</code> no cache com <strong>TTL de 60 s</strong>. O relógio da chave começa a contar.</li>
+  <li>Em <strong>t = 20 s</strong>, o dono da loja baixa o preço para <strong>79.90</strong>. A escrita vai para o banco, e o banco não avisa o cache.</li>
+  <li>Em <strong>t = 30 s</strong>, a Bia abre a página. O cache tem a chave, então é um hit, em 1 ms, com <strong>89.90</strong>. O banco já diz 79.90. Isso é <strong>dado velho</strong> (stale): o cache não quebrou, só ficou para trás.</li>
+  <li>Em <strong>t = 60 s</strong>, o TTL vence e a chave some. O pedido seguinte é um miss, lê 79.90 no banco e grava de novo, com outros 60 s. O dado velho durou <strong>40 s</strong>, de t = 20 a t = 60.</li>
+  <li>Se o dono tivesse mudado o preço em t = 1 s, o dado velho duraria 59 s. O <strong>pior caso é o TTL inteiro</strong>. Para ter zero segundo de dado velho, o app que grava o 79.90 no banco também manda <code>DEL produto:42</code>: o pedido seguinte já é miss e traz o preço novo.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O TTL não conserta a diferença, só põe um fim nela. A pergunta de projeto é quanto de dado velho a loja aguenta.</li>
+  <li>Preço de produto aguenta alguns segundos, e 60 s é um bom ponto de partida. Uma foto aguenta horas. O cadastro de um usuário que foi bloqueado não aguenta nada: quem bloqueia apaga a chave na mesma hora.</li>
+  <li>TTL curto demais derruba o hit rate, porque a chave vence antes de ser lida de novo e o banco volta a receber tudo. TTL longo demais alonga o dado velho.</li>
+  <li>Antes de cachear, vale perguntar três coisas: quantas vezes isso muda, quantas vezes é lido e quanto de velho eu aguento.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Apagar ou atualizar a chave ao escrever</h4>
+  <p>O artigo-base diz que quem escreve no dado original tem a obrigação de apagar a chave ou de atualizá-la. Apagar é o mais simples: a próxima leitura traz o dado novo do banco. Atualizar o valor no cache exige que a escrita e a atualização cheguem na mesma ordem, e se dois pedidos de escrita se cruzarem, o cache pode ficar com o valor mais antigo.</p>
+  <h4 class="deep-h">Como o Redis expira uma chave</h4>
+  <p>De duas maneiras. Na <strong>passiva</strong>, a chave vencida é apagada quando alguém tenta ler. Na <strong>ativa</strong>, o Redis testa periodicamente uma amostra de chaves com TTL e apaga as que venceram. O comando <code>TTL produto:42</code> devolve os segundos que faltam.</p>
+  <h4 class="deep-h">Chaves que vencem juntas</h4>
+  <p>Se mil produtos foram gravados no mesmo segundo com 60 s de TTL, os mil vencem no mesmo segundo, e o banco recebe mil misses de uma vez (o cache stampede). Uma saída é variar o TTL de cada chave um pouco (60 s mais ou menos alguns segundos).</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo diz que o TTL é "quase mandatório" e, no exemplo de cache-aside, grava o pedido com TTL <code>0</code>. No cliente Go do Redis, 0 quer dizer <strong>sem validade</strong>. O exemplo guarda para sempre, o contrário do que o texto defende. Na aula 6 o exemplo aparece corrigido.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Redis: comando EXPIRE (expiração passiva e ativa)", href: "https://redis.io/docs/latest/commands/expire/" },
+    { label: "Microsoft Azure: padrão cache-aside (expiração e TTL curto demais)", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cache-aside" },
+    { label: "Wikipedia: cache stampede", href: "https://en.wikipedia.org/wiki/Cache_stampede" },
+    { label: "RFC 9111: HTTP Caching (resposta fresca e resposta stale)", href: "https://datatracker.ietf.org/doc/html/rfc9111" },
+  ]} />
+</Deep>
+
+<p>O TTL resolve o tempo, mas o cache também tem um tamanho. Imagine um cache da loja com apenas 3 vagas, já cheio, e o quinto produto chegando antes de qualquer TTL vencer. Falta saber qual cópia sai para abrir espaço.</p>
+
+<Flashcards cards={[
+  { q: "O que é dado velho (stale)?",
+    a: "Uma cópia que ainda está no cache mas já não bate com o original. No exemplo: o cache diz 89.90 e o banco já diz 79.90." },
+  { q: "O que o TTL faz e o que ele não faz?",
+    a: "Faz a chave sumir depois de um prazo (60 s). Não evita o dado velho: só limita por quanto tempo ele dura." },
+  { q: "Qual é o pior caso de dado velho com TTL de 60 s?",
+    a: "Os 60 s inteiros: o preço muda logo depois de o cache ser gravado." },
+  { q: "Como ter zero segundo de dado velho num preço?",
+    a: "Quem grava o 79.90 no banco também apaga <code>produto:42</code> do cache. O próximo pedido é um miss e traz o preço novo." },
+  { q: "O que acontece se o TTL for curto demais?",
+    a: "A chave vence antes de ser lida de novo, o hit rate cai e o banco volta a receber a maior parte das leituras." },
+]} />

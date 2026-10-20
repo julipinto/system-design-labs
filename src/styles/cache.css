@@ -1,0 +1,48 @@
+/* SDLabs · Estratégias de Cache: estilos dos widgets (relógio de TTL, evicção, hit rate, chave do proxy). A base fica em lesson.css */
+.sdl-content .sr-sub{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.sdl-content .sr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.sdl-content .sr-chips .chip{min-height:44px}
+.sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--card)}
+.sdl-content .sr-note{color:var(--muted);font-size:13px;margin:6px 0 0}
+.sdl-content .ib-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.sdl-content .ib-ctrl .btn{min-height:44px}
+.sdl-content .ib-ctrl .btn:disabled{opacity:.4;cursor:default}
+.sdl-content .ib-verdict{border:1px solid var(--ok);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px;background:var(--bg)}
+.sdl-content .ib-verdict.bad{border-color:var(--bad)}
+.sdl-content .ib-verdict.ok strong{color:var(--ok)}
+.sdl-content .ib-verdict.bad strong{color:var(--bad)}
+.sdl-content .ib-verdict.hide{display:none}
+.sdl-content .sr-tablewrap{overflow-x:auto;margin:14px 0;-webkit-overflow-scrolling:touch}
+.sdl-content table.sr-table{border-collapse:collapse;font-size:13px;min-width:560px;width:100%}
+.sdl-content table.sr-table th,.sdl-content table.sr-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.sdl-content table.sr-table th{background:var(--card);font:600 12px var(--mono);color:var(--accent)}
+.sdl-content table.sr-table tbody th{white-space:nowrap}
+.sdl-content .pc-out{margin:0 0 6px}
+.sdl-content table.pc-table{min-width:0}
+.sdl-content table.pc-table th{width:38%}
+.sdl-content .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 6px}
+.sdl-content .ls-panel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);min-width:0}
+.sdl-content .ls-h{margin:0 0 6px;font:600 12px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.sdl-content .ls-list{margin:0;padding-left:20px;font:13px/1.6 var(--mono)}
+.sdl-content ul.ls-list{list-style:none;padding-left:0}
+.sdl-content .ttl-read{margin:8px 0 6px;font:600 14px var(--mono);color:var(--fg)}
+.sdl-content input[type="range"]{width:100%;min-height:44px;accent-color:var(--accent)}
+.sdl-content .ttl-track{display:flex;position:relative;height:40px;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:4px 0 0}
+.sdl-content .ttl-seg{display:grid;place-items:center;min-width:0;font:600 12px var(--mono);color:var(--bg);white-space:nowrap;overflow:hidden}
+.sdl-content .ttl-seg.ok{background:var(--ok)}
+.sdl-content .ttl-seg.bad{background:var(--bad)}
+.sdl-content .ttl-mark{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:var(--fg);box-shadow:0 0 0 2px var(--bg)}
+.sdl-content .ttl-scale{position:relative;height:22px;margin:4px 0 12px;font:12px var(--mono);color:var(--muted)}
+.sdl-content .ttl-scale span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.sdl-content .ttl-scale span:first-child{transform:none}
+.sdl-content .ttl-scale span:last-child{transform:translateX(-100%)}
+.sdl-content .ev-slots{display:grid;gap:6px;margin:0 0 8px}
+.sdl-content .ev-slot{border:1px solid var(--line);border-left:4px solid var(--accent-2);border-radius:8px;padding:6px 10px;font:13px/1.4 var(--mono);background:var(--card);overflow-wrap:anywhere}
+.sdl-content .ev-slot.empty{border-left-color:var(--faint);color:var(--faint);background:var(--bg)}
+.sdl-content .ev-say{margin:0 0 4px;font-size:14px;line-height:1.5;min-height:3em}
+.sdl-content .ev-hist{overflow-wrap:anywhere}
+.sdl-content .ib-ctrl .btn:disabled{opacity:.4;cursor:default}
+.sdl-content .sr-chips .chip{min-height:44px}
+.sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--card)}
+.sdl-content .ck-in{width:100%;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:14px var(--mono);box-sizing:border-box;margin:0 0 6px}
+.sdl-content table.pc-table td.ck-long{word-break:break-all}

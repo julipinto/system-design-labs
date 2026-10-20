@@ -1,0 +1,80 @@
+---
+title: "Hit, miss e hit rate"
+order: 4
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p>Agora o cache da loja guarda, esquece pelo tempo e esquece pelo espaço, e a página do gato de pelúcia parece mais rápida. Mas "parece" não serve para quem paga o servidor. O dono da loja pergunta quanto o cache ajuda, e a resposta é um número que sai de uma contagem: quantos dos pedidos ele respondeu sozinho.</p>
+
+<OneLiner>Hit rate é a fração dos pedidos que o cache respondeu (hits ÷ total); com ele, o tempo médio vira conta: h × 1 ms + (1 − h) × (1 + 40) ms.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no modo <strong>Aside</strong>, avance os passos e observe os contadores do painel: <strong>hits</strong>, <strong>misses</strong>, <strong>hit rate</strong> e <strong>ms gastos até agora</strong>. Veja o que cada hit e cada miss acrescenta ao total de milissegundos. Depois, na calculadora abaixo, comece em 8 hits e 2 misses e mova o hit rate para ver o tempo médio e a carga do banco mudarem.</p>
+</DoIt>
+
+<Figure3D path="labs/cache/cache-3d/?mode=aside" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: o app pede o produto:42: miss, banco em 40 ms, guarda no Redis por 60 s, hit em 1 ms" alt="Prévia da figura 3D: o app, o Redis e o banco com o produto:42; o painel marca 10 pedidos, 8 hits e 2 misses" hint="Arraste para girar · use ← → ou Próximo passo · troque o modo no painel" />
+
+<Widget name="hitrate" title="Calculadora de hit rate e tempo médio" hint="Escolha quantos pedidos foram hit e quantos foram miss, e a velocidade do cache. A conta mostra o hit rate, o tempo médio, quanto o banco recebe e se o cache compensa." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Conte os pedidos da página do gato de pelúcia. Em 10 pedidos, o cache respondeu 8 (<strong>8 hits</strong>) e mandou 2 para o banco (<strong>2 misses</strong>).</li>
+  <li>O <strong>hit rate</strong> é hits ÷ (hits + misses) = 8 ÷ 10 = <strong>80%</strong>. Com 800 hits e 200 misses a conta dá o mesmo 80%: o que conta é a proporção.</li>
+  <li>Cada pedido custa um tempo. O hit custa <strong>1 ms</strong>. O miss custa os 1 ms de perguntar ao cache mais os 40 ms do banco, <strong>41 ms</strong> (a conta não inclui o tempo de gravar a cópia no cache).</li>
+  <li>O <strong>tempo médio</strong> é 0,8 × 1 + 0,2 × 41 = 0,8 + 8,2 = <strong>9 ms</strong>. Sem cache, todo pedido custaria 40 ms. O cache deixou a página 4,4 vezes mais rápida.</li>
+  <li>O resultado muda muito com o hit rate: 50% dá 21 ms, 90% dá 5 ms e 99% dá 1,4 ms. Com 0% o tempo é 41 ms, <strong>pior que sem cache</strong>. O cache só compensa acima de 1 ÷ 40 = <strong>2,5%</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O hit rate diz também quanto o banco descansa. Com 80%, ele recebe 1 de cada 5 leituras. Com 90%, 1 de cada 10, e com 99%, 1 de cada 100.</li>
+  <li>Os últimos pontos valem mais do que parece. Subir de 80% para 90% corta o tempo médio de 9 para 5 ms e reduz pela metade a carga do banco.</li>
+  <li>Quando o hit rate cai, procure a causa: TTL curto demais (aula 2), cache pequeno demais, que faz evicção a toda hora (aula 3), ou chaves que ninguém pede duas vezes.</li>
+  <li>O número precisa ser acompanhado em produção. Um hit rate que cai de repente costuma avisar de um problema antes de o banco reclamar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Três motivos para um miss</h4>
+  <ul>
+    <li><strong>Primeira vez:</strong> a chave nunca esteve no cache (cache frio).</li>
+    <li><strong>Evicção:</strong> a chave esteve, mas saiu por falta de espaço (aula 3).</li>
+    <li><strong>Expirou:</strong> a chave esteve, mas o TTL venceu (aula 2).</li>
+  </ul>
+  <p>Cada motivo tem um remédio diferente: aquecer o cache, aumentar a memória ou ajustar o TTL.</p>
+  <h4 class="deep-h">Cache frio e pico de misses</h4>
+  <p>Depois de reiniciar o cache, ou de limpá-lo por inteiro, todos os pedidos viram miss até as chaves voltarem. O banco recebe a carga inteira de uma vez, e é nessa hora que ele costuma cair. O artigo-base avisa disso: limpezas totais ou parciais provocam um pico de misses.</p>
+  <h4 class="deep-h">De onde vem o limite de 2,5%</h4>
+  <p>Com cache, o tempo médio é 1 + (1 − h) × 40. Sem cache, 40. O cache ganha quando 1 + 40 − 40h &lt; 40, ou seja, quando h &gt; 1 ÷ 40. A conta é simples de propósito: ela ignora a gravação da cópia no cache e a rede do dia a dia. Na prática, o cache já não vale a pena bem antes de 2,5%, porque traz o problema de dado velho da aula 2.</p>
+  <h4 class="deep-h">Onde ler esses números</h4>
+  <p>O Redis conta <code>keyspace_hits</code> e <code>keyspace_misses</code> no comando <code>INFO stats</code>. O hit rate é a primeira dividida pela soma das duas.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cache (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Hostinger: cache hit, cache miss e a penalidade do miss", href: "https://www.hostinger.com/br/tutoriais/cache-miss/" },
+    { label: "Redis: comando INFO (keyspace_hits e keyspace_misses)", href: "https://redis.io/docs/latest/commands/info/" },
+    { label: "Redis: estratégias de evicção de cache", href: "https://redis.io/blog/cache-eviction-strategies/" },
+  ]} />
+</Deep>
+
+<p>Os 80% da loja assumem um cache só, que todo mundo consulta. Na prática o app roda em várias cópias, e cada uma pode ter o seu cache dentro da própria memória. Falta saber o que acontece com o hit rate e com o preço quando a loja sobe 3 réplicas do app.</p>
+
+<Flashcards cards={[
+  { q: "Como se calcula o hit rate?",
+    a: "Hits dividido por hits mais misses. Com 8 hits e 2 misses: 8 ÷ 10 = 80%." },
+  { q: "Quanto custa um miss na loja?",
+    a: "41 ms: 1 ms para perguntar ao cache mais 40 ms do banco. Um hit custa 1 ms." },
+  { q: "Qual o tempo médio com 80% de hit rate?",
+    a: "0,8 × 1 + 0,2 × 41 = 9 ms. Sem cache seriam 40 ms." },
+  { q: "A partir de que hit rate o cache compensa?",
+    a: "Acima de 2,5% (1 ÷ 40), nessa conta. Com 0% ele seria pior que não ter cache: 41 ms contra 40." },
+  { q: "Por que subir o hit rate de 80% para 90% vale tanto?",
+    a: "O banco passa a receber metade das leituras (de 20% para 10%) e o tempo médio cai de 9 para 5 ms." },
+]} />
