@@ -1,0 +1,77 @@
+---
+title: "Case da loja: serviços e eventos"
+order: 8
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada o mapa de eventos mostrou os contextos da loja. Agora eles precisam viver separados: cada um com o seu banco, e sem que um leia a tabela do outro. O banco <code>loja</code> ainda é um só, com todas as tabelas juntas. A pergunta é como repartir o que está nele e como os serviços descobrem o que aconteceu no vizinho.</p>
+
+<OneLiner>Cada tabela ganha um único dono; quem precisa de um dado pergunta pela API ou escuta o evento, e como o evento pode chegar duas vezes, quem escuta precisa aguentar o repetido.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Falha</strong> derruba Entregas. Avance e veja o <code>PedidoPago</code> esperar na fila e ser entregue quando o serviço volta. Siga até o e-502 chegar duas vezes e compare o estoque final: 1 sem idempotência, 2 com.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/dominio-3d/?mode=falha" poster="labs/microsservicos/dominio-3d-previa.webp" title="Figura interativa: Entregas cai, o PedidoPago espera na fila, e o evento repetido com e sem idempotência" alt="Prévia da figura 3D: os serviços Pedidos, Pagamentos, Estoque e Entregas, cada um dono das suas tabelas, e o evento PedidoPago e-502 no barramento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="fila" title="Fila do estoque com evento duplicado" hint="Processe os eventos um a um, com e sem a idempotência ligada, e compare o estoque final do gato: 2 (certo) ou 1 (errado)." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Um dono por tabela.</strong> <code>produtos</code> é do catálogo, <code>pedidos</code> e <code>itens_pedido</code> são de pedidos, <code>estoque</code> é do estoque, <code>pagamentos</code> é de pagamentos e <code>remessas</code> é de entregas. Ninguém lê a tabela do outro: <strong>pergunta pela API</strong> ou <strong>escuta o evento</strong>.</li>
+  <li><strong>14:02:10, o pedido nasce.</strong> Pedidos publica <code>{`PedidoCriado { evento_id: "e-501", pedido_id: 1047, cliente: "Lena", itens: [{ produto: 42, qtd: 1, preco: 79.90 }], frete: 15.00, total: 94.90 }`}</code>.</li>
+  <li><strong>14:02:11, paga e reserva.</strong> Pagamentos publica <code>{`PedidoPago { evento_id: "e-502", pedido_id: 1047, valor: 94.90 }`}</code>. O estoque escuta, reserva e publica <code>{`EstoqueReservado { evento_id: "e-503", sku: "GATO-042", antes: 3, depois: 2 }`}</code>.</li>
+  <li><strong>14:30:00, sai pela porta.</strong> Entregas publica <code>{`PedidoEnviado { evento_id: "e-504", pedido_id: 1047, rastreio: "LA123456789BR" }`}</code>. Se <code>entregas</code> estiver fora do ar, o <code>PedidoPago</code> espera na fila e é entregue quando ela volta.</li>
+  <li><strong>E se der errado: o repetido.</strong> A rede entrega o <code>PedidoPago</code> (e-502) <strong>duas vezes</strong>. Sem cuidado, o estoque vai 3 → 2 → <strong>1</strong>, e o gato vendido uma vez sai duas vezes. A solução é a <strong>idempotência</strong>: o estoque guarda os <code>evento_id</code> já processados e ignora o repetido. Fica em 2.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Um dono por tabela transforma um acoplamento escondido (o <code>JOIN</code> que atravessa os contextos) em um contrato visível: a API e o evento.</li>
+  <li>Eventos deixam o publicador ignorar quem escuta. O Pedidos não sabe que o Estoque existe; só diz que o pedido foi pago.</li>
+  <li>Entregar "pelo menos uma vez" é o comum nas filas, e o que isso quer dizer é que o repetido <strong>vai acontecer</strong>. Idempotência deixa de ser opcional.</li>
+  <li>A consistência passa a ser eventual: por alguns instantes o pagamento já foi feito e o estoque ainda não reservou. É o preço da aula 3, agora com um mecanismo para pagá-lo.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">API ou evento?</h4>
+  <ul>
+    <li><strong>API (pergunta):</strong> o serviço precisa do dado <em>agora</em> para responder. O carrinho pergunta o preço ao catálogo. É simples, e a disponibilidade dos dois se soma.</li>
+    <li><strong>Evento (aviso):</strong> o serviço só precisa reagir a algo que aconteceu. O estoque reage ao <code>PedidoPago</code>. Desacopla no tempo, e o dado chega com atraso.</li>
+  </ul>
+  <h4 class="deep-h">Idempotência em uma linha</h4>
+  <p>Uma operação é idempotente se repeti-la dá o mesmo resultado que fazer uma vez. Reservar estoque, como "subtrair 1", não é; "reservar para o pedido 1047" é. Guardar o <code>evento_id</code> processado é a forma mais simples de tornar qualquer consumidor idempotente. Os detalhes (janela de retenção, ordem dos eventos) ficam para um módulo futuro.</p>
+  <h4 class="deep-h">O que ainda fica em aberto</h4>
+  <p>A compensação do pagamento quando o estoque falha (Saga), o evento que se perde entre gravar no banco e publicar na fila e a ordem entre eventos têm padrões próprios, e não foram resolvidos aqui.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "microservices.io: padrão Database per Service", href: "https://microservices.io/patterns/data/database-per-service.html" },
+    { label: "microservices.io: padrão Idempotent Consumer", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "microservices.io: padrão Saga", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p>A loja agora está partida em serviços com dono, falando por eventos, e a Black Friday chega com 10 réplicas do catálogo. Mas quando a Lena abre a página do gato, só uma das 10 réplicas vai atendê-la. Falta saber quem decide qual, e como essa decisão é feita: é o trabalho dos Load Balancers, no módulo 7.</p>
+
+<Flashcards cards={[
+  { q: "Quem é dono da tabela <code>estoque</code> e quem pode lê-la?",
+    a: "O serviço estoque é o dono e o único que lê e escreve nela. Os outros perguntam pela API ou escutam os eventos." },
+  { q: "O que o estoque faz quando recebe o PedidoPago e-502?",
+    a: "Reserva o gato: 3 → 2, e publica EstoqueReservado (e-503)." },
+  { q: "O que acontece se o e-502 chega duas vezes sem idempotência?",
+    a: "O estoque vai 3 → 2 → 1. O segundo desconto é errado." },
+  { q: "Como a idempotência resolve?",
+    a: "O estoque guarda os evento_id já processados e ignora o repetido. O estoque fica em 2." },
+  { q: "O que acontece com o PedidoPago quando entregas cai?",
+    a: "Espera na fila e é entregue quando entregas volta. A loja continua vendendo." },
+]} />

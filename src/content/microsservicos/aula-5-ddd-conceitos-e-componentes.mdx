@@ -1,0 +1,101 @@
+---
+title: "DDD: conceitos e componentes"
+order: 5
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada cada contexto ganhou uma fronteira. Agora dentro do contexto Pedidos há um problema menor e mais frequente: o pedido 1047 tem itens, um endereço e um total, e qualquer parte do programa pode mudar qualquer um desses campos. Quem garante que o total continue sendo 79.90 + 15.00 = 94.90? O DDD tem um conjunto de peças para isso, e cada uma resolve uma dúvida concreta.</p>
+
+<OneLiner>Entidade tem identidade, value object vale pelos valores, agregado protege uma regra com uma raiz, repositório esconde o banco e evento de domínio conta o que aconteceu; o modelo rico põe a regra dentro do objeto, e não espalhada por fora.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Agregado</strong> mostra o pedido 1047 como raiz. Avance até alguém tentar mexer no item por fora e ver a mudança barrada, e depois compare o modelo anêmico com o <code>pedido.cancelar()</code>. No simulador, tente cancelar o 1047 com status <strong>pago</strong> e <strong>enviado</strong>, nos dois modelos.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/dominio-3d/?mode=agregado" poster="labs/microsservicos/dominio-3d-previa.webp" title="Figura interativa: o pedido 1047 como agregado, com itens, endereço e dinheiro, e a regra 79.90 + 15.00 = 94.90" alt="Prévia da figura 3D: os serviços Pedidos, Pagamentos, Estoque e Entregas, cada um dono das suas tabelas, e o evento PedidoPago e-502 no barramento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="anemico" title="Anêmico ou rico? Cancelar o pedido 1047" hint="Escolha o status do pedido e tente cancelar nos dois modelos. No anêmico, qualquer parte do programa escreve o status; no rico, o pedido recusa o que a regra proíbe." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Entidade.</strong> O pedido 1047 tem <strong>identidade</strong>: o número. Se o endereço mudar, continua sendo o mesmo pedido. Duas entidades com os mesmos dados mas números diferentes são coisas diferentes.</li>
+  <li><strong>Value object.</strong> O endereço da Lena, <code>{`{ rua: "Rua da Aurora, 100", cidade: "Recife", cep: "50050-000" }`}</code>, não tem identidade: dois endereços iguais são o mesmo endereço. O mesmo vale para <code>Dinheiro(94.90, "BRL")</code>. Um value object não se edita; troca-se por outro inteiro.</li>
+  <li><strong>Agregado.</strong> O <code>Pedido</code> é a <strong>raiz</strong>, e os <code>ItemDoPedido</code> só mudam passando por ele. A raiz protege as <strong>invariantes</strong>, as regras que sempre valem: <em>total = soma dos itens + frete</em> (79.90 + 15.00 = 94.90) e <em>não dá para cancelar pedido já enviado</em>. De fora, ninguém pega o item e muda o preço.</li>
+  <li><strong>Repositório.</strong> Dá a ilusão de uma coleção de agregados: <code>PedidoRepository.salvar(pedido)</code> e <code>buscar(1047)</code>. O domínio não fala SQL; quem fala é o repositório, e dá para trocar o banco sem tocar nas regras.</li>
+  <li><strong>Evento de domínio.</strong> Um <strong>fato no passado</strong>, no idioma do negócio: <code>PedidoCriado</code>, <code>PedidoPago</code>, <code>EstoqueReservado</code>, <code>PedidoEnviado</code>. Outros contextos escutam e reagem, sem o Pedidos precisar conhecê-los.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Anêmico ou rico</h3>
+
+<p>Há duas formas de escrever o <code>Pedido</code>. No <strong>modelo anêmico</strong>, ele é um saco de campos e a regra mora fora, em qualquer serviço que o toque. No <strong>modelo rico</strong>, a regra mora no próprio pedido.</p>
+
+<pre><code>{String.raw`// anêmico: qualquer um escreve o status, de fora
+pedido.status = "cancelado"
+
+// rico: o pedido decide
+pedido.cancelar()   // recusa se status == "enviado"`}</code></pre>
+
+<p>No anêmico, o pedido enviado vira cancelado sem protesto, porque a regra não está em lugar nenhum. No rico, o <code>cancelar()</code> recusa. Quando a regra é duplicada em vários serviços, uma cópia esquece, e o erro aparece em produção.</p>
+
+<h3 class="sec">Subdomínios: onde investir</h3>
+
+<p>Nem todo contexto merece o mesmo esforço. O DDD separa o domínio em três tipos.</p>
+
+<ol class="flow steps">
+  <li><strong>Núcleo:</strong> o que faz a loja vender e ser diferente. Aqui, Catálogo e Pedidos. É onde o melhor time e o modelo mais rico devem estar.</li>
+  <li><strong>Suporte:</strong> necessário, mas específico da loja e sem diferença competitiva. Estoque e Entregas.</li>
+  <li><strong>Genérico:</strong> problema igual em qualquer empresa, e quase sempre melhor comprado que construído: Pagamentos (via gateway terceirizado), Notificações por e-mail e Login.</li>
+</ol>
+
+<WhyItMatters>
+  <li>A <strong>raiz do agregado</strong> é a única porta. Isso mantém a invariante verdadeira e dá ao agregado o tamanho natural de uma transação: um pedido por vez, inteiro.</li>
+  <li>Value objects deixam o código mais seguro: sem identidade, ninguém altera o endereço do pedido de outro cliente por engano.</li>
+  <li>O repositório e os eventos mantêm o domínio limpo de detalhes técnicos, e é o que permite partir o programa depois sem reescrever as regras.</li>
+  <li>Os subdomínios dizem onde o esforço rende: o Pagamentos não precisa ser reinventado, o Pedidos sim precisa ser bem feito.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As peças, com as palavras de Fowler</h4>
+  <ul>
+    <li><strong>Agregado:</strong> um grupo de objetos tratado como unidade para mudanças de dados. Cada agregado tem uma raiz, e as referências de fora só devem ir à raiz. Transações não devem atravessar a fronteira de um agregado.</li>
+    <li><strong>Value object:</strong> um objeto pequeno que se compara pelos valores, e não por identidade, e em geral é imutável.</li>
+    <li><strong>Evento de domínio:</strong> algo que aconteceu e que importa para o negócio. O nome vai no passado.</li>
+  </ul>
+  <h4 class="deep-h">O modelo anêmico é um antipadrão?</h4>
+  <p>Martin Fowler nomeou o <strong>Anemic Domain Model</strong> em 2003 e o chamou de antipadrão: parece orientação a objetos, mas os objetos só têm dados e a lógica vai para "serviços". A discussão continua viva, e a regra prática desta aula é simples: quando uma invariante existe, ponha-a onde os dados estão.</p>
+  <h4 class="deep-h">Entidade, linha de tabela e agregado</h4>
+  <p>A entidade <code>Pedido</code> e a tabela <code>pedidos</code> não são a mesma coisa. O agregado pode ocupar duas tabelas (<code>pedidos</code> e <code>itens_pedido</code>) e ainda ser um objeto só, lido e gravado de uma vez pelo repositório.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler: Evans Classification", href: "https://martinfowler.com/bliki/EvansClassification.html" },
+    { label: "Martin Fowler: DDD Aggregate", href: "https://martinfowler.com/bliki/DDD_Aggregate.html" },
+    { label: "Martin Fowler: Value Object", href: "https://martinfowler.com/bliki/ValueObject.html" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "Martin Fowler: Anemic Domain Model", href: "https://martinfowler.com/bliki/AnemicDomainModel.html" },
+  ]} />
+</Deep>
+
+<p>Com as peças na mão, falta decidir quem as constrói. Os contextos e os agregados saíram de uma conversa, e conversas têm donos. Falta saber como a forma dos times, e não só a do negócio, molda o desenho do sistema.</p>
+
+<Flashcards cards={[
+  { q: "Qual a diferença entre entidade e value object?",
+    a: "A entidade tem identidade (o pedido 1047 continua o mesmo se o endereço mudar). O value object vale pelos valores: dois endereços iguais são o mesmo, e troca-se inteiro." },
+  { q: "O que é a raiz do agregado?",
+    a: "O objeto pelo qual todo o grupo é acessado e alterado. O <code>Pedido</code> é a raiz; os <code>ItemDoPedido</code> só mudam passando por ele." },
+  { q: "Que invariantes tem o pedido 1047?",
+    a: "Total = soma dos itens + frete (79.90 + 15.00 = 94.90) e não dá para cancelar um pedido já enviado." },
+  { q: "O que é um modelo anêmico?",
+    a: "Objetos só com dados, e a regra espalhada fora. O <code>pedido.status = \"cancelado\"</code> escrito de fora aceita até pedido enviado." },
+  { q: "O que é um evento de domínio?",
+    a: "Um fato no passado, no idioma do negócio: <code>PedidoPago</code>, <code>EstoqueReservado</code>." },
+]} />

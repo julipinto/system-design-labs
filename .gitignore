@@ -16,3 +16,4 @@ public/labs/cache/*-3d/
 .claude/settings.local.json
 .claude/skills/impeccable/scripts/bin/
 .impeccable/hook.cache.json
+public/labs/microsservicos/*-3d/

@@ -1,0 +1,72 @@
+---
+title: "Case da loja: domínios e entidades"
+order: 7
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada ficaram três times e uma promessa: mapear uma compra de verdade. Em vez de começar pelas tabelas, o case começa pelo que acontece. A Lena vê o gato, põe no carrinho, paga, e o pacote chega. Cada etapa é um fato que o negócio reconhece, e é ao redor desses fatos que os contextos, as entidades e os agregados aparecem.</p>
+
+<OneLiner>Mapeie primeiro os eventos de uma compra em ordem, agrupe-os por quem é dono de cada um, e só então procure as entidades, os value objects e os agregados.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Eventos</strong> conta a compra do 1047 em ordem. Avance e observe cada evento sair de um serviço e chegar aos que escutam, com o JSON no painel. Depois, no simulador, toque nos 7 eventos na ordem em que acontecem e escolha o contexto dono de cada um.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/dominio-3d/?mode=eventos" poster="labs/microsservicos/dominio-3d-previa.webp" title="Figura interativa: os eventos e-501 a e-504 do pedido 1047 passando de um serviço para outro" alt="Prévia da figura 3D: os serviços Pedidos, Pagamentos, Estoque e Entregas, cada um dono das suas tabelas, e o evento PedidoPago e-502 no barramento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="eventos" title="Mapa de eventos do pedido 1047: ordenar e agrupar" hint="Toque nos eventos na ordem em que aconteceram. Depois escolha o contexto dono de cada um." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os eventos, em ordem.</strong> A compra da Lena é <code>ProdutoVisto</code> → <code>ItemAdicionadoAoCarrinho</code> → <code>PedidoCriado</code> → <code>PedidoPago</code> → <code>EstoqueReservado</code> → <code>PedidoEnviado</code> → <code>PedidoEntregue</code>. Todos no passado, no idioma do negócio. A técnica se chama <strong>event storming</strong> (Alberto Brandolini): juntar quem entende do negócio e pôr os eventos numa parede, em ordem.</li>
+  <li><strong>Agrupar em contextos.</strong> Perguntar de quem é cada fato: <code>ProdutoVisto</code> é do Catálogo, <code>ItemAdicionadoAoCarrinho</code> do Carrinho, <code>PedidoCriado</code> de Pedidos, <code>PedidoPago</code> de Pagamentos, <code>EstoqueReservado</code> do Estoque. <code>PedidoEnviado</code> e <code>PedidoEntregue</code> ficam com Entregas. Onde a palavra muda de sentido, passa uma fronteira.</li>
+  <li><strong>Achar as entidades.</strong> Procure o que tem identidade e vive através dos eventos: o <strong>Pedido</strong> (1047), o <strong>Cliente</strong> (Lena), o <strong>Produto</strong> (42) e o <strong>Volume</strong> que sai pela porta do depósito.</li>
+  <li><strong>Achar os value objects.</strong> O <strong>Endereço</strong> da Lena e o <code>Dinheiro(94.90, "BRL")</code>: valem pelos valores e se trocam inteiros.</li>
+  <li><strong>Achar o agregado.</strong> O <code>Pedido</code> é a raiz, com <code>ItemDoPedido</code> dentro, e a invariante <em>total = 79.90 + 15.00 = 94.90</em>. O Cliente e o Produto são outros agregados: o pedido só guarda o número deles, e não o objeto inteiro.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Eventos primeiro evitam o erro clássico de modelar pelas tabelas. Os verbos do negócio mostram quem faz o quê, e as tabelas vêm depois.</li>
+  <li>A fronteira aparece onde dois contextos usam a mesma palavra de jeito diferente, ou onde um evento sai de um e entra no outro. O <code>PedidoPago</code> sai de Pagamentos e entra em Estoque.</li>
+  <li>Um agregado pequeno é melhor que um grande. Referir-se ao Produto pelo número, e não por dentro, mantém as transações pequenas e os contextos independentes.</li>
+  <li>O mapa já indica os serviços: cada contexto com um dono é um candidato. Falta saber como esses donos conversam sem ler o banco um do outro.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Como é um event storming</h4>
+  <p>Na versão de Brandolini, a parede tem post-its laranja para eventos, em ordem, da esquerda para a direita. Depois vêm os comandos (o que alguém pede), os atores e, por fim, os agrupamentos que viram agregados e contextos. O mapa inteiro nasce de uma conversa de poucas horas, com perguntas como "o que acontece depois?" e "quem precisa saber disso?".</p>
+  <h4 class="deep-h">Entidade ou value object?</h4>
+  <p>Pergunta de teste: se os dois forem trocados por cópias idênticas, alguém repararia? Se a Lena tem dois endereços de entrega com os mesmos campos, é indiferente qual é qual: value object. Se há dois pedidos com os mesmos itens, a diferença importa (um já foi pago, o outro não): entidade.</p>
+  <h4 class="deep-h">Sobre o tamanho do agregado</h4>
+  <p>Cada agregado costuma ser salvo numa transação só. Se o <code>Pedido</code> incluísse o <code>Produto</code> inteiro, cada mudança de preço no Catálogo mexeria nos pedidos. Por isso o pedido guarda o <code>produto: 42</code> e o preço da hora da compra (79.90), e não uma referência viva.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Alberto Brandolini: Event Storming", href: "https://www.eventstorming.com/" },
+    { label: "Microsoft Learn: análise de domínio para microsserviços", href: "https://learn.microsoft.com/en-us/azure/architecture/microservices/model/domain-analysis" },
+    { label: "Martin Fowler: DDD Aggregate", href: "https://martinfowler.com/bliki/DDD_Aggregate.html" },
+    { label: "Martin Fowler: Value Object", href: "https://martinfowler.com/bliki/ValueObject.html" },
+  ]} />
+</Deep>
+
+<p>O mapa mostra os contextos, mas ainda não diz como eles vivem juntos num banco só, o <code>loja</code>. Falta saber quem é dono de cada tabela e como os serviços se contam o que aconteceu sem ler as tabelas uns dos outros.</p>
+
+<Flashcards cards={[
+  { q: "Em que ordem acontecem os eventos da compra do pedido 1047?",
+    a: "ProdutoVisto, ItemAdicionadoAoCarrinho, PedidoCriado, PedidoPago, EstoqueReservado, PedidoEnviado, PedidoEntregue." },
+  { q: "O que é um event storming?",
+    a: "Uma conversa com quem entende do negócio, na qual os eventos são postos em ordem numa parede e depois agrupados por dono. Foi proposto por Alberto Brandolini." },
+  { q: "Quais são as entidades e os value objects do case?",
+    a: "Entidades: Pedido, Cliente, Produto e Volume. Value objects: Endereço e Dinheiro." },
+  { q: "Por que o pedido guarda o número do produto e não o produto inteiro?",
+    a: "Para o agregado ficar pequeno: uma mudança de preço no Catálogo não mexe nos pedidos já feitos." },
+]} />

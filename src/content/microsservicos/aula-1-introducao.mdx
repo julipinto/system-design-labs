@@ -1,0 +1,69 @@
+---
+title: "Introdução aos microsserviços"
+order: 1
+min: 5
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>O módulo 5 terminou com a loja rápida: o gato de pelúcia (produto 42) está no Redis, a foto na CDN de Recife e o preço baixou para 79.90. Só que rápida não quer dizer bem dividida. A loja inteira ainda é <strong>um programa só</strong>, o processo <code>loja</code>, num servidor de 8 vCPU, com o banco <code>loja</code> (o PostgreSQL do módulo 4). Dentro dele moram sete módulos: Catálogo, Carrinho, Pedidos, Pagamentos, Estoque, Entregas e Relatórios. Três times mexem no mesmo código, e duas coisas começaram a dar errado.</p>
+
+<OneLiner>Um monolito é um programa só com tudo dentro; microsserviços são vários programas pequenos, cada um dono do seu pedaço. Partir é fácil, o difícil é saber quando e onde cortar.</OneLiner>
+
+<DoIt>
+  <p>Na figura, aperte <strong>Próximo passo</strong> (ou →) e siga o checkout do pedido 1047 pelas salas do prédio. Observe o painel: cada chamada custa cerca de 0,01 ms e nenhuma sai do processo. No último passo, veja o <code>ROLLBACK</code> desfazer tudo quando o estoque acaba.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/monolito-3d/?mode=mono" poster="labs/microsservicos/monolito-3d-previa.webp" title="Figura interativa: o checkout do pedido 1047 atravessa os 7 módulos do monolito numa transação só" alt="Prévia da figura 3D: o processo loja com 7 módulos sobre o banco loja; às 23:00 Relatórios usa 7 de 8 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena, de Recife, compra <strong>outro gato de pelúcia</strong> como presente para o irmão. É o <strong>pedido 1047</strong>: produto 42, quantidade 1, 79.90, frete de 15.00, total de <strong>94.90</strong>.</li>
+  <li>O processo <code>loja</code> recebe o checkout. O módulo Carrinho chama Pedidos, que chama Pagamentos, que chama Estoque, que chama Entregas. São <strong>chamadas de função</strong> no mesmo processo, de cerca de 0,01 ms cada.</li>
+  <li>Tudo corre dentro de <strong>uma transação</strong> só no banco <code>loja</code>: <code>BEGIN</code> no começo, <code>COMMIT</code> no fim (o ACID do módulo 3). Quando o pedido é pago, o estoque do gato vai de <strong>3 para 2</strong>.</li>
+  <li>O checkout inteiro leva <strong>180 ms</strong>. Se o pagamento falhar no meio, o <code>ROLLBACK</code> devolve o estoque sozinho.</li>
+  <li>Enquanto o programa é pequeno, isso é ótimo. Quando ele cresce, dois problemas aparecem: um módulo atrapalha os outros, e quando um cai, todos caem.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A pergunta do módulo é prática: <strong>quando vale partir</strong> o programa e <strong>onde cortar</strong>. Cortar no lugar errado dá um programa só com a rede no meio, mais lento e igualmente emaranhado.</li>
+  <li>Um problema de cada vez. A aula 2 mostra o que o monolito tem de bom e os dois defeitos da loja. A aula 3 parte o programa e mostra o que isso custa.</li>
+  <li>As aulas 4 e 5 ensinam a achar as fronteiras (DDD). A 6 mostra como os times moldam o desenho (Lei de Conway). As 7 e 8 aplicam tudo ao pedido 1047.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">As palavras do módulo</h4>
+  <ul>
+    <li><strong>Módulo:</strong> uma parte do código com uma responsabilidade (Catálogo, Pedidos). Pode viver dentro de um programa maior.</li>
+    <li><strong>Processo:</strong> um programa em execução, com a sua memória. O monolito é um processo; cada serviço é outro.</li>
+    <li><strong>Serviço:</strong> um módulo que virou programa à parte, com o seu banco, e fala com os outros pela rede.</li>
+    <li><strong>vCPU:</strong> uma fatia de processador. O servidor da loja tem 8.</li>
+  </ul>
+  <h4 class="deep-h">De onde vêm estes números</h4>
+  <p>180 ms, 8 vCPU, 7 módulos e 40 minutos de deploy são números de exemplo, escolhidos para a conta ficar fácil de conferir. O que vale é a proporção entre eles.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler e James Lewis: Microservices", href: "https://martinfowler.com/articles/microservices.html" },
+    { label: "microservices.io: padrão Monolithic Architecture", href: "https://microservices.io/patterns/monolithic.html" },
+  ]} />
+</Deep>
+
+<p>A loja funciona, e funciona bem, porque um programa só tem muita coisa boa que só se percebe quando se perde. Falta saber o que é essa vantagem e quais são, com números, os dois defeitos que a loja encontrou.</p>
+
+<Flashcards cards={[
+  { q: "O que é um monolito?",
+    a: "Um programa só, com todos os módulos dentro, no mesmo processo, em geral com um banco só. Os módulos se chamam por função." },
+  { q: "Quais são os 7 módulos do programa <code>loja</code>?",
+    a: "Catálogo, Carrinho, Pedidos, Pagamentos, Estoque, Entregas e Relatórios." },
+  { q: "Quanto leva o checkout do pedido 1047 no monolito e por quê?",
+    a: "180 ms. As chamadas entre módulos são funções locais (cerca de 0,01 ms) e tudo cabe numa transação só, com <code>BEGIN</code> e <code>COMMIT</code>." },
+  { q: "Qual é a pergunta do módulo?",
+    a: "Quando vale partir o programa e onde cortar." },
+]} />

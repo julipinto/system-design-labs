@@ -1,0 +1,73 @@
+---
+title: "Lei de Conway"
+order: 6
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada o DDD desenhou os contextos a partir do negócio. Mas quem vai construir cada contexto são pessoas, em times, e os times também têm fronteiras. A loja tinha três times organizados por camada, e o sistema saiu com três camadas. Isso não é coincidência: tem nome, Lei de Conway, e dá para usar a seu favor.</p>
+
+<OneLiner>A Lei de Conway diz que o sistema acaba com o desenho da comunicação da organização que o fez; por isso, para ter o sistema que se quer, desenham-se os times no mesmo formato.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Conway</strong> começa com times por camada (frontend, backend e DBA). Avance e conte por quantos times passa uma mudança simples. Depois veja os três times por domínio (Vitrine, Checkout e Logística) e os serviços se agruparem em três ilhas.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/monolito-3d/?mode=conway" poster="labs/microsservicos/monolito-3d-previa.webp" title="Figura interativa: times por camada e times por domínio, e o desenho dos serviços que cada organização produz" alt="Prévia da figura 3D: o processo loja com 7 módulos sobre o banco loja; às 23:00 Relatórios usa 7 de 8 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Antes: times por camada.</strong> A loja tem um time de <strong>frontend</strong>, um de <strong>backend</strong> e um de <strong>DBA</strong>. O sistema sai em 3 camadas, exatamente como os times. Um novo campo de frete no checkout passa pelos três: a tela, a regra e a coluna.</li>
+  <li><strong>O custo.</strong> Toda mudança de negócio atravessa 3 times, com 3 filas, 3 prioridades e 3 reuniões. Ninguém é dono do checkout inteiro, então ninguém responde por ele inteiro.</li>
+  <li><strong>Depois: times por domínio.</strong> A loja se reorganiza em 3 times: <strong>Vitrine</strong> (Catálogo e busca), <strong>Checkout</strong> (Carrinho, Pedidos e Pagamentos) e <strong>Logística</strong> (Estoque e Entregas). Cada time é dono de ponta a ponta de um pedaço do negócio.</li>
+  <li><strong>O desenho acompanha.</strong> Os serviços passam a espelhar os times: o Checkout fica com os seus três serviços, a Logística com os seus dois. A comunicação entre serviços do mesmo time é fácil (é só conversar); entre times, passa por um contrato.</li>
+  <li><strong>Manobra inversa de Conway.</strong> Em vez de esperar o sistema copiar os times, o time desenha os times <strong>no formato da arquitetura</strong> que quer. Se o objetivo são serviços por domínio, forma-se um time por domínio primeiro.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A arquitetura é um assunto de organização tanto quanto técnico. Um desenho de serviços que ignora a forma dos times perde para a forma dos times.</li>
+  <li>Os contextos do DDD (aula 4) e os times da aula 6 se ajudam: um contexto delimitado com um time dono é a combinação mais estável.</li>
+  <li>Isso também explica o monolito. Um time pequeno, junto, que conversa o dia todo, produz naturalmente um sistema integrado, e isso está bem.</li>
+  <li>Quando o sistema e os times não combinam, a fricção aparece como fila de deploy, reunião de alinhamento e serviço que ninguém assume.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O enunciado original</h4>
+  <p>Melvin Conway escreveu que organizações que desenham sistemas ficam presas a desenhos que são cópias da estrutura de comunicação delas. Ele não propôs uma lei da natureza, e sim uma observação: o primeiro desenho do sistema costuma seguir as divisões do time, porque é mais fácil dividir o trabalho ao longo delas.</p>
+  <h4 class="deep-h">A história do artigo</h4>
+  <p>O texto, "How Do Committees Invent?", saiu na revista Datamation em abril de 1968. Antes disso, em 1967, Conway o tinha enviado à Harvard Business Review, que o recusou por considerar que ele não provava a tese. O nome "Lei de Conway" veio depois, dado por Fred Brooks, segundo Fowler.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo diz que o paper foi "rejeitado por Harvard". Quem rejeitou foi a <strong>Harvard Business Review</strong>, a revista, e não a universidade. O título em português também fica melhor como "Como os comitês inventam?".</li>
+    <li>O artigo associa monolito a organizações centralizadas e microsserviços a times autônomos. É uma tendência, e não uma regra: um time pequeno e unido faz monolito, mas uma empresa grande também pode manter um.</li>
+  </ul>
+  <h4 class="deep-h">Quando partir os times antes dos serviços</h4>
+  <p>Se o objetivo é três serviços por domínio, mas o time continua um só por camada, os serviços vão acabar com a mesma costura das camadas. Reorganizar os times é a parte cara, e por isso é a primeira.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Melvin Conway: How Do Committees Invent? (melconway.com)", href: "https://www.melconway.com/Home/Committees_Paper.html" },
+    { label: "Melvin Conway: Conway's Law (melconway.com)", href: "https://www.melconway.com/Home/Conways_Law.html" },
+    { label: "Martin Fowler: Conway's Law", href: "https://martinfowler.com/bliki/ConwaysLaw.html" },
+  ]} />
+</Deep>
+
+<p>Com os contextos desenhados e os três times formados, falta pôr à prova. Falta saber como mapear uma compra de verdade, do primeiro olhar da Lena ao pacote na porta, e transformar o mapa em entidades, value objects e agregados.</p>
+
+<Flashcards cards={[
+  { q: "O que diz a Lei de Conway?",
+    a: "O desenho do sistema copia a estrutura de comunicação da organização que o construiu." },
+  { q: "Que times a loja tinha antes e que times tem depois?",
+    a: "Antes: frontend, backend e DBA (por camada). Depois: Vitrine, Checkout e Logística (por domínio)." },
+  { q: "O que é a manobra inversa de Conway?",
+    a: "Desenhar os times no formato da arquitetura que se quer, em vez de esperar o sistema copiar os times." },
+  { q: "Quem rejeitou o paper de Conway em 1967?",
+    a: "A revista Harvard Business Review, e não a universidade. Ele saiu na Datamation, em 1968." },
+]} />

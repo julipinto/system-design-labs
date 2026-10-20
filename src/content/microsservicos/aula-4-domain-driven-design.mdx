@@ -1,0 +1,75 @@
+---
+title: "Domain-Driven Design"
+order: 4
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada a loja podia ser cortada em sete serviços, mas ninguém disse onde passam os cortes. Cortar pelo tamanho do código, ou pela tabela, ou pelo gosto de cada time dá serviços que se chamam o tempo todo. O Domain-Driven Design (DDD) responde com outra régua: cortar pelo <strong>assunto do negócio</strong>. Para isso o time precisa antes de uma coisa mais simples, falar a mesma língua do negócio.</p>
+
+<OneLiner>No DDD, o domínio é o assunto do negócio, a linguagem ubíqua é o vocabulário que todos usam, e cada contexto delimitado é o lugar onde uma palavra tem um significado só.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Contextos</strong> leva o gato de pelúcia por cada ilha. Avance e observe o dado mudar de forma na cerca: produto 42 no Catálogo, SKU GATO-042 no Estoque, volume de 0,4 kg em Entregas, e nada em Pagamentos.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/dominio-3d/?mode=contextos" poster="labs/microsservicos/dominio-3d-previa.webp" title="Figura interativa: o mesmo gato vira produto 42, SKU GATO-042 e volume de 0,4 kg ao cruzar cada contexto" alt="Prévia da figura 3D: os serviços Pedidos, Pagamentos, Estoque e Entregas, cada um dono das suas tabelas, e o evento PedidoPago e-502 no barramento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Domínio.</strong> É a esfera de conhecimento sobre a qual o software trabalha. O domínio da loja é <strong>vender produtos pela internet</strong>: catálogo, pedido, pagamento, estoque, entrega. O DDD começa por entender esse assunto com quem o conhece (a pessoa do estoque, a do financeiro), e não pelo banco de dados.</li>
+  <li><strong>Linguagem ubíqua.</strong> Quem programa e quem entende do negócio usam <strong>as mesmas palavras</strong>, nas conversas, no código e nas tabelas. Se o financeiro diz "pedido pago" e o código diz <code>order.state = 2</code>, ninguém se entende. O código passa a ter <code>PedidoPago</code>.</li>
+  <li><strong>O problema: uma palavra, vários sentidos.</strong> "O gato" não é a mesma coisa para todo mundo. No <strong>Catálogo</strong> é o <code>produto 42</code>, com nome, preço de 79.90, fotos e descrição. No <strong>Estoque</strong> é o <code>SKU GATO-042</code>, com quantidade 3 no depósito SP-1. Em <strong>Entregas</strong> é um <code>volume</code> de 0,4 kg e 30×20×15 cm, com destino Recife. E os <strong>Pagamentos</strong> nem sabem o que é gato: só enxergam <code>{`{ pedido_id: 1047, valor: 94.90 }`}</code>.</li>
+  <li><strong>Contexto delimitado.</strong> A solução é aceitar isso. Cada contexto tem <strong>o seu modelo</strong>, dentro de uma fronteira, e a palavra só precisa estar certa lá dentro. Nenhum modelo único da loja tenta ser o "gato de todos": cada contexto guarda do gato só o que usa.</li>
+  <li><strong>Monolito modular.</strong> Os contextos não precisam virar serviços de imediato. Podem virar <strong>pastas e módulos com fronteira</strong> dentro do mesmo programa, e o DDD já vale nesse formato. Só depois, se doer, cada módulo vira serviço, e o corte já estava feito.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>As fronteiras dos contextos são <strong>candidatas naturais a fronteiras de serviço</strong>. Um bom corte deixa os serviços falarem pouco: o Pagamentos não precisa saber de fotos nem de peso.</li>
+  <li>O DDD não exige microsserviços. É uma forma de pensar o código, que serve igualmente a um monolito bem organizado.</li>
+  <li>Um contexto delimitado também não é, automaticamente, um microsserviço. Muitas vezes é um serviço; às vezes dois contextos pequenos moram juntos, e às vezes um contexto grande vira vários.</li>
+  <li>Palavras iguais com sentidos diferentes (o gato nos quatro contextos) são o sinal de que ali passa uma fronteira.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O que é DDD, e de onde veio</h4>
+  <p>Domain-Driven Design é o nome de um livro de Eric Evans, de 2003, e de uma abordagem: colocar o modelo do domínio no centro do software, construí-lo junto com quem entende do negócio e deixar o código falar a mesma língua. Evans (e a documentação da Microsoft, que usa a mesma separação) distingue o desenho estratégico (domínio, contextos, subdomínios) do desenho tático (entidades, agregados e afins, da aula 5).</p>
+  <h4 class="deep-h">Contexto delimitado, com as palavras de Fowler</h4>
+  <p>Um contexto delimitado é uma fronteira dentro da qual um modelo vale. Fora dela, a mesma palavra pode significar outra coisa. Na descrição de Fowler, cada contexto tem o seu modelo e a sua linguagem, e o mesmo termo pode significar coisas diferentes de um contexto para outro.</p>
+  <h4 class="deep-h">O que acontece na fronteira</h4>
+  <p>Quando o pedido 1047 chega ao contexto Entregas, o item <em>gato de pelúcia</em> vira um volume de 0,4 kg. Alguém, no código, faz essa tradução. Na linguagem do DDD, a relação entre dois contextos (quem manda, quem traduz) é desenhada num mapa de contextos.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo trata DDD, microsserviços e modelo rico como um pacote. Na fonte original, são coisas separadas: o DDD vem de 2003, antes de "microsserviço" virar nome de moda, e o modelo rico é uma consequência do desenho tático, e não o centro dele.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Microsoft Learn: análise de domínio para microsserviços", href: "https://learn.microsoft.com/en-us/azure/architecture/microservices/model/domain-analysis" },
+    { label: "Martin Fowler: Bounded Context", href: "https://martinfowler.com/bliki/BoundedContext.html" },
+    { label: "Martin Fowler: Ubiquitous Language", href: "https://martinfowler.com/bliki/UbiquitousLanguage.html" },
+    { label: "Shopify Engineering: o estado do monolito da Shopify", href: "https://shopify.engineering/shopify-monolith" },
+  ]} />
+</Deep>
+
+<p>Cada contexto já tem uma fronteira, mas dentro dela ainda há perguntas. O Pedido tem endereço, itens e um total que precisa fechar. Quem pode mudar o quê, e como se garante que 79.90 + 15.00 continue dando 94.90? Falta saber de que são feitos os modelos dentro de um contexto.</p>
+
+<Flashcards cards={[
+  { q: "O que é um domínio?",
+    a: "A esfera de conhecimento do negócio sobre a qual o software trabalha. Na loja, vender produtos pela internet." },
+  { q: "O que é a linguagem ubíqua?",
+    a: "O vocabulário que o time e o negócio usam igualmente, nas conversas e no código. Se o financeiro diz 'pedido pago', o código tem <code>PedidoPago</code>." },
+  { q: "O que é um contexto delimitado?",
+    a: "Uma fronteira dentro da qual um modelo, e cada palavra dele, tem um significado só." },
+  { q: "Como o gato aparece em cada contexto?",
+    a: "Catálogo: produto 42. Estoque: SKU GATO-042. Entregas: um volume de 0,4 kg. Pagamentos: só o pedido 1047 e o valor 94.90." },
+  { q: "O que é um monolito modular?",
+    a: "Um programa só, com os contextos separados em módulos com fronteira. Já tem o corte do DDD, mas ainda sem a rede." },
+]} />

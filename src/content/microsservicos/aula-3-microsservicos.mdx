@@ -1,0 +1,80 @@
+---
+title: "Microsserviços"
+order: 3
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada o monolito mostrou três defeitos: um módulo atrapalha os outros, um módulo derruba todos e a escala só copia tudo. A cura é separar. Cada módulo vira um programa próprio, com o seu banco, e os programas passam a conversar pela rede. A loja ganha isolamento e escala independente, e paga com a rede, com a consistência e com a dificuldade de enxergar o que acontece.</p>
+
+<OneLiner>Microsserviços são programas pequenos, cada um dono de uma função de negócio e do seu banco; trocam o isolamento e a escala independente por rede, consistência difícil e muito mais para observar.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Partir</strong> separa o prédio em serviços. Avance e conte os saltos de rede do mesmo checkout (200 ms no painel). Siga até Entregas cair e veja a loja continuar vendendo, e até o último passo: pagou, mas o estoque acabou. No simulador, mude o número de saltos e compare com o limite de 2 s.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/monolito-3d/?mode=split" poster="labs/microsservicos/monolito-3d-previa.webp" title="Figura interativa: o monolito se separa em 6 serviços, cada um com seu banco, e o checkout passa a ter 4 saltos de rede" alt="Prévia da figura 3D: o processo loja com 7 módulos sobre o banco loja; às 23:00 Relatórios usa 7 de 8 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="saltos" title="Somador de latência: o preço da rede no checkout" hint="Escolha quantos saltos de rede o checkout tem e quanto cada um custa. Com os 4 saltos da Lena e 5 ms por salto, são 200 ms. Números de exemplo." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Partir.</strong> Saem seis serviços e um à parte: <code>catalogo</code>, <code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code>, <code>entregas</code> e <code>relatorios</code>. Cada um tem <strong>o seu banco</strong> (banco por serviço): o catálogo em documentos (módulo 4), o carrinho no Redis (módulo 5) e pedidos, pagamentos e estoque em PostgreSQL, porque precisam de ACID.</li>
+  <li><strong>A rede entra na conta.</strong> O mesmo checkout agora tem 4 saltos (Carrinho → Pedidos → Pagamentos → Estoque → Entregas), de cerca de <strong>5 ms</strong> cada. Fica 180 + 4 × 5 = <strong>200 ms</strong>, e cada salto é uma chance de timeout.</li>
+  <li><strong>Escala independente.</strong> Na Black Friday o catálogo sobe para 10 réplicas de 1 vCPU, carrinho e pedidos para 3, pagamentos e estoque para 2, entregas fica com 1 e relatórios com 1 de 4 vCPU. Total: <strong>25 vCPU</strong>, contra 80 do monolito.</li>
+  <li><strong>Vizinhos isolados.</strong> O relatório das 23:00 roda no seu serviço, e a página do gato continua em <strong>120 ms</strong>. Se <code>entregas</code> cai, a loja continua vendendo: o evento <code>PedidoPago</code> espera na fila e é entregue quando <code>entregas</code> volta.</li>
+  <li><strong>O preço.</strong> O pagamento é aprovado, mas a reserva de estoque falha (o estoque já estava em 0). Não existe mais um <code>ROLLBACK</code> que desfaça tudo: alguém precisa <strong>compensar</strong>, estornando o pagamento. Esse desenho tem nome (Saga), e fica para outro módulo.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Os ganhos são os da aula passada, um a um: isola o vizinho barulhento, limita o raio de explosão e deixa escalar só o que está pesado. Cada serviço também pode ter o seu banco e a sua tecnologia.</li>
+  <li>A rede é o primeiro custo. Ela soma milissegundos, falha e pede retry, circuit breaker e fila para o que não pode se perder.</li>
+  <li>Consistência é o segundo. As transações viram uma sequência de passos com compensação, e cada passo precisa tolerar ser repetido.</li>
+  <li>Observar é o terceiro. O pedido 1047 passa por 5 serviços e deixa 5 logs. Um <code>trace_id</code> (por exemplo <code>7f3a…</code>) amarra os pedaços; sem ele, o diagnóstico vira detetive.</li>
+  <li>Testar também fica mais difícil: o teste de ponta a ponta agora sobe vários serviços e depende de contratos entre eles.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">No dia comum, o monolito sai mais barato</h4>
+  <p>Com 1× de tráfego, o monolito usa 8 vCPU e os serviços 10 (1 para cada um dos seis e 4 para relatórios). A conta só vira na escala: com a vitrine a 10×, são 25 contra 80. Microsserviço paga quando há uma parte que cresce muito mais que as outras.</p>
+  <h4 class="deep-h">Quem fala com quem</h4>
+  <ul>
+    <li><strong>Síncrono:</strong> o serviço chama o outro e espera (HTTP, gRPC). É simples, e a latência e as falhas se somam ao longo da cadeia.</li>
+    <li><strong>Assíncrono:</strong> o serviço publica um evento numa fila e segue. <code>PedidoPago</code> espera na fila se <code>entregas</code> estiver fora do ar. Em troca, o resultado só chega depois.</li>
+  </ul>
+  <h4 class="deep-h">Resiliência na conversa entre serviços</h4>
+  <p>O artigo lista os padrões que viram obrigação: retry (tentar de novo), circuit breaker (parar de chamar quem está falhando), fallback (uma resposta reserva), fila de reprocessamento e dead letter queue (a fila das mensagens que não passaram, guardadas para análise). Eles têm módulo próprio mais adiante.</p>
+  <h4 class="deep-h">Pré-requisitos antes de partir</h4>
+  <p>Martin Fowler lista o que o time precisa ter antes: provisionar servidores rápido, monitorar bem e automatizar o deploy. Sem isso, o custo da rede e da observação engole os ganhos.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler e James Lewis: Microservices", href: "https://martinfowler.com/articles/microservices.html" },
+    { label: "microservices.io: padrão Database per Service", href: "https://microservices.io/patterns/data/database-per-service.html" },
+    { label: "microservices.io: padrão Saga", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Martin Fowler: Microservice Prerequisites", href: "https://martinfowler.com/bliki/MicroservicePrerequisites.html" },
+  ]} />
+</Deep>
+
+<p>A loja agora tem sete programas, e a primeira pergunta é qual corte fazer. Seis serviços ou doze? Entregas e Estoque deviam ser um só? Cortar errado deixa os serviços se chamando o tempo todo. Falta saber onde ficam as fronteiras e quem decide.</p>
+
+<Flashcards cards={[
+  { q: "O que é banco por serviço?",
+    a: "Cada serviço é dono do seu banco, e ninguém lê a tabela do outro. Para saber algo, pergunta pela API ou escuta um evento." },
+  { q: "Quanto leva o checkout em microsserviços e por quê?",
+    a: "200 ms: os 180 ms do monolito mais 4 saltos de rede de 5 ms cada." },
+  { q: "Quantos vCPU a Black Friday exige em microsserviços e no monolito?",
+    a: "25 contra 80. Só o catálogo ganha 10 réplicas; o resto cresce pouco." },
+  { q: "O que mudou quando o pagamento é aprovado e o estoque falha?",
+    a: "Não há mais um <code>ROLLBACK</code> que desfaz tudo: é preciso compensar, estornando o pagamento (o desenho se chama Saga)." },
+  { q: "Para que serve o trace_id?",
+    a: "Para amarrar os 5 logs do pedido 1047, um em cada serviço, e seguir o pedido do começo ao fim." },
+]} />

@@ -1,0 +1,27 @@
+/* SDLabs · Microsserviços: o que só este módulo usa. Peças comuns (sr-*, ib-*, ls-*, pc-*) em widgets.css */
+/* slider com alvo de toque de 44px (o de widgets.css tem 32px) */
+.sdl-content .sr-ctl.mx-ctl input[type="range"]{min-height:44px}
+/* tabela de vCPU: três colunas, sem a largura mínima das tabelas de referência */
+.sdl-content table.sr-table.mx-tbl{min-width:0}
+.sdl-content table.mx-tbl tbody th{white-space:normal}
+.sdl-content table.mx-tbl tr.mx-total th,.sdl-content table.mx-tbl tr.mx-total td{border-bottom:0;color:var(--ink-hi);font-weight:700}
+/* barra contra o limite: cor muda perto e além */
+.sdl-content .sr-fill.mx-warn{background:var(--warn)}
+.sdl-content .sr-fill.mx-bad{background:var(--bad)}
+/* anêmico x rico */
+.sdl-content .mx-status{margin:var(--s-2) 0 4px;font:13px var(--mono);color:var(--muted)}
+.sdl-content .mx-status strong{color:var(--ink-hi)}
+.sdl-content .mx-res{margin:0;font-size:14.5px;line-height:1.5;min-height:3em}
+.sdl-content .mx-res.bad,.sdl-content .mx-say.bad{color:var(--bad);font-weight:700}
+.sdl-content .mx-res.ok,.sdl-content .mx-say.ok{color:var(--ok)}
+/* eventos: lista de toques, dica e selo do dono */
+.sdl-content .mx-pool{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:0 0 var(--s-2)}
+.sdl-content .mx-pool[hidden]{display:none}
+.sdl-content .mx-ev{font-family:var(--mono);font-size:13px;max-width:100%;overflow-wrap:anywhere}
+.sdl-content .mx-say{margin:var(--s-2) 0;font-size:14.5px;line-height:1.5;min-height:3em}
+.sdl-content .mx-ctxs{margin:6px 0 0}
+.sdl-content .mx-seal{display:inline-block}
+.sdl-content .ib-who{overflow-wrap:anywhere}
+/* fila: interruptor com alvo de 44px (o rótulo inteiro conta) */
+.sdl-content .mx-switch{display:flex;align-items:center;gap:var(--s-3);min-height:44px;margin:0 0 var(--s-2);cursor:pointer;font-size:15px}
+.sdl-content .mx-switch input{width:24px;height:24px;flex:none;accent-color:var(--accent-fill)}

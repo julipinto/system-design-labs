@@ -1,0 +1,80 @@
+---
+title: "Monolitos"
+order: 2
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p>Na aula passada a loja era um programa só, e dois problemas apareciam. Antes de culpar o monolito, vale ver o que ele faz bem, porque a loja só chegou até aqui por causa disso: um deploy, um banco, um teste de ponta a ponta e uma consistência que vem de graça. Os defeitos aparecem quando o programa cresce, e cada um tem hora e número.</p>
+
+<OneLiner>O monolito é o ponto de partida certo para quase todo produto; os defeitos são o vizinho barulhento (um módulo come o que é dos outros), o raio de explosão (um módulo derruba todos) e a escala que só sabe copiar tudo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, o cenário <strong>Vizinho</strong> abre às 22:59. Avance e veja Relatórios comer 7 de 8 vCPU e a página do gato ir de 120 ms para 2,4 s. Depois troque para <strong>Queda</strong> (um bug em Entregas derruba o prédio inteiro) e <strong>Escala</strong> (Black Friday: 10 cópias do programa inteiro). No simulador abaixo, compare 80 vCPU com 25.</p>
+</DoIt>
+
+<Figure3D path="labs/microsservicos/monolito-3d/?mode=ruido" poster="labs/microsservicos/monolito-3d-previa.webp" title="Figura interativa: às 23:00 o fechamento de caixa come 7 de 8 vCPU e a página do gato vai de 120 ms para 2,4 s" alt="Prévia da figura 3D: o processo loja com 7 módulos sobre o banco loja; às 23:00 Relatórios usa 7 de 8 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="vcpu" title="Calculadora da Black Friday: quantos vCPU a loja precisa" hint="Arraste o tráfego da vitrine (Catálogo) de 1× a 20×. O monolito só sabe copiar o programa inteiro; a coluna dos serviços mostra como ficaria se cada pedaço fosse copiado sozinho. Números de exemplo." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O que ele faz bem.</strong> Um deploy, um banco, um teste de ponta a ponta. Se o pagamento falha, o <code>ROLLBACK</code> devolve o estoque, sem ninguém programar isso. É por isso que o monolito é o começo certo de quase todo produto.</li>
+  <li><strong>Vizinho barulhento.</strong> Às <strong>23:00</strong> o módulo Relatórios roda o fechamento de caixa e usa <strong>7 dos 8 vCPU</strong> por 15 minutos. A página do gato vai de <strong>120 ms para 2,4 s</strong>, e o checkout da Lena passa do limite de <strong>2 s</strong> e dá timeout. Ninguém mexeu no checkout: ele só divide o servidor com um vizinho que pesa.</li>
+  <li><strong>Raio de explosão.</strong> Um bug no cálculo de frete (módulo Entregas) estoura a memória e o <strong>processo cai</strong>. Como é um processo só, saem do ar a vitrine, o carrinho e o pagamento. Um módulo derrubou os sete.</li>
+  <li><strong>Escala que só copia tudo.</strong> Na Black Friday a vitrine recebe <strong>10 vezes</strong> o tráfego. Para aguentar, a loja copia o programa inteiro: 10 cópias × 8 vCPU = <strong>80 vCPU</strong>. Relatórios e Pagamentos vão junto em cada cópia, sem precisar.</li>
+  <li><strong>Deploy lento.</strong> Três times, um binário: o deploy leva <strong>40 minutos</strong>, e um time espera o outro (rebase, fila de deploy). Uma mudança de uma linha no Catálogo espera o frete do outro time ficar pronto.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>O vizinho barulhento e o raio de explosão têm a mesma raiz: os módulos <strong>dividem o mesmo processo</strong>, a mesma memória e os mesmos vCPU.</li>
+  <li>Escalar vertical (comprar um servidor maior) resolve por um tempo e fica caro. Escalar horizontal (mais cópias) resolve, mas a unidade de cópia é o programa inteiro.</li>
+  <li>Nada disso torna o monolito "errado". Com 1× de tráfego, 8 vCPU custam menos que qualquer alternativa. O defeito é de tamanho, e não de tipo.</li>
+  <li>Cada defeito aponta para uma cura diferente. Isolar Relatórios resolve o vizinho. Separar Entregas limita a explosão. Copiar só a vitrine resolve a escala.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Monolito não é legado</h4>
+  <p>O artigo diz que monolito não é sinônimo de "errado" ou "arcaico", e que ele deveria ser o estágio inicial de quase todo produto. Dois casos reais mostram que isso vai nos dois sentidos: o plano de controle do Istio, que era feito de microsserviços, foi unido num binário só (o istiod, na versão 1.5), e a Shopify mantém um monolito grande e trabalha para organizá-lo em componentes com fronteiras (um monolito modular, que a aula 4 mostra). A própria Shopify diz que o trabalho está em andamento.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo lista Facebook, Twitter, Uber e Netflix como empresas que "mantiveram essa arquitetura em grande escala". O Facebook escolheu escalar o monolito em PHP, mas o post do Uber que ele mesmo cita diz que a empresa acabou migrando para microsserviços. Os links do Twitter e da Netflix não abriram para conferência, e a aula não os usa como prova.</li>
+  </ul>
+  <h4 class="deep-h">Quando o monolito é a resposta certa</h4>
+  <ul>
+    <li>Um time pequeno e um produto novo (MVP): a comunicação é barata e o design ainda muda toda semana.</li>
+    <li>Quem opera o sistema não conhece a arquitetura: uma unidade só é mais fácil de colocar no ar e de reiniciar.</li>
+    <li>O domínio ainda não está claro. Cortar cedo é cortar no escuro, e é mais barato mover uma pasta que mover um serviço.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Monolitos, Microsserviços e Domínios (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "microservices.io: padrão Monolithic Architecture", href: "https://microservices.io/patterns/monolithic.html" },
+    { label: "Martin Fowler: MonolithFirst", href: "https://martinfowler.com/bliki/MonolithFirst.html" },
+    { label: "Shopify Engineering: o estado do monolito da Shopify", href: "https://shopify.engineering/shopify-monolith" },
+    { label: "Istio: istiod, o plano de controle em um binário (2020)", href: "https://istio.io/latest/blog/2020/istiod/" },
+  ]} />
+</Deep>
+
+<p>O monolito não falhou: ele apenas junta módulos que pesam, caem e crescem de jeitos diferentes. Falta saber se dá para separar esses módulos em programas próprios, cada um com o seu banco, e o que a loja paga em troca.</p>
+
+<Flashcards cards={[
+  { q: "O que é o vizinho barulhento?",
+    a: "Um módulo que consome os recursos que os outros também usam. Às 23:00, Relatórios pega 7 dos 8 vCPU e a página do gato vai de 120 ms para 2,4 s." },
+  { q: "O que é raio de explosão?",
+    a: "O tamanho do estrago quando algo falha. No monolito é o programa inteiro: o bug do frete derruba vitrine, carrinho e pagamento." },
+  { q: "Quanto custa a Black Friday no monolito?",
+    a: "Com a vitrine a 10×, são 10 cópias do programa × 8 vCPU = 80 vCPU, com Relatórios e Pagamentos copiados sem precisar." },
+  { q: "Por que a consistência é fácil no monolito?",
+    a: "Porque tudo roda numa transação só. Se algo falha, o <code>ROLLBACK</code> desfaz tudo, inclusive o estoque." },
+  { q: "Quando o monolito é uma boa escolha?",
+    a: "No começo do produto, com time pequeno e domínio ainda mudando. Os defeitos só pesam quando o programa e os times crescem." },
+]} />
