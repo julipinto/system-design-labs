@@ -33,6 +33,7 @@
 .sdl-content .lesson-n{color:var(--ink-hi)}
 .sdl-content .lesson-done-tag{display:none;color:var(--ok)}
 .sdl-content .lesson.is-done .lesson-done-tag{display:inline}
+.sdl-content .lesson-done-tag .ico-check{margin-left:.4em}
 
 /* ponte e gancho: a primeira e a última frase que costuram as aulas */
 .sdl-content .ponte{font-size:var(--fs-lead);line-height:1.6;color:var(--ink-hi)}
@@ -187,8 +188,8 @@
 .sdl-content .pg-seg{height:5px;border-radius:1px;background:var(--line-strong);opacity:.55;transition:height var(--dur-2) var(--ease-out),background var(--dur-2)}
 .sdl-content .pg-seg.done{background:var(--ok);opacity:1}
 .sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill);opacity:1;box-shadow:var(--glow)}
-.sdl-content .pg-seg.cur.done{background:var(--accent-fill)}
-.sdl-content .pg-seg.major{height:8px}
+.sdl-content .pg-seg.cur.done{background:var(--ok);box-shadow:0 0 0 1.5px var(--bg),0 0 0 3px var(--accent-fill)}
+.sdl-content .pg-seg.major{height:9px;opacity:.9}
 .sdl-content .pg-seg.cur{height:12px}
 /* o momento da aula: o traço vira verde com um brilho que assenta */
 .sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
