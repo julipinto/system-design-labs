@@ -48,7 +48,7 @@ const src = withBase(path);
   .f3d-wrap:focus-within,.f3d-wrap:hover{--tick:var(--accent-fill)}
   .f3d-frame,.f3d-poster{display:block;width:100%;border:var(--hair) solid var(--line);border-radius:var(--r-2);background:var(--plate);transition:border-color var(--dur-2),box-shadow var(--dur-3) var(--ease-out)}
   .f3d-frame{height:min(760px,86vh)}
-  .f3d-wrap:focus-within .f3d-frame{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 40px -12px rgba(255,157,60,.6)}
+  .f3d-wrap:focus-within .f3d-frame{border-color:var(--accent-ink);box-shadow:0 0 0 1px var(--accent-ink),0 0 40px -12px rgba(255,157,60,.6)}
   .f3d-poster{position:relative;overflow:hidden;text-decoration:none}
   .f3d-poster img{display:block;width:100%;height:auto}
   .f3d-poster:focus-visible{outline:2px solid var(--accent-fill);outline-offset:3px}
@@ -61,6 +61,6 @@ const src = withBase(path);
   .f3d-hint{flex:1 1 280px;min-width:0;font-weight:400;letter-spacing:0}
   .f3d-full{display:inline-flex;align-items:center;gap:6px;min-height:40px;color:var(--ink-hi);text-decoration:none;letter-spacing:.04em}
   .f3d-full i{width:8px;height:8px;border-top:var(--stroke) solid currentColor;border-right:var(--stroke) solid currentColor}
-  .f3d-full:hover{color:var(--accent)}
+  .f3d-full:hover{color:var(--accent-ink)}
   @media (max-width:719px){.f3d-hint,.f3d-full{display:none}}
 </style>

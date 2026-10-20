@@ -1,7 +1,7 @@
 /* Topo, título e rodapé das páginas de módulo (ModuleLayout) */
 .sdl-top{max-width:var(--page);margin:0 auto;padding:18px var(--gutter) 0;display:flex;justify-content:space-between;align-items:center;gap:var(--s-3)}
 .sdl-brand{display:inline-flex;align-items:center;gap:10px;min-height:40px;font:700 13px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-hi);text-decoration:none}
-.sdl-brand:hover{color:var(--accent)}
+.sdl-brand:hover{color:var(--accent-ink)}
 .sdl-top .label{text-align:right}
 .sdl-hero{max-width:var(--page);margin:0 auto;padding:var(--s-6) var(--gutter) var(--s-5)}
 .sdl-hero h1{margin:0 0 var(--s-3);font-size:var(--fs-h1);font-weight:800;line-height:1.04;letter-spacing:-.028em;max-width:18ch}

@@ -2,8 +2,8 @@
 .lesson .gl-term{all:unset;box-sizing:border-box;cursor:pointer;color:inherit;font:inherit;
   text-decoration:underline dotted;text-decoration-color:var(--line-strong);text-decoration-thickness:1.5px;text-underline-offset:.24em;
   border-radius:2px;-webkit-tap-highlight-color:transparent;transition:color var(--dur-1),text-decoration-color var(--dur-1)}
-.lesson .gl-term:hover,.lesson .gl-term[aria-expanded="true"]{color:var(--accent);text-decoration-color:var(--accent-fill);text-decoration-style:solid}
-.lesson .gl-term:focus-visible{color:var(--accent);outline:2px solid var(--accent-fill);outline-offset:2px}
+.lesson .gl-term:hover,.lesson .gl-term[aria-expanded="true"]{color:var(--accent-ink);text-decoration-color:var(--accent-fill);text-decoration-style:solid}
+.lesson .gl-term:focus-visible{color:var(--accent-ink);outline:2px solid var(--accent-fill);outline-offset:2px}
 
 /* a ficha: painel de traço fino com o nome aceso */
 .gl-card{position:absolute;z-index:60;width:min(340px,calc(100vw - 16px));background:var(--surface);color:var(--ink);
@@ -21,10 +21,10 @@
 .gl-meta:empty{display:none}
 .gl-layer{border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:2px 9px;color:var(--ink)}
 .gl-seen a{color:var(--ink-hi);font-weight:700;text-decoration-color:var(--accent-fill);text-underline-offset:.22em;padding:6px 0;display:inline-block}
-.gl-seen a:hover{color:var(--accent)}
+.gl-seen a:hover{color:var(--accent-ink)}
 .gl-close{margin-top:var(--s-2);font:650 14px var(--sans);color:var(--ink-hi);background:var(--bg);border:var(--hair) solid var(--line-strong);
   border-radius:var(--r-2);padding:var(--s-2) 14px;min-height:40px;cursor:pointer}
-.gl-close:hover{border-color:var(--accent)}
+.gl-close:hover{border-color:var(--accent-ink)}
 .gl-close:focus-visible,.gl-seen a:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
 
 /* celular: gaveta fixa embaixo da tela, com área de toque grande */
@@ -46,7 +46,7 @@
 .gl-all summary::-webkit-details-marker{display:none}
 .gl-all summary::before{content:"";flex:none;width:22px;height:22px;border:var(--hair) solid var(--line-strong);border-radius:50%;
   background:linear-gradient(var(--ink-hi),var(--ink-hi)) center/10px 1.5px no-repeat,linear-gradient(var(--ink-hi),var(--ink-hi)) center/1.5px 10px no-repeat}
-.gl-all[open] summary::before{background:linear-gradient(var(--accent),var(--accent)) center/10px 1.5px no-repeat;border-color:var(--accent)}
+.gl-all[open] summary::before{background:linear-gradient(var(--accent-ink),var(--accent-ink)) center/10px 1.5px no-repeat;border-color:var(--accent-ink)}
 .gl-all summary:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px;border-radius:var(--r-2)}
 .gl-all-hint{margin:0 0 var(--s-1);color:var(--muted);font-size:var(--fs-sm)}
 .gl-list{margin:0;padding:0 0 var(--s-2);display:grid;grid-template-columns:1fr}

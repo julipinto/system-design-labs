@@ -20,7 +20,8 @@
   --ink-hi:#f0f2f4;      /* títulos */
   --muted:#8f98a3;       /* texto de apoio */
   --faint:#7f8791;       /* rótulo menor, ainda legível */
-  --accent:#ff9d3c;      /* sódio: texto e traço do que está ativo */
+  --accent-ink:#ff9d3c;  /* sódio: texto e traço do que está ativo */
+  --accent:#ff9d3c;      /* apelido antigo; a figura 3D embutida reescreve este no <html>, por isso o design usa --accent-ink */
   --accent-fill:#ff9d3c; /* sódio: preenchimento de botão principal */
   --on-accent:#1a1004;   /* texto sobre o sódio */
   --accent-wash:rgba(255,157,60,.10);
@@ -29,7 +30,7 @@
   --bad:#ff7a66;
   --warn:#ffb02e;
   --glow:0 0 12px rgba(255,157,60,.55);              /* ponto aceso */
-  --glow-ring:0 0 0 1px var(--accent) inset,0 0 22px -8px rgba(255,157,60,.7); /* moldura acesa */
+  --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 22px -8px rgba(255,157,60,.7); /* moldura acesa */
   --shadow-pop:0 14px 32px -8px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.35);
   --plate:#121314;       /* fundo da prancha da figura (as prévias são escuras nos dois temas) */
 
@@ -76,20 +77,20 @@
   color-scheme:light;
   --bg:#edeeee;--surface:#f8f8f7;--sunken:#e2e3e3;--line:#d3d6d8;--line-strong:#7d848a;
   --ink:#23272b;--ink-hi:#111315;--muted:#535a61;--faint:#61686e;
-  --accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
+  --accent-ink:#a34a00;--accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
   --signal:#1c5f80;--ok:#1b7343;--bad:#b3261e;--warn:#7a4a00;
   --glow:0 0 10px rgba(255,140,30,.65);
-  --glow-ring:0 0 0 1px var(--accent) inset,0 0 18px -8px rgba(255,140,30,.55);
+  --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 18px -8px rgba(255,140,30,.55);
   --shadow-pop:0 14px 32px -10px rgba(30,34,38,.28),0 2px 6px rgba(30,34,38,.12);
 }}
 :root[data-theme="light"]{
   color-scheme:light;
   --bg:#edeeee;--surface:#f8f8f7;--sunken:#e2e3e3;--line:#d3d6d8;--line-strong:#7d848a;
   --ink:#23272b;--ink-hi:#111315;--muted:#535a61;--faint:#61686e;
-  --accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
+  --accent-ink:#a34a00;--accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
   --signal:#1c5f80;--ok:#1b7343;--bad:#b3261e;--warn:#7a4a00;
   --glow:0 0 10px rgba(255,140,30,.65);
-  --glow-ring:0 0 0 1px var(--accent) inset,0 0 18px -8px rgba(255,140,30,.55);
+  --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 18px -8px rgba(255,140,30,.55);
   --shadow-pop:0 14px 32px -10px rgba(30,34,38,.28),0 2px 6px rgba(30,34,38,.12);
 }
 
@@ -100,7 +101,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-body)/var(--lh
 ::selection{background:rgba(255,157,60,.32);color:var(--ink-hi)}
 h1,h2,h3,h4{color:var(--ink-hi);text-wrap:balance}
 a{color:var(--ink-hi);text-decoration-color:var(--accent-fill);text-decoration-thickness:1.5px;text-underline-offset:.22em}
-a:hover{color:var(--accent)}
+a:hover{color:var(--accent-ink)}
 code,kbd,samp,pre{font-family:var(--mono);font-size:.9em}
 :focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;scroll-behavior:auto!important}}
