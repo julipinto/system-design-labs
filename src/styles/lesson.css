@@ -75,7 +75,7 @@
 .sdl-content details.deep>summary::-webkit-details-marker{display:none}
 .sdl-content details.deep>summary::before{content:"";flex:none;width:22px;height:22px;border:var(--hair) solid var(--line-strong);border-radius:50%;
   background:linear-gradient(var(--ink-hi),var(--ink-hi)) center/10px 1.5px no-repeat,linear-gradient(var(--ink-hi),var(--ink-hi)) center/1.5px 10px no-repeat;transition:transform var(--dur-2) var(--ease-out)}
-.sdl-content details.deep[open]>summary::before{background:linear-gradient(var(--accent-ink),var(--accent-ink)) center/10px 1.5px no-repeat;border-color:var(--accent-ink);box-shadow:var(--glow-ring)}
+.sdl-content details.deep[open]>summary::before{background:linear-gradient(var(--accent-ink),var(--accent-ink)) center/10px 1.5px no-repeat;border-color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content details.deep>summary:hover::before{border-color:var(--accent-ink)}
 .sdl-content details.deep>summary:focus-visible{border-radius:var(--r-2)}
 .sdl-content details.deep>summary+*{margin-top:var(--s-2)}

@@ -1,0 +1,754 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T11:10:58.151Z",
+  "title": "Design System: SDLabs",
+  "extensions": {
+    "colorMeta": {
+      "sodium": {
+        "role": "primary",
+        "displayName": "Sódio",
+        "canonical": "#ff9d3c",
+        "oklch": "oklch(78.1% 0.158 60.9)",
+        "tonalRamp": [
+          "#160700",
+          "#381c00",
+          "#5f3300",
+          "#894c04",
+          "#ba6906",
+          "#ea8a21",
+          "#ffba7f",
+          "#feeadb"
+        ]
+      },
+      "sodium-ink-light": {
+        "role": "primary",
+        "displayName": "Sódio de texto (claro)",
+        "canonical": "#a34a00",
+        "oklch": "oklch(51.5% 0.137 49.7)",
+        "tonalRamp": [
+          "#180500",
+          "#3d1800",
+          "#672d02",
+          "#944301",
+          "#bf6429",
+          "#e88951",
+          "#ffb892",
+          "#feeadf"
+        ]
+      },
+      "on-sodium": {
+        "role": "primary",
+        "displayName": "Tinta sobre sódio",
+        "canonical": "#1a1004",
+        "oklch": "oklch(18.3% 0.029 72.7)",
+        "tonalRamp": [
+          "#120901",
+          "#2d2214",
+          "#493e2f",
+          "#685b4c",
+          "#8b7e6e",
+          "#b0a291",
+          "#d7c8b6",
+          "#fbecda"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Sinal",
+        "canonical": "#7dbbd9",
+        "oklch": "oklch(76.1% 0.077 229.9)",
+        "tonalRamp": [
+          "#000d16",
+          "#012838",
+          "#02465f",
+          "#266581",
+          "#4c89a5",
+          "#70aecc",
+          "#96d5f3",
+          "#dcf3fe"
+        ]
+      },
+      "signal-light": {
+        "role": "secondary",
+        "displayName": "Sinal (claro)",
+        "canonical": "#1c5f80",
+        "oklch": "oklch(46.0% 0.084 234.7)",
+        "tonalRamp": [
+          "#000d17",
+          "#01283a",
+          "#004563",
+          "#236586",
+          "#4988ab",
+          "#6eadd2",
+          "#93d4fa",
+          "#def2fe"
+        ]
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Certo",
+        "canonical": "#4fd68f",
+        "oklch": "oklch(78.5% 0.156 156.7)",
+        "tonalRamp": [
+          "#000f05",
+          "#002d17",
+          "#014d2c",
+          "#037042",
+          "#08985c",
+          "#34c17b",
+          "#64e8a0",
+          "#c4ffd9"
+        ]
+      },
+      "ok-light": {
+        "role": "tertiary",
+        "displayName": "Certo (claro)",
+        "canonical": "#1b7343",
+        "oklch": "oklch(49.3% 0.112 154.3)",
+        "tonalRamp": [
+          "#001005",
+          "#002d15",
+          "#024d28",
+          "#156f40",
+          "#419361",
+          "#68b985",
+          "#8ee0aa",
+          "#c5ffd7"
+        ]
+      },
+      "bad": {
+        "role": "tertiary",
+        "displayName": "Errado",
+        "canonical": "#ff7a66",
+        "oklch": "oklch(73.1% 0.166 30.3)",
+        "tonalRamp": [
+          "#1f0000",
+          "#4b0200",
+          "#7b0801",
+          "#a72719",
+          "#d1503f",
+          "#fb7663",
+          "#ffb5a8",
+          "#fee9e5"
+        ]
+      },
+      "bad-light": {
+        "role": "tertiary",
+        "displayName": "Errado (claro)",
+        "canonical": "#b3261e",
+        "oklch": "oklch(50.1% 0.178 28.7)",
+        "tonalRamp": [
+          "#1f0000",
+          "#4b0001",
+          "#7c0203",
+          "#ac1d17",
+          "#d64a3d",
+          "#ff7363",
+          "#feb6ab",
+          "#ffe9e5"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Chão grafite",
+        "canonical": "#121314",
+        "oklch": "oklch(18.6% 0.003 248.0)",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#232425",
+          "#3f4041",
+          "#5c5e5f",
+          "#7f8082",
+          "#a3a5a6",
+          "#c9cbcc",
+          "#edeff0"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Painel",
+        "canonical": "#191b1d",
+        "oklch": "oklch(22.1% 0.005 248.1)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#222426",
+          "#3e4042",
+          "#5b5e60",
+          "#7e8083",
+          "#a2a5a8",
+          "#c8cbce",
+          "#eceff2"
+        ]
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Poço",
+        "canonical": "#0d0e0f",
+        "oklch": "oklch(16.3% 0.003 248.0)",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#232425",
+          "#3f4041",
+          "#5c5e5f",
+          "#7f8082",
+          "#a3a5a6",
+          "#c9cbcc",
+          "#edeff0"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Traço",
+        "canonical": "#2a2d30",
+        "oklch": "oklch(29.5% 0.007 248.1)",
+        "tonalRamp": [
+          "#090b0e",
+          "#212427",
+          "#3d4043",
+          "#5b5e61",
+          "#7d8184",
+          "#a1a5a9",
+          "#c7cbcf",
+          "#ebeff3"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Traço forte",
+        "canonical": "#5b6269",
+        "oklch": "oklch(49.2% 0.014 248.1)",
+        "tonalRamp": [
+          "#070c11",
+          "#1f252b",
+          "#3a4147",
+          "#585e65",
+          "#7a8188",
+          "#9ea6ad",
+          "#c4ccd4",
+          "#e7f0f8"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#d6dbe1",
+        "oklch": "oklch(88.9% 0.010 252.8)",
+        "tonalRamp": [
+          "#080b0f",
+          "#212429",
+          "#3c4045",
+          "#5a5e63",
+          "#7c8186",
+          "#a0a5ab",
+          "#c6cbd1",
+          "#eaeff5"
+        ]
+      },
+      "ink-hi": {
+        "role": "neutral",
+        "displayName": "Tinta alta",
+        "canonical": "#f0f2f4",
+        "oklch": "oklch(96.0% 0.003 247.9)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4041",
+          "#5c5e5f",
+          "#7f8082",
+          "#a3a5a7",
+          "#c9cbcd",
+          "#edeff1"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Apoio",
+        "canonical": "#8f98a3",
+        "oklch": "oklch(67.6% 0.019 253.4)",
+        "tonalRamp": [
+          "#060c13",
+          "#1e252d",
+          "#39414a",
+          "#565e69",
+          "#78818c",
+          "#9ca6b1",
+          "#c2ccd7",
+          "#e6f0fc"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Fraco",
+        "canonical": "#7f8791",
+        "oklch": "oklch(62.0% 0.018 254.0)",
+        "tonalRamp": [
+          "#060c13",
+          "#1e252d",
+          "#394049",
+          "#575e68",
+          "#79818b",
+          "#9da5b0",
+          "#c3cbd6",
+          "#e7effb"
+        ]
+      },
+      "plate": {
+        "role": "neutral",
+        "displayName": "Prancha",
+        "canonical": "#121314",
+        "oklch": "oklch(18.6% 0.003 248.0)",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#232425",
+          "#3f4041",
+          "#5c5e5f",
+          "#7f8082",
+          "#a3a5a6",
+          "#c9cbcc",
+          "#edeff0"
+        ]
+      },
+      "bg-light": {
+        "role": "neutral",
+        "displayName": "Cinza-papel frio",
+        "canonical": "#edeeee",
+        "oklch": "oklch(94.8% 0.001 197.1)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#232424",
+          "#3f4040",
+          "#5d5e5e",
+          "#7f8080",
+          "#a4a5a5",
+          "#cacbcb",
+          "#eeefef"
+        ]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Painel (claro)",
+        "canonical": "#f8f8f7",
+        "oklch": "oklch(97.9% 0.001 106.4)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242423",
+          "#40403f",
+          "#5e5e5d",
+          "#80807f",
+          "#a4a4a4",
+          "#cacac9",
+          "#eeeeed"
+        ]
+      },
+      "sunken-light": {
+        "role": "neutral",
+        "displayName": "Poço (claro)",
+        "canonical": "#e2e3e3",
+        "oklch": "oklch(91.5% 0.001 197.1)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#232424",
+          "#3f4040",
+          "#5d5e5e",
+          "#7f8080",
+          "#a4a5a5",
+          "#cacbcb",
+          "#eeefef"
+        ]
+      },
+      "line-light": {
+        "role": "neutral",
+        "displayName": "Traço (claro)",
+        "canonical": "#d3d6d8",
+        "oklch": "oklch(87.4% 0.004 236.5)",
+        "tonalRamp": [
+          "#090b0d",
+          "#222426",
+          "#3e4042",
+          "#5b5e60",
+          "#7e8182",
+          "#a2a5a7",
+          "#c8cbcd",
+          "#eceff1"
+        ]
+      },
+      "line-strong-light": {
+        "role": "neutral",
+        "displayName": "Traço forte (claro)",
+        "canonical": "#7d848a",
+        "oklch": "oklch(60.9% 0.012 243.8)",
+        "tonalRamp": [
+          "#070c10",
+          "#1f252a",
+          "#3a4146",
+          "#585f64",
+          "#7a8187",
+          "#9ea6ac",
+          "#c4ccd2",
+          "#e8f0f6"
+        ]
+      },
+      "ink-light": {
+        "role": "neutral",
+        "displayName": "Tinta (claro)",
+        "canonical": "#23272b",
+        "oklch": "oklch(27.0% 0.009 248.2)",
+        "tonalRamp": [
+          "#080c0f",
+          "#212428",
+          "#3c4045",
+          "#5a5e63",
+          "#7c8186",
+          "#a0a5aa",
+          "#c6cbd0",
+          "#eaeff5"
+        ]
+      },
+      "ink-hi-light": {
+        "role": "neutral",
+        "displayName": "Tinta alta (claro)",
+        "canonical": "#111315",
+        "oklch": "oklch(18.5% 0.005 248.1)",
+        "tonalRamp": [
+          "#090b0d",
+          "#222426",
+          "#3e4042",
+          "#5b5e60",
+          "#7e8083",
+          "#a2a5a8",
+          "#c8cbce",
+          "#eceff2"
+        ]
+      },
+      "muted-light": {
+        "role": "neutral",
+        "displayName": "Apoio (claro)",
+        "canonical": "#535a61",
+        "oklch": "oklch(46.4% 0.014 248.1)",
+        "tonalRamp": [
+          "#070c11",
+          "#1f252b",
+          "#3a4147",
+          "#575e66",
+          "#7a8189",
+          "#9ea6ad",
+          "#c3ccd4",
+          "#e7f0f8"
+        ]
+      },
+      "faint-light": {
+        "role": "neutral",
+        "displayName": "Fraco (claro)",
+        "canonical": "#5a6167",
+        "oklch": "oklch(48.9% 0.013 243.8)",
+        "tonalRamp": [
+          "#070c10",
+          "#1f252a",
+          "#3a4146",
+          "#585f65",
+          "#7a8188",
+          "#9ea6ac",
+          "#c4ccd3",
+          "#e7f0f7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Só o \"SDLabs\" da home."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Nome do módulo no topo; 28px abaixo de 480px."
+      },
+      "title": {
+        "displayName": "Título da aula",
+        "purpose": "h2 de cada aula, seguido da régua com traço aceso de 48px."
+      },
+      "title-section": {
+        "displayName": "Título de seção",
+        "purpose": "h3 das seções da aula; 48px acima, 12px abaixo."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Frase-ponte, \"Em uma frase\" (600), texto do \"Faça agora\"."
+      },
+      "body": {
+        "displayName": "Corpo",
+        "purpose": "Texto corrido em coluna de 46rem."
+      },
+      "body-sm": {
+        "displayName": "Corpo pequeno",
+        "purpose": "Dicas de widget, fontes, notas."
+      },
+      "label": {
+        "displayName": "Rótulo mono",
+        "purpose": "Caixa alta: \"Aula N de T\", nome de componente, título de widget."
+      },
+      "data": {
+        "displayName": "Dado mono",
+        "purpose": "Números de passo, contadores, saídas, SQL; algarismos tabulares."
+      }
+    },
+    "shadows": [
+      {
+        "name": "glow",
+        "value": "0 0 12px rgba(255,157,60,.55)",
+        "light": "0 0 10px rgba(255,140,30,.65)",
+        "purpose": "Ponto aceso: .lit, segmento atual da régua, hover do botão principal."
+      },
+      {
+        "name": "ring",
+        "value": "0 0 0 1px var(--accent-ink) inset",
+        "purpose": "Selecionado: contorno de 1px sem halo (chip, passo, opção do quiz, status aberto)."
+      },
+      {
+        "name": "glow-ring",
+        "value": "0 0 0 1px var(--accent-ink) inset, 0 0 22px -8px rgba(255,157,60,.7)",
+        "light": "0 0 0 1px var(--accent-ink) inset, 0 0 18px -8px rgba(255,140,30,.55)",
+        "purpose": "Aceso: só o \"Faça agora\" e a figura em foco."
+      },
+      {
+        "name": "shadow-pop",
+        "value": "0 14px 32px -8px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.35)",
+        "light": "0 14px 32px -10px rgba(30,34,38,.28), 0 2px 6px rgba(30,34,38,.12)",
+        "purpose": "Flutuante: painel do índice e ficha do glossário."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "Entradas e mudanças de estado (caret, régua, ficha)."
+      },
+      {
+        "name": "ease-io",
+        "value": "cubic-bezier(.65,0,.35,1)",
+        "purpose": "Pulso do ponto do \"Faça agora\"."
+      },
+      {
+        "name": "dur-1",
+        "value": "120ms",
+        "purpose": "Borda e cor no hover."
+      },
+      {
+        "name": "dur-2",
+        "value": "200ms",
+        "purpose": "Sombras, pontos, caret, segmentos."
+      },
+      {
+        "name": "dur-3",
+        "value": "320ms",
+        "purpose": "Barras de dados, entrada da resposta do quiz."
+      },
+      {
+        "name": "pulse",
+        "value": "sdl-pulse 2.4s ease-io infinite",
+        "purpose": "Ponto do \"Faça agora\"; desligado com prefers-reduced-motion."
+      },
+      {
+        "name": "settle",
+        "value": "sdl-settle 900ms ease-out",
+        "purpose": "Segmento da régua passando de sódio a verde ao marcar \"Entendi\"."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-top",
+        "value": "480px",
+        "note": "max-width: topo do módulo compacto"
+      },
+      {
+        "name": "compact-bar",
+        "value": "560px",
+        "note": "max-width: barra de estado mais baixa"
+      },
+      {
+        "name": "glossary-drawer",
+        "value": "640px",
+        "note": "abaixo: ficha vira gaveta"
+      },
+      {
+        "name": "figure-iframe",
+        "value": "720px",
+        "note": "a partir: figura 3D em iframe"
+      },
+      {
+        "name": "home-preview",
+        "value": "760px",
+        "note": "a partir: prévia da figura na home"
+      },
+      {
+        "name": "glossary-2col",
+        "value": "900px",
+        "note": "a partir: glossário em duas colunas"
+      }
+    ],
+    "layout": {
+      "page": "960px",
+      "measure": "46rem",
+      "gutter": "16px",
+      "tap": "48px",
+      "controlMin": "44px",
+      "hair": "1px",
+      "stroke": "1.5px"
+    },
+    "themes": {
+      "default": "dark",
+      "switch": "prefers-color-scheme; data-theme=\"light|dark\" no <html> força",
+      "lightSuffix": "-light"
+    }
+  },
+  "components": [
+    {
+      "name": "Botão principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal: Entendi, abrir a figura, começar o quiz. Preenchido em sódio; o hover acende.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Entendi esta aula</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:650 15px/1.2 var(--sans);color:var(--ink-hi);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:8px 14px;min-height:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1),box-shadow var(--dur-2)} .ds-btn-primary{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill)} .ds-btn-primary:hover{box-shadow:var(--glow)} .ds-btn:active{transform:translateY(1px)} .ds-btn:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}"
+    },
+    {
+      "name": "Botão",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Controle padrão de widget e navegação: painel com traço forte; borda acende no hover; pressionado ganha --ring.",
+      "html": "<button class=\"ds-btn\">Próximo passo<i class=\"ds-ico-next\"></i></button> <button class=\"ds-btn\" aria-pressed=\"true\">Lena</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:650 15px/1.2 var(--sans);color:var(--ink-hi);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:8px 14px;min-height:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1),box-shadow var(--dur-2)} .ds-btn:hover{border-color:var(--accent-ink)} .ds-btn:active{transform:translateY(1px)} .ds-btn:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px} .ds-btn[aria-pressed=\"true\"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)} .ds-ico-next{display:inline-block;width:.5em;height:.5em;border-top:.12em solid currentColor;border-right:.12em solid currentColor;transform:rotate(45deg);margin-left:.1em}"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Escolha entre opções num widget. Mono em pílula; selecionado fica sódio com contorno de 1px, sem brilho.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\" aria-pressed=\"true\">RAID 1</button><button class=\"ds-chip\" aria-pressed=\"false\">RAID 5</button><button class=\"ds-chip\" aria-pressed=\"false\">RAID 10</button></div>",
+      "css": ".ds-chips{display:flex;flex-wrap:wrap;gap:8px} .ds-chip{font:600 13px/1.2 var(--mono);color:var(--ink);background:var(--bg);border:1px solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)} .ds-chip:hover{border-color:var(--accent-ink)} .ds-chip:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px} .ds-chip[aria-pressed=\"true\"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}"
+    },
+    {
+      "name": "Campo",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Entrada de widget: mono num poço, traço forte; inválido fica vermelho.",
+      "html": "<label class=\"ds-field\">Endereço IP<input type=\"text\" value=\"192.168.0.42\"></label>",
+      "css": ".ds-field{display:grid;gap:4px;font:14.5px var(--sans);color:var(--ink)} .ds-field input{font:16px var(--mono);color:var(--ink-hi);background:var(--sunken);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:8px 12px;min-height:44px;width:100%;max-width:260px} .ds-field input:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px} .ds-field input[aria-invalid=\"true\"]{border-color:var(--bad)}"
+    },
+    {
+      "name": "Barra de estado e régua",
+      "kind": "nav",
+      "refersTo": "progress-status",
+      "description": "Barra fixa do módulo: anterior, aula atual, próxima, quiz; régua com um traço por aula (atual aceso, entendidas verdes).",
+      "html": "<div class=\"ds-bar\"><div class=\"ds-row\"><button class=\"ds-step\" aria-label=\"Aula anterior\"></button><button class=\"ds-status\"><span>10/13 · Cache distribuído</span><i class=\"ds-caret\"></i></button><button class=\"ds-step ds-next\" aria-label=\"Próxima aula\"></button><a class=\"ds-quiz\" href=\"#\">Quiz</a></div><div class=\"ds-meter\"><div class=\"ds-track\"><i class=\"done\"></i><i class=\"done\"></i><i class=\"done\"></i><i class=\"done major\"></i><i class=\"done\"></i><i class=\"done\"></i><i class=\"done\"></i><i class=\"done major\"></i><i class=\"done\"></i><i class=\"cur\"></i><i></i><i class=\"major\"></i><i></i></div><span class=\"ds-count\">9/13</span></div></div>",
+      "css": ".ds-bar{background:var(--bg);border-bottom:1px solid var(--line);padding:10px 16px} .ds-row{display:flex;gap:8px;align-items:stretch} .ds-status{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;font:650 15px/1.35 var(--sans);color:var(--ink-hi);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:8px 12px;min-height:48px;cursor:pointer;text-align:left;transition:border-color var(--dur-1)} .ds-status span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-status:hover{border-color:var(--line-strong)} .ds-status:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px} .ds-caret{flex:none;width:9px;height:9px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-3px) rotate(45deg)} .ds-step{flex:none;display:grid;place-items:center;width:48px;min-height:48px;color:var(--ink-hi);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);cursor:pointer} .ds-step:hover{border-color:var(--accent-ink)} .ds-step::before{content:\"\";width:9px;height:9px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateX(2px) rotate(45deg)} .ds-next::before{transform:translateX(-2px) rotate(-135deg)} .ds-quiz{flex:none;display:grid;place-items:center;min-width:60px;min-height:48px;padding:0 12px;border-radius:var(--r-2);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-hi);font:700 13px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;text-decoration:none} .ds-quiz:hover{border-color:var(--accent-ink);color:var(--accent-ink)} .ds-meter{display:flex;align-items:center;gap:12px;margin-top:10px} .ds-track{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:12px} .ds-track i{height:5px;border-radius:1px;background:var(--line-strong);opacity:.55} .ds-track i.major{height:9px;opacity:.9} .ds-track i.done{background:var(--ok);opacity:1} .ds-track i.cur{height:12px;background:var(--accent-fill);opacity:1;box-shadow:var(--glow)} .ds-count{font:700 13px/1 var(--mono);color:var(--ok);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Faça agora",
+      "kind": "card",
+      "refersTo": "doit",
+      "description": "A única caixa acesa da aula: contorno sódio com halo (--glow-ring), lavagem de sódio, ponto pulsando.",
+      "html": "<div class=\"ds-doit\"><h3>Faça agora</h3><p>Clique em \"Próximo passo\" até o pedido da Lena chegar ao servidor da loja.</p></div>",
+      "css": ".ds-doit{border:1px solid var(--accent-ink);border-radius:var(--r-3);padding:16px;background:linear-gradient(var(--accent-wash),var(--accent-wash)),var(--surface);box-shadow:var(--glow-ring);max-width:46rem} .ds-doit h3{display:flex;align-items:center;gap:8px;font:700 12.5px/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent-ink);margin:0 0 8px} .ds-doit h3::before{content:\"\";width:7px;height:7px;border-radius:50%;background:var(--accent-fill);box-shadow:var(--glow);animation:ds-pulse 2.4s var(--ease-io) infinite} .ds-doit p{margin:0;font:19px/1.55 var(--sans);color:var(--ink-hi)} @keyframes ds-pulse{0%,100%{opacity:1}50%{opacity:.45}} @media (prefers-reduced-motion:reduce){.ds-doit h3::before{animation:none}}"
+    },
+    {
+      "name": "Em uma frase",
+      "kind": "custom",
+      "refersTo": "lead",
+      "description": "A frase para guardar: sem caixa, entre duas réguas de traço forte, rótulo mono aceso.",
+      "html": "<p class=\"ds-oneliner\"><strong>Em uma frase</strong>O cache guarda a resposta perto de quem pergunta, para o produto 42 não ir ao banco toda vez.</p>",
+      "css": ".ds-oneliner{margin:0;padding:16px 0;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);font:600 19px/1.55 var(--sans);color:var(--ink-hi);max-width:46rem} .ds-oneliner strong{display:flex;align-items:center;gap:8px;margin-bottom:6px;font:700 12.5px/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent-ink)} .ds-oneliner strong::before{content:\"\";width:7px;height:7px;border-radius:50%;background:var(--accent-fill);box-shadow:var(--glow)}"
+    },
+    {
+      "name": "Prancha do widget",
+      "kind": "custom",
+      "refersTo": "widget",
+      "description": "Moldura de simulador ou calculadora: traço fino, marcas de registro nos cantos; cantos e ponto acendem com o foco dentro.",
+      "html": "<div class=\"ds-widget\"><p class=\"ds-wt\">Simulador de cache</p><p class=\"ds-wh\">Peça o produto 42 duas vezes e veja a segunda resposta sair do cache.</p><button class=\"ds-wb\">GET produto:42</button></div>",
+      "css": ".ds-widget{--tick:var(--line-strong);position:relative;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-1);padding:24px 16px 16px;background-image:linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick));background-size:12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px;background-position:0 0,0 0,100% 0,100% 0,0 100%,0 100%,100% 100%,100% 100%;background-repeat:no-repeat;transition:border-color var(--dur-2)} .ds-widget:focus-within,.ds-widget:hover{--tick:var(--accent-fill);border-color:color-mix(in srgb,var(--accent-ink) 45%,var(--line))} .ds-wt{display:flex;align-items:center;gap:8px;font:700 12.5px/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-hi);margin:0 0 6px} .ds-wt::before{content:\"\";width:7px;height:7px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-strong);transition:background var(--dur-2),box-shadow var(--dur-2)} .ds-widget:focus-within .ds-wt::before,.ds-widget:hover .ds-wt::before{background:var(--accent-fill);box-shadow:var(--glow)} .ds-wh{color:var(--muted);font:14.5px/1.5 var(--sans);margin:0 0 16px} .ds-wb{font:600 13px/1.2 var(--mono);color:var(--ink-hi);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-2);padding:8px 14px;min-height:44px;cursor:pointer} .ds-wb:hover{border-color:var(--accent-ink)} .ds-wb:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}"
+    },
+    {
+      "name": "Flashcard",
+      "kind": "custom",
+      "refersTo": "flashcard-answer",
+      "description": "Pergunta como linha tocável entre réguas; a aberta acende o ponto e mostra a resposta num poço.",
+      "html": "<ul class=\"ds-fc\"><li><button class=\"ds-fq\" aria-expanded=\"true\">O que é um cache hit?</button><p class=\"ds-fa\">Quando a resposta já está no cache e o banco nem é consultado.</p></li><li><button class=\"ds-fq\" aria-expanded=\"false\">Por que um TTL?</button></li></ul>",
+      "css": ".ds-fc{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);max-width:46rem} .ds-fc li{border-bottom:1px solid var(--line)} .ds-fq{display:flex;width:100%;gap:12px;align-items:flex-start;text-align:left;font:650 17.5px/1.45 var(--sans);color:var(--ink-hi);background:none;border:0;padding:14px 0;min-height:56px;cursor:pointer} .ds-fq::before{content:\"\";flex:none;width:7px;height:7px;margin-top:.62em;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-strong);transition:background var(--dur-2),box-shadow var(--dur-2)} .ds-fq::after{content:\"Ver resposta\";margin-left:auto;flex:none;font:700 11.5px/1.3 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:4px 8px;border:1px solid var(--line-strong);border-radius:var(--r-pill)} .ds-fq:hover::after{color:var(--accent-ink);border-color:var(--accent-ink)} .ds-fq:focus-visible{outline:2px solid var(--accent-fill);outline-offset:-2px;border-radius:var(--r-2)} .ds-fq[aria-expanded=\"true\"]::before{background:var(--accent-fill);box-shadow:var(--glow)} .ds-fq[aria-expanded=\"true\"]::after{content:\"Esconder\";color:var(--accent-ink);border-color:var(--accent-ink)} .ds-fa{margin:0 0 16px 19px;padding:12px 16px;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-2);color:var(--ink);font:17.5px/1.65 var(--sans)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A prancha técnica iluminada",
+    "overview": "O site é a moldura das figuras iso-glow: o mesmo chão grafite, o mesmo traço fino, a mesma tinta fria e uma única cor de sódio que acende só no que está ativo. A aula é um documento calmo, lido de cima para baixo numa coluna estreita. O que está em uso naquele momento (a aula atual na régua, o \"Faça agora\", o flashcard aberto, a figura ou o widget com o foco dentro, a ficha do glossário) acende como as peças acesas das figuras. O resto fica em traço fino e cinza.\n\nA densidade é de manual técnico, não de painel: réguas de 1px separam as seções, caixas só aparecem no que se manipula, rótulos, números e dados vão em mono caixa alta. O tema escuro é o padrão porque é o da cena 3D; o claro troca o grafite por um cinza-papel frio, não creme, e escurece o sódio de texto para manter o contraste.\n\nO sistema recusa os cartões iguais com ícone, o degradê roxo/azul e a mesma fonte sem serifa genérica em tudo.",
+    "keyCharacteristics": [
+      "Uma cor de destaque (sódio), com brilho só no estado ativo.",
+      "Réguas de 1px no lugar de caixas; caixa só para o que se manipula.",
+      "Atkinson Hyperlegible Next no texto, Atkinson Hyperlegible Mono em rótulos, números e dados; as duas servidas pelo próprio site.",
+      "Marcas de registro (cantos de corte) só nas pranchas manipuláveis: figura 3D e widget.",
+      "Celular primeiro: barra fixa de progresso, uma aula por vez, alvos de toque de 44px ou mais.",
+      "Dois temas completos (claro e escuro), seguindo `prefers-color-scheme`; `data-theme` no `<html>` força um deles."
+    ],
+    "rules": [
+      {
+        "name": "A Regra da Uma Luz",
+        "body": "O sódio é a única cor de destaque e só acende no que está ativo agora. Se tudo acende, nada acende: numa aula, a única caixa acesa é o \"Faça agora\".",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra do --accent-ink",
+        "body": "CSS novo usa `--accent-ink` para texto e traço e `--accent-fill` para preenchimento, nunca `var(--accent)`. O modelo das figuras (`tools/iso-glow/gallery-3d.html`) reescreve `--accent` no `<html>` da página que o embute, para seguir o seletor de cor da figura; `--accent` existe só como apelido antigo.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra da Cor de Dado",
+        "body": "Sinal, certo e errado são cores de dado e de veredito, não de decoração. Nenhuma delas substitui o sódio como marca do que está ativo.",
+        "section": "colors"
+      },
+      {
+        "name": "A Regra do Mono para Dado",
+        "body": "Rótulo, número e dado vão em mono; texto corrido e títulos, nunca. Toda coluna de número usa algarismos tabulares.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Título Primeiro",
+        "body": "O título da aula vem antes da linha de estado; \"Aula N de T · ~min\" fica embaixo do título, em mono, nunca como rótulo pequeno em cima dele.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Selecionado e do Aceso",
+        "body": "Selecionado é contorno de 1px sem halo (`--ring`); aceso é contorno mais halo (`--glow-ring`) e fica só no \"Faça agora\" e na figura em foco. Escolher um chip não acende a página.",
+        "section": "elevation"
+      },
+      {
+        "name": "A Regra do Plano por Padrão",
+        "body": "Nada tem sombra em repouso, exceto o que flutua (índice e ficha do glossário).",
+        "section": "elevation"
+      },
+      {
+        "name": "A Regra da Régua em vez de Caixa",
+        "body": "Seções se separam por régua de 1px. Caixa só para o que se manipula ou se lê como peça (widget, figura, \"Faça agora\", chamada, ficha, painel). Nunca caixa dentro de caixa, nunca borda grossa colorida à esquerda.",
+        "section": "shapes"
+      },
+      {
+        "name": "A Regra do Registro",
+        "body": "Marcas de registro (cantos de corte de 12 por 1,5px) aparecem só nas pranchas manipuláveis: a figura 3D e o widget. Ficam em traço forte em repouso e passam a sódio com o foco dentro.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** use `--accent-ink` para texto e traço ativos e `--accent-fill` para preenchimento.",
+      "**Do** reserve `--glow-ring` para o \"Faça agora\" e a figura em foco; para selecionado, use `--ring`.",
+      "**Do** separe seções com régua de 1px (`--line`) e use `--line-strong` em bordas de controle.",
+      "**Do** ponha rótulos, contadores e dados em Atkinson Hyperlegible Mono, caixa alta e 0,09em de entreletra no rótulo, algarismos tabulares nos números.",
+      "**Do** dê aos controles pelo menos 44px de altura e 48px aos da barra fixa.",
+      "**Do** desenhe ícones em traço CSS com `currentColor`.",
+      "**Do** confira os dois temas; o tema claro precisa do sódio de texto escurecido."
+    ],
+    "donts": [
+      "**Don't** use `var(--accent)` em CSS novo: o modelo das figuras reescreve esse valor no `<html>`.",
+      "**Don't** acenda mais de uma caixa por aula, nem use brilho para indicar seleção.",
+      "**Don't** ponha caixa dentro de caixa nem borda grossa colorida à esquerda.",
+      "**Don't** ponha marcas de registro fora da figura 3D e do widget.",
+      "**Don't** use sinal, verde ou vermelho como cor de destaque.",
+      "**Don't** ponha rótulo pequeno em cima do título; a linha \"Aula N de T\" vai embaixo.",
+      "**Don't** use degradê roxo ou azul, nem cartões iguais com ícone em quadradinho sobre o título."
+    ]
+  }
+}
