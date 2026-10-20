@@ -114,8 +114,8 @@
     var live = el('div', { 'aria-live': 'polite', class: 'ib-live' });
     var tl = el('ol', { class: 'ib-tl', 'aria-label': 'Linha do tempo das transações' });
     var verdict = el('div', { class: 'ib-verdict', role: 'status' });
-    var back = el('button', { type: 'button', class: 'btn', text: '← Voltar' });
-    var next = el('button', { type: 'button', class: 'btn primary', text: 'Próximo passo →' });
+    var back = el('button', { type: 'button', class: 'btn' }, [el('i', { class: 'ico ico-prev', 'aria-hidden': 'true' }), 'Voltar']);
+    var next = el('button', { type: 'button', class: 'btn primary' }, ['Próximo passo', el('i', { class: 'ico ico-next', 'aria-hidden': 'true' })]);
     var reset = el('button', { type: 'button', class: 'btn', text: 'Recomeçar' });
     var counter = el('span', { class: 'ib-count' });
 

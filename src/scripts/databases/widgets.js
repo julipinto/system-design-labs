@@ -216,8 +216,8 @@
     var tl = el('ol', { class: 'ib-tl' });
     var verdict = el('div', { class: 'ib-verdict hide' });
     var counter = el('span', { class: 'ib-count' });
-    var back = el('button', { type: 'button', class: 'btn', text: '← Passo anterior' });
-    var next = el('button', { type: 'button', class: 'btn primary', text: 'Próximo passo →' });
+    var back = el('button', { type: 'button', class: 'btn' }, [el('i', { class: 'ico ico-prev', 'aria-hidden': 'true' }), 'Passo anterior']);
+    var next = el('button', { type: 'button', class: 'btn primary' }, ['Próximo passo', el('i', { class: 'ico ico-next', 'aria-hidden': 'true' })]);
     var scale = el('div', { class: 'sr-tablewrap' });
     var scaleNote = el('p', { class: 'sr-note' });
 
