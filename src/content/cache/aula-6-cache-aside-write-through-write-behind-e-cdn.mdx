@@ -55,13 +55,13 @@ if err == redis.Nil { // miss: o cache não tem a chave
 	rdb.Set(ctx, "produto:"+id, valor, 60*time.Second)
 }`}</code></pre>
 
-<p>Há ainda um cache que fica longe do app e perto da Lena. A Lena abre a foto <code>gato.jpg</code> (120 KB) da página, e a origem das fotos fica em São Paulo. Uma CDN guarda cópias em servidores espalhados (os edges), e ela usa o mesmo raciocínio do cache-aside: no 1º acesso o edge de Recife não tem a foto (<code>X-Cache: MISS</code>), busca na origem (~50 ms de ida e volta) e guarda. No 2º acesso responde ele mesmo (<code>X-Cache: HIT</code>), em cerca de <strong>5 ms</strong>, com <code>Age: 12</code>. O TTL aqui vem da origem, no cabeçalho <code>Cache-Control: public, max-age=3600</code>.</p>
+<p>Há ainda um cache que fica longe do app e perto da Lena. A Lena abre a foto <code>gato.jpg</code> (120 KB) da página, e a origem das fotos fica em São Paulo. Uma CDN guarda cópias em servidores espalhados (os edges), e ela usa o mesmo raciocínio do cache-aside: no 1º acesso o edge de Recife não tem a foto (<code>X-Cache: MISS</code>), busca na origem (~50 ms de ida e volta até São Paulo, ~55 ms no total para a Lena) e guarda. No 2º acesso responde ele mesmo (<code>X-Cache: HIT</code>), em cerca de <strong>5 ms</strong>, com <code>Age: 12</code>. O TTL aqui vem da origem, no cabeçalho <code>Cache-Control: public, max-age=3600</code>.</p>
 
 <WhyItMatters>
   <li>Cache-aside é o ponto de partida quando se lê muito mais do que se grava. É simples, e se o cache cair o app vai direto ao banco.</li>
   <li>Write-through serve quando a leitura logo depois da escrita precisa estar fresca. O custo é a escrita mais lenta e o cache cheio de dados que talvez ninguém peça.</li>
   <li>Write-behind serve para o que pode se perder: um contador de visitas, não o preço.</li>
-  <li>A CDN faz com a foto o que o Redis faz com o produto, só que mais perto da Lena. Com 50 ms contra 5 ms, a diferença se vê a olho nu.</li>
+  <li>A CDN faz com a foto o que o Redis faz com o produto, só que mais perto da Lena. Com 55 ms contra 5 ms, a diferença se vê a olho nu.</li>
 </WhyItMatters>
 
 <Deep min={6}>

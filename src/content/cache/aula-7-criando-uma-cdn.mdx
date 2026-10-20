@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p>Na aula passada o edge de Recife guardou o <code>gato.jpg</code> de 120 KB e passou a entregá-lo à Lena em 5 ms, em vez dos 50 ms até São Paulo. Parece mágica de empresa grande, mas o mecanismo cabe em 85 linhas de Go. Vamos ler esse proxy do começo ao fim, porque cada linha dele é uma das ideias deste módulo, e cada linha que falta é uma das coisas que dão errado.</p>
+<p>Na aula passada o edge de Recife guardou o <code>gato.jpg</code> de 120 KB e passou a entregá-lo à Lena em 5 ms, em vez dos ~55 ms de ir até São Paulo. Parece mágica de empresa grande, mas o mecanismo cabe em 85 linhas de Go. Vamos ler esse proxy do começo ao fim, porque cada linha dele é uma das ideias deste módulo, e cada linha que falta é uma das coisas que dão errado.</p>
 
 <OneLiner>Uma CDN, no fundo, é um proxy que transforma cada requisição numa chave, guarda a resposta da origem num arquivo com o nome dessa chave e, no pedido seguinte, lê o arquivo em vez de ir à origem.</OneLiner>
 
