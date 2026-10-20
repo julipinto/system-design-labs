@@ -1,35 +1,5 @@
-/* SDLabs · Storage, RAID e I/O: estilos dos widgets (calculadora de I/O e de RAID). A base fica em lesson.css */
-.sdl-content .sr-ctrls{display:grid;gap:12px 20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));margin-bottom:12px}
-.sdl-content .sr-ctl label{display:flex;justify-content:space-between;gap:8px;margin-bottom:2px}
-.sdl-content .sr-ctl output{font:600 13px var(--mono);color:var(--accent)}
-.sdl-content .sr-ctl input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
-.sdl-content .sr-ctl input[type="number"],.sdl-content .sr-ctl select{font:16px var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px;width:100%}
-.sdl-content .sr-sub{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
-.sdl-content .sr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
-.sdl-content .sr-chips .chip{min-height:44px}
-.sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--card)}
-.sdl-content .sr-bars{display:grid;gap:8px;margin:12px 0}
-.sdl-content .sr-bar{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center;font:12px var(--mono)}
-.sdl-content .sr-track{position:relative;height:26px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.sdl-content .sr-fill{position:absolute;inset:0 auto 0 0;background:var(--faint);min-width:2px}
-.sdl-content .sr-fill.win{background:var(--accent)}
-.sdl-content .sr-fill.cap{background:var(--accent-2)}
-.sdl-content .sr-lbl{position:absolute;right:6px;top:3px;color:var(--fg);white-space:nowrap}
-.sdl-content .sr-verdict{border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px;background:var(--bg)}
-.sdl-content .sr-verdict strong{color:var(--accent)}
-.sdl-content .sr-verdict.bad{border-color:var(--bad)}
-.sdl-content .sr-verdict.bad strong{color:var(--bad)}
-.sdl-content .sr-facts{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));margin:10px 0}
-.sdl-content .sr-fact{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg)}
-.sdl-content .sr-fact small{display:block;font:11px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.sdl-content .sr-fact b{font:600 18px var(--mono);color:var(--fg)}
-.sdl-content .sr-disks{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
-.sdl-content .sr-disk{width:22px;height:30px;border-radius:4px;border:1px solid var(--line);background:var(--accent-2)}
-.sdl-content .sr-disk.red{background:var(--faint)}
-.sdl-content .sr-note{color:var(--muted);font-size:13px;margin:6px 0 0}
-.sdl-content .sr-tablewrap{overflow-x:auto;margin:14px 0;-webkit-overflow-scrolling:touch}
-.sdl-content table.sr-table{border-collapse:collapse;font-size:13px;min-width:640px;width:100%}
-.sdl-content table.sr-table th,.sdl-content table.sr-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-.sdl-content table.sr-table th{background:var(--card);font:600 12px var(--mono);color:var(--accent)}
-
-.sdl-content table.sr-table tbody th{white-space:nowrap}
+/* SDLabs · Storage, RAID e I/O: o que só este módulo usa. Controles, barras e tabela vêm de widgets.css */
+.sdl-content .sr-disks{display:flex;flex-wrap:wrap;gap:4px;margin:var(--s-2) 0}
+.sdl-content .sr-disk{width:22px;height:30px;border-radius:var(--r-1);border:var(--hair) solid var(--signal);background:color-mix(in srgb,var(--signal) 70%,transparent)}
+.sdl-content .sr-disk.red{background:transparent;border-color:var(--line-strong);border-style:dashed}
+.sdl-content table.sr-table{min-width:640px}

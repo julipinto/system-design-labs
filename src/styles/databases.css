@@ -1,55 +1,14 @@
-/* SDLabs · Databases: estilos dos widgets (calculadora de página, LSM, B-Tree, escolhedor). A base fica em lesson.css */
-.sdl-content .sr-sub{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
-.sdl-content .sr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
-.sdl-content .sr-chips .chip{min-height:44px}
-.sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--card)}
-.sdl-content .sr-note{color:var(--muted);font-size:13px;margin:6px 0 0}
-.sdl-content .ib-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
-.sdl-content .ib-ctrl .btn{min-height:44px}
-.sdl-content .ib-ctrl .btn:disabled{opacity:.4;cursor:default}
-.sdl-content .ib-count{font:600 13px var(--mono);color:var(--muted);margin-left:auto}
-.sdl-content .ib-tl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.sdl-content .ib-step{border:1px solid var(--line);border-left:4px solid var(--faint);border-radius:10px;padding:10px 12px;background:var(--bg);min-width:0}
-.sdl-content .ib-step.now{border-color:var(--accent-2);border-left-color:var(--accent-2)}
-.sdl-content .ib-step.flag{border-color:var(--bad);border-left-color:var(--bad)}
-.sdl-content .ib-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-.sdl-content .ib-who{font:700 13px var(--mono);padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--bg);background:var(--accent-2)}
-.sdl-content .ib-who.t2{background:var(--accent)}
-.sdl-content .ib-n{font:12px var(--mono);color:var(--muted)}
-.sdl-content .ib-sql{margin:0 0 6px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow-x:auto;font:12.5px/1.5 var(--mono);white-space:pre}
-.sdl-content .ib-sql code{font:inherit;background:none;padding:0}
-.sdl-content .ib-out{margin:0 0 4px;font-size:15px;line-height:1.5}
-.sdl-content .ib-step.flag .ib-out{color:var(--bad);font-weight:600}
-.sdl-content .ib-db{margin:0;font:600 13px var(--mono);color:var(--accent)}
-.sdl-content .ib-verdict{border:1px solid var(--ok);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px;background:var(--bg)}
-.sdl-content .ib-verdict.bad{border-color:var(--bad)}
-.sdl-content .ib-verdict.ok strong{color:var(--ok)}
-.sdl-content .ib-verdict.bad strong{color:var(--bad)}
-.sdl-content .ib-verdict.hide{display:none}
-.sdl-content table.ib-matrix{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
-.sdl-content table.ib-matrix caption{caption-side:bottom;text-align:left;padding-top:6px}
-.sdl-content table.ib-matrix th,.sdl-content table.ib-matrix td{border:1px solid var(--line);padding:2px;text-align:center}
-.sdl-content table.ib-matrix thead th{background:var(--card);font:600 11px var(--mono);color:var(--accent);padding:6px 2px}
-.sdl-content table.ib-matrix tbody th{font:700 12px var(--mono);width:44px}
-.sdl-content .ib-cell{width:100%;min-height:44px;border:2px solid transparent;border-radius:6px;font:600 12px var(--mono);cursor:pointer;background:var(--bg)}
-.sdl-content .ib-cell.yes{color:var(--bad)}
-.sdl-content .ib-cell.no{color:var(--ok)}
-.sdl-content .ib-cell.sel{border-color:var(--accent-2);background:var(--card)}
-.sdl-content .sr-tablewrap{overflow-x:auto;margin:14px 0;-webkit-overflow-scrolling:touch}
-.sdl-content table.sr-table{border-collapse:collapse;font-size:13px;min-width:560px;width:100%}
-.sdl-content table.sr-table th,.sdl-content table.sr-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-.sdl-content table.sr-table th{background:var(--card);font:600 12px var(--mono);color:var(--accent)}
-.sdl-content table.sr-table tbody th{white-space:nowrap}
+/* SDLabs · Databases: estilos dos widgets (calculadora de página, LSM, B-Tree, escolhedor). Peças comuns em widgets.css */
 .sdl-content .pc-out{margin:0 0 6px}
 .sdl-content table.pc-table{min-width:0}
 .sdl-content table.pc-table th{width:38%}
 .sdl-content .ls-msg{margin:0 0 12px;font-size:15px;line-height:1.5;min-height:3em}
 .sdl-content .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 6px}
-.sdl-content .ls-panel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);min-width:0}
-.sdl-content .ls-h{margin:0 0 6px;font:600 12px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.sdl-content .ls-panel{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0}
+.sdl-content .ls-h{margin:0 0 6px;font:700 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-hi)}
 .sdl-content .ls-list{margin:0;padding-left:20px;font:13px/1.6 var(--mono)}
 .sdl-content ul.ls-list{list-style:none;padding-left:0}
 .sdl-content .ls-empty{color:var(--faint);list-style:none;margin:0;font-size:13px}
-.sdl-content .ls-sst{border:1px solid var(--line);border-left:4px solid var(--accent-2);border-radius:8px;padding:6px 10px;margin:0 0 8px;font:13px/1.5 var(--mono);display:grid;gap:2px;overflow-wrap:anywhere}
-.sdl-content .pk-card{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);margin-top:8px}
+.sdl-content .ls-sst{border:var(--hair) solid var(--signal);border-radius:var(--r-2);background:var(--sunken);padding:6px 10px;margin:0 0 8px;font:13px/1.5 var(--mono);display:grid;gap:2px;overflow-wrap:anywhere}
+.sdl-content .pk-card{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:var(--s-3);background:var(--surface);margin-top:var(--s-2)}
 .sdl-content .pk-q{margin:0 0 10px;font-size:16px;line-height:1.5}

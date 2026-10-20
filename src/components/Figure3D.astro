@@ -2,21 +2,25 @@
 // Figura 3D (skill iso-glow) embutida numa aula. A página da figura é gerada no build (npm run build:3d)
 // em public/<path>/. Desktop: iframe que carrega quando a aula aparece. Celular: prévia + botão de tela cheia,
 // para o dedo não ficar preso girando a cena em vez de rolar a página.
+// Moldura: prancha escura nos dois temas (a cena é escura), marcas de registro nos cantos, acende com o foco.
 import { withBase } from '../lib/url.js';
 interface Props { path: string; poster: string; alt: string; title: string; hint?: string; }
 const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo ou setas do teclado para avançar · clique numa peça para ir até ela' } = Astro.props;
 const src = withBase(path);
 ---
-<div class="f3d-wrap" data-src={`${src}${src.includes('?') ? '&' : '?'}embed=1`} data-title={title}>
-  <a class="f3d-poster" href={src}>
-    <img src={withBase(poster)} alt={alt} width="640" height="560" loading="lazy" />
-    <span class="f3d-cta">▶ Abrir a figura 3D</span>
-  </a>
-  <div class="f3d-bar">
-    <span class="f3d-hint">{hint}</span>
-    <a class="btn" href={src}>Abrir em tela cheia ↗</a>
+<figure class="f3d-wrap" data-src={`${src}${src.includes('?') ? '&' : '?'}embed=1`} data-title={title}>
+  <div class="f3d-plate">
+    <a class="f3d-poster" href={src}>
+      <img src={withBase(poster)} alt={alt} width="640" height="560" loading="lazy" />
+      <span class="f3d-cta"><i aria-hidden="true"></i>Abrir a figura 3D</span>
+    </a>
   </div>
-</div>
+  <figcaption class="f3d-bar" data-no-gl>
+    <span class="f3d-tag"><i aria-hidden="true"></i>Figura 3D</span>
+    <span class="f3d-hint">{hint}</span>
+    <a class="f3d-full" href={src}>Abrir em tela cheia<i aria-hidden="true"></i></a>
+  </figcaption>
+</figure>
 <script is:inline>
   (function () {
     const wrap = document.currentScript.previousElementSibling;
@@ -32,11 +36,31 @@ const src = withBase(path);
   })();
 </script>
 <style is:global>
-  .f3d-wrap{max-width:960px;margin:22px 0 30px}
-  .f3d-frame{display:block;width:100%;height:min(760px,86vh);border:1px solid var(--line);border-radius:14px;background:#121314}
-  .f3d-poster{position:relative;display:block;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#121314;text-decoration:none}
+  .f3d-wrap{--tick:var(--line-strong);max-width:var(--page);margin:var(--s-5) 0 var(--s-6);padding:0}
+  .f3d-plate{position:relative}
+  /* marcas de registro nos quatro cantos da prancha */
+  .f3d-plate::before{content:"";position:absolute;inset:-5px;pointer-events:none;z-index:1;
+    background:linear-gradient(var(--tick),var(--tick)) 0 0/12px 1.5px,linear-gradient(var(--tick),var(--tick)) 0 0/1.5px 12px,
+      linear-gradient(var(--tick),var(--tick)) 100% 0/12px 1.5px,linear-gradient(var(--tick),var(--tick)) 100% 0/1.5px 12px,
+      linear-gradient(var(--tick),var(--tick)) 0 100%/12px 1.5px,linear-gradient(var(--tick),var(--tick)) 0 100%/1.5px 12px,
+      linear-gradient(var(--tick),var(--tick)) 100% 100%/12px 1.5px,linear-gradient(var(--tick),var(--tick)) 100% 100%/1.5px 12px;
+    background-repeat:no-repeat;transition:opacity var(--dur-2)}
+  .f3d-wrap:focus-within,.f3d-wrap:hover{--tick:var(--accent-fill)}
+  .f3d-frame,.f3d-poster{display:block;width:100%;border:var(--hair) solid var(--line);border-radius:var(--r-2);background:var(--plate);transition:border-color var(--dur-2),box-shadow var(--dur-3) var(--ease-out)}
+  .f3d-frame{height:min(760px,86vh)}
+  .f3d-wrap:focus-within .f3d-frame{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 40px -12px rgba(255,157,60,.6)}
+  .f3d-poster{position:relative;overflow:hidden;text-decoration:none}
   .f3d-poster img{display:block;width:100%;height:auto}
-  .f3d-cta{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:14px 22px;min-height:48px;border-radius:12px;background:var(--accent);color:#1b1306;font:700 16px/1.2 var(--sans);white-space:nowrap;box-shadow:0 6px 20px #0006}
-  .f3d-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;margin-top:8px;font:12px/1.4 var(--mono);color:var(--muted)}
-  @media (max-width:719px){.f3d-hint{display:none}.f3d-bar .btn{display:none}}
+  .f3d-poster:focus-visible{outline:2px solid var(--accent-fill);outline-offset:3px}
+  .f3d-cta{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:10px;padding:14px 22px;min-height:52px;border-radius:var(--r-2);background:var(--accent-fill);color:var(--on-accent);font:700 16px/1.2 var(--sans);white-space:nowrap;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 0 26px -4px rgba(255,157,60,.75),0 8px 18px rgba(0,0,0,.45)}
+  .f3d-cta i{width:0;height:0;border-left:11px solid currentColor;border-top:7px solid transparent;border-bottom:7px solid transparent}
+  .f3d-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:10px;font:600 var(--fs-label)/1.4 var(--mono);color:var(--muted)}
+  .f3d-tag{display:inline-flex;align-items:center;gap:var(--s-2);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-hi)}
+  .f3d-tag i{width:7px;height:7px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-strong);transition:background var(--dur-2),box-shadow var(--dur-2)}
+  .f3d-wrap:focus-within .f3d-tag i{background:var(--accent-fill);box-shadow:var(--glow)}
+  .f3d-hint{flex:1 1 280px;min-width:0;font-weight:400;letter-spacing:0}
+  .f3d-full{display:inline-flex;align-items:center;gap:6px;min-height:40px;color:var(--ink-hi);text-decoration:none;letter-spacing:.04em}
+  .f3d-full i{width:8px;height:8px;border-top:var(--stroke) solid currentColor;border-right:var(--stroke) solid currentColor}
+  .f3d-full:hover{color:var(--accent)}
+  @media (max-width:719px){.f3d-hint,.f3d-full{display:none}}
 </style>

@@ -1,0 +1,76 @@
+/* SDLabs · peças de widget que mais de um módulo usa (antes copiadas em storage, cap e databases).
+   sr-*: controles, chips, tabela e nota das calculadoras. ib-*: o simulador de transações/isolamento
+   (CAP/ACID e Databases). Cada módulo só acrescenta o que é dele em src/styles/<módulo>.css. */
+
+/* rótulo de grupo, chips de escolha, nota de rodapé */
+.sdl-content .sr-sub{font:700 var(--fs-label)/1.3 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);margin:var(--s-4) 0 6px}
+.sdl-content .sr-chips{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:0 0 10px}
+.sdl-content .sr-chips .chip{min-height:44px}
+.sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--surface);box-shadow:var(--glow-ring)}
+.sdl-content .sr-note{color:var(--muted);font-size:13.5px;margin:6px 0 0}
+
+/* tabela de referência: régua só na horizontal, números alinhados */
+.sdl-content .sr-tablewrap{overflow-x:auto;margin:14px 0;-webkit-overflow-scrolling:touch;max-width:var(--page)}
+.sdl-content table.sr-table{border-collapse:collapse;font-size:13.5px;min-width:560px;width:100%;font-variant-numeric:tabular-nums}
+.sdl-content table.sr-table th,.sdl-content table.sr-table td{border-bottom:var(--hair) solid var(--line);padding:7px 10px 7px 0;text-align:left;vertical-align:top}
+.sdl-content table.sr-table thead th{font:700 11.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:var(--hair) solid var(--line-strong)}
+.sdl-content table.sr-table th{color:var(--ink-hi);font-weight:700}
+.sdl-content table.sr-table tbody th{white-space:nowrap;font-family:var(--mono);font-size:13px}
+
+/* simulador de transações: controles e linha do tempo */
+.sdl-content .ib-ctrl{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;margin:0 0 var(--s-3)}
+.sdl-content .ib-ctrl .btn{min-height:44px}
+.sdl-content .ib-ctrl .btn:disabled{opacity:.4;cursor:default}
+.sdl-content .ib-count{font:700 13px var(--mono);color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
+.sdl-content .ib-tl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+/* cada passo: traço fino; o passo atual acende, o que dá errado fica vermelho */
+.sdl-content .ib-step{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0;transition:border-color var(--dur-2),box-shadow var(--dur-2)}
+.sdl-content .ib-step.now{border-color:var(--accent);box-shadow:var(--glow-ring)}
+.sdl-content .ib-step.flag{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.sdl-content .ib-head{display:flex;justify-content:space-between;align-items:center;gap:var(--s-2);margin-bottom:6px}
+.sdl-content .ib-who{font:700 12.5px var(--mono);padding:2px 10px;border-radius:var(--r-pill);border:var(--hair) solid var(--signal);color:var(--signal);background:transparent}
+.sdl-content .ib-who.t2{border-color:var(--accent);color:var(--accent)}
+.sdl-content .ib-n{font:600 12px var(--mono);color:var(--muted)}
+.sdl-content .ib-sql{margin:0 0 6px;padding:var(--s-2) 10px;background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-2);overflow-x:auto;font:12.5px/1.5 var(--mono);white-space:pre;color:var(--ink-hi)}
+.sdl-content .ib-sql code{font:inherit;background:none;padding:0;border:0}
+.sdl-content .ib-out{margin:0 0 4px;font-size:15px;line-height:1.5}
+.sdl-content .ib-step.flag .ib-out{color:var(--bad);font-weight:700}
+.sdl-content .ib-db{margin:0;font:700 13px var(--mono);color:var(--accent)}
+.sdl-content .ib-verdict{border:var(--hair) solid var(--ok);border-radius:var(--r-2);padding:10px var(--s-3);margin:10px 0;font-size:15px;background:var(--surface)}
+.sdl-content .ib-verdict.bad{border-color:var(--bad)}
+.sdl-content .ib-verdict.ok strong{color:var(--ok)}
+.sdl-content .ib-verdict.bad strong{color:var(--bad)}
+.sdl-content .ib-verdict.hide{display:none}
+
+/* matriz de anomalias x níveis */
+.sdl-content table.ib-matrix{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
+.sdl-content table.ib-matrix caption{caption-side:bottom;text-align:left;padding-top:6px}
+.sdl-content table.ib-matrix th,.sdl-content table.ib-matrix td{border:var(--hair) solid var(--line);padding:2px;text-align:center}
+.sdl-content table.ib-matrix thead th{font:700 11px var(--mono);color:var(--muted);padding:6px 2px}
+.sdl-content table.ib-matrix tbody th{font:700 12px var(--mono);width:44px;color:var(--ink-hi)}
+.sdl-content .ib-cell{width:100%;min-height:44px;border:var(--stroke) solid transparent;border-radius:var(--r-1);font:700 12px var(--mono);cursor:pointer;background:var(--bg);color:var(--ink)}
+.sdl-content .ib-cell.yes{color:var(--bad)}
+.sdl-content .ib-cell.no{color:var(--ok)}
+.sdl-content .ib-cell.sel{border-color:var(--accent);background:var(--surface);box-shadow:var(--glow)}
+
+/* calculadora: controles (slider, número, select), barras comparadas, veredito e fatos */
+.sdl-content .sr-ctrls{display:grid;gap:var(--s-3) 20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));margin-bottom:var(--s-3)}
+.sdl-content .sr-ctl label{display:flex;justify-content:space-between;gap:var(--s-2);margin-bottom:2px}
+.sdl-content .sr-ctl output{font:700 13px var(--mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.sdl-content .sr-ctl input[type="range"]{width:100%;accent-color:var(--accent-fill);min-height:32px}
+.sdl-content .sr-ctl input[type="number"],.sdl-content .sr-ctl select{font:16px var(--mono);color:var(--ink-hi);background:var(--sunken);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:var(--s-2) 10px;min-height:44px;width:100%;max-width:none}
+.sdl-content .sr-bars{display:grid;gap:var(--s-2);margin:var(--s-3) 0}
+.sdl-content .sr-bar{display:grid;grid-template-columns:96px 1fr;gap:var(--s-2);align-items:center;font:600 12px var(--mono);color:var(--muted)}
+.sdl-content .sr-track{position:relative;height:26px;background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-1);overflow:hidden}
+.sdl-content .sr-fill{position:absolute;inset:0 auto 0 0;background:var(--line-strong);min-width:2px;transition:width var(--dur-3) var(--ease-out)}
+.sdl-content .sr-fill.win{background:var(--accent-fill);box-shadow:var(--glow)}
+.sdl-content .sr-fill.cap{background:var(--signal)}
+.sdl-content .sr-lbl{position:absolute;right:6px;top:4px;padding:0 4px;border-radius:2px;background:var(--sunken);color:var(--ink-hi);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sdl-content .sr-verdict{border:var(--hair) solid var(--accent);border-radius:var(--r-2);padding:10px var(--s-3);margin:10px 0;font-size:15px;background:var(--surface);box-shadow:var(--glow-ring)}
+.sdl-content .sr-verdict strong{color:var(--accent)}
+.sdl-content .sr-verdict.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.sdl-content .sr-verdict.bad strong{color:var(--bad)}
+.sdl-content .sr-facts{display:grid;gap:var(--s-2);grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));margin:10px 0}
+.sdl-content .sr-fact{border-top:var(--hair) solid var(--line-strong);padding:var(--s-2) 0 0}
+.sdl-content .sr-fact small{display:block;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sdl-content .sr-fact b{font:700 20px var(--mono);color:var(--ink-hi);font-variant-numeric:tabular-nums}

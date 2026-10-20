@@ -50,6 +50,7 @@
     lessons.forEach(function (ls, i) {
       var b = ls.querySelector('.done-btn'), msg = ls.querySelector('.done-msg'), nx = ls.querySelector('[data-nav="next"]');
       var isDone = !!done[ls.id];
+      ls.classList.toggle('is-done', isDone);
       if (b) { b.setAttribute('aria-pressed', String(isDone)); b.textContent = isDone ? 'Aula entendida ✓ (clique para desfazer)' : 'Entendi esta aula ✓'; }
       if (msg) msg.textContent = isDone ? dc + ' de ' + N + ' ✓' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!') : '';
       if (nx) nx.className = 'btn big' + (isDone ? ' primary' : '');

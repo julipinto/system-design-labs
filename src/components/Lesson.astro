@@ -13,9 +13,8 @@ const { id, n, total, title, min, prev, next, final } = Astro.props;
 ---
 <section class="lesson" id={id} data-min={min}>
   <header>
-    <span class="lesson-n">Aula {n} de {total}</span>
     <h2>{title}</h2>
-    <p class="lesson-meta"><span>Leitura ~{min} min</span></p>
+    <p class="lesson-meta"><span class="lesson-n">Aula {n} de {total}</span><span>Leitura ~{min} min</span><span class="lesson-done-tag">Entendida ✓</span></p>
   </header>
   <slot />
   <DoneButton prev={prev} next={next} final={final} />

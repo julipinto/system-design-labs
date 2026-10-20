@@ -1,4 +1,44 @@
 /* SDLabs · Protocolos de Rede: estilos dos widgets e figuras deste módulo. A base das aulas fica em lesson.css */
+
+/* ===== conteúdo das aulas deste módulo (vinham do lesson.css) ===== */
+/* camadas OSI (aula 2) */
+.sdl-content .layers{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));margin:0 0 18px}
+.sdl-content .layer{background:var(--surface);border:var(--hair) solid var(--line);border-radius:var(--r-3);padding:14px var(--s-4)}
+.sdl-content .layer p{margin:0 0 10px;font-size:16px;line-height:1.6}
+.sdl-content .layer-h{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
+.sdl-content .layer-h h4{font-size:17px}
+.sdl-content .layer-n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;border:var(--hair) solid var(--line-strong);color:var(--ink-hi);font:700 13px var(--mono)}
+.sdl-content .pdu{font:600 12px var(--mono);color:var(--signal);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:2px 9px;margin-left:auto}
+.sdl-content .symptom{border-top:var(--hair) dashed var(--line-strong);padding-top:var(--s-2);color:var(--muted)}
+.sdl-content .symptom strong{color:var(--bad)}
+.sdl-content .lesson>div.osi-wrap{scroll-margin-top:96px}
+/* mnemônico */
+.sdl-content .mnemonic{border:var(--hair) solid var(--accent);border-radius:var(--r-3);padding:18px 18px 14px;background:var(--surface);box-shadow:var(--glow-ring);margin:var(--s-6) 0 0}
+.sdl-content .mnemonic h3{margin:0 0 10px;color:var(--accent);font-size:18px}
+.sdl-content .mn-line{margin-bottom:14px}
+.sdl-content .mn-dir{display:block;font:600 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);margin-bottom:var(--s-1)}
+.sdl-content .mn-phrase{font-size:21px;line-height:1.5;color:var(--ink-hi)}
+.sdl-content .mn-phrase b{color:var(--accent);font-size:1.15em}
+.sdl-content .mn-key{font-size:16px;color:var(--muted);margin:0}
+.sdl-content .mn-key b{color:var(--accent)}
+/* mapa OSI x TCP/IP */
+.sdl-content .map{max-width:720px;display:grid;gap:6px;margin:0 0 14px}
+.sdl-content .map-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sdl-content .map-osi,.sdl-content .map-tcp{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:var(--s-2) var(--s-3);background:var(--surface);font-size:14px;display:flex;flex-direction:column;justify-content:center}
+.sdl-content .map-tcp{border-color:var(--signal)}
+.sdl-content .map-tcp b{color:var(--signal)}
+/* versões HTTP (aula 8) */
+.sdl-content .versions{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));margin:0 0 18px}
+.sdl-content .versions article{background:var(--surface);border:var(--hair) solid var(--line);border-radius:var(--r-3);padding:14px var(--s-4)}
+.sdl-content .versions h4{color:var(--ink-hi);margin-bottom:var(--s-2);font-family:var(--mono)}
+.sdl-content .versions ul{margin:0;font-size:15px}
+/* tabela RTT (aula 9) */
+.sdl-content .rtt-table-wrap{max-width:720px;overflow-x:auto;margin-bottom:14px}
+.sdl-content .rtt-table{width:100%;font-size:14px}
+.sdl-content .rtt-table th,.sdl-content .rtt-table td{border-bottom:var(--hair) solid var(--line);padding:var(--s-2) 10px;text-align:left}
+.sdl-content .rtt-table th{color:var(--muted);font:700 11.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;border-bottom-color:var(--line-strong)}
+
+/* ===== widgets ===== */
 /* ip */
 .sdl-content .bits{display:flex;flex-wrap:wrap;gap:8px 10px;margin:8px 0}
 .sdl-content .oct{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -56,7 +96,7 @@
 .sdl-content .cols2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
 .sdl-content .tlscol{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
 .sdl-content .tlscol h4{font-size:16px;color:var(--accent);margin-bottom:8px}
-.sdl-content .round{border-left:3px solid var(--accent-2);padding:4px 0 4px 10px;margin:0 0 8px;font-size:13px}
+.sdl-content .round{border-left:var(--stroke) solid var(--accent-2);padding:4px 0 4px 10px;margin:0 0 8px;font-size:13px}
 .sdl-content .round.http{border-color:var(--ok)}
 .sdl-content .round .rt{font:600 12px var(--mono);color:var(--accent-2)}
 .sdl-content .round.http .rt{color:var(--ok)}
