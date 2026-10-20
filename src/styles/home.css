@@ -12,6 +12,14 @@
 .mod{border-bottom:var(--hair) solid var(--line)}
 .mod-link{display:grid;grid-template-columns:44px 1fr;gap:var(--s-2) var(--s-4);padding:var(--s-5) 0;color:var(--ink);text-decoration:none;position:relative}
 .mod-n{font:700 15px/1.7 var(--mono);color:var(--faint);font-variant-numeric:tabular-nums;transition:color var(--dur-2)}
+/* celular: o número entra na linha do título e o texto usa a largura toda (a coluna de 60px espremia o texto) */
+@media (max-width:759.98px){
+  .mod-link{grid-template-columns:auto 1fr;column-gap:var(--s-3);row-gap:0;align-items:baseline}
+  .mod-body{display:contents}
+  .mod-n{grid-column:1;grid-row:1;line-height:1.15}
+  .mod h2{grid-column:2;grid-row:1}
+  .mod p,.mod-meta{grid-column:1/-1}
+}
 .mod-body{min-width:0}
 .mod h2{margin:0 0 var(--s-2);font-size:clamp(22px,5.4vw,28px);font-weight:800;line-height:1.15;letter-spacing:-.015em;transition:color var(--dur-2)}
 .mod p{margin:0;max-width:56ch;color:var(--muted);font-size:16px;line-height:1.55}
@@ -38,3 +46,8 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
 .home-foot{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line);display:grid;gap:var(--s-3);font:13px/1.6 var(--mono);color:var(--muted)}
 .home-foot p{margin:0;max-width:72ch}
 .home-foot a{color:var(--ink)}
+@media (max-width:480px){
+  .home{padding-top:var(--s-1)}
+  .home-head{padding:var(--s-6) 0 var(--s-5)}
+  .home-foot p:last-child a{display:inline-flex;align-items:center;min-height:44px}
+}

@@ -108,7 +108,7 @@
 
     var segBox = h("div", { class: "q-seg", role: "radiogroup", "aria-label": "Tamanho da rodada" });
     var segEls = [5, 10, 20].map(function (n) {
-      var b = h("button", { class: "q-btn", type: "button", role: "radio", text: n + " perguntas" });
+      var b = h("button", { class: "q-btn", type: "button", role: "radio" }, h("b", { text: String(n) }), " ", h("span", { text: "perguntas" }));
       b.addEventListener("click", function () { size = n; refresh(); });
       segBox.appendChild(b);
       return b;
