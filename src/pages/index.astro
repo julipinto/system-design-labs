@@ -25,6 +25,8 @@ const modules: Mod[] = [
     text: 'A porta única da loja: roteamento por método e caminho, JWT, escopos, rate limiting com token bucket e leaky bucket, throttling, versionamento e canary, com o Kong lido linha a linha. Com quiz de 43 perguntas.' },
   { slug: 'bff', title: 'Backend for Frontends (BFF)', lessons: 8, poster: 'labs/bff/bff-3d-previa.webp', alt: 'Prévia da figura 3D do BFF',
     text: 'Um backend sob medida para cada frontend: API composition, canais (app, site e voz), microfrontends, versões, timeout e fallback, e métricas por canal. Com quiz de 46 perguntas.' },
+  { slug: 'service-mesh', title: 'Service Mesh', lessons: 6, poster: 'labs/service-mesh/mesh-3d-previa.webp', alt: 'Prévia da figura 3D de service mesh',
+    text: 'Retry, timeout, mTLS e métricas tirados do código e postos na rede: control plane e data plane, sidecar, proxyless, eBPF e ambient (ztunnel e waypoint), com calculadoras e quiz de 35 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

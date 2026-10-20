@@ -1,0 +1,101 @@
+---
+title: "Casos de uso e alternativas"
+order: 6
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja ficou com cinco jeitos de pôr a malha em pé, e todos cobram alguma coisa: código, CPU, memória ou um proxy a mais no caminho. Resta a pergunta que vem antes de escolher o jeito: a loja precisa de malha? Seis serviços em três linguagens estão perto do limite, e o que decide é o que se tem a perder sem ela.</p>
+
+<OneLiner>A malha vale quando muitos serviços, em várias linguagens, precisam das mesmas regras de rede e de mTLS, e há um time para operá-la; com poucos serviços e um time só, uma biblioteca e um bom gateway resolvem, e a malha é só mais um sistema para manter.</OneLiner>
+
+<DoIt>
+  <p>Na calculadora abaixo, comece pela loja da história (6 serviços, 3 linguagens, 3 times, mTLS exigido, um time de plataforma) e depois diminua para 3 serviços, 1 linguagem e 1 time. Veja em que ponto a recomendação muda e quais perguntas pesam mais.</p>
+</DoIt>
+
+<Widget name="valemalha" title="A loja precisa de uma malha?" hint="Escolha quantos serviços, linguagens e times a loja tem, se o mTLS em tudo é exigência e se existe um time de plataforma. A calculadora soma os sinais e diz o que eles pedem. É uma regra de bolso, não uma lei." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Muitos serviços.</strong> Cada serviço novo aumenta o número de pares que se chamam, e cada par precisa de timeout, retry e métrica. A malha escreve a regra uma vez; sem ela, a regra é copiada em cada serviço e envelhece em cada um.</li>
+  <li><strong>Várias linguagens.</strong> É o caso da loja: Go, Node.js e Java, com três bibliotecas de rede que precisam se comportar do mesmo jeito. Com uma linguagem só, uma biblioteca compartilhada já resolve boa parte. Com três, a malha ganha ponto.</li>
+  <li><strong>mTLS em tudo.</strong> Se uma auditoria exige que toda chamada entre pods seja cifrada e que cada lado prove quem é, o <code>estoque</code> sem TLS deixa de ser descuido e vira problema. O sidecar ou o ztunnel entrega isso para todos de uma vez, e o control plane troca os certificados de 24 h sem ninguém lembrar.</li>
+  <li><strong>Um time para operá-la.</strong> A malha é um sistema: precisa de alguém que atualize o control plane, troque o Envoy, leia o YAML e saiba por que uma chamada voltou 403. Sem esse time, o ganho vira dívida.</li>
+  <li><strong>Quando não vale.</strong> Três serviços, uma linguagem e um time só: uma biblioteca de retry e timeout, TLS configurado no gateway e métricas no próprio app custam menos do que um control plane mais um proxy por pod. A malha pode esperar o dia em que a regra começar a divergir entre os times.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: a malha também cai</h3>
+
+<p>Tudo o que a malha faz por todos, ela também erra por todos. Na loja, um time aplica <code>PeerAuthentication</code> em modo <code>STRICT</code> no namespace <code>loja</code>: a partir dali, cada pod só aceita chamada cifrada com mTLS. Um pod que subiu sem sidecar, como o <code>relatorios</code> antes de a injeção chegar nele, continua mandando texto aberto, e as chamadas dele passam a ser recusadas. Outro time copia a regra de retry da aula 2 para os três saltos e a loja volta às 27 chamadas ao <code>pagamentos</code>. E se o <code>istiod</code> ficar fora do ar, as chamadas seguem, mas os certificados de 24 h vencem sem troca. A malha tira código dos times e leva o risco para um lugar só, e é nesse lugar que alguém precisa estar de olho.</p>
+
+<p>Na hora de escolher uma malha, o mercado oferece mais de um caminho. Cada um dá uma resposta diferente à pergunta da aula passada: onde mora o proxy.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Malha</th><th>Onde mora o proxy</th><th>Para quê serve de exemplo</th></tr></thead>
+  <tbody>
+    <tr><th>Istio</th><td>Envoy em cada pod (sidecar) ou ztunnel por nó e waypoint (ambient)</td><td>Regras de L7 em VirtualService e DestinationRule; os dois modelos das aulas 4 e 5</td></tr>
+    <tr><th>Linkerd</th><td>Um proxy próprio, o <code>linkerd2-proxy</code>, escrito em Rust, em cada pod</td><td>Malha mais enxuta, com mTLS ligado por padrão</td></tr>
+    <tr><th>Consul</th><td>Envoy como sidecar, com autoridade certificadora embutida</td><td>Quando já se usa o Consul para descoberta de serviço</td></tr>
+    <tr><th>Cilium</th><td>eBPF no kernel do nó, mais um Envoy por nó para L7</td><td>Quando a rede do cluster já é o Cilium</td></tr>
+    <tr><th>Kuma</th><td>Envoy em cada serviço, em Kubernetes ou em máquinas virtuais</td><td>Ambientes que misturam pods e VMs</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Uma ausência merece nota: o <strong>AWS App Mesh</strong>, que aparecia nas listas de malhas, teve o fim do suporte anunciado pela AWS para 30 de setembro de 2026. Depois dessa data, o console e os recursos deixam de ser acessíveis. Quem o usava precisa migrar, e quem está escolhendo agora não deve contar com ele.</p>
+
+<WhyItMatters>
+  <li><strong>Decisão com número.</strong> Em vez de "microsserviços pedem malha", conta-se quantos serviços, linguagens e times existem e se há exigência de mTLS.</li>
+  <li><strong>Começar pequeno é permitido.</strong> Ligar só o L4 (mTLS e política por identidade, como no ambient da aula 5) já entrega o que mais pesa, sem pagar o L7 em todo lugar.</li>
+  <li><strong>O custo é de operação, não só de CPU.</strong> Os 3 vCPU e 1,5 GB dos 30 sidecars são o menor dos preços; o maior é manter o control plane, o YAML e as atualizações.</li>
+  <li><strong>A saída existe.</strong> Biblioteca mais gateway continuam sendo uma resposta honesta quando a loja é pequena.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Perguntas para fazer antes de adotar</h4>
+  <ul>
+    <li>Quantas chamadas entre serviços há hoje, e quantas linguagens as escrevem?</li>
+    <li>Alguém exige mTLS e identidade por serviço, e quem vai provar isso ao auditor?</li>
+    <li>Quem atualiza o control plane e o Envoy, e quanto tempo cada atualização leva com os 30 pods?</li>
+    <li>O L4 basta (mTLS, política por identidade) ou a loja precisa de retry e canary no proxy?</li>
+    <li>Qual é o plano se a malha cair, e as chamadas continuam com a última configuração?</li>
+  </ul>
+  <h4 class="deep-h">Sobre o AWS App Mesh</h4>
+  <p>A documentação da AWS traz, na própria página de introdução, o aviso de fim de suporte em 30 de setembro de 2026, e a AWS publicou um guia de migração do App Mesh para o Amazon ECS Service Connect. O artigo-base não cita o App Mesh, então esta aula só registra a data, já que o brief pedia a conferência.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo trata a malha como parte natural de qualquer arquitetura de microsserviços. Ela resolve um problema real, mas só aparece quando há muitos serviços, várias linguagens ou uma exigência de mTLS; com poucos serviços e um time, o custo de operar a malha pode ser maior que o do código que ela tira.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Service Mesh (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "AWS App Mesh: aviso de fim de suporte em 30 de setembro de 2026", href: "https://docs.aws.amazon.com/app-mesh/latest/userguide/what-is-app-mesh.html" },
+    { label: "AWS: migrando do App Mesh para o Amazon ECS Service Connect", href: "https://aws.amazon.com/blogs/containers/migrating-from-aws-app-mesh-to-amazon-ecs-service-connect/" },
+    { label: "Linkerd: arquitetura (linkerd2-proxy em Rust)", href: "https://linkerd.io/2-edge/reference/architecture/" },
+    { label: "Consul: service mesh com sidecars Envoy e mTLS", href: "https://developer.hashicorp.com/consul/docs/connect" },
+    { label: "Kuma: documentação (Envoy, Kubernetes e VMs)", href: "https://kuma.io/docs/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A malha cuida da conversa entre os serviços: quem chama quem, com que regra e cifrado. Mas dentro do <code>pedidos</code>, o programa atende centenas de chamadas ao mesmo tempo, e a malha não vê nada disso. Falta saber como um programa faz várias coisas ao mesmo tempo sem uma pisar na outra: é o tema do próximo módulo, Concorrência e Paralelismo.</p>
+
+<Flashcards cards={[
+  { q: "Quando uma service mesh vale a pena?",
+    a: "Quando há muitos serviços, várias linguagens, exigência de mTLS em tudo e um time de plataforma para operá-la. A loja, com 6 serviços em 3 linguagens, está perto do limite." },
+  { q: "Quando a malha não compensa?",
+    a: "Com poucos serviços (por exemplo 3) e um time só: uma biblioteca de retry e timeout mais um bom gateway custam menos que um control plane e um proxy por pod." },
+  { q: "Qual é o maior custo de uma malha?",
+    a: "Operá-la: manter o control plane, trocar o Envoy, escrever e depurar o YAML. Os 3 vCPU e 1,5 GB dos sidecars são o menor preço." },
+  { q: "Por que a malha também pode derrubar a loja?",
+    a: "Porque a regra vale para todos: um STRICT aplicado cedo recusa o pod sem sidecar, e um retry mal escrito multiplica chamadas. Se o istiod cair, os certificados de 24 h vencem sem troca." },
+  { q: "O que aconteceu com o AWS App Mesh?",
+    a: "A AWS anunciou o fim do suporte para 30 de setembro de 2026. Depois disso o console e os recursos deixam de ser acessíveis; a AWS indica a migração para o Amazon ECS Service Connect." },
+]} />
