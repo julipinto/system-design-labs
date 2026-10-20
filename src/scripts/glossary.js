@@ -21,6 +21,7 @@
   var esc = function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
   var RE = new RegExp('(' + alts.map(esc).join('|') + ')s?(?![\\p{L}\\p{N}_])', 'giu');
   var WORD = /[\p{L}\p{N}_]/u;
+  var LEAD = /[(\[{“‘«"'¿¡]*$/u, TRAIL = /^[)\]}”’»"'.,;:!?…%]*/u;
   var SKIP = '.widget, pre, code, button, a, h1, h2, h3, summary, header, svg, script, style, textarea, ' +
     '.osi3d-wrap, .mnemonic, .gl-term, [data-no-gl]';
 
@@ -56,13 +57,24 @@
         if (!e || seen[e.i]) { if (!e) RE.lastIndex = start + 1; continue; }
         seen[e.i] = true;
         frag = frag || document.createDocumentFragment();
-        if (start > last) frag.appendChild(document.createTextNode(text.slice(last, start)));
+        /* o botão é inline atômico: a linha pode quebrar antes ou depois dele; cola nele a pontuação vizinha */
+        var end = start + m[0].length;
+        var lead = text.slice(last, start).match(LEAD)[0].length, trail = text.slice(end).match(TRAIL)[0].length;
+        if (start - lead > last) frag.appendChild(document.createTextNode(text.slice(last, start - lead)));
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'gl-term'; b.setAttribute('aria-haspopup', 'dialog');
         b.setAttribute('aria-expanded', 'false'); b.setAttribute('data-term', terms[e.i].term);
         b.textContent = m[0];
-        frag.appendChild(b);
-        last = start + m[0].length;
+        if (lead || trail) {
+          var glue = document.createElement('span');
+          glue.className = 'gl-glue';
+          if (lead) glue.appendChild(document.createTextNode(text.slice(start - lead, start)));
+          glue.appendChild(b);
+          if (trail) glue.appendChild(document.createTextNode(text.slice(end, end + trail)));
+          frag.appendChild(glue);
+        } else frag.appendChild(b);
+        last = end + trail;
+        RE.lastIndex = last;
       }
       if (frag) {
         if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
