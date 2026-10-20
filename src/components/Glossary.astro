@@ -15,7 +15,7 @@ const data = JSON.stringify(terms.map((t) => ({ ...t, n: n(t.lesson) }))).replac
     {sorted.map((t) => (
       <div class="gl-item">
         <dt>{t.term}{t.layer ? <span class="gl-layer">Camada {t.layer}</span> : null}</dt>
-        <dd>{t.short} <a href={`#${t.lesson}`} data-gl-lesson={t.lesson}>Aula {n(t.lesson)} →</a></dd>
+        <dd>{t.short} <a href={`#${t.lesson}`} data-gl-lesson={t.lesson}>Aula {n(t.lesson)}<i class="ico ico-next" aria-hidden="true"></i></a></dd>
       </div>
     ))}
   </dl>

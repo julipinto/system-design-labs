@@ -1,5 +1,5 @@
 ---
-// Página de módulo: topo "← SDLabs", título, barra fixa de progresso com índice e o modo foco
+// Página de módulo: topo "SDLabs", título, barra fixa de progresso com índice e o modo foco
 // (src/scripts/focus-mode.js). As aulas (<Lesson>) entram no slot, dentro de <main class="sdl-content">.
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.js';
@@ -49,12 +49,12 @@ const label = `${heading} · ${lessons.length} tópicos`;
       </div>
       <div class="pg-meter">
         <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
-        <span class="pg-count">0/{lessons.length} ✓</span>
+        <span class="pg-count">0/{lessons.length}</span>
       </div>
       <div class="pg-panel" id="sdl-panel">
-        {quizHref && <a class="btn big primary pg-quiz" href={quizHref}>Fazer o quiz do módulo →</a>}
+        {quizHref && <a class="btn big primary pg-quiz" href={quizHref}>Fazer o quiz do módulo<i class="ico ico-next" aria-hidden="true"></i></a>}
         <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
-        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <span aria-hidden="true">↓</span></button>}
+        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <i class="ico ico-down" aria-hidden="true"></i></button>}
         <nav class="toc" aria-label="Aulas do módulo">
           <p class="toc-title label">{label}</p>
           <ol>

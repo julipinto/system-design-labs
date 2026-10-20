@@ -32,18 +32,22 @@
   var segs = lessons.map(function () { var s = document.createElement('span'); s.className = 'pg-seg'; track.appendChild(s); return s; });
   track.setAttribute('aria-valuemax', String(N));
 
+  var rendered = false;
   function render() {
     var dc = doneCount(), l = lessons[cur];
-    statusText.textContent = 'Aula ' + (cur + 1) + ' de ' + N + ' · ' + title(l) + ' · ~' + l.getAttribute('data-min') + ' min';
-    count.textContent = dc + '/' + N + ' ✓';
+    statusText.textContent = '';
+    var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = 'Aula ' + (cur + 1) + ' de ' + N + ' · ';
+    statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l) + ' · ~' + l.getAttribute('data-min') + ' min'));
+    count.textContent = dc + '/' + N;
     track.setAttribute('aria-valuenow', String(dc));
     track.setAttribute('aria-valuetext', dc + ' de ' + N + ' aulas entendidas');
-    segs.forEach(function (s, i) { s.className = 'pg-seg' + (done[lessons[i].id] ? ' done' : '') + (i === cur ? ' cur' : ''); });
+    segs.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-seg' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : '') + ((i + 1) % 5 === 0 ? ' major' : ''); });
+    rendered = true;
     prevBtn.disabled = cur === 0; nextBtn.disabled = cur === N - 1;
     tocLinks.forEach(function (a, i) {
       var ck = a.querySelector('.toc-ck');
       if (done[lessons[i] && lessons[i].id]) {
-        if (!ck) { ck = document.createElement('span'); ck.className = 'toc-ck'; ck.textContent = '✓'; ck.setAttribute('aria-label', 'entendida'); a.appendChild(ck); }
+        if (!ck) { ck = document.createElement('span'); ck.className = 'ico ico-check toc-ck'; ck.setAttribute('aria-label', 'entendida'); a.appendChild(ck); }
       } else if (ck) a.removeChild(ck);
       if (i === cur) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
@@ -51,8 +55,9 @@
       var b = ls.querySelector('.done-btn'), msg = ls.querySelector('.done-msg'), nx = ls.querySelector('[data-nav="next"]');
       var isDone = !!done[ls.id];
       ls.classList.toggle('is-done', isDone);
-      if (b) { b.setAttribute('aria-pressed', String(isDone)); b.textContent = isDone ? 'Aula entendida ✓ (clique para desfazer)' : 'Entendi esta aula ✓'; }
-      if (msg) msg.textContent = isDone ? dc + ' de ' + N + ' ✓' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!') : '';
+      if (b) { b.setAttribute('aria-pressed', String(isDone)); b.textContent = isDone ? 'Aula entendida (clique para desfazer)' : 'Entendi esta aula';
+        var bi = document.createElement('i'); bi.className = 'ico ico-check'; bi.setAttribute('aria-hidden', 'true'); b.insertBefore(bi, isDone ? b.firstChild : null); }
+      if (msg) msg.textContent = isDone ? dc + ' de ' + N + ' entendidas' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!') : '';
       if (nx) nx.className = 'btn big' + (isDone ? ' primary' : '');
     });
   }

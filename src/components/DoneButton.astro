@@ -3,9 +3,10 @@
 interface NavLink { href: string; label?: string; primary?: boolean }
 interface Props { prev?: string; next?: string; final?: NavLink }
 const { prev, next, final } = Astro.props;
+const finalLabel = final?.label?.replace(/\s*→$/, '');
 ---
 <div class="lesson-end">
-  <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula ✓</button>
+  <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula<i class="ico ico-check" aria-hidden="true"></i></button>
   <p class="done-msg" role="status" aria-live="polite"></p>
-  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev">← Aula anterior</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">Próxima aula →</a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{final.label}</a>}</div>
+  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev"><i class="ico ico-prev" aria-hidden="true"></i>Aula anterior</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">Próxima aula<i class="ico ico-next" aria-hidden="true"></i></a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{finalLabel}<i class="ico ico-next" aria-hidden="true"></i></a>}</div>
 </div>

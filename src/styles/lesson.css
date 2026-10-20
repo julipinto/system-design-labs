@@ -120,7 +120,7 @@
 .sdl-content .lesson-end{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line)}
 .sdl-content .done-btn{width:100%;max-width:var(--measure)}
 .sdl-content:not(.js) .done-btn{display:none}
-.sdl-content .btn.done-btn[aria-pressed="true"]{background:var(--surface);color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
+.sdl-content .btn.primary.done-btn[aria-pressed="true"]{background:var(--surface);color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
 .sdl-content .done-msg{margin:var(--s-3) 0 0;font:700 14px/1.5 var(--mono);color:var(--ok);min-height:1.5em;max-width:var(--measure)}
 .sdl-content .lesson-nav{display:flex;flex-wrap:wrap;gap:var(--s-3);margin-top:var(--s-5);max-width:var(--measure)}
 .sdl-content .lesson-nav .btn{flex:1 1 220px}
@@ -188,6 +188,12 @@
 .sdl-content .pg-seg.done{background:var(--ok);opacity:1}
 .sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill);opacity:1;box-shadow:var(--glow)}
 .sdl-content .pg-seg.cur.done{background:var(--accent-fill)}
+.sdl-content .pg-seg.major{height:8px}
+.sdl-content .pg-seg.cur{height:12px}
+/* o momento da aula: o traço vira verde com um brilho que assenta */
+.sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
+@keyframes sdl-settle{0%{background:var(--accent-fill);box-shadow:0 0 14px var(--accent-fill);transform:scaleY(2.2)}100%{box-shadow:0 0 0 transparent;transform:none}}
+.sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;order:2;font-size:15px}
 .sdl-content .pg-count{font:700 13px/1 var(--mono);color:var(--ok);flex:none;font-variant-numeric:tabular-nums}
 /* painel do índice */
 .sdl-content .pg-panel{margin-top:10px;background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:var(--s-3) var(--s-4)}
@@ -212,10 +218,9 @@
 .sdl-content .toc a{display:flex;gap:var(--s-3);align-items:baseline;padding:11px 0;min-height:var(--tap);color:var(--ink);text-decoration:none;border-top:var(--hair) solid var(--line);font-size:16px;line-height:1.4}
 .sdl-content .toc li:first-child a{border-top:0}
 .sdl-content .toc a>span:first-child{font:700 13px var(--mono);color:var(--faint);width:20px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
-.sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;font:700 13px var(--mono);order:2}
 .sdl-content .toc a[aria-current="true"]{font-weight:750;color:var(--accent-ink)}
 .sdl-content .toc a[aria-current="true"]>span:first-child{color:var(--accent-ink)}
 .sdl-content .toc a:hover,.sdl-content .toc a:focus-visible{color:var(--accent-ink)}
 
-@media (max-width:560px){.sdl-content .sdl-progress{padding:6px var(--gutter) 8px}.sdl-content .pg-text{font-size:14px}.sdl-content .pg-meter{margin-top:8px}}
-@media (prefers-reduced-motion:reduce){.sdl-content .doit h3::before{animation:none}}
+@media (max-width:560px){.sdl-content .sdl-progress{padding:6px var(--gutter) 8px}.sdl-content .pg-text{font-size:14px}.sdl-content .pg-meter{margin-top:8px}.sdl-content .pg-n{display:none}}
+@media (prefers-reduced-motion:reduce){.sdl-content .doit h3::before,.sdl-content .pg-seg.just{animation:none}}

@@ -8,3 +8,10 @@
 .sdl-hero p{margin:0;max-width:56ch;color:var(--muted);font-size:var(--fs-lead);line-height:1.5}
 .sdl-credit{max-width:var(--page);margin:0 auto;padding:var(--s-5) var(--gutter) var(--s-7);border-top:var(--hair) solid var(--line);font:13px/1.6 var(--mono);color:var(--muted)}
 .sdl-credit a{color:var(--ink)}
+/* celular: topo compacto, para o "Faça agora" da primeira aula começar acima da dobra */
+@media (max-width:480px){
+  .sdl-top{padding-top:10px}
+  .sdl-hero{padding:var(--s-4) var(--gutter) var(--s-3)}
+  .sdl-hero h1{font-size:30px;margin-bottom:6px}
+  .sdl-hero p{font-size:16px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+}
