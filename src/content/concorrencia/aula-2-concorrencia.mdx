@@ -1,0 +1,149 @@
+---
+title: "Concorrência"
+order: 2
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada a <code>estoque-1</code> ficou com uma goroutine por pedido e um único núcleo, e um núcleo executa uma coisa de cada vez. Então o que ele faz enquanto uma goroutine espera o banco? Esse é o assunto da concorrência, e ela rende bastante num pod de 1 vCPU, mas só para um tipo de trabalho.</p>
+
+<OneLiner>Concorrência é partir o trabalho em pedaços independentes que avançam de forma intercalada; num único núcleo ela rende para quem <strong>espera</strong>, porque enquanto um pedido espera o banco, outro usa a CPU.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>1 núcleo</strong>, comece com 1 pedido e leia a vazão: <strong>50 pedidos/s</strong>. Depois avance até os 10 pedidos intercalados e veja o número chegar a <strong>500/s</strong>. Repare no que o núcleo faz durante os 18 ms em que um pedido espera. No passo <em>"e se der errado"</em>, o pedido passa a gastar 20 ms de CPU em vez de 2: veja o teto cair.</p>
+</DoIt>
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=um-nucleo" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Concorrência em 1 vCPU" alt="Prévia da figura 3D: Concorrência em 1 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Uma chamada <code>reservar</code> custa <strong>2 ms de CPU</strong> (montar a consulta, ler a resposta) e <strong>18 ms esperando o banco</strong>. Nesses 18 ms o processo não faz nada: só espera. No total são <strong>20 ms</strong> por pedido.</li>
+  <li>Se o <code>estoque-1</code> atendesse um pedido de cada vez, ele faria 1 s ÷ 20 ms = <strong>50 pedidos/s</strong>. A CPU ficaria parada 18 dos 20 ms, ou seja, 90% do tempo.</li>
+  <li>Com concorrência, enquanto o pedido A espera o banco, o núcleo executa os 2 ms do pedido B, depois os do C. O núcleo <strong>nunca executa dois pedidos no mesmo instante</strong>, mas quase nunca fica parado. Quem decide a troca é o runtime do Go: quando uma goroutine pede ao banco, ele passa o núcleo para outra.</li>
+  <li>Com <strong>N</strong> pedidos em andamento, a vazão é <strong>min(N × 50, 500)</strong> pedidos/s. O teto de <strong>500/s</strong> é a CPU: 1 s ÷ 2 ms. Com <strong>N = 10</strong>, 10 × 50 = 500 e a CPU fecha cheia. Com 20 pedidos em andamento a conta continua dando 500, e só a espera de cada um aumenta.</li>
+  <li>O churrasco do laboratório tem a mesma estrutura. Suas 7 tarefas (picanha 5 s, costela 7, linguiça 3, salada 2, bebidas 1, churrasqueira 2, queijo 3) levam <strong>23 s</strong> uma depois da outra. Em goroutines, levam <strong>7 s</strong>, o tempo da mais longa, a costela, porque todas esperam ao mesmo tempo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o pedido passa a gastar CPU</h3>
+
+<p>Uma mudança no <code>reservar</code> passa a gerar uma nota de reserva em PDF, e o pedido agora gasta <strong>20 ms de CPU</strong> em vez de 2. O teto deixa de ser 500/s e vira 1 s ÷ 20 ms = <strong>50/s</strong>. Com 1 pedido por vez, a conta é 20 ms de CPU + 18 ms de espera = 38 ms, ou cerca de 26 pedidos/s. Com 2 pedidos em andamento, 2 × 26 = 52 já passa de 50, e a CPU fecha cheia. A partir daí, subir para 10 ou 100 pedidos em andamento <strong>não muda nada</strong>: só cria uma fila maior e mais troca de contexto.</p>
+
+<p>Concorrência só rende para quem espera. Quando o gargalo é a própria CPU, o que falta é mais um núcleo, e esse é o assunto da próxima aula.</p>
+
+<WhyItMatters>
+  <li><strong>Um núcleo basta, para quem espera.</strong> Os 10 pedidos em andamento tiram a CPU da ociosidade (de 10% para 100% ocupada) sem nenhum núcleo novo.</li>
+  <li><strong>O teto é conta, não palpite.</strong> 1 s ÷ tempo de CPU por pedido. Com 2 ms são 500/s; com 20 ms, 50/s.</li>
+  <li><strong>Mais pedidos em andamento têm limite.</strong> Passado o ponto em que a CPU enche, só a espera de cada pedido cresce.</li>
+  <li><strong>É estrutura, não velocidade.</strong> A concorrência não faz o código rodar mais rápido; ela evita desperdiçar o tempo de espera.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A conta por número de pedidos em andamento</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Pedidos em andamento</th><th>Vazão</th><th>CPU ocupada</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>50/s</td><td>10%</td></tr>
+      <tr><th>2</th><td>100/s</td><td>20%</td></tr>
+      <tr><th>5</th><td>250/s</td><td>50%</td></tr>
+      <tr><th>10</th><td>500/s</td><td>100%</td></tr>
+      <tr><th>20</th><td>500/s</td><td>100%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Cada pedido ocupa a CPU por 2 ms a cada 20 ms, ou 10% do tempo. Dez pedidos somam 100%.</p>
+  <p>Os 18 ms são o pedido inteiro esperando o banco (a rede, a fila no pool de conexões, as consultas). O <code>SELECT</code> e o <code>UPDATE</code> da reserva do gato, de 2 ms cada, são só uma parte disso, e é neles que a aula 6 mexe.</p>
+  <h4 class="deep-h">O código do laboratório, sem alteração</h4>
+  <p>Este é o <code>concurrency/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). Cada tarefa vira uma goroutine com <code>go preparar(...)</code>, o <code>WaitGroup</code> conta quantas ainda faltam, e o canal <code>churrasco</code> devolve cada uma que termina.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  type Atividade struct {
+10  	Nome  string
+11  	Tempo int
+12  }
+13  
+14  // Função para simular o tempo de preparo de cada atividade do churrasco
+15  func preparar(item string, tempoPreparo int, churrasco chan<- string) {
+16  	fmt.Printf("Preparando %s...\n", item)
+17  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
+18  	churrasco <- item
+19  }
+20  
+21  func main() {
+22  
+23  	// Canal das atividades que compõe o churrasco
+24  	churrasco := make(chan string)
+25  
+26  	// Wait Group para esperar todas as goroutines terminarem
+27  	var wg sync.WaitGroup
+28  
+29  	// Lista de Atividades do Churrasco
+30  	tarefas := []Atividade{
+31  		{"picanha", 5},
+32  		{"costela", 7},
+33  		{"linguica", 3},
+34  		{"salada", 2},
+35  		{"bebidas", 1},
+36  		{"churrasqueira", 2},
+37  		{"queijo", 3},
+38  	}
+39  
+40  	for _, tarefa := range tarefas {
+41  		wg.Add(1)                                         // Adiciona 1 atividade ao contador do WaitGroup
+42  		go preparar(tarefa.Nome, tarefa.Tempo, churrasco) // Inicia o preparo de uma atividade do churrasco numa goroutine
+43  	}
+44  
+45  	go func() {
+46  		wg.Wait()        // Espera que todas as goroutines chamem Done()
+47  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+48  		fmt.Println("\nChurrasco terminou :/")
+49  	}()
+50  
+51  	for item := range churrasco {
+52  		fmt.Printf("%s foi preparado.\n", item)
+53  		wg.Done() // Remove um contador do wait group
+54  	}
+55  
+56  }`}</code></pre>
+  <p>As 7 goroutines dormem ao mesmo tempo, e o programa termina em 7 s. Repare que <code>time.Sleep</code> não gasta CPU: o laboratório mostra concorrência sobre <strong>espera</strong>, exatamente o caso em que ela rende.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>No laboratório, o <code>fmt.Println("Churrasco terminou :/")</code> roda numa goroutine <strong>depois</strong> do <code>close(churrasco)</code>. Como o laço do <code>main</code> acaba quando o canal fecha, o programa pode sair antes de imprimir a linha. É por isso que a saída mostrada no artigo não tem essa mensagem.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Código de exemplo do artigo no repositório público de Matheus Fidelis (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Rob Pike: Concurrency is not parallelism (blog do Go)", href: "https://go.dev/blog/waza-talk" },
+    { label: "OSTEP: Concurrency, an introduction (threads e escalonamento)", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-intro.pdf" },
+    { label: "pthreads(7): threads em Linux", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O <code>estoque-1</code> chegou a 500 pedidos por segundo com um núcleo só, e a conta fechou porque 90% de cada pedido era espera. Mas às 23:00 o <code>relatorios</code> faz o contrário: lê 400 mil linhas e passa o tempo inteiro calculando, sem esperar ninguém. Falta saber o que muda quando o trabalho usa CPU e há mais de um núcleo para ele: é o paralelismo.</p>
+
+<Flashcards cards={[
+  { q: "Quanto custa um pedido reservar no estoque-1, e qual a vazão de um de cada vez?",
+    a: "2 ms de CPU + 18 ms esperando o banco = 20 ms. Um por vez: 1 s ÷ 20 ms = 50 pedidos/s." },
+  { q: "Qual é a fórmula da vazão com N pedidos em andamento?",
+    a: "min(N × 50, 500) pedidos/s. O teto de 500/s é a CPU: 1 s ÷ 2 ms. Com N = 10 a CPU fecha cheia." },
+  { q: "O núcleo executa dois pedidos ao mesmo tempo na concorrência?",
+    a: "Não. Ele executa um de cada vez, mas enquanto um espera o banco, outro usa a CPU." },
+  { q: "O que muda se o pedido gastar 20 ms de CPU em vez de 2?",
+    a: "O teto cai para 1 s ÷ 20 ms = 50/s. Com 2 pedidos em andamento a CPU já fecha cheia, e mais concorrência não ajuda." },
+  { q: "Para que tipo de trabalho a concorrência rende?",
+    a: "Para trabalho que espera (banco, rede, disco). Para trabalho que só calcula, o que falta é mais um núcleo." },
+]} />

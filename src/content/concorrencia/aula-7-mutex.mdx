@@ -1,0 +1,156 @@
+---
+title: "Mutex"
+order: 7
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o estoque do <code>GATO-042</code> foi a −1 porque a Bia e o Caio leram 1 antes de qualquer um baixar, e uma janela de 2 ms entre checar e baixar deixou os dois passarem. O jeito mais direto de fechar essa janela é fazer o segundo esperar o primeiro terminar. Quem faz isso, dentro de um processo, é o <code>mutex</code>.</p>
+
+<OneLiner>Mutex (exclusão mútua) é uma trava com duas operações, <code>Lock</code> e <code>Unlock</code>: só uma goroutine por vez entra na <strong>seção crítica</strong>, o trecho que lê e baixa o estoque, e as outras esperam.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Mutex</strong>, avance os passos e veja a cancela abrir só para a Bia. Anote em que instante o Caio chega, quanto ele espera e o que ele lê quando entra. Depois aperte o botão <strong>Condicional</strong> e compare: sem nenhuma trava em memória, o que impede a venda em dobro?</p>
+</DoIt>
+
+<Figure3D path="labs/concorrencia/estoque-3d/?mode=mutex" poster="labs/concorrencia/estoque-3d-previa.webp" title="Figura interativa: Mutex numa réplica" alt="Prévia da figura 3D: Mutex numa réplica" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O <code>sync.Mutex</code> entra em volta do <code>reservar</code>. O <code>Lock</code> fica antes da leitura, e o <code>defer mu.Unlock()</code> garante que a trava solta quando a função termina, por qualquer caminho.</li>
+  <li>A Bia entra em t = 0 e sai em t = 4: 2 ms do <code>SELECT</code> mais 2 ms do <code>UPDATE</code>. A seção crítica dela tem 4 ms.</li>
+  <li>O Caio chega em t = 2 e encontra a trava ocupada. Ele <strong>espera 2 ms</strong>, até t = 4. Entra, e o <code>SELECT</code> dele lê <strong>0</strong> em t = 6. Recebe <code>409 sem estoque</code>, 4 ms depois de ter chegado.</li>
+  <li>Resultado: <code>quantidade = 0</code>, o pedido <strong>1049</strong> é da Bia e o Caio fica sem pedido. A janela de 2 ms foi fechada porque a checagem e a baixa agora acontecem juntas.</li>
+  <li>Isso tem um custo. Com a seção crítica de 4 ms, a réplica atende no máximo 1 s ÷ 4 ms = <strong>250 reservas por segundo do mesmo SKU</strong>, mesmo que a CPU aguente 500.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`var mu sync.Mutex
+
+func reservar(sku string) error {
+    mu.Lock()
+    defer mu.Unlock()
+    q := lerQuantidade(sku)
+    if q < 1 { return ErrSemEstoque }
+    baixar(sku)
+    return nil
+}`}</code></pre>
+
+<h3 class="sec">E se der errado: a trava que não solta e a seção grande demais</h3>
+
+<p>Dois descuidos transformam o mutex em problema. O primeiro é esquecer o <code>defer</code>. Se o código escreve <code>mu.Unlock()</code> só no final e o <code>if q &lt; 1 &#123; return ErrSemEstoque &#125;</code> vem antes, quem recebe o <code>409</code> sai da função <strong>sem soltar a trava</strong>. Daí em diante toda reserva do gato espera para sempre.</p>
+
+<p>O segundo é a seção grande demais. O <code>mutex/main.go</code> do laboratório dorme <strong>100 ms com o mutex travado</strong>. Com 100 itens, são 100 × 100 ms = <strong>10 s</strong> em série. Se o <code>Sleep</code> ficasse fora da trava, o total cairia para cerca de 100 ms, porque os 100 dormiriam ao mesmo tempo. A regra é travar <strong>só o que precisa</strong>: a leitura e a baixa, nunca a chamada a outro serviço nem o <code>Sleep</code>.</p>
+
+<h3 class="sec">Travar antes ou conferir depois</h3>
+
+<p>O mutex é uma trava <strong>em memória</strong>. O banco tem as suas, e o artigo as divide em duas estratégias. O <strong>lock pessimista</strong> trava antes de agir: o Caio espera o <code>COMMIT</code> da Bia.</p>
+
+<pre><code>{String.raw`BEGIN;
+SELECT quantidade FROM estoque WHERE sku = 'GATO-042' FOR UPDATE;
+UPDATE estoque SET quantidade = quantidade - 1 WHERE sku = 'GATO-042';
+COMMIT;`}</code></pre>
+
+<p>O <strong>lock otimista</strong> age e confere no fim, com uma escrita condicional. Não há trava em memória nem Redis, e funciona com qualquer número de réplicas:</p>
+
+<pre><code>{String.raw`UPDATE estoque SET quantidade = quantidade - 1
+WHERE sku = 'GATO-042' AND quantidade > 0;
+-- Bia: 1 linha afetada     -> pedido 1049
+-- Caio: 0 linhas afetadas  -> 409 sem estoque`}</code></pre>
+
+<p>Qual escolher depende da frequência do conflito. Quando o conflito é a regra, como no último gato, o pessimista rende: o Caio espera uma vez e pronto. Quando o conflito é raro, o otimista rende mais, porque só repete a operação se der 0 linhas. A diferença para o guarda de versão da aula 6 é de pergunta: o otimista confere "ninguém mexeu desde que li?", e o guarda de versão decide "qual versão ganha?".</p>
+
+<WhyItMatters>
+  <li><strong>Uma trava fecha a janela.</strong> A checagem e a baixa viram um passo só do ponto de vista dos outros.</li>
+  <li><strong>A trava é um gargalo de propósito.</strong> Seção de 4 ms dá 250 reservas/s do mesmo SKU; encolher a seção aumenta o teto.</li>
+  <li><strong>Esquecer de soltar é fatal.</strong> Use <code>defer</code> logo depois do <code>Lock</code>.</li>
+  <li><strong>O banco também sabe travar.</strong> <code>FOR UPDATE</code> e o <code>UPDATE ... AND quantidade &gt; 0</code> resolvem sem nenhum mutex no código.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O código do laboratório, sem alteração</h4>
+  <p>Este é o <code>mutex/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). É a mesma <code>race_condition</code> da aula 6 com um <code>sync.Mutex</code> em volta de <code>grelhados++</code>. Note o <code>time.Sleep</code> de 100 ms <strong>dentro</strong> da seção crítica.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Variável compartilhada para contar os alimentos grelhados
+10  var grelhados int = 0
+11  
+12  // Variável de Mutex
+13  var grelhaOcupada sync.Mutex
+14  
+15  // Função para simular o tempo de preparo de um alimento na churrasqueira
+16  func grelhar() {
+17  	grelhaOcupada.Lock() // Trava o acesso ao contador (grelha)
+18  
+19  	fmt.Println("Grelhando um alimento na churrasqueira")
+20  	grelhados++
+21  	time.Sleep(time.Millisecond * 100)
+22  
+23  	fmt.Println("Liberando a grelha pro proximo alimento")
+24  	grelhaOcupada.Unlock() // Destrava o acesso ao contador (grelha)
+25  }
+26  
+27  func main() {
+28  
+29  	// Wait Group para esperar todas as goroutines terminarem
+30  	var wg sync.WaitGroup
+31  
+32  	// Alimentos disponíveis pra colocar na grelha
+33  	var alimentosChurrasco = 100
+34  
+35  	// Simula a concorrência pela grelha
+36  	for i := 0; i < alimentosChurrasco; i++ {
+37  		wg.Add(1) // Adiciona 1 alimento ao contador do WaitGroup
+38  		go func() {
+39  			grelhar()       // Inicia o processo de grelhar o alimento
+40  			defer wg.Done() // Remove um contador do wait group da grelha
+41  		}()
+42  	}
+43  
+44  	wg.Wait() // Espera que todas as goroutines chamem Done()
+45  
+46  	fmt.Println("Total de itens grelhados na churrasqueira:", grelhados)
+47  
+48  }`}</code></pre>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Lock e unlock devem respeitar uma prioridade: só quem bloqueou desbloqueia."</strong> O que o artigo descreve é <em>posse</em>, e não prioridade. E no Go o <code>sync.Mutex</code> <strong>não impõe dono</strong>: a documentação diz que é permitido a uma goroutine travar e outra destravar. A regra "quem trava, destrava" é disciplina do código, não garantia da linguagem.</li>
+  </ul>
+  <h4 class="deep-h">Mutex em Go por dentro</h4>
+  <p>Antes de dormir, o <code>sync.Mutex</code> gira um pouco esperando a trava soltar (um breve spin, aula 9), e só depois põe a goroutine para dormir. Há também <code>TryLock</code>, que tenta e devolve <code>false</code> se a trava está ocupada, mas a documentação do Go avisa que o uso correto dele é raro.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Código de exemplo do artigo no repositório público de Matheus Fidelis (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Go: pacote sync (Mutex, Lock, Unlock, TryLock)", href: "https://pkg.go.dev/sync" },
+    { label: "PostgreSQL: travas explícitas e SELECT ... FOR UPDATE", href: "https://www.postgresql.org/docs/current/explicit-locking.html" },
+    { label: "OSTEP: Locks", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-locks.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com uma réplica, o mutex fechou a janela e o gato foi para a Bia. Mas a Black Friday sobe a segunda réplica: o balanceador manda a Bia para a <code>estoque-1</code> e o Caio para a <code>estoque-2</code>, e cada uma tem o seu <code>sync.Mutex</code>, em memórias diferentes. Falta saber como uma trava passa a valer entre processos.</p>
+
+<Flashcards cards={[
+  { q: "O que o mutex faz no reservar, e quanto tempo o Caio espera?",
+    a: "Deixa só uma goroutine por vez entrar na seção crítica. O Caio chega em t = 2, espera 2 ms, lê 0 em t = 6 e leva 409." },
+  { q: "Qual é o máximo de reservas por segundo do mesmo SKU com seção crítica de 4 ms?",
+    a: "1 s ÷ 4 ms = 250 por segundo, nessa réplica." },
+  { q: "Por que usar defer logo depois do Lock?",
+    a: "Porque sem ele um return antes do Unlock deixa a trava presa para sempre, e toda reserva futura do gato espera sem fim." },
+  { q: "Por que o Sleep dentro da trava do laboratório custa 10 s?",
+    a: "100 itens × 100 ms em série. Com o Sleep fora da trava, o total cairia para cerca de 100 ms. Trave só o que precisa." },
+  { q: "Qual a diferença entre lock pessimista e otimista?",
+    a: "Pessimista trava antes (FOR UPDATE): conflito é a regra. Otimista age e confere no fim (UPDATE ... AND quantidade > 0): conflito é raro, e só repete se der 0 linhas." },
+]} />

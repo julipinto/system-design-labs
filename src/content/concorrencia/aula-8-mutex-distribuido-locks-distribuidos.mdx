@@ -1,0 +1,383 @@
+---
+title: "Mutex distribuído: locks distribuídos"
+order: 8
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o <code>sync.Mutex</code> segurou o Caio por 2 ms e o gato foi para a Bia. Mas isso foi com uma réplica. A Black Friday sobe a <code>estoque-2</code>, o balanceador manda a Bia para a <code>estoque-1</code> e o Caio para a <code>estoque-2</code>, e cada réplica tem o seu mutex, na sua memória. Os dois leem 1, os dois baixam, e o estoque vai a −1 de novo. O mutex local só protege dentro do processo, e a trava precisa passar a valer entre processos.</p>
+
+<OneLiner>Um lock distribuído é uma trava guardada num lugar que todas as réplicas enxergam (Redis, ZooKeeper); como ela pode vencer sozinha, quem a segura pode perdê-la sem saber, e por isso, para o último gato, a checagem final é do banco.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Réplicas</strong>, veja as duas cancelas se abrirem ao mesmo tempo. Depois aperte o botão <strong>Redis</strong> para ver a cancela virar uma chave com token e TTL, e o Caio tentando a cada 50 ms. Por fim aperte <strong>TTL</strong>, o "e se der errado": a Bia pausa por 6 s. No widget abaixo, ponha o TTL em 5 s e a pausa em 6 s e veja a janela de dois donos. Depois ligue o fencing token.</p>
+</DoIt>
+
+<Widget name="ttl" title="TTL contra pausa do dono" hint="Escolha o TTL da trava (1 a 10 s) e quanto tempo o dono fica parado (0 a 10 s). A linha do tempo mostra se existe uma janela com dois donos e o que muda com o fencing token (33 contra 34)." />
+
+<Figure3D path="labs/concorrencia/estoque-3d/?mode=replicas" poster="labs/concorrencia/estoque-3d-previa.webp" title="Figura interativa: Duas réplicas, dois mutex" alt="Prévia da figura 3D: Duas réplicas, dois mutex" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A trava sai da memória e vai para o Redis, com um comando só: <code>SET lock:estoque:GATO-042 &lt;token&gt; NX PX 5000</code>. O <code>NX</code> cria a chave <strong>só se não existir</strong>, e o <code>PX 5000</code> já a cria com <strong>TTL de 5 s</strong>. Como é um comando atômico, dois pedidos ao mesmo tempo não passam juntos.</li>
+  <li>A Bia faz o <code>SET</code> e recebe <code>OK</code> em t = 1 ms. O Caio faz o dele e recebe <code>nil</code> em t = 3 ms: a chave existe, a trava é da Bia. Ele tenta de novo <strong>a cada 50 ms</strong>.</li>
+  <li>A Bia solta a trava em t = 6 ms. A tentativa do Caio em t = 53 ms funciona e ele entra em t = 54 ms, lê <strong>0</strong> e recebe <code>409</code> em t ≈ 56 ms. Ele solta a trava em t = 57 ms.</li>
+  <li>Quem solta confere o dono antes de apagar, com o script Lua do próprio doc do Redis: <code>if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end</code>. O token é diferente em cada réplica, e só o dono apaga.</li>
+  <li>O custo mudou. O ciclo da trava agora tem 6 ms: 1 ms do <code>SET</code>, 4 ms de trabalho e 1 ms do <code>DEL</code>. O teto cai para 1 s ÷ 6 ms = <strong>166 reservas por segundo</strong> do mesmo SKU, contra os 250 do mutex local.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O outro exemplo do laboratório: ZooKeeper</h3>
+
+<p>O ZooKeeper guarda a trava como um <em>znode efêmero</em>: ele some quando a sessão de quem o criou acaba. Um exemplo: <code>/locks/estoque-GATO-042/lock-0000000007</code>. A receita oficial usa nós <strong>efêmeros e sequenciais</strong>: cada réplica cria o seu, o de menor número tem a trava, e as outras observam apenas o nó <strong>anterior</strong>. Isso dá uma fila justa e evita a "manada" de todo mundo acordando quando a trava solta. Se a <code>estoque-1</code> morre, a sessão expira (por exemplo, em 10 s) e a trava some sozinha.</p>
+
+<h3 class="sec">E se der errado: a trava vence e o dono não sabe</h3>
+
+<p>Esse é o centro da aula. A <code>estoque-1</code> pega a trava (token <code>a1</code>, TTL de 5 s) e <strong>para por 6 s</strong> antes do <code>UPDATE</code>: uma pausa longa de coleta de lixo, uma rede ruim, qualquer coisa. Em t = 5,001 s o TTL vence e a chave some. O Caio tenta em t = 3, 53, 103 ms, uma vez a cada 50 ms, e desiste só aos 10 s. Ele pega a trava na primeira tentativa depois do vencimento, em t ≈ <strong>5,003 s</strong>, com o token <code>b2</code>, lê 1, baixa para 0 e compra.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>t</th><th>Bia (<code>estoque-1</code>, token a1)</th><th>Caio (<code>estoque-2</code>, token b2)</th><th><code>quantidade</code></th></tr></thead>
+  <tbody>
+    <tr><th>0,001 s</th><td>pega a trava (TTL 5 s) e para</td><td>(tenta em 3 ms: <code>nil</code>)</td><td>1</td></tr>
+    <tr><th>5,001 s</th><td>parada; o TTL vence</td><td>(tentando a cada 50 ms)</td><td>1</td></tr>
+    <tr><th>5,003 s</th><td>parada</td><td>pega a trava e lê 1</td><td>1</td></tr>
+    <tr><th>≈ 5,008 s</th><td>parada</td><td>baixa para 0 e compra</td><td>0</td></tr>
+    <tr><th>6,000 s</th><td>acorda, ainda acha que tem a trava; <code>UPDATE</code></td><td>(já terminou)</td><td><strong>−1</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A Bia acorda em t = 6 s e continua achando que a trava é dela. Seu <code>UPDATE</code> leva o estoque a −1. Pior: o <code>DEL</code> simples do laboratório apaga a chave de quem estiver com ela naquele momento, sem conferir de quem é. O laboratório já mostra o risco: o <code>processaMensagem</code> dorme <strong>10 s</strong> e o TTL é <strong>10 s</strong>, então a trava vence na hora em que o trabalho termina.</p>
+
+<p>Há três remédios, e eles se somam:</p>
+
+<ol class="flow steps">
+  <li><strong>Token por dono, com compara-e-apaga.</strong> Cada réplica grava um valor só dela e só apaga a chave se o valor ainda for o dela. Evita apagar a trava de outro, mas não impede o <code>UPDATE</code> atrasado.</li>
+  <li><strong>Fencing token</strong> (Kleppmann). O serviço de lock devolve um número que só cresce: 33 para a Bia, 34 para o Caio. O banco recusa uma escrita com número menor que o maior já visto, e o <code>UPDATE</code> da Bia (33) cai porque o 34 já passou. O <code>SET NX</code> do Redis não dá esse número; o ZooKeeper dá (o número de sequência do nó).</li>
+  <li><strong>O <code>UPDATE ... AND quantidade &gt; 0</code> da aula 7.</strong> Quem decide é o banco, <strong>sem depender de relógio</strong>. O <code>UPDATE</code> da Bia, ao acordar, encontra a quantidade em 0 e afeta 0 linhas.</li>
+</ol>
+
+<p>Kleppmann separa dois usos do lock. O lock <strong>de eficiência</strong> evita trabalho repetido: se falhar, custa um pouco, e um Redis simples serve. O lock <strong>de correção</strong> protege o dado: se falhar, o gato é vendido duas vezes, e precisa de fencing ou de checagem no banco. Para o último gato, o banco resolve. O lock distribuído serve para o que <strong>não cabe numa transação</strong>: o fechamento das 23:00 rodar uma vez só (a falha da aula 4) e uma mensagem ser consumida uma vez só (módulo 13).</p>
+
+<WhyItMatters>
+  <li><strong>Mutex local não atravessa processos.</strong> Duas réplicas, dois mutexes, a venda em dobro volta.</li>
+  <li><strong>O TTL é uma aposta.</strong> Ele resolve o dono que morre e cria o dono que ainda acha que tem a trava.</li>
+  <li><strong>Lock de correção precisa de mais que o lock.</strong> Fencing token, ou uma checagem no banco que não dependa de relógio.</li>
+  <li><strong>Use a ferramenta certa.</strong> Último gato: <code>UPDATE ... AND quantidade &gt; 0</code>. Fechamento das 23:00: lock distribuído.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">Redlock: as duas posições</h4>
+  <p>O Redlock tenta dar mais garantia usando 5 instâncias independentes de Redis: a trava só vale se a maioria concordar. Kleppmann (2016) argumenta que ele depende de suposições de tempo que não valem na prática (relógios e pausas) e que não gera fencing token. Salvatore Sanfilippo, o autor do Redis, respondeu em "Is Redlock safe?" que as suposições são razoáveis. As duas leituras estão publicadas, e vale ler as duas.</p>
+  <h4 class="deep-h">O código do laboratório: Redis</h4>
+  <p>Este é o <code>mutex_distribuido_redis/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). Tem um laço de <code>Get</code>, que espera de 2 em 2 s, e depois um laço de <code>SetNX</code> com a string <code>"locked"</code> e TTL de 10 s.</p>
+  <pre><code>{String.raw`  1  package main
+  2  
+  3  import (
+  4  	"context"
+  5  	"fmt"
+  6  	"time"
+  7  
+  8  	redis "github.com/redis/go-redis/v9"
+  9  )
+ 10  
+ 11  type PedidoDeCompra struct {
+ 12  	Id         string
+ 13  	Item       string
+ 14  	Quantidade float64
+ 15  }
+ 16  
+ 17  // Função mock para exemplificar a chegada de alguma mensagem
+ 18  func consomeMensagem() PedidoDeCompra {
+ 19  	return PedidoDeCompra{
+ 20  		Id:         "12345",
+ 21  		Item:       "pão de alho",
+ 22  		Quantidade: 4,
+ 23  	}
+ 24  }
+ 25  
+ 26  // Função mock para exemplificar o processamento de uma mensagem
+ 27  func processaMensagem(pedido PedidoDeCompra) bool {
+ 28  	fmt.Println("Processando pedido:", pedido.Id)
+ 29  	time.Sleep(10 * time.Second)
+ 30  	return true
+ 31  }
+ 32  
+ 33  func main() {
+ 34  
+ 35  	var ctx = context.Background()
+ 36  
+ 37  	// Create a new Redis client
+ 38  	client := redis.NewClient(&redis.Options{
+ 39  		Addr:     "0.0.0.0:6379",
+ 40  		Password: "", // no password set
+ 41  		DB:       0,  // use default DB
+ 42  	})
+ 43  
+ 44  	// looping de consumo
+ 45  	NovoPedido := consomeMensagem()
+ 46  	mutexKey := NovoPedido.Id
+ 47  
+ 48  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
+ 49  
+ 50  	// Timeout para evitar espera infinita (30 segundos)
+ 51  	timeout := time.After(30 * time.Second)
+ 52  	retryCount := 0
+ 53  
+ 54  	// Loop para aguardar o mutex ser liberado
+ 55  	for {
+ 56  		select {
+ 57  		case <-timeout:
+ 58  			fmt.Printf("Timeout atingido após 30 segundos aguardando o mutex %s\n", mutexKey)
+ 59  			return
+ 60  		default:
+ 61  		}
+ 62  
+ 63  		retryCount++
+ 64  
+ 65  		// Verifica se o Lock já existe
+ 66  		lock, err := client.Get(ctx, mutexKey).Result()
+ 67  		if err != nil && err != redis.Nil {
+ 68  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
+ 69  			time.Sleep(1 * time.Second)
+ 70  			continue
+ 71  		}
+ 72  
+ 73  		if lock != "" {
+ 74  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
+ 75  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 76  			continue
+ 77  		}
+ 78  
+ 79  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 80  		break
+ 81  	}
+ 82  
+ 83  	// Loop para tentar adquirir o mutex usando SETNX (SET if Not eXists)
+ 84  	for {
+ 85  		// Usa SETNX para garantir atomicidade - só cria se não existir
+ 86  		success, err := client.SetNX(ctx, mutexKey, "locked", 10*time.Second).Result()
+ 87  		if err != nil {
+ 88  			fmt.Printf("Erro ao tentar criar mutex: %v\n", err)
+ 89  			time.Sleep(1 * time.Second)
+ 90  			continue
+ 91  		}
+ 92  
+ 93  		if success {
+ 94  			// Mutex criado com sucesso
+ 95  			fmt.Println("Mutex criado e adquirido para o recurso por 10s:", mutexKey)
+ 96  			break
+ 97  		} else {
+ 98  			// Mutex foi criado por outra thread durante a tentativa
+ 99  			fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
+100  			time.Sleep(2 * time.Second)
+101  
+102  			// Verifica se ainda existe
+103  			lock, err := client.Get(ctx, mutexKey).Result()
+104  			if err != nil && err != redis.Nil {
+105  				fmt.Printf("Erro ao verificar existência do mutex: %v\n", err)
+106  				time.Sleep(1 * time.Second)
+107  				continue
+108  			}
+109  
+110  			if lock != "" {
+111  				continue // Volta ao início do loop para aguardar
+112  			}
+113  			// Se não existe mais, tenta criar novamente
+114  			continue
+115  		}
+116  	}
+117  
+118  	// Processa o registro
+119  	success := processaMensagem(NovoPedido)
+120  	if !success {
+121  		return
+122  	}
+123  
+124  	fmt.Println("Pedido processado:", mutexKey)
+125  
+126  	// Libera o Mutex
+127  	_, err := client.Del(ctx, mutexKey).Result()
+128  	if err != nil {
+129  		fmt.Printf("Erro ao liberar mutex: %v\n", err)
+130  	} else {
+131  		fmt.Println("Mutex liberado para o recurso:", mutexKey)
+132  	}
+133  
+134  }`}</code></pre>
+  <h4 class="deep-h">O código do laboratório: ZooKeeper</h4>
+  <p>Este é o <code>mutex_distribuido_zookeeper/main.go</code>. O znode é efêmero e tem um nome fixo.</p>
+  <pre><code>{String.raw`  1  package main
+  2  
+  3  import (
+  4  	"fmt"
+  5  	"time"
+  6  
+  7  	"github.com/go-zookeeper/zk"
+  8  )
+  9  
+ 10  type PedidoDeCompra struct {
+ 11  	Id         string
+ 12  	Item       string
+ 13  	Quantidade float64
+ 14  }
+ 15  
+ 16  // Função mock para exemplificar a chegada de alguma mensagem
+ 17  func consomeMensagem() PedidoDeCompra {
+ 18  	return PedidoDeCompra{
+ 19  		Id:         "123456",
+ 20  		Item:       "pão de alho",
+ 21  		Quantidade: 4,
+ 22  	}
+ 23  }
+ 24  
+ 25  // Função mock para exemplificar o processamento de uma mensagem
+ 26  func processaMensagem(pedido PedidoDeCompra) bool {
+ 27  	fmt.Println("Processando pedido:", pedido.Id)
+ 28  	time.Sleep(10 * time.Second)
+ 29  	return true
+ 30  }
+ 31  
+ 32  func main() {
+ 33  
+ 34  	// Conecta ao ZooKeeper
+ 35  	conn, _, err := zk.Connect([]string{"0.0.0.0"}, 1000*time.Second)
+ 36  	if err != nil {
+ 37  		panic(err)
+ 38  	}
+ 39  	defer conn.Close()
+ 40  
+ 41  	// looping de consumo
+ 42  	NovoPedido := consomeMensagem()
+ 43  	mutexKey := fmt.Sprintf("/%v", NovoPedido.Id)
+ 44  
+ 45  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
+ 46  
+ 47  	// Timeout para evitar espera infinita (30 segundos)
+ 48  	timeout := time.After(30 * time.Second)
+ 49  	retryCount := 0
+ 50  
+ 51  	// Loop para aguardar o mutex ser liberado
+ 52  	for {
+ 53  		select {
+ 54  		case <-timeout:
+ 55  			fmt.Printf("Timeout atingido após 30 segundos aguardando o mutex %s\n", mutexKey)
+ 56  			return
+ 57  		default:
+ 58  		}
+ 59  
+ 60  		retryCount++
+ 61  
+ 62  		// Verifica se o Znode de lock já existe
+ 63  		exists, _, err := conn.Exists(mutexKey)
+ 64  		if err != nil {
+ 65  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
+ 66  			time.Sleep(1 * time.Second)
+ 67  			continue
+ 68  		}
+ 69  
+ 70  		if exists {
+ 71  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
+ 72  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 73  			continue
+ 74  		}
+ 75  
+ 76  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 77  		break
+ 78  	}
+ 79  
+ 80  	// Tentativa de criar o lock para o registro
+ 81  	acl := zk.WorldACL(zk.PermAll) // Permissões abertas, ajuste conforme necessário
+ 82  	var path string
+ 83  
+ 84  	// Loop para tentar adquirir o mutex
+ 85  	for {
+ 86  		var err error
+ 87  		path, err = conn.Create(mutexKey, []byte{}, zk.FlagEphemeral, acl)
+ 88  		if err != nil {
+ 89  			if err == zk.ErrNodeExists {
+ 90  				fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
+ 91  				time.Sleep(2 * time.Second)
+ 92  
+ 93  				// Verifica novamente se ainda existe
+ 94  				exists, _, existsErr := conn.Exists(mutexKey)
+ 95  				if existsErr != nil {
+ 96  					fmt.Printf("Erro ao verificar existência do mutex: %v\n", existsErr)
+ 97  					time.Sleep(1 * time.Second)
+ 98  					continue
+ 99  				}
+100  
+101  				if exists {
+102  					continue // Volta ao início do loop para aguardar
+103  				}
+104  				// Se não existe mais, tenta criar novamente
+105  				continue
+106  			}
+107  			// Outro tipo de erro
+108  			fmt.Printf("Erro ao criar mutex: %v\n", err)
+109  			time.Sleep(1 * time.Second)
+110  			continue
+111  		}
+112  
+113  		// Mutex criado com sucesso
+114  		break
+115  	}
+116  
+117  	fmt.Println("Mutex criado e adquirido para o recurso", mutexKey)
+118  
+119  	// Processa o registro
+120  	success := processaMensagem(NovoPedido)
+121  	if !success {
+122  		return
+123  	}
+124  
+125  	fmt.Println("Pedido processado:", mutexKey)
+126  
+127  	// Libera o Mutex manualmente
+128  	conn.Delete(path, -1)
+129  	fmt.Println("Mutex liberado para o recurso:", mutexKey)
+130  
+131  	// Caso a sessão com o zookeeper acabe, todos os locks gerados pela conexão serão liberados.
+132  	time.Sleep(50 * time.Second)
+133  }`}</code></pre>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Redis.</strong> O <code>GET</code> seguido de <code>SET</code> não é atômico: outro processo entra entre os dois. O laboratório conserta o segundo passo com <code>SetNX</code>, mas <strong>mantém o <code>GET</code> antes</strong>. O valor também é a string <code>"locked"</code>, igual para todos, então sem token por dono o <code>DEL</code> apaga a trava de outro. O TTL de 10 s para um trabalho de 10 s deixa a trava vencer no meio, e não há fencing token. O comando certo é um só: <code>SET chave token NX PX ttl</code>. O <code>SETNX</code> puro está obsoleto desde o Redis 2.6.12.</li>
+    <li><strong>ZooKeeper.</strong> O <code>Exists</code> antes do <code>Create</code> também não é atômico: o <code>Create</code> já falha com <code>ErrNodeExists</code>, e só ele basta. O artigo mostra uma sessão de 10 s e o log mostra <code>timeout=40000</code>, porque o servidor negocia o valor; o laboratório usa <code>1000*time.Second</code>. A receita oficial usa nós <strong>sequenciais</strong>, e o laboratório usa um nó fixo, sem fila e com a "manada".</li>
+    <li><strong>"Mutex distribuído é, em alguns aspectos, mais fácil que em memória compartilhada."</strong> É mais difícil. Não há relógio comum, o dono pode ficar lento sem saber (pausas de coleta de lixo, rede) e a trava pode vencer enquanto ele ainda acha que a tem.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Redis: o comando SET (NX, PX)", href: "https://redis.io/docs/latest/commands/set/" },
+    { label: "Redis: locks distribuídos e o Redlock", href: "https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/" },
+    { label: "Kleppmann (2016): How to do distributed locking", href: "https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html" },
+    { label: "Sanfilippo: Is Redlock safe?", href: "http://antirez.com/news/101" },
+    { label: "Apache ZooKeeper: receita de lock", href: "https://zookeeper.apache.org/doc/current/recipes.html#sc_recipes_Locks" },
+  ]} />
+</Deep>
+
+<p class="gancho">O Caio, nas duas versões, ficou tentando a trava e voltando a dormir, e cada espera custou milissegundos. Falta saber se vale a pena, quando a espera é minúscula, não dormir de jeito nenhum e ficar girando em volta da trava: é o spinlock.</p>
+
+<Flashcards cards={[
+  { q: "Por que o mutex local não basta com 2 réplicas do estoque?",
+    a: "Cada réplica tem o seu sync.Mutex em memórias diferentes. Os dois clientes leem 1, os dois baixam, e o estoque vai a −1 de novo." },
+  { q: "Qual é o comando do lock no Redis e o que cada parte faz?",
+    a: "SET lock:estoque:GATO-042 <token> NX PX 5000: o NX cria só se não existir, o PX 5000 dá TTL de 5 s, e tudo é um comando atômico." },
+  { q: "Quantas reservas por segundo cabem com o lock no Redis?",
+    a: "O ciclo tem 6 ms (1 de SET + 4 de trabalho + 1 de DEL), então 1 s ÷ 6 ms = 166 por segundo por SKU." },
+  { q: "O que dá errado quando o dono pausa por 6 s com TTL de 5 s?",
+    a: "A trava vence em 5,001 s, o Caio a pega em 5,003 s e compra. A Bia acorda em 6 s, ainda acha que tem a trava, e leva o estoque a −1." },
+  { q: "Quais são os três remédios para o TTL vencido?",
+    a: "Token por dono com compara-e-apaga, fencing token (o banco recusa o número menor: 33 depois do 34) e o UPDATE ... AND quantidade > 0, que não depende de relógio." },
+  { q: "Qual é a diferença entre lock de eficiência e de correção?",
+    a: "Eficiência evita trabalho repetido (falhar custa pouco; Redis simples serve). Correção protege o dado (falhar vende o gato duas vezes; exige fencing ou checagem no banco)." },
+]} />

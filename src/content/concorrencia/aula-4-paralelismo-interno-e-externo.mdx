@@ -1,0 +1,87 @@
+---
+title: "Paralelismo interno e externo"
+order: 4
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o <code>relatorios</code> ganhou velocidade dividindo 400 mil linhas em 4 fatias, uma por núcleo do mesmo pod. Mas a loja já faz outro tipo de coisa ao mesmo tempo: a <code>estoque-1</code> e a <code>estoque-2</code> atendem pedidos juntas, cada uma no seu pod. As duas coisas se chamam paralelismo, e se comportam de jeitos muito diferentes quando precisam combinar algo.</p>
+
+<OneLiner>Paralelismo <strong>interno</strong> acontece dentro de um processo, com threads que dividem a memória; paralelismo <strong>externo</strong> acontece entre processos, pods ou máquinas, cada um com a sua memória.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Int × ext</strong> (interno × externo), veja primeiro as 4 threads dentro de um pod só e depois os 2 pods lado a lado. Em cada um, procure onde fica a memória. No passo <em>"e se der errado"</em>, o fechamento das 23:00 roda nas duas réplicas do <code>relatorios</code>: conte quantas vezes o resumo do dia é gravado.</p>
+</DoIt>
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=interno-externo" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Paralelismo interno × externo" alt="Prévia da figura 3D: Paralelismo interno × externo" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Interno.</strong> O paralelismo está dentro de um processo, e é o <strong>código</strong> que o cria: o <code>relatorios</code> corta as linhas em 4 fatias e as entrega a 4 threads. As 4 dividem a memória do mesmo pod e sobem junto com ele. O limite é o número de núcleos que o pod tem.</li>
+  <li><strong>Externo.</strong> O paralelismo está entre processos, e quem o cria é a <strong>infraestrutura</strong>: a <code>estoque-1</code> e a <code>estoque-2</code> são 2 processos, em 2 pods, com 2 memórias. O balanceador do módulo 7 reparte os pedidos entre elas. O limite é o número de pods que o cluster sustenta (e o que existe atrás deles, como o banco).</li>
+  <li>O mesmo desenho aparece em outros lugares. Os consumidores de uma fila de mensagens (módulo 13) são paralelismo externo: cada um é um processo que pega mensagens do mesmo lugar. O artigo cita ainda Hadoop e Spark, que repartem um cálculo grande entre muitas máquinas.</li>
+  <li>A <strong>coordenação</strong> é o ponto em que os dois se separam. No interno, quem precisa combinar algo usa a memória em comum: uma trava (<code>mutex</code>, aula 7). No externo, a memória é diferente, e a combinação precisa passar por algo que as duas enxerguem: o banco, o Redis, o ZooKeeper (aula 8).</li>
+  <li>Há ainda um ganho do externo: o <strong>isolamento de falha</strong>. Se um <code>panic</code> derruba a <code>estoque-1</code> (aula 1), a <code>estoque-2</code> continua de pé. Dentro de um único processo, uma goroutine que cai leva todas junto.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Interno</th><th>Externo</th></tr></thead>
+  <tbody>
+    <tr><th>Onde roda</th><td>dentro de um processo</td><td>entre processos, pods ou máquinas</td></tr>
+    <tr><th>Memória</th><td>uma só, dividida</td><td>uma para cada processo</td></tr>
+    <tr><th>Na loja</th><td>as 4 fatias do <code>relatorios</code></td><td>a <code>estoque-1</code> e a <code>estoque-2</code></td></tr>
+    <tr><th>Quem cria</th><td>o código</td><td>a infraestrutura (réplicas, autoscaling)</td></tr>
+    <tr><th>Como combinar</th><td>trava em memória</td><td>trava fora do processo</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: o fechamento roda duas vezes</h3>
+
+<p>O <code>relatorios</code> ganha uma segunda réplica para aguentar a Black Friday. O agendador que dispara o fechamento às 23:00 vive <em>dentro</em> do programa, e agora existem dois programas. Às 23:00 as duas réplicas acordam, cada uma lê as 400 mil linhas, cada uma calcula e cada uma grava o resumo do dia. O resultado: o resumo é gravado <strong>2 vezes</strong>, e a receita do dia aparece em dobro.</p>
+
+<p>Ninguém errou no código de uma réplica: cada uma faz exatamente o que deve. O que faltou foi coordenação <strong>entre</strong> processos, e um <code>mutex</code> em memória não ajuda, porque cada réplica tem o seu. A solução é uma trava que as duas enxerguem, o assunto da aula 8.</p>
+
+<WhyItMatters>
+  <li><strong>Dois lugares, duas ferramentas.</strong> Trava em memória resolve dentro do processo; entre processos é preciso algo de fora.</li>
+  <li><strong>Subir réplicas muda o programa.</strong> O que funcionava com 1 pod (o agendador, o <code>mutex</code>) pode quebrar com 2.</li>
+  <li><strong>Escalar para os lados isola falhas.</strong> Um <code>panic</code> numa réplica não derruba as outras.</li>
+  <li><strong>O limite muda.</strong> No interno, são os núcleos do pod; no externo, o que existe atrás dos pods, como o banco.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Tirar o agendador de dentro do programa</h4>
+  <p>Uma saída para o fechamento duplicado é não deixar o agendador dentro das réplicas. Um <code>CronJob</code> do Kubernetes dispara um único Job às 23:00, e a política <code>concurrencyPolicy: Forbid</code> impede uma segunda execução enquanto a primeira não terminou. A própria documentação avisa que, em casos raros, um CronJob pode criar dois Jobs ou nenhum, então o fechamento ainda precisa ser seguro se rodar duas vezes (por exemplo, gravar o resumo do dia com uma chave única).</p>
+  <h4 class="deep-h">Quatro núcleos num pod contra quatro pods de um núcleo</h4>
+  <p>Dá o mesmo número de núcleos, mas não o mesmo comportamento. Com 4 pods, a memória não é dividida (um cache em memória é copiado 4 vezes), a coordenação passa pela rede, e uma queda leva só um quarto da capacidade. Com 1 pod de 4 núcleos, a troca de dados é barata e a queda leva tudo.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Kubernetes: Deployment e réplicas", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Kubernetes: CronJob, concurrencyPolicy e as limitações", href: "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/" },
+    { label: "Kubernetes: autoscaling horizontal de pods", href: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Até aqui usei duas palavras, concorrência para a <code>estoque-1</code> e paralelismo para o <code>relatorios</code>, e elas são fáceis de confundir. Falta saber o que separa uma da outra de verdade, e se uma loja pode ter uma sem a outra.</p>
+
+<Flashcards cards={[
+  { q: "O que é paralelismo interno e qual exemplo da loja o ilustra?",
+    a: "Paralelismo dentro de um processo, criado pelo código, com threads que dividem a memória. São as 4 fatias do relatorios num pod de 4 vCPU." },
+  { q: "O que é paralelismo externo e qual exemplo da loja o ilustra?",
+    a: "Paralelismo entre processos, pods ou máquinas, criado pela infraestrutura, cada um com a sua memória. São a estoque-1 e a estoque-2 atrás do balanceador." },
+  { q: "Por que um mutex em memória não basta no paralelismo externo?",
+    a: "Porque cada processo tem a sua memória e o seu mutex. Uma trava só vale entre quem enxerga a mesma memória." },
+  { q: "O que acontece se o relatorios ganha uma segunda réplica e o agendador roda nas duas?",
+    a: "O fechamento das 23:00 roda 2 vezes e o resumo do dia é gravado 2 vezes. Faltou coordenação entre processos." },
+  { q: "Que vantagem o paralelismo externo tem sobre o interno?",
+    a: "Isolamento de falha: se uma réplica cai por um panic, as outras continuam. Dentro de um processo, uma goroutine que cai leva todas." },
+]} />

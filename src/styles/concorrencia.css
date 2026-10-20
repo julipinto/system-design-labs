@@ -1,0 +1,34 @@
+/* SDLabs · Concorrência e Paralelismo: o que só este módulo usa (corrida, linha do tempo da trava, deadlock, curva de Amdahl). Peças comuns em widgets.css */
+/* tabelas dos widgets: 200/−1 colorido e linhas de evento */
+.sdl-content table.cc-table{min-width:0}
+.sdl-content table.cc-table th,.sdl-content table.cc-table td{padding-right:var(--s-3)}
+.sdl-content table.cc-table td.cc-cell{font:700 14px var(--mono)}
+.sdl-content table.cc-table td.cc-cell.ok{color:var(--ok)}
+.sdl-content table.cc-table td.cc-cell.bad{color:var(--bad)}
+/* corrida: a ordem montada e a linha da ordem que está em jogo */
+.sdl-content .cr-say{margin:0 0 var(--s-1);font-size:14.5px;line-height:1.5}
+.sdl-content .cr-seq{margin:0 0 6px;font:700 14px var(--mono);color:var(--accent-ink)}
+.sdl-content .cr-list{margin-top:var(--s-3)}
+.sdl-content tr.cr-cur th,.sdl-content tr.cr-cur td{background:var(--accent-wash)}
+.sdl-content .cr-out ol.ls-list li{margin-bottom:2px}
+/* trava com TTL: faixa de 0 a 10 s; verde é a Bia com a trava, vermelha é a janela de dois donos */
+.sdl-content .lk-track{position:relative;height:40px;border:var(--hair) solid var(--line-strong);border-radius:var(--r-1);overflow:hidden;margin:var(--s-3) 0 0;background:var(--sunken)}
+.sdl-content .lk-seg{position:absolute;top:0;bottom:0;display:grid;place-items:center;min-width:2px;font:700 12px var(--mono);white-space:nowrap;overflow:hidden}
+.sdl-content .lk-seg.ok{background:color-mix(in srgb,var(--ok) 22%,var(--sunken));color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}
+.sdl-content .lk-seg.bad{background:color-mix(in srgb,var(--bad) 22%,var(--sunken));color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}
+.sdl-content .lk-seg.idle{background:var(--sunken);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.sdl-content .lk-scale{position:relative;height:22px;margin:var(--s-1) 0 var(--s-3);font:600 12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.sdl-content .lk-scale span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.sdl-content .lk-scale span:first-child{transform:none}
+.sdl-content .lk-scale span:last-child{transform:translateX(-100%)}
+/* deadlock: o erro do PostgreSQL como bloco de código */
+.sdl-content .dl-pg{margin:0 0 var(--s-3);font-size:13px}
+.sdl-content .dl-wait td{color:var(--bad)}
+/* Amdahl: a curva, a reta ideal e o teto */
+.sdl-content .am-svg{display:block;width:100%;height:auto;max-width:560px;margin:0 0 var(--s-2);overflow:visible}
+.sdl-content .am-grid{stroke:var(--line);stroke-width:1}
+.sdl-content .am-tick{fill:var(--muted);font:600 12px var(--mono)}
+.sdl-content .am-ideal{stroke:var(--faint);stroke-width:1.5;stroke-dasharray:6 4}
+.sdl-content .am-ceil{stroke:var(--bad);stroke-width:1.5;stroke-dasharray:2 4}
+.sdl-content .am-curve{fill:none;stroke:var(--signal);stroke-width:2.5;stroke-linejoin:round}
+.sdl-content .am-dot{fill:var(--accent-fill);stroke:var(--accent-ink);stroke-width:1.5}

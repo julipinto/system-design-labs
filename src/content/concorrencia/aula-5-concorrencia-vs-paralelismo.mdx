@@ -1,0 +1,87 @@
+---
+title: "Concorrência vs paralelismo"
+order: 5
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Nas aulas passadas apareceram dois casos: a <code>estoque-1</code>, com 1 vCPU e muitos pedidos, e o <code>relatorios</code>, com 4 vCPU e 4 fatias. Um é concorrência e o outro é paralelismo, mas as palavras se confundem fácil. Se alguém perguntar qual é a diferença, a resposta cabe em duas frases.</p>
+
+<OneLiner>Concorrência é <strong>estrutura</strong>: partir o problema em partes independentes. Paralelismo é <strong>execução</strong>: rodar partes ao mesmo tempo. Dá para ter uma sem a outra.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>1 núcleo</strong>, veja a <code>estoque-1</code> com vários pedidos e um núcleo só: é concorrência sem paralelismo. Depois aperte o botão <strong>4 núcleos</strong> para ver o <code>relatorios</code> com 4 fatias em 4 núcleos: aí há os dois. Em cada um, pergunte: as partes são independentes? Há mais de uma rodando no mesmo instante?</p>
+</DoIt>
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=um-nucleo" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Concorrência em 1 vCPU" alt="Prévia da figura 3D: Concorrência em 1 vCPU" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Concorrência</strong> é o jeito de <em>organizar</em> o trabalho. Cada pedido do <code>estoque</code>, cada fatia do <code>relatorios</code>, é uma parte que pode andar sem esperar as outras. Rob Pike, o autor do Go, resumiu assim: concorrência é lidar com muitas coisas ao mesmo tempo.</li>
+  <li><strong>Paralelismo</strong> é o jeito de <em>executar</em>. Duas partes rodam no mesmo instante, cada uma num núcleo. Para Pike, é fazer muitas coisas ao mesmo tempo, e isso exige hardware: mais de um núcleo.</li>
+  <li>Com as duas perguntas, "o trabalho foi partido em partes independentes?" e "mais de uma roda no mesmo instante?", a loja cabe num quadro de 4 casas, na tabela abaixo.</li>
+  <li>A concorrência <strong>permite</strong> o paralelismo, mas não o garante. O mesmo programa concorrente roda intercalado em 1 núcleo e em paralelo em 4, sem mudar uma linha. Por isso vale escrever a estrutura uma vez e deixar o hardware decidir quanto dela roda junto.</li>
+  <li>Para saber qual dos dois falta, olhe o que o pedido faz com o tempo. Se <strong>espera</strong> mais do que calcula (o <code>estoque</code>: 18 ms de espera contra 2 de CPU), a concorrência resolve. Se <strong>calcula</strong> o tempo todo (o <code>relatorios</code>), precisa de paralelismo.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Sem paralelismo (1 núcleo por vez)</th><th>Com paralelismo (vários núcleos juntos)</th></tr></thead>
+  <tbody>
+    <tr><th>Com concorrência</th><td><code>estoque-1</code>: 1 vCPU, muitos pedidos intercalados</td><td><code>relatorios</code>: 4 fatias em 4 vCPU</td></tr>
+    <tr><th>Sem concorrência</th><td>um programa que atende um pedido só, do começo ao fim</td><td>duas réplicas do <code>estoque</code>, cada uma atendendo um pedido por vez (paralelismo externo)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: 4 threads num pod de 1 vCPU</h3>
+
+<p>Alguém lê "paralelismo acelera o <code>relatorios</code>" e sobe 4 threads de cálculo num pod de <strong>1 vCPU</strong>, esperando o fechamento 4 vezes mais rápido. Mas não há 4 núcleos, há 1. As 4 threads se revezam nele, e o trabalho total continua sendo 4 × 10 s = <strong>40 s</strong> de CPU, mais o custo das trocas de contexto. O resultado é igual ou pior que o de uma thread só.</p>
+
+<p>Concorrência sem paralelismo não acelera cálculo. O número de threads que ajuda é limitado pelo número de núcleos que o pod realmente tem, e não pelo número que o código decidiu criar.</p>
+
+<WhyItMatters>
+  <li><strong>Duas perguntas, quatro casas.</strong> "Foi partido?" e "roda junto?" bastam para classificar qualquer caso.</li>
+  <li><strong>Estrutura primeiro.</strong> Um programa bem partido ganha o paralelismo de graça quando o hardware aparece.</li>
+  <li><strong>Diagnóstico simples.</strong> Espera pede concorrência, cálculo pede paralelismo.</li>
+  <li><strong>Núcleo é o limite.</strong> Mais threads que núcleos não acelera nada, só gasta troca de contexto.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Por que o quadro tem uma casa fraca</h4>
+  <p>A casa "sem concorrência, com paralelismo" é a mais difícil de ilustrar com um serviço. As duas réplicas do <code>estoque</code> servem para encaixar o conceito, mas cada uma, na prática, atende muitos pedidos e é concorrente por dentro. O exemplo mais limpo vem do hardware: uma instrução SIMD faz a <em>mesma</em> conta em vários dados ao mesmo tempo, dentro de um único fluxo de execução. Há paralelismo, e não há partes independentes intercaladas.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Paralelismo, em geral, é concorrente, mas nem toda concorrência é paralela."</strong> É uma simplificação. Pike trata os dois como conceitos diferentes, estrutura contra execução, e há paralelismo sem concorrência (o caso do SIMD acima).</li>
+    <li><strong>"Concorrência significa não ter controle sobre a ordem."</strong> A ordem imprevisível vem do escalonador, que decide quem roda quando, e não da concorrência em si. Um laço com <code>select</code> sobre canais, por exemplo, pode ser perfeitamente determinístico. É por isso que a aula 6 fala de <em>condição de corrida</em> como um defeito, e não como algo natural da concorrência.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Rob Pike: Concurrency is not parallelism (blog do Go)", href: "https://go.dev/blog/waza-talk" },
+    { label: "OSTEP: Concurrency, an introduction", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-intro.pdf" },
+    { label: "Go: GOMAXPROCS ciente de containers", href: "https://go.dev/blog/container-aware-gomaxprocs" },
+  ]} />
+</Deep>
+
+<p class="gancho">Concorrência e paralelismo prometem fazer mais coisas ao mesmo tempo, e a promessa tem um preço: quando duas dessas coisas mexem no mesmo dado, a ordem deixa de ser neutra. A loja tem 1 gato e dois clientes, a Bia e o Caio, que clicam em "comprar" com 2 ms de diferença. Falta saber o que acontece com o estoque nessa corrida.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre concorrência e paralelismo, segundo Pike?",
+    a: "Concorrência é estrutura: partir o problema em partes independentes. Paralelismo é execução: rodar partes ao mesmo tempo. Dá para ter uma sem a outra." },
+  { q: "Em que casa do quadro está a estoque-1, e em qual está o relatorios?",
+    a: "A estoque-1 (1 vCPU, muitos pedidos) tem concorrência sem paralelismo. O relatorios (4 vCPU, 4 fatias) tem concorrência e paralelismo." },
+  { q: "Como saber se o problema pede concorrência ou paralelismo?",
+    a: "Se o pedido espera mais do que calcula, concorrência. Se calcula o tempo todo, paralelismo." },
+  { q: "O que acontece com 4 threads de cálculo num pod de 1 vCPU?",
+    a: "Continuam 4 × 10 s = 40 s de CPU, mais as trocas de contexto. Sem núcleos, não há ganho." },
+  { q: "Um exemplo de paralelismo sem concorrência?",
+    a: "Uma instrução SIMD: a mesma conta em vários dados ao mesmo tempo, dentro de um único fluxo de execução." },
+]} />

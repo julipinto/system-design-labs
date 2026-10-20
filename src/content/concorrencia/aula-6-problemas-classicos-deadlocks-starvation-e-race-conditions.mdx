@@ -1,0 +1,179 @@
+---
+title: "Problemas clássicos: deadlocks, starvation e race conditions"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada ficou o aviso: quando duas coisas mexem no mesmo dado, a ordem deixa de ser neutra. A loja tem agora exatamente esse caso. Resta <strong>1</strong> gato de pelúcia no <code>GATO-042</code>, e às 14:02:10.000 a Bia (SP) clica em "comprar". Dois milissegundos depois, às 14:02:10.002, o Caio (Rio) clica também. O <code>estoque-1</code> atende os dois ao mesmo tempo, com o código abaixo.</p>
+
+<pre><code>{String.raw`func reservar(sku string) error {
+    q := lerQuantidade(sku)   // SELECT quantidade FROM estoque WHERE sku = 'GATO-042'   (2 ms)
+    if q < 1 { return ErrSemEstoque }
+    baixar(sku)               // UPDATE estoque SET quantidade = quantidade - 1 WHERE sku = 'GATO-042'   (2 ms)
+    return nil
+}`}</code></pre>
+
+<OneLiner>Quando várias partes mexem no mesmo dado sem coordenação, o resultado depende de quem chega primeiro: é a <strong>condição de corrida</strong>. As travas que a resolvem trazem dois problemas próprios, o <strong>deadlock</strong> e a <strong>starvation</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Corrida</strong>, avance os passos e olhe o que a Bia e o Caio leem no banco: os dois leem 1? No fim, o estoque é quanto? Depois aperte o botão <strong>Deadlock</strong> para ver o segundo problema da aula, a reserva contra o estorno. No widget abaixo, clique em "todas as ordens" e conte quantas das 6 dão −1.</p>
+</DoIt>
+
+<Widget name="corrida" title="Bia × Caio: todas as ordens possíveis" hint="Cada cliente faz 2 passos: checar e baixar. Veja as 6 formas de intercalar os 4 passos e o estoque final de cada uma. Depois ponha o mutex e veja o que sobra." />
+
+<Figure3D path="labs/concorrencia/estoque-3d/?mode=race" poster="labs/concorrencia/estoque-3d-previa.webp" title="Figura interativa: Corrida: ler e baixar sem trava" alt="Prévia da figura 3D: Corrida: ler e baixar sem trava" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Em t = 0 a Bia clica, e o <code>reservar</code> dela faz o <code>SELECT</code>: lê <strong>1</strong>. O <code>SELECT</code> leva 2 ms.</li>
+  <li>Em t = 2 ela passa no <code>if q &lt; 1</code> e começa o <code>UPDATE</code>. No mesmo instante o Caio clica, e o <code>SELECT</code> dele também lê <strong>1</strong>, porque o <code>UPDATE</code> da Bia ainda não confirmou.</li>
+  <li>Em t = 4 o <code>UPDATE</code> da Bia confirma e a quantidade vira <strong>0</strong>. O Caio, que já tinha lido 1, passa no <code>if</code> com um dado velho e começa o <code>UPDATE</code> dele.</li>
+  <li>Em t = 6 o <code>UPDATE</code> do Caio confirma e a quantidade vira <strong>−1</strong>. O pedido <strong>1049</strong> da Bia (gato 79.90 + frete SP 9.00 = 88.90) é criado, e o do Caio também seria. Duas reservas para um gato só.</li>
+  <li>A janela da corrida é o intervalo entre <strong>checar e baixar</strong>: 2 ms. É o clássico <em>check-then-act</em>: a decisão se apoia numa leitura, e o mundo muda antes da ação.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>t (ms)</th><th>Bia</th><th>Caio</th><th><code>quantidade</code></th></tr></thead>
+  <tbody>
+    <tr><th>0</th><td><code>SELECT</code> lê 1</td><td>(ainda não chegou)</td><td>1</td></tr>
+    <tr><th>2</th><td>passa no <code>if</code>; começa o <code>UPDATE</code></td><td><code>SELECT</code> lê 1</td><td>1</td></tr>
+    <tr><th>4</th><td><code>UPDATE</code> confirma → 0</td><td>passa no <code>if</code>; começa o <code>UPDATE</code></td><td>0</td></tr>
+    <tr><th>6</th><td>pedido 1049 criado</td><td><code>UPDATE</code> confirma → −1</td><td><strong>−1</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Não é azar. Cada cliente faz 2 passos (checar e baixar), e há <strong>6</strong> jeitos de intercalar os 4 passos, mantendo a ordem de cada um. Em apenas 2 deles um pedido termina inteiro antes de o outro começar (<code>B1 B2 C1 C2</code> e <code>C1 C2 B1 B2</code>), e o estoque fica em 0. Nos outros <strong>4</strong>, os dois leem 1 antes de qualquer baixa, e o estoque vai a −1. O widget acima mostra as 6.</p>
+
+<h3 class="sec">Deadlock: a reserva contra o estorno</h3>
+
+<p>Para consertar a corrida, o time põe uma trava. Só que a loja tem mais de um recurso para travar. Às 14:02:10.500 o pagamento do 1049 confirma e, no mesmo instante, a Bia se arrepende e clica em "cancelar". Duas operações começam juntas: <code>reservar(1049)</code> trava <code>estoque:GATO-042</code> e depois <code>pedido:1049</code>; <code>cancelar(1049)</code> trava <code>pedido:1049</code> e depois <code>estoque:GATO-042</code>.</p>
+
+<Widget name="deadlock" title="Reserva × estorno: em que ordem travar?" hint="Escolha a ordem em que cada operação pega as duas travas. Com ordens cruzadas, o ciclo aparece e ninguém anda. Marque 'ordem global' e o ciclo desfaz." />
+
+<ol class="flow steps">
+  <li>t = 0: a reserva (R) trava o <code>estoque</code>.</li>
+  <li>t = 1: o cancelamento (C) trava o <code>pedido</code>.</li>
+  <li>t = 2: R quer o <code>pedido</code>, que C segura, e espera.</li>
+  <li>t = 3: C quer o <code>estoque</code>, que R segura, e espera. É um <strong>ciclo</strong>, e ninguém anda.</li>
+</ol>
+
+<p>Para um deadlock acontecer, as quatro condições de Coffman (1971) precisam valer juntas: <strong>exclusão mútua</strong> (a trava só tem um dono), <strong>segura-e-espera</strong> (quem tem uma trava pede outra), <strong>sem preempção</strong> (ninguém tira a trava de quem a tem) e <strong>espera circular</strong> (R espera C, que espera R). Tirar qualquer uma desfaz o deadlock.</p>
+
+<p>O pior vem depois. Passado o timeout de 2 s do cliente (módulo 10), a Bia vê um erro. Mas as duas goroutines <strong>continuam presas segurando as travas</strong>, e toda reserva futura do gato fica pendurada esperando uma trava que nunca solta. O conserto é uma <strong>ordem global</strong> (sempre <code>estoque</code> antes de <code>pedido</code>, em qualquer operação), ou um <code>TryLock</code> com tempo limite, ou uma trava só. O PostgreSQL acha o ciclo sozinho: depois do <code>deadlock_timeout</code> (padrão <strong>1 s</strong>), aborta uma das transações com <code>ERROR: deadlock detected</code> (SQLSTATE <code>40P01</code>) e a outra segue.</p>
+
+<h3 class="sec">Starvation: ninguém trava, o Caio só nunca é servido</h3>
+
+<p>O <code>marketplace-xyz</code> (o parceiro do módulo 8) sincroniza o estoque chamando <code>reservar</code> em laço: 4 ms por vez, sem pausa. O Caio tenta pegar a trava <strong>a cada 50 ms</strong>. A trava, sem fila, está sempre ocupada quando ele chega, e ele desiste aos <strong>10 s</strong>. Não houve deadlock, nada parou: ele só nunca foi servido. Isso é <em>starvation</em>, e acontece quando a trava não tem fila.</p>
+
+<p>O <code>sync.Mutex</code> do Go evita isso. Se quem espera passa de <strong>1 ms</strong>, o mutex entra em <em>modo de starvation</em> e passa a entregar a trava em ordem de chegada (FIFO). O spinlock do laboratório (aula 9) não tem esse cuidado: no log do artigo, entre 10 amigos, o amigo 6 foi servido por último (ordem 10, 3, 5, 1, 9, 2, 8, 7, 4, 6).</p>
+
+<h3 class="sec">Corrida entre eventos: o pedido que volta atrás</h3>
+
+<p>A corrida também existe fora do programa, entre mensagens. O <code>pagamentos</code> publica dois eventos do pedido 1049: <code>PagamentoPendente</code> (versão 1) e <code>PedidoPago</code> (versão 2). O <code>pedidos</code> os recebe <strong>na ordem errada</strong>. Sem proteção, o <code>PagamentoPendente</code> chega por último e o pedido <strong>volta</strong> de "pago" para "aguardando pagamento". A proteção é uma escrita condicional por versão: só aplica se a versão que chegou for maior que a gravada.</p>
+
+<pre><code>{String.raw`-- PedidoPago chega primeiro (versão 2): aplicado
+UPDATE pedidos SET status = 'pago', event_version = 2
+WHERE id = 1049 AND event_version < 2;
+-- 1 linha
+
+-- PagamentoPendente chega atrasado (versão 1): ignorado
+UPDATE pedidos SET status = 'aguardando_pagamento', event_version = 1
+WHERE id = 1049 AND event_version < 1;
+-- 0 linhas: o estado não regride`}</code></pre>
+
+<p>A coluna <code>event_version</code> é nova na tabela <code>pedidos</code> do módulo 4 (neste módulo é um exemplo). Ela se liga aos eventos <code>PedidoCriado</code> e <code>PedidoPago</code> do módulo 6, e a ordem dentro de uma partição volta no módulo 13.</p>
+
+<WhyItMatters>
+  <li><strong>Corrida não é bug raro.</strong> 4 de 6 intercalações dão −1. Num teste lento ela pode nunca aparecer, e na Black Friday aparece toda hora.</li>
+  <li><strong>Travar tem custo.</strong> Cada trava nova pode criar deadlock, e a trava sem fila pode criar starvation.</li>
+  <li><strong>Deadlock não faz barulho.</strong> Ninguém cai: as goroutines ficam presas e as requisições se acumulam até o serviço parecer morto.</li>
+  <li><strong>A corrida vale entre eventos também.</strong> Uma escrita condicional por versão impede que a mensagem velha desfaça a nova.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O mesmo defeito no laboratório</h4>
+  <p>Este é o <code>race_condition/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). Cem goroutines fazem <code>grelhados++</code> sem trava. O artigo mostra as saídas 97, 96, 100, 99, 97, 100 e 99, quando o esperado era sempre 100. Rodar com <code>go run -race main.go</code> acusa a corrida na hora.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Variável compartilhada para contar os alimentos grelhados
+10  var grelhados int = 0
+11  
+12  // Função para simular o tempo de preparo de um alimento na churrasqueira
+13  func grelhar() {
+14  	grelhados++
+15  	time.Sleep(time.Millisecond * 100)
+16  }
+17  
+18  func main() {
+19  
+20  	// Wait Group para esperar todas as goroutines terminarem
+21  	var wg sync.WaitGroup
+22  
+23  	// Alimentos disponíveis pra colocar na grelha
+24  	var alimentosChurrasco = 100
+25  
+26  	// Simula a concorrência pela grelha
+27  	for i := 0; i < alimentosChurrasco; i++ {
+28  		wg.Add(1) // Adiciona 1 alimento ao contador do WaitGroup
+29  		go func() {
+30  			grelhar()       // Inicia o processo de grelhar o alimento
+31  			defer wg.Done() // Remove um contador do wait group da grelha
+32  		}()
+33  	}
+34  
+35  	wg.Wait() // Espera que todas as goroutines chamem Done()
+36  
+37  	fmt.Println("Total de itens grelhados na churrasqueira:", grelhados)
+38  
+39  }`}</code></pre>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>O exemplo de eventos não é last-write-wins.</strong> O artigo diz que o problema é "agravado quando a arquitetura não adota o last-write-wins" e depois mostra <code>event_version &lt; N</code>, que é um <em>guarda de versão</em>. O LWW de verdade decide pelo <strong>timestamp</strong> do relógio e perde escritas quando os relógios divergem (Kleppmann, <em>Designing Data-Intensive Applications</em>, capítulos 5 e 8). Esta aula chama o exemplo de escrita condicional por versão monótona.</li>
+    <li><strong>O contador do laboratório engana.</strong> O resultado varia entre 96 e 100 porque o <code>Sleep</code> de 100 ms fica <em>depois</em> do incremento: poucas goroutines se encontram dentro do <code>grelhados++</code> ao mesmo tempo. A corrida existe mesmo nas execuções que dão 100, porque o incremento tem três passos (ler, somar, gravar). Só o <code>-race</code> garante que não há corrida.</li>
+  </ul>
+  <h4 class="deep-h">O deadlock em Go e no PostgreSQL</h4>
+  <p>O runtime do Go só avisa de um deadlock quando <em>todas</em> as goroutines estão bloqueadas (<code>fatal error: all goroutines are asleep</code>). Num servidor com outras goroutines vivas, o ciclo passa em silêncio. Já o PostgreSQL tem um detector: depois do <code>deadlock_timeout</code> ele procura o ciclo, aborta uma transação e deixa a outra continuar.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Coffman, Elphick e Shoshani (1971): System Deadlocks, ACM Computing Surveys (cópia no Internet Archive)", href: "https://web.archive.org/web/2020/https://dl.acm.org/doi/10.1145/356586.356588" },
+    { label: "OSTEP: Common concurrency problems (deadlock e condições de corrida)", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-bugs.pdf" },
+    { label: "PostgreSQL: deadlock_timeout e o controle de travas", href: "https://www.postgresql.org/docs/current/runtime-config-locks.html" },
+    { label: "Go: o detector de corridas (go run -race)", href: "https://go.dev/doc/articles/race_detector" },
+    { label: "Kleppmann: Designing Data-Intensive Applications (last write wins)", href: "https://dataintensive.net/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A corrida deixou o gato em −1, e o conserto com duas travas, sem ordem, criou o deadlock. Falta saber como uma trava só, posta do jeito certo, fecha a janela de 2 ms: é o <code>mutex</code>, e o que acontece com o Caio enquanto ele espera.</p>
+
+<Flashcards cards={[
+  { q: "Como a Bia e o Caio levam o estoque a −1?",
+    a: "Os dois leem 1 antes de qualquer baixa (t = 0 e t = 2). A Bia baixa para 0 em t = 4, e o Caio, com dado velho, baixa para −1 em t = 6. A janela é a de checar e baixar: 2 ms." },
+  { q: "Das 6 ordens possíveis de 2 passos de cada um, quantas dão −1?",
+    a: "4 dão −1. Só as 2 em que um pedido inteiro termina antes do outro começar (B1 B2 C1 C2 e C1 C2 B1 B2) dão certo." },
+  { q: "Quais são as 4 condições de Coffman para um deadlock?",
+    a: "Exclusão mútua, segura-e-espera, sem preempção e espera circular. Tirar uma delas desfaz o deadlock." },
+  { q: "Como evitar o deadlock entre reserva e estorno?",
+    a: "Ordem global das travas (sempre estoque antes de pedido), TryLock com tempo limite ou uma trava só. O PostgreSQL detecta o ciclo após 1 s e aborta uma transação (40P01)." },
+  { q: "O que é starvation, e como o sync.Mutex a evita?",
+    a: "Alguém nunca é servido porque a trava está sempre ocupada na hora em que tenta. Se um waiter passa de 1 ms, o mutex entra em modo de starvation e entrega em ordem (FIFO)." },
+  { q: "Como o guarda de versão impede o pedido de voltar de pago para aguardando?",
+    a: "UPDATE ... WHERE id = 1049 AND event_version < N. O evento de versão 1 que chega depois do de versão 2 atinge 0 linhas e é ignorado." },
+]} />

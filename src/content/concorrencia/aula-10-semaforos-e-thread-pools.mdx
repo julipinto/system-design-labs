@@ -1,0 +1,139 @@
+---
+title: "Semáforos e thread pools"
+order: 10
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o spinlock, assim como o mutex e o lock no Redis, deixava entrar <em>um</em> de cada vez. Mas o <code>estoque</code> tem um limite que não é de uma vaga só: o PostgreSQL aceita um número fixo de conexões, e cada conexão atende uma consulta por vez. Na Black Friday chegam 200 pedidos ao mesmo tempo em cada réplica. Quem controla quantos entram, e o que fazer com os que sobram, é o semáforo.</p>
+
+<OneLiner>Semáforo contador é uma trava com <strong>N vagas</strong>: quem chega com todas ocupadas espera uma ser liberada. O <strong>pool de conexões</strong> do <code>estoque</code> é um semáforo de 10 vagas na frente do PostgreSQL.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Pool</strong>, veja os 200 pedidos entrando e o pool de 10 vagas soltando-os em lotes. Leia o tempo do último pedido. Depois aperte o botão <strong>Conexões</strong>, o "e se der errado": o autoscaling sobe 12 réplicas. No widget abaixo, repita as contas: ponha 200 pedidos simultâneos, pool de 10, 20 ms e 12 réplicas, e veja o aviso.</p>
+</DoIt>
+
+<Widget name="pool" title="Pool de conexões: vazão, espera e o limite do banco" hint="Escolha o tamanho do pool (1 a 50), os pedidos simultâneos (1 a 300), os ms por consulta (5 a 100) e as réplicas (1 a 15). O widget calcula a vazão, a espera do último pedido e a média, e avisa quando réplicas × pool passa de 100 conexões." />
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=pool" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Semáforo e pool de conexões" alt="Prévia da figura 3D: Semáforo e pool de conexões" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O semáforo criado por Dijkstra (1965) tem uma contagem e duas operações: <strong>P</strong> (pegar uma vaga, que o artigo chama de <em>Wait</em>) e <strong>V</strong> (devolver, o <em>Signal</em>). Com a contagem em 0, quem chama P espera até alguém chamar V.</li>
+  <li>O <code>estoque</code> usa um pool de <strong>10 conexões</strong> com o PostgreSQL. Cada pedido pega uma conexão, faz a consulta e a devolve. O 11º pedido espera uma vaga. Em Go, o pool é um canal com buffer: <code>make(chan struct&#123;&#125;, 10)</code>. Enviar ocupa uma vaga, receber a libera.</li>
+  <li>Um <strong>mutex</strong> é um semáforo de 1 vaga <strong>com dono</strong>: quem travou é quem destrava. O semáforo binário, de 1 vaga, não tem dono, e é essa a diferença entre os dois, e não a contagem.</li>
+  <li>A conta do tamanho do pool vem da lei de Little (1961): conexões necessárias = vazão × tempo por consulta. Com 500 pedidos por segundo e 20 ms por pedido, 500/s × 0,020 s = <strong>10 conexões</strong>.</li>
+  <li>Na Black Friday chegam <strong>200</strong> pedidos simultâneos por réplica. Com o pool de 10 e 20 ms cada, a vazão continua em <strong>500/s</strong>. Os 10 primeiros terminam em 20 ms, e o último, que está no 20º lote, termina em 20 × 20 ms = <strong>400 ms</strong>. A média é 20 ms × (1 + 2 + … + 20) ÷ 20 = <strong>210 ms</strong>. Sem o pool, 200 conexões passariam do <code>max_connections</code> do PostgreSQL (<strong>100</strong> por padrão), e o banco responderia <code>FATAL: sorry, too many clients already</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: escalar demais derruba o banco</h3>
+
+<p>A Black Friday aperta e o autoscaling sobe o <code>estoque</code> para <strong>12 réplicas</strong>. Cada uma tem o seu pool de 10, e as contas fecham em cada réplica: 12 × 10 = <strong>120 conexões</strong>, mais que as 100 que o banco aceita. A partir da 101ª, o PostgreSQL recusa, e os pedidos falham, apesar de cada réplica estar saudável. <strong>Não adianta escalar mais réplicas</strong>: o gargalo mudou para o banco.</p>
+
+<p>Há três remédios. O primeiro é um <em>pooler</em> na frente do banco (por exemplo o PgBouncer), que junta as conexões de todas as réplicas em poucas conexões reais. O segundo é reduzir o pool por réplica: 12 × 8 = 96. O terceiro é subir o <code>max_connections</code>, com custo de memória no servidor do banco. Esse limite volta no módulo 14 (saturação) e no módulo 25 (bulkhead).</p>
+
+<h3 class="sec">Semáforo não é worker pool</h3>
+
+<p>O laboratório (<code>semaphore/main.go</code>) cria <strong>uma goroutine por tarefa</strong> e só limita <strong>quantas rodam ao mesmo tempo</strong>: capacidade 3, 10 alimentos, 2 s cada. As tarefas saem em ⌈10 ÷ 3⌉ = 4 ondas de 2 s, ou <strong>8 s</strong>, e o log do artigo bate com isso. Um <strong>worker pool</strong> é outra coisa: um número fixo de workers que ficam lendo tarefas de uma fila (um canal). O efeito parecido esconde diferenças de custo e de comportamento de fila.</p>
+
+<p>Outras linguagens usam o segundo desenho. O Tomcat tem por padrão um pool de 200 threads para atender requisições (<a href="https://tomcat.apache.org/tomcat-10.1-doc/config/http.html" target="_blank" rel="noopener">atributo <code>maxThreads</code></a>), e o Node.js tem um pool de 4 threads (libuv) para arquivos, DNS e criptografia (<a href="https://docs.libuv.org/en/v1.x/threadpool.html" target="_blank" rel="noopener">documentação do libuv</a>).</p>
+
+<WhyItMatters>
+  <li><strong>O limite é do recurso, não do código.</strong> O banco aceita 100 conexões, e todas as réplicas dividem esse número.</li>
+  <li><strong>Pool é fila com vagas.</strong> Quem passa de 10 espera, e a espera do último (400 ms) é a conta da fila.</li>
+  <li><strong>Little dimensiona.</strong> Vazão × tempo da consulta diz quantas conexões a carga pede.</li>
+  <li><strong>Escalar réplicas tem teto.</strong> Réplicas × pool precisa caber no <code>max_connections</code>.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O código do laboratório, sem alteração</h4>
+  <p>Este é o <code>semaphore/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). O canal <code>semaforo</code> tem buffer de 3: o <code>semaforo &lt;- struct&#123;&#125;&#123;&#125;</code> do laço ocupa uma vaga e o <code>&lt;-semaforo</code> dentro da goroutine a libera.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Função para simular o tempo de preparo de cada atividade do churrasco
+10  func grelhar(item int, tempoPreparo int) {
+11  	fmt.Printf("Preparando o alimento %v...\n", item)
+12  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
+13  	fmt.Printf("Alimento %v preparado, desocupando a grelha...\n", item)
+14  }
+15  
+16  func main() {
+17  
+18  	var wg sync.WaitGroup
+19  
+20  	// Numero maximo de goroutines / threads / alimentos que podem ser assados
+21  	var capacidadeDaGrelha = 3
+22  	// Alimentos disponíveis pra colocar na grelha
+23  	var alimentosChurrasco = 10
+24  
+25  	// Criando canal que tenha o tamanho maximo igual ao tamanho da grelha
+26  	semaforo := make(chan struct{}, capacidadeDaGrelha)
+27  
+28  	// Inicia o processo de assar os alimentos disponíveis
+29  	for i := 0; i < alimentosChurrasco; i++ {
+30  
+31  		wg.Add(1)              // Adiciona 1 atividade ao contador do WaitGroup
+32  		semaforo <- struct{}{} // Adquire 1 espaço no semáforo adicionando 1 item ao channel
+33  
+34  		// Começando a assar os alimentos na churrasqueira
+35  		go func(i int) {
+36  			alimento := i + 1
+37  
+38  			grelhar(alimento, 2) // Inicia o preparo da comida
+39  			<-semaforo           // Libera um espaço no semaforo quando terminar o preparo
+40  			wg.Done()            // Termina uma ativilidade no contador do WaitGroup
+41  
+42  		}(i)
+43  	}
+44  
+45  	wg.Wait() // Espera todos os alimentos serem preparados
+46  	fmt.Println("Acabou o churrasco :/")
+47  
+48  }`}</code></pre>
+  <h4 class="deep-h">Uma folga a mais nas contas do banco</h4>
+  <p>O PostgreSQL reserva algumas conexões para superusuários (<code>superuser_reserved_connections</code>, 3 por padrão), então com <code>max_connections</code> = 100 as aplicações têm 97 à mão. Os 12 × 8 = 96 cabem por pouco, e 12 × 10 = 120 estoura com folga.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Semáforo não é worker pool.</strong> O artigo trata os dois como a mesma coisa. O semáforo limita quantas execuções ocorrem ao mesmo tempo (o laboratório cria uma goroutine por tarefa); o worker pool tem um número fixo de workers que consomem de uma fila. Também: o artigo diz que o semáforo binário é "similar ao Mutex", e a diferença está na posse, já que o mutex tem dono e o semáforo binário não.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Dijkstra (1965): EWD123, Cooperating sequential processes", href: "https://www.cs.utexas.edu/~EWD/transcriptions/EWD01xx/EWD123.html" },
+    { label: "Go: golang.org/x/sync/semaphore", href: "https://pkg.go.dev/golang.org/x/sync/semaphore" },
+    { label: "PostgreSQL: max_connections e superuser_reserved_connections", href: "https://www.postgresql.org/docs/current/runtime-config-connection.html" },
+    { label: "PostgreSQL wiki: Number of database connections", href: "https://wiki.postgresql.org/wiki/Number_Of_Database_Connections" },
+    { label: "PgBouncer: pooler de conexões para PostgreSQL", href: "https://www.pgbouncer.org/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O <code>estoque</code> agora reserva o último gato sem vender duas vezes: uma trava por réplica, uma trava distribuída e um pool de 10 conexões. A Bia ficou com o pedido 1049, de 88.90. Falta saber como o <code>pedidos</code> diz ao <code>pagamentos</code> "cobre 88.90 do pedido 1049": essa chamada chega por uma conexão, num formato, com um número de bytes. Como ela é montada, em REST com JSON ou em gRPC com Protobuf, e quantos bytes viajam em cada um? É o tema do próximo módulo, Comunicação Síncrona.</p>
+
+<Flashcards cards={[
+  { q: "O que é um semáforo contador, e qual o do estoque?",
+    a: "Uma trava com N vagas: quem chega com todas ocupadas espera. O estoque usa um pool de 10 conexões com o PostgreSQL." },
+  { q: "Como se calcula o tamanho do pool (lei de Little)?",
+    a: "Conexões = vazão × tempo por consulta = 500/s × 20 ms = 10." },
+  { q: "Com 200 pedidos simultâneos, pool de 10 e 20 ms, quanto leva o último?",
+    a: "20 lotes × 20 ms = 400 ms. A média é 210 ms e a vazão fica em 500/s." },
+  { q: "Por que 12 réplicas com pool de 10 derrubam o banco?",
+    a: "12 × 10 = 120 conexões, mais que o max_connections de 100. Remédios: um pooler (PgBouncer), 12 × 8 = 96 por réplica ou subir o max_connections." },
+  { q: "Qual é a diferença entre semáforo e worker pool?",
+    a: "O semáforo limita quantas execuções rodam juntas (uma goroutine por tarefa). O worker pool tem um número fixo de workers que leem tarefas de uma fila." },
+  { q: "Qual é a diferença entre mutex e semáforo binário?",
+    a: "A posse: no mutex, quem travou é quem destrava. O semáforo binário não tem dono." },
+]} />
