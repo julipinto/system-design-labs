@@ -1,0 +1,4 @@
+/* SDLabs · BFF: o que só este módulo usa (corpo de resposta por canal). Peças comuns em widgets.css */
+.sdl-content .bf-body{margin:0 0 var(--s-2);padding:var(--s-2) 10px;background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-1);font:14px/1.5 var(--mono);color:var(--ink-hi);overflow-x:auto;white-space:pre}
+.sdl-content .bf-body code{font:inherit;background:none;padding:0;border:0}
+.sdl-content .sr-ctl input[type="range"]{min-height:44px}

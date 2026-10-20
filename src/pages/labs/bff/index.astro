@@ -1,0 +1,36 @@
+---
+// Módulo Backend for Frontends (BFF): as 8 aulas de src/content/bff/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/bff.css';
+
+const entries = (await getCollection('bff')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/bff/quiz/');
+---
+<ModuleLayout
+  title="Backend for Frontends (BFF) · SDLabs"
+  description="Backend for Frontends: um backend sob medida para cada frontend, com API composition, canais, microfrontends, versões, timeout e fallback e métricas por canal."
+  module="bff"
+  heading="Backend for Frontends (BFF)"
+  lead="O app da Lena faz quatro chamadas para montar uma tela e recebe JSON feito para o site. Como a loja põe um backend sob medida entre cada frontend e os serviços, e o que muda quando algo cai."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/bff/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

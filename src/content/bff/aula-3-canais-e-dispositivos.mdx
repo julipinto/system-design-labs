@@ -1,0 +1,99 @@
+---
+title: "Canais e dispositivos"
+order: 3
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula 2 o <code>bff-app</code> entregou a home do app em 12 KB. Só que a loja tem outros jeitos de pedir: o site, em que a Lena vê fotos grandes, e agora um assistente de voz, em que ela só fala. O mesmo dado precisa chegar em três formatos.</p>
+
+<OneLiner>Um canal é um jeito de a Lena falar com a loja (app, site, voz). Cada canal ganha o seu BFF, que conhece o formato, o ritmo e as regras só dele.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>canais</strong>, avance até o status do pedido 1048 chegar aos três. Veja o que cada canal recebe do mesmo dado: uma miniatura, uma página, uma frase. Qual deles não recebe nenhuma foto?</p>
+</DoIt>
+
+<Figure3D path="labs/bff/bff-3d/?mode=canais" poster="labs/bff/bff-3d-previa.webp" title="Figura interativa: Um BFF por canal" alt="Prévia da figura 3D: Um BFF por canal" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A Lena pergunta pelo pedido 1048 no app. O <code>bff-app</code> responde com JSON pequeno, miniatura e paginação curta, e confia no JWT que o gateway já conferiu.</li>
+  <li>A Bia abre o site. O <code>bff-web</code> renderiza a página no servidor (SSR), com fotos grandes, e guarda a sessão num cache central (o Redis do módulo 5).</li>
+  <li>A Lena pergunta ao assistente: "cadê meu pedido?". O <code>bff-voz</code> devolve texto curto, sem foto: <code>"Seu pedido 1048 está a caminho e chega quinta."</code></li>
+  <li>Os três BFFs chamam o mesmo serviço, o <code>pedidos</code>. O dado é um só, e o que muda é a forma.</li>
+  <li>O parceiro <code>marketplace-xyz</code> não ganha BFF: ele continua no gateway, com a API pública genérica. BFF é para frontend <strong>próprio</strong>.</li>
+</ol>
+</HowItWorks>
+
+<p>Veja o mesmo status do pedido nos três formatos e confira o que cada canal corta.</p>
+
+<Widget name="qual-bff" title="Qual BFF?" hint="Escolha o canal e veja o formato que ele recebe para o status do pedido 1048, quem monta a resposta e o que fica de fora." />
+
+<p>Para o gateway mandar cada pedido ao BFF certo, basta uma rota por prefixo. Exemplo em Envoy (o <code>gw-loja</code> pode ser outro produto, a ideia é a mesma):</p>
+
+<pre><code>{String.raw`routes:
+- match: { prefix: "/app/" }
+  route: { cluster: bff-app, timeout: 1s }
+- match: { prefix: "/web/" }
+  route: { cluster: bff-web, timeout: 3s }
+- match: { prefix: "/voz/" }
+  route: { cluster: bff-voz, timeout: 1s }
+- match: { prefix: "/" }             # o resto, como o marketplace-xyz, segue na API pública
+  route: { cluster: api-publica }`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>Cada canal evolui sozinho.</strong> O app muda a miniatura sem mexer no site, e a voz ganha uma frase nova sem tocar em nenhum dos dois.</li>
+  <li><strong>Sem <code>if</code> por canal.</strong> Cada BFF conhece só o seu público e o código fica curto.</li>
+  <li><strong>Regras de cache e segurança por canal.</strong> O site guarda sessão no Redis, o app usa só o JWT.</li>
+  <li><strong>O preço:</strong> três BFFs são três coisas para manter e escalar. A aula 4 mostra o que acontece quando elas começam a repetir lógica.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O que fica no código sem BFF por canal</h4>
+  <p>Num backend único, cada endpoint decide pelo canal. Em cada endpoint novo, o <code>if</code> cresce:</p>
+  <pre><code>{String.raw`if (canal == "app") {
+  resposta = { id, status, foto: miniatura }
+} else if (canal == "web") {
+  resposta = renderizarPagina(pedido, fotos: grandes)
+} else if (canal == "voz") {
+  resposta = "Seu pedido " + id + " está a caminho e chega quinta."
+}`}</code></pre>
+  <p>Cada nova regra de um canal passa por esse código, e quem mexe nele para o app pode quebrar a voz.</p>
+  <h4 class="deep-h">Quando a mesma resposta serve a canais diferentes</h4>
+  <p>Se uma resposta muda conforme o canal e passa por cache compartilhado, o cabeçalho <code>Vary</code> diz qual cabeçalho da requisição entra na chave do cache. Com um BFF por canal, isso quase some: cada um tem a sua rota e a sua resposta.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li>O artigo dá Memcached como exemplo de cache de sessão do canal web. Na loja, quem faz esse papel é o Redis do módulo 5. Não é erro, é a mesma ideia com a peça que a história já tem.</li>
+    <li>O artigo cita MQTT e WebSockets para IoT. A voz da loja é pergunta e resposta, então fica em HTTP. Os dois protocolos entram quando o canal precisa de conexão aberta e intermitente.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "Phil Calçado: The Back-end for Front-end Pattern (BFF)", href: "https://philcalcado.com/2015/09/18/the_back_end_for_front_end_pattern_bff.html" },
+    { label: "Envoy: configuração de rota (route_components, timeout)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "MDN: cabeçalho Vary", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary" },
+  ]} />
+</Deep>
+
+<p class="gancho">Cada canal tem seu BFF, e cada BFF tem um dono. Mas a tela do site, sozinha, já é grande demais para um time só: no módulo 6 ela foi dividida entre Vitrine, Checkout e Logística. Falta saber o que muda quando cada pedaço da tela tem o seu BFF.</p>
+
+<Flashcards cards={[
+  { q: "O que é um canal?",
+    a: "Um jeito de o usuário falar com a loja: o app, o site, a voz. Cada um ganha o seu BFF." },
+  { q: "O que o bff-web faz que o bff-app não faz?",
+    a: "Renderiza a página no servidor (SSR), com fotos grandes, e guarda a sessão no Redis." },
+  { q: "O que o bff-voz devolve para 'cadê meu pedido?'",
+    a: "Uma frase curta, sem foto: \"Seu pedido 1048 está a caminho e chega quinta.\"" },
+  { q: "Por que o marketplace-xyz não tem BFF?",
+    a: "BFF é para frontend próprio. O parceiro usa a API pública genérica, no gateway." },
+  { q: "O que acontece sem um BFF por canal?",
+    a: "Um backend só, com um if por canal que cresce a cada endpoint." },
+]} />

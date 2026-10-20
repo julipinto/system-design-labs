@@ -1,0 +1,87 @@
+---
+title: "Métricas e experiência de uso"
+order: 7
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula 6 o app aguentou a queda do <code>recomendacoes</code> e a Lena não percebeu. Mas "ninguém reclamou" não é uma medida. Como a loja sabe se o app está bom, e se está pior que o site?</p>
+
+<OneLiner>Com um BFF por canal, cada canal tem as suas métricas (volume, erros, p95), e um problema que num backend único se perderia no total aparece sozinho.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>métricas</strong>, compare os painéis do <code>bff-app</code> e do <code>bff-web</code>. Depois procure de onde vêm os erros do app e olhe o que aconteceria se os dois canais fossem medidos juntos.</p>
+</DoIt>
+
+<Figure3D path="labs/bff/bff-3d/?mode=metricas" poster="labs/bff/bff-3d-previa.webp" title="Figura interativa: Métricas por canal" alt="Prévia da figura 3D: Métricas por canal" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Cada BFF mede os próprios pedidos: quantos chegam, quantos dão erro e quanto tempo levam.</li>
+  <li>O <code>bff-app</code> mostra <strong>p95 de 150 ms</strong> e <strong>2% de erros</strong>. O <code>bff-web</code>, <strong>p95 de 300 ms</strong> e <strong>0,1% de erros</strong>.</li>
+  <li>Os 2% do app chamam atenção. Cortando por versão e sistema, eles vêm só do <strong>v3 em Android antigo</strong>.</li>
+  <li>Num backend único, os dois canais cairiam na mesma conta. Para um exemplo de <strong>26 pedidos do app a cada 100</strong>, a média seria 0,26 × 2% + 0,74 × 0,1% ≈ <strong>0,6%</strong>: um número que ninguém investiga.</li>
+  <li>Com o problema isolado, o time do app corrige o v3, ou decide a hora de aposentá-lo (aula 5), sem mexer no site.</li>
+</ol>
+</HowItWorks>
+
+<p>p95 quer dizer que 95 de cada 100 pedidos foram mais rápidos que aquele tempo. Os 150 ms do app são o tempo da aula 2, e os 300 ms do site incluem a renderização da página no servidor. Por isso comparar os dois pelo número solto engana. Cada canal deve ser medido contra o seu próprio objetivo.</p>
+
+<p>Em Prometheus, o corte por canal é um rótulo. Exemplos de consulta (a métrica e os rótulos são de exemplo, cada BFF escolhe os seus):</p>
+
+<pre><code>{String.raw`# p95 por canal e versão
+histogram_quantile(0.95,
+  sum by (le, canal, versao) (rate(http_request_duration_seconds_bucket[5m])))
+
+# taxa de erro (5xx) por canal e versão
+sum by (canal, versao) (rate(http_requests_total{status=~"5.."}[5m]))
+  / sum by (canal, versao) (rate(http_requests_total[5m]))`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>O problema aparece.</strong> 2% de erro no app é visível. 0,6% no total passaria despercebido.</li>
+  <li><strong>Meta por canal.</strong> O app pode ter um SLO de p95 em 150 ms e o site outro em 300 ms, cada um com o que faz sentido para o canal.</li>
+  <li><strong>Efeito entre canais.</strong> Se o volume do site sobe e o app piora, as métricas por canal mostram a ligação: algum serviço compartilhado.</li>
+  <li><strong>Decisão com dado.</strong> O uso do v3 e os erros do Android antigo orientam quando aposentar a versão.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O mínimo de cada painel</h4>
+  <ul>
+    <li><strong>Volume:</strong> pedidos por segundo.</li>
+    <li><strong>Erros:</strong> fração de respostas 5xx, e a de fallbacks acionados.</li>
+    <li><strong>Tempo:</strong> p50, p95 e p99 do BFF e dos serviços que ele chama.</li>
+    <li><strong>Corte:</strong> versão do app e sistema, para achar casos como o do v3 em Android antigo.</li>
+  </ul>
+  <h4 class="deep-h">Por que p95 e não a média</h4>
+  <p>A média esconde quem sofre. Se 5% dos pedidos levam 2 s e o resto 100 ms, a média fica perto de 200 ms e parece boa. O p95 já mostra o lado lento.</p>
+  <h4 class="deep-h">A conta da média</h4>
+  <p>Os 26 pedidos a cada 100 são uma suposição do exemplo para fechar a conta com os 0,6% do módulo. Mude a parcela do app e o total muda, mas a ideia continua: o total esconde o canal pequeno.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Prometheus: histogramas e quantis", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Prometheus: funções de consulta (histogram_quantile)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/#histogram_quantile" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Cada canal já tem o seu BFF, o seu deploy, o seu timeout e as suas métricas. Falta saber quando tudo isso vale a pena, e quando um gateway simples basta.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as métricas de cada canal da loja?",
+    a: "<code>bff-app</code>: p95 150 ms, erros 2%. <code>bff-web</code>: p95 300 ms, erros 0,1%." },
+  { q: "De onde vêm os 2% de erro do app?",
+    a: "Só do v3 em Android antigo. Num backend único ficariam diluídos em 0,6% e passariam despercebidos." },
+  { q: "O que é p95?",
+    a: "95 de cada 100 pedidos foram mais rápidos que esse tempo. Mostra o lado lento que a média esconde." },
+  { q: "Por que não comparar o p95 do app com o do site direto?",
+    a: "Cada canal faz um trabalho diferente (o site renderiza a página). Cada um se mede contra o seu objetivo." },
+  { q: "Como uma consulta separa os canais?",
+    a: "Com um rótulo (canal, versão) na métrica e um <code>sum by</code> nesse rótulo." },
+]} />

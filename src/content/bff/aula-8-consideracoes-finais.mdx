@@ -1,0 +1,80 @@
+---
+title: "Considerações finais"
+order: 8
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula 7 cada canal passou a ter as suas métricas, e o erro de 2% do app apareceu. Com tudo isso montado, a pergunta que sobra é se a sua loja precisa disso. A resposta honesta, às vezes, é não.</p>
+
+<OneLiner>BFF vale quando canais diferentes pedem coisas diferentes e há um time por canal. Com um canal só, um gateway com composição simples costuma bastar.</OneLiner>
+
+<DoIt>
+  <p>Esta aula não tem figura. Na tabela de decisão, marque de cabeça quais linhas valem para a sua loja hoje. Se a maioria cair em "não usar", um gateway com composição simples resolve.</p>
+</DoIt>
+
+<p>A tabela abaixo junta o que o módulo mostrou.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Situação</th><th>BFF?</th><th>Por quê</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">App, site e voz pedem dados diferentes</th><td>Sim</td><td>Cada canal ganha o seu formato (aula 3)</td></tr>
+    <tr><th scope="row">Um time por canal</th><td>Sim</td><td>Cada um publica sem esperar o outro (aulas 4 e 5)</td></tr>
+    <tr><th scope="row">Uma tela junta muitos serviços</th><td>Sim</td><td>Uma chamada em vez de várias (aula 2)</td></tr>
+    <tr><th scope="row">Um só canal</th><td>Não</td><td>O BFF seria só mais um salto</td></tr>
+    <tr><th scope="row">Um só time para tudo</th><td>Não</td><td>Não há dono separado para dividir</td></tr>
+    <tr><th scope="row">Composição simples e igual para todos</th><td>Não</td><td>O gateway já resolve</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O que mais se confunde é o BFF com o gateway, e a diferença é de natureza:</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O <strong>gateway</strong> é infraestrutura genérica: roteia, confere o JWT e limita o robô. Serve a todo mundo do mesmo jeito.</li>
+  <li>O <strong>BFF</strong> é código de produto: compõe, adapta e decide o fallback de <strong>uma</strong> tela. É do time do frontend.</li>
+  <li>O caminho de uma chamada do app fica <code>app → gw-loja → bff-app → serviços</code>.</li>
+  <li>O gateway olha para a porta de entrada, o BFF olha para a tela, e os serviços cuidam das regras.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>Um backend por frontend.</strong> Cada tela pede o que precisa e recebe só isso.</li>
+  <li><strong>O cuidado:</strong> BFF demais duplica lógica. A regra de negócio fica no serviço.</li>
+  <li><strong>O custo:</strong> mais peças para publicar, medir e proteger. O BFF só compensa quando a diferença entre canais é real.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">E o GraphQL?</h4>
+  <p>É outra resposta ao mesmo problema: o cliente descreve os campos que quer e um servidor monta a resposta. Pode viver dentro de um BFF, ou ocupar o lugar dele quando os clientes são muitos e imprevisíveis. A escolha pesa o custo de manter o esquema contra o de manter um BFF por canal.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Artigo público de Matheus Fidelis sobre API Gateway (sem vínculo)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "microservices.io: API Gateway / Backends for frontends", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "GraphQL: introdução (graphql.org/learn)", href: "https://graphql.org/learn/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Entre o BFF e os serviços, e entre os próprios serviços, cada chamada precisa de timeout, retry, criptografia e métrica, e cada time está escrevendo isso do seu jeito, em cada linguagem. Falta saber se dá para colocar isso na rede, uma vez só: é o assunto do módulo 10, Service Mesh.</p>
+
+<Flashcards cards={[
+  { q: "Quando vale usar BFF?",
+    a: "Quando canais diferentes pedem coisas diferentes, há um time por canal ou a tela junta muitos serviços." },
+  { q: "Quando não vale?",
+    a: "Com um canal só, ou um time só, ou quando o gateway com composição simples já resolve." },
+  { q: "Qual a diferença entre BFF e API Gateway?",
+    a: "O gateway é infraestrutura genérica (rota, auth, limite). O BFF é código de produto, do time do frontend." },
+  { q: "Qual o caminho completo de uma chamada do app?",
+    a: "<code>app → gw-loja → bff-app → serviços</code>." },
+  { q: "O que o módulo 10 resolve?",
+    a: "Timeout, retry, criptografia e métrica entre os serviços, na rede, uma vez só, em vez de em cada time e linguagem." },
+]} />

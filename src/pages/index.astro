@@ -23,6 +23,8 @@ const modules: Mod[] = [
     text: 'Healthcheck, proxy reverso, round robin, least request, least connection, LOR, IP hash, Maglev e random, camadas 4 e 7, e um laboratório com Envoy lido linha a linha. Com quiz de 56 perguntas.' },
   { slug: 'api-gateways', title: 'API Gateways', lessons: 7, poster: 'labs/api-gateways/gateway-3d-previa.webp', alt: 'Prévia da figura 3D do API Gateway',
     text: 'A porta única da loja: roteamento por método e caminho, JWT, escopos, rate limiting com token bucket e leaky bucket, throttling, versionamento e canary, com o Kong lido linha a linha. Com quiz de 43 perguntas.' },
+  { slug: 'bff', title: 'Backend for Frontends (BFF)', lessons: 8, poster: 'labs/bff/bff-3d-previa.webp', alt: 'Prévia da figura 3D do BFF',
+    text: 'Um backend sob medida para cada frontend: API composition, canais (app, site e voz), microfrontends, versões, timeout e fallback, e métricas por canal. Com quiz de 46 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

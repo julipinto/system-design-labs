@@ -1,0 +1,91 @@
+---
+title: "Microfrontends e BFFs"
+order: 4
+min: 6
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula 3 cada canal ganhou o seu BFF. Mas a tela do site ainda é uma só, e três times mexem nela: os mesmos três do módulo 6, Vitrine, Checkout e Logística. Se o <code>bff-web</code> for de todos, cada deploy vira uma fila.</p>
+
+<OneLiner>Num microfrontend, cada time é dono de um pedaço da tela e do BFF que alimenta esse pedaço, e publica os dois sem esperar os outros.</OneLiner>
+
+<DoIt>
+  <p>Esta aula não tem figura 3D. Na tabela abaixo, escolha um time e siga a linha da esquerda para a direita: pedaço de tela, BFF, serviços. Depois responda de cabeça: se a Logística publica o rastreio hoje, o que a Vitrine precisa fazer?</p>
+</DoIt>
+
+<p>A Lei de Conway, do módulo 6, diz que o sistema acaba com a forma da organização que o faz. Aqui isso vira desenho: três times, três pedaços de tela, três BFFs.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Time</th><th>Pedaço da tela</th><th>BFF</th><th>Serviços que chama</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Vitrine</th><td>o gato e as recomendações</td><td><code>bff-vitrine</code></td><td><code>catalogo</code>, <code>recomendacoes</code></td></tr>
+    <tr><th scope="row">Checkout</th><td>carrinho e pagamento</td><td><code>bff-checkout</code></td><td><code>carrinho</code>, <code>pedidos</code></td></tr>
+    <tr><th scope="row">Logística</th><td>rastreio do pedido</td><td><code>bff-rastreio</code></td><td><code>pedidos</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A página do site é uma casca que carrega três pedaços, um de cada time.</li>
+  <li>Cada pedaço pede dados só ao seu BFF: a vitrine ao <code>bff-vitrine</code>, o carrinho ao <code>bff-checkout</code>, o rastreio ao <code>bff-rastreio</code>.</li>
+  <li>Cada BFF compõe as chamadas aos serviços que o seu pedaço usa, como na aula 2. O <code>pedidos</code> aparece em dois, e tudo bem: o dado é do serviço, a forma é do BFF.</li>
+  <li>Quando a Logística muda o rastreio, ela publica o pedaço e o <code>bff-rastreio</code> juntos. Vitrine e Checkout nem ficam sabendo.</li>
+</ol>
+</HowItWorks>
+
+<p>Na página, a casca é pequena. Este é um exemplo escrito para a aula, no estilo do artigo de Cam Jackson sobre micro frontends, com um elemento HTML por time:</p>
+
+<pre><code>{String.raw`<body>
+  <loja-vitrine   bff="/web/vitrine"></loja-vitrine>    <!-- script do time Vitrine -->
+  <loja-checkout  bff="/web/checkout"></loja-checkout>  <!-- script do time Checkout -->
+  <loja-rastreio  bff="/web/rastreio"></loja-rastreio>  <!-- script do time Logística -->
+</body>`}</code></pre>
+
+<p>E se der errado? Cada time tem o seu BFF, e a tentação é cada BFF resolver a regra de negócio do seu jeito.</p>
+
+<WhyItMatters>
+  <li><strong>Deploy independente.</strong> Cada time publica o seu pedaço de tela e o seu BFF quando está pronto.</li>
+  <li><strong>Dono claro.</strong> Quando a tela de rastreio quebra, o time que atende o alerta é o que a escreveu.</li>
+  <li><strong>O risco:</strong> três BFFs calculando o frete de três jeitos. A Lena vê um valor na vitrine e outro no checkout.</li>
+  <li><strong>A regra:</strong> a regra de negócio mora no serviço que é dono dela. O BFF só <strong>compõe e adapta</strong>.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Como saber se uma regra é do BFF</h4>
+  <ul>
+    <li>Se muda o <strong>formato</strong> (renomear campo, cortar foto, ordenar a lista, formatar o preço), é do BFF.</li>
+    <li>Se muda o <strong>resultado</strong> (quanto custa o frete, quem tem desconto, se o pedido pode ser cancelado), é do serviço.</li>
+    <li>Se dois BFFs precisam da mesma conta, ela é do serviço e os dois a chamam.</li>
+  </ul>
+  <h4 class="deep-h">O que são microfrontends</h4>
+  <p>Cam Jackson, no artigo publicado por Martin Fowler, descreve a ideia como dividir um frontend monolítico em partes menores, cada uma de um time, integradas na página por build, iframe, JavaScript ou Web Components. O artigo também lista os custos: mais carga para o navegador e mais complexidade operacional.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre BFF (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Cam Jackson (martinfowler.com): Micro Frontends", href: "https://martinfowler.com/articles/micro-frontends.html" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "microservices.io: padrão API Composition", href: "https://microservices.io/patterns/data/api-composition.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Cada time publica o seu pedaço sem esperar os outros. E o app, que tem uma versão antiga ainda instalada em 30% dos celulares? Falta saber como lançar a tela nova sem quebrar quem ainda usa a antiga.</p>
+
+<Flashcards cards={[
+  { q: "O que é um microfrontend?",
+    a: "Um pedaço da tela, de um time só, publicado sem esperar os outros. Cada um tem o seu BFF." },
+  { q: "Quais são os três BFFs do site da loja?",
+    a: "<code>bff-vitrine</code> (Vitrine), <code>bff-checkout</code> (Checkout) e <code>bff-rastreio</code> (Logística)." },
+  { q: "O que é do BFF e o que é do serviço?",
+    a: "O BFF cuida do formato: compor, cortar, renomear. O serviço cuida do resultado: frete, desconto, regra de negócio." },
+  { q: "Qual o risco de BFFs demais?",
+    a: "Repetir a mesma lógica de jeitos diferentes, como o frete calculado de três formas." },
+  { q: "Como a Lei de Conway aparece aqui?",
+    a: "Três times, três pedaços de tela, três BFFs: o sistema segue a forma da organização." },
+]} />

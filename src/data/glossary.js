@@ -5,6 +5,7 @@ import { cache } from './glossary-cache.js';
 import { microsservicos } from './glossary-microsservicos.js';
 import { apiGateways } from './glossary-api-gateways.js';
 import { loadBalancers } from './glossary-load-balancers.js';
+import { bff } from './glossary-bff.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -72,5 +73,6 @@ export const glossaries = {
   cache,
   microsservicos,
   'api-gateways': apiGateways,
-  'load-balancers': loadBalancers
+  'load-balancers': loadBalancers,
+  bff
 };
