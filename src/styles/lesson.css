@@ -120,10 +120,13 @@
 
 /* fim da aula */
 .sdl-content .lesson-end{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line)}
+/* depois dos flashcards a lista já fecha com uma régua: sem segunda régua nem vão duplo */
+.sdl-content .cards+.lesson-end{margin-top:var(--s-6);padding-top:0;border-top:0}
 .sdl-content .done-btn{width:100%;max-width:var(--measure)}
 .sdl-content:not(.js) .done-btn{display:none}
 .sdl-content .btn.primary.done-btn[aria-pressed="true"]{background:var(--surface);color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
 .sdl-content .done-msg{margin:var(--s-3) 0 0;font:700 14px/1.5 var(--mono);color:var(--ok);min-height:1.5em;max-width:var(--measure)}
+.sdl-content .done-msg:empty{min-height:0;margin:0}
 .sdl-content .lesson-nav{display:flex;flex-wrap:wrap;gap:var(--s-3);margin-top:var(--s-5);max-width:var(--measure)}
 .sdl-content .lesson-nav .btn{flex:1 1 220px}
 

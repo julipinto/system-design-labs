@@ -79,6 +79,8 @@
 .sdl-content .pc-out{margin:0 0 6px}
 .sdl-content table.pc-table{min-width:0}
 .sdl-content table.pc-table th{width:38%}
+/* celular: o rótulo da linha pode quebrar, para o valor não virar uma coluna de 3 linhas */
+@media (max-width:480px){.sdl-content table.pc-table tbody th{white-space:normal}}
 .sdl-content .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 6px}
 .sdl-content .ls-panel{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0}
 .sdl-content .ls-h{margin:0 0 6px;font:700 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-hi)}
