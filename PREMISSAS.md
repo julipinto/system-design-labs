@@ -23,6 +23,8 @@ O objetivo é **inesquecível**: depois de mexer, ela tem que conseguir explicar
 14. Itens de lista **encadeados** (um conversa com o vizinho), frases-dobradiça entre seções, conceito novo só depois do problema concreto, repetir a palavra certa em vez de sinônimos.
 15. **Sem voz de IA**: nada de "crucial", "vale ressaltar", "além disso" em sequência, "em suma", "não é só X, é Y", travessões em excesso ou resumo no fim da seção.
 
+15b. **Mesma história em todos os módulos (storytelling contínuo)**: o elenco é fixo e atravessa o estudo inteiro. A **Lena** (cliente, mora em Recife, compra o gato de pelúcia), **a loja** (o sistema que cresce: rede → disco → réplicas → banco → cache → …), a Bia, o Caio e o Davi como outros clientes, e as cidades SP, Rio e Recife. Cada módulo é o próximo capítulo do mesmo problema da loja: abre lembrando onde a história parou no módulo anterior e mostra o novo problema que ela enfrenta. Personagem e números novos só quando a história pede, e entram no brief antes de texto e figuras.
+
 ## Página e estudo (ela tem TDAH)
 16. Uma aula por vez, passos numerados, no máximo 5 itens por lista, frases curtas, progresso visível, "Faça agora" com uma ação concreta que **a figura realmente mostra**, flashcards e quiz.
 17. **Celular primeiro**: navegação boa a 390px; no celular, a figura aparece como prévia (imagem do passo mais revelador) com botão; no desktop, fica embutida e as setas do teclado funcionam com o mouse em cima.
