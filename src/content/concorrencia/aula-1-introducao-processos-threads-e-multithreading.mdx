@@ -1,0 +1,86 @@
+---
+title: "Introdução: processos, threads e multithreading"
+order: 1
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O módulo 10 terminou com a malha cuidando da conversa <em>entre</em> os serviços: mTLS, retry com regra, timeout. Mas dentro de cada serviço não há malha nenhuma. O <code>estoque</code>, escrito em Go, roda hoje numa réplica de 1 vCPU, a <code>estoque-1</code>, e atende dezenas de chamadas ao mesmo tempo. Todas mexem na mesma linha do banco: o gato de pelúcia, <code>GATO-042</code>. Depois do pedido 1048 da Lena (o estoque foi de 2 para 1), <strong>resta 1 gato</strong>. O problema deste módulo é como várias coisas acontecem ao mesmo tempo sem uma pisar na outra. Para chegar lá, primeiro é preciso saber o que é essa "coisa" que roda: processo, thread, goroutine.</p>
+
+<OneLiner>Um processo é um programa em execução, com memória própria; threads são as linhas de execução que vivem dentro dele e dividem essa mesma memória; multithreading é usar várias delas no mesmo processo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Processo</strong>, avance os passos com a seta → do teclado. Primeiro veja a <code>estoque-1</code> como um bloco de memória atravessado por trilhos, as threads. Depois compare com a <code>estoque-2</code>: a memória dela é a mesma ou é outra? No último passo, o <em>"e se der errado"</em>, uma goroutine dá <code>panic</code>. Conte quantas linhas de execução continuam vivas.</p>
+</DoIt>
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=processo" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Processo × threads" alt="Prévia da figura 3D: Processo × threads" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Quando a <code>estoque-1</code> sobe, o sistema operacional cria um <strong>processo</strong>: memória própria, isolada da memória da <code>estoque-2</code>, e uma primeira linha de execução que roda o <code>main</code>. Um container, na prática, é isso: um processo com paredes em volta.</li>
+  <li>Cada chamada <code>reservar</code> precisa andar sem esperar as outras terminarem. Para isso o processo ganha mais linhas de execução, as <strong>threads</strong>. O sistema operacional escolhe qual thread ocupa o núcleo de cada vez. As threads do mesmo processo <strong>dividem a memória</strong>: o que uma escreve, as outras leem. É isso que facilita trocar dados e é isso que deixa perigoso mexer no mesmo dado (aula 6).</li>
+  <li>Usar várias threads no mesmo processo é <strong>multithreading</strong>. Com 200 pedidos ao mesmo tempo e uma thread de sistema para cada um, cada thread reserva <strong>8 MB</strong> de pilha virtual por padrão (<code>ulimit -s</code>): 200 × 8 MB = <strong>1,6 GB</strong> de endereço virtual.</li>
+  <li>Em Go, o programa usa <strong>goroutines</strong>. Cada uma começa com cerca de <strong>2 KB</strong> de pilha, que cresce se precisar: 200 × 2 KB = <strong>400 KB</strong>. Quem as encaixa em poucas threads do sistema é o runtime do Go, e ele troca de goroutine quando uma delas fica esperando o banco.</li>
+  <li>Quando o sistema operacional tira uma thread do núcleo e põe outra, isso se chama <strong>troca de contexto</strong>. Entre threads do mesmo processo ela é mais leve, porque a memória é a mesma e não precisa ser trocada.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: um panic derruba o processo inteiro</h3>
+
+<p>Dividir a memória tem um preço, e ele aparece quando uma thread falha. Às 14:02, uma chamada chega ao <code>estoque-1</code> com um SKU vazio, e o código faz uma conta com um índice que não existe. A goroutine dá <code>panic</code>, e como ninguém escreveu um <code>recover</code> nela, o Go encerra o <strong>programa inteiro</strong>, com código de saída 2. As outras 199 goroutines morrem junto, e cada pedido em andamento é perdido, não só o que falhou.</p>
+
+<p>É o raio de explosão do módulo 6, agora dentro do processo: a fronteira de falha é o processo, não a thread. O Kubernetes reinicia o pod, mas os pedidos que estavam no ar já se foram. A regra é pôr um <code>defer</code> com <code>recover</code> no topo de cada goroutine que o código inicia, e registrar o erro em vez de deixar o programa cair.</p>
+
+<WhyItMatters>
+  <li><strong>Processo é a parede.</strong> A <code>estoque-1</code> e a <code>estoque-2</code> não veem a memória uma da outra. Isso volta na aula 8, quando as duas réplicas disputam o mesmo gato.</li>
+  <li><strong>Thread é a linha.</strong> Várias threads dividem a memória, e por isso conversam rápido e se atrapalham fácil.</li>
+  <li><strong>Goroutine é barata.</strong> 400 KB contra 1,6 GB deixa o Go pôr uma linha de execução para cada pedido sem pensar duas vezes.</li>
+  <li><strong>Uma falha derruba todas.</strong> Quem divide memória divide também o destino: um <code>panic</code> sem <code>recover</code> leva o processo inteiro.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Thread de sistema e goroutine lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Thread do sistema</th><th>Goroutine</th></tr></thead>
+    <tbody>
+      <tr><th>Pilha inicial</th><td>8 MB virtuais (<code>ulimit -s</code>)</td><td>cerca de 2 KB, cresce sob demanda</td></tr>
+      <tr><th>Quem escalona</th><td>o kernel</td><td>o runtime do Go</td></tr>
+      <tr><th>Criar uma</th><td>uma chamada ao sistema operacional</td><td>uma alocação dentro do runtime</td></tr>
+      <tr><th>200 ao mesmo tempo</th><td>1,6 GB de endereço virtual</td><td>400 KB</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Os 8 MB são endereço virtual, não memória gasta: o kernel só entrega as páginas que a thread de fato toca. O custo real de 200 threads é menor que 1,6 GB, mas o limite de endereços e o trabalho de escalonar centenas de threads continuam.</p>
+  <h4 class="deep-h">Por que a falha de uma goroutine mata o programa</h4>
+  <p>O <code>recover</code> só funciona dentro de um <code>defer</code> da <strong>mesma</strong> goroutine que entrou em pânico. Um <code>recover</code> na <code>main</code> não pega o <code>panic</code> de uma goroutine filha. Por isso o padrão é cada goroutine criada ter o seu.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "pthreads(7): visão geral de threads POSIX, memória compartilhada e pilha", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+    { label: "Go: Defer, Panic and Recover", href: "https://go.dev/blog/defer-panic-and-recover" },
+    { label: "Go: FAQ, por que goroutines são baratas", href: "https://go.dev/doc/faq#goroutines" },
+    { label: "Go: o modelo de memória", href: "https://go.dev/ref/mem" },
+  ]} />
+</Deep>
+
+<p class="gancho">Dentro da <code>estoque-1</code> há muitas goroutines, mas só 1 vCPU, e um núcleo executa uma coisa de cada vez. Então por que 200 pedidos andando juntos fariam esse pod atender mais do que um pedido por vez? Falta saber o que um núcleo faz enquanto uma goroutine espera o banco: é a concorrência.</p>
+
+<Flashcards cards={[
+  { q: "O que é um processo, e o que a estoque-1 tem de próprio nele?",
+    a: "Um programa em execução. A estoque-1 tem memória própria, isolada da estoque-2, e uma primeira linha de execução que roda o main." },
+  { q: "O que as threads de um mesmo processo dividem?",
+    a: "A memória. O que uma escreve, as outras leem. Isso facilita trocar dados e perigoso mexer no mesmo dado." },
+  { q: "Quanto custam 200 pedidos em threads de sistema e em goroutines?",
+    a: "200 × 8 MB = 1,6 GB de endereço virtual contra 200 × 2 KB = 400 KB." },
+  { q: "O que acontece quando uma goroutine dá panic sem recover?",
+    a: "O Go encerra o programa inteiro: as outras goroutines e todos os pedidos em andamento morrem. A fronteira de falha é o processo." },
+  { q: "O que é uma troca de contexto?",
+    a: "O sistema operacional tira uma thread do núcleo e põe outra no lugar. Entre threads do mesmo processo é mais leve, porque a memória é a mesma." },
+]} />

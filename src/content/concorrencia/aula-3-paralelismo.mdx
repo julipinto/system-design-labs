@@ -1,0 +1,172 @@
+---
+title: "Paralelismo"
+order: 3
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">Na aula passada o <code>estoque-1</code> chegou a 500 pedidos por segundo porque 90% de cada pedido era espera. O <code>relatorios</code> é o contrário. Todo dia às 23:00 ele fecha o dia lendo 400 mil linhas de <code>itens_pedido</code> e passa o tempo inteiro calculando, sem esperar ninguém. Para esse trabalho, intercalar pedidos não ajuda; falta é mais um núcleo. Esse é o paralelismo.</p>
+
+<OneLiner>Paralelismo é executar partes do trabalho <strong>ao mesmo tempo</strong>, cada uma no seu núcleo; rende para o trabalho que usa CPU, mas a parte que não dá para dividir limita o ganho.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>4 núcleos</strong>, avance os passos: as 4 fatias de 100 mil linhas, a soma final de 2 s e o total. Depois, no widget abaixo, deixe 4 núcleos e a parte serial em 5% e veja o ponto de <strong>3,5×</strong>. Suba para 8 núcleos e responda de cabeça: a aceleração dobra?</p>
+</DoIt>
+
+<Widget name="amdahl" title="Quanto o fechamento das 23:00 acelera?" hint="Escolha quantos núcleos o relatorios tem e qual parte do trabalho não dá para dividir. A curva mostra a aceleração; o ponto marca a sua escolha. O relatório real tem 4 núcleos e cerca de 5% serial." />
+
+<Figure3D path="labs/concorrencia/threads-3d/?mode=quatro-nucleos" poster="labs/concorrencia/threads-3d-previa.webp" title="Figura interativa: Paralelismo em 4 núcleos" alt="Prévia da figura 3D: Paralelismo em 4 núcleos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O <code>relatorios</code> roda num pod de <strong>4 vCPU</strong>. Às 23:00 ele lê <strong>400 mil linhas</strong> do dia e soma valores por SKU. Cada linha gasta CPU, e juntas gastam <strong>40 s</strong> num núcleo só. Ele não espera ninguém, então a concorrência da aula 2 não ajuda: um núcleo, 40 s.</li>
+  <li>O trabalho se divide bem, porque cada linha é independente. O programa corta as 400 mil em <strong>4 fatias de 100 mil</strong> e entrega uma a cada núcleo. As 4 rodam ao mesmo tempo, e cada uma leva 40 s ÷ 4 = <strong>10 s</strong>.</li>
+  <li>Depois das fatias vem o que não divide: somar as 4 parciais e gravar o resumo do dia, <strong>2 s</strong> em um núcleo só. O total é 10 s + 2 s = <strong>12 s</strong>, contra 40 s + 2 s = <strong>42 s</strong> sequencial.</li>
+  <li>A aceleração é 42 ÷ 12 = <strong>3,5×</strong>, e não 4×. A lei de Amdahl explica: a parte serial é 2 ÷ 42 = <strong>4,8%</strong>, e ela não encolhe com mais núcleos. A conta é 1 ÷ (0,048 + 0,952 ÷ N). Com 4 núcleos dá 3,5; com 8 dá <strong>6,0</strong>, não 8; com infinitos núcleos o teto é 21×.</li>
+  <li>O laboratório do repositório usa a mesma ideia com um churrasco: 16 tarefas fatiadas entre 8 "amigos" (<code>numCPU = 8</code>, <code>sliceSize = 2</code>). O amigo 1 pega picanha + costela e leva <strong>12 s</strong>; o amigo 3 pega gelar cerveja + organizar geladeira e leva <strong>2 s</strong>. A soma dos 8 é 12+5+2+5+7+4+6+8 = <strong>49 s</strong>. O tempo total é o do mais lento, 12 s, e a aceleração é 49 ÷ 12 = <strong>4,1×</strong> em 8 "CPUs", uma eficiência de 51%.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Aviso honesto: o laboratório não prova paralelismo de CPU</h3>
+
+<p>As duas tarefas do laboratório usam <code>time.Sleep</code>. Dormir não gasta CPU, então o mesmo programa levaria os <strong>mesmos 12 s num único núcleo</strong>. O que o laboratório mostra é espera sobreposta, a concorrência da aula 2, só que escrita com 8 goroutines. O paralelismo de verdade aparece no <code>relatorios</code>, onde cada fatia calcula: sem 4 núcleos, os 12 s viram 42.</p>
+
+<h3 class="sec">E se der errado: fatiar pela quantidade e não pelo tempo</h3>
+
+<p>O laboratório fatia por <strong>número de tarefas</strong>: 2 para cada amigo. Mas as tarefas não custam o mesmo. O amigo 1 fica com as duas mais pesadas (12 s) e o amigo 3 com as duas mais leves (2 s). Seis amigos terminam e esperam o amigo 1. O ideal seria dividir pelo <strong>tempo</strong>: 49 s ÷ 8 ≈ <strong>6,1 s</strong> por amigo, o dobro de velocidade. No <code>relatorios</code> a divisão por quantidade funciona, porque cada linha custa o mesmo, 0,1 ms. Quando o custo varia, fatie pelo custo, ou deixe os núcleos pegarem trabalho de uma fila.</p>
+
+<WhyItMatters>
+  <li><strong>Paralelismo é para CPU.</strong> Se o trabalho só espera, a concorrência já resolve; se calcula, precisa de núcleos.</li>
+  <li><strong>O ganho nunca é N×.</strong> A parte serial (os 2 s de somar e gravar) é um teto: com 4,8% dela, 4 núcleos dão 3,5× e 8 dão 6,0×.</li>
+  <li><strong>Fatia desigual desperdiça núcleo.</strong> O tempo total é o da fatia mais lenta, não a média.</li>
+  <li><strong>Teste com trabalho que usa CPU.</strong> Um laboratório com <code>Sleep</code> parece paralelo e não é.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O código do laboratório, sem alteração</h4>
+  <p>Este é o <code>parallelism/main.go</code> do repositório público de exemplos de Matheus Fidelis (os números à esquerda foram acrescentados para a leitura). O <code>sliceSize</code> é <code>(16 + 8 − 1) ÷ 8 = 2</code>, e o laço corta a lista de 2 em 2, uma goroutine por fatia.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"runtime"
+ 6  	"sync"
+ 7  	"time"
+ 8  )
+ 9  
+10  type Atividade struct {
+11  	Nome        string
+12  	Tempo       int
+13  	Responsavel int
+14  }
+15  
+16  // Função para simular o tempo de preparo de cada atividade do churrasco - Agor aceita uma lista de atividades
+17  func preparar(atividades []Atividade, churrasco chan<- Atividade, amigo int, wg *sync.WaitGroup) {
+18  	defer wg.Done()
+19  	for _, atividade := range atividades {
+20  		atividade.Responsavel = amigo // Identifica um responsável pela tarefa
+21  		fmt.Printf("Amigo %v começou a prepação de %s...\n", amigo, atividade.Nome)
+22  		time.Sleep(time.Duration(atividade.Tempo) * time.Second)
+23  		churrasco <- atividade
+24  	}
+25  }
+26  
+27  func main() {
+28  
+29  	// Canal das atividades que compõe o churrasco
+30  	churrasco := make(chan Atividade)
+31  
+32  	// Wait Group para esperar todas as goroutines terminarem
+33  	var wg sync.WaitGroup
+34  
+35  	// Recuperando o número de CPU's (pessoas) disponíveis para ajudar no churrasco
+36  	numCPU := runtime.NumCPU()
+37  
+38  	fmt.Printf("Número de CPU's (amigos) pra ajudar no churrasco: %v.\n", numCPU)
+39  
+40  	// Lista de Atividades do Churrasco - Atividade / Tempo de Execução / Amigo Responsável
+41  	tarefas := []Atividade{
+42  		{"picanha", 5, 0},
+43  		{"costela", 7, 0},
+44  		{"linguica", 3, 0},
+45  		{"salada", 2, 0},
+46  		{"gelar cerveja", 1, 0},
+47  		{"organizar geladeira", 1, 0},
+48  		{"queijo", 3, 0},
+49  		{"caipirinha", 2, 0},
+50  		{"panceta", 4, 0},
+51  		{"espetinhos", 3, 0},
+52  		{"abacaxi", 3, 0},
+53  		{"limpar piscina", 1, 0},
+54  		{"molhos", 2, 0},
+55  		{"pão de alho", 4, 0},
+56  		{"arroz", 4, 0},
+57  		{"farofa", 4, 0},
+58  	}
+59  
+60  	fmt.Printf("Número tarefas do churrasco: %v.\n", len(tarefas))
+61  
+62  	// Dividindo lista de tarefas do churrasco entre os CPU's (amigos) disponíveis
+63  	// Efetuando o balanceamento arrendondando a divisão sempre pra cima para evitar
+64  	// que alguém CPU (amigo) fique sem fazer nada :)
+65  	sliceSize := (len(tarefas) + numCPU - 1) / numCPU
+66  	fmt.Printf("Número tarefas pra cada CPU (amigo): %v.\n", sliceSize)
+67  
+68  	// Dividindo as tarefas entre as CPUs (amigos)
+69  	for i := 0; i < len(tarefas); i += sliceSize {
+70  		end := i + sliceSize
+71  		amigo := end / 2
+72  		if end > len(tarefas) {
+73  			end = len(tarefas)
+74  		}
+75  		wg.Add(1)
+76  		go preparar(tarefas[i:end], churrasco, amigo, &wg)
+77  	}
+78  
+79  	go func() {
+80  		wg.Wait()        // Espera que todas as goroutines chamem Done()
+81  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+82  	}()
+83  
+84  	for atividade := range churrasco {
+85  		fmt.Printf("Amigo %v terminou de preparar %s...\n", atividade.Responsavel, atividade.Nome)
+86  	}
+87  
+88  }`}</code></pre>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>O <code>time.Sleep</code> esconde o que o exemplo diz mostrar.</strong> O laboratório demonstra espera sobreposta; o paralelismo de CPU precisa de trabalho que calcula, como o do <code>relatorios</code>.</li>
+    <li><strong><code>runtime.NumCPU()</code> dentro de um pod.</strong> Ele lê as CPUs da <em>máquina</em>, não o limite do container. Num pod de 1 vCPU num nó de 16 núcleos, ele devolve 16, e o programa cria fatias demais. O <code>GOMAXPROCS</code> padrão passou a respeitar o limite de CPU do cgroup a partir do Go 1.25, mas <code>NumCPU()</code> continua devolvendo as CPUs da máquina. Num pod, leia <code>runtime.GOMAXPROCS(0)</code> (ou use o limite do pod) para decidir o número de fatias.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre paralelismo, concorrência e multithreading (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Código de exemplo do artigo no repositório público de Matheus Fidelis (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Amdahl (1967): Validity of the single processor approach to achieving large scale computing capabilities (cópia no Internet Archive)", href: "https://web.archive.org/web/2018/https://dl.acm.org/doi/10.1145/1465482.1465560" },
+    { label: "Go: GOMAXPROCS ciente de containers (Go 1.25)", href: "https://go.dev/blog/container-aware-gomaxprocs" },
+    { label: "Rob Pike: Concurrency is not parallelism (blog do Go)", href: "https://go.dev/blog/waza-talk" },
+    { label: "pthreads(7): threads em Linux", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O <code>relatorios</code> paralelizou dentro de um pod, com 4 threads dividindo a mesma memória. Mas existe outro jeito de rodar coisas ao mesmo tempo: subir mais pods, cada um com a sua memória, como o <code>estoque-1</code> e o <code>estoque-2</code>. Falta saber onde mora cada tipo de paralelismo, e o que quebra quando o trabalho passa de um processo para vários.</p>
+
+<Flashcards cards={[
+  { q: "Quanto leva o fechamento das 23:00 do relatorios, sequencial e em 4 fatias?",
+    a: "Sequencial: 40 s de CPU + 2 s para somar e gravar = 42 s. Em 4 fatias de 100 mil linhas em 4 núcleos: 10 s + 2 s = 12 s. Aceleração de 3,5×." },
+  { q: "Por que a aceleração é 3,5× e não 4×?",
+    a: "Porque a parte serial (somar as 4 parciais e gravar, 2 s de 42, ou 4,8%) não encolhe. É a lei de Amdahl: 1 ÷ (0,048 + 0,952 ÷ N)." },
+  { q: "E com 8 núcleos, quanto acelera?",
+    a: "6,0×, não 8×. Com infinitos núcleos o teto é 21× (42 ÷ 2)." },
+  { q: "O que o churrasco paralelo do laboratório realmente demonstra?",
+    a: "Espera sobreposta: as tarefas usam time.Sleep, que não gasta CPU. O mesmo programa levaria os mesmos 12 s num único núcleo." },
+  { q: "O que dá errado ao fatiar pelo número de tarefas em vez do tempo?",
+    a: "O amigo 1 fica com 12 s e o amigo 3 com 2 s. O tempo total é o do mais lento; o ideal era 49 ÷ 8 ≈ 6,1 s." },
+]} />

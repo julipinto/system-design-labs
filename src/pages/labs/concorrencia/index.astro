@@ -1,0 +1,36 @@
+---
+// Módulo Concorrência e Paralelismo: as 10 aulas de src/content/concorrencia/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/concorrencia.css';
+
+const entries = (await getCollection('concorrencia')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/concorrencia/quiz/');
+---
+<ModuleLayout
+  title="Concorrência e Paralelismo · SDLabs"
+  description="Processos, threads e goroutines, concorrência e paralelismo, condição de corrida, deadlock, mutex, lock distribuído, spinlock e semáforo, com laboratórios interativos."
+  module="concorrencia"
+  heading="Concorrência e Paralelismo"
+  lead="Resta 1 gato de pelúcia, e a Bia e o Caio clicam em comprar com 2 ms de diferença. Como várias coisas acontecem ao mesmo tempo sem uma pisar na outra, dentro de um processo e entre réplicas."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/concorrencia/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>
