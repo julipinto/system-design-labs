@@ -74,3 +74,13 @@
 .sdl-content .sr-fact{border-top:var(--hair) solid var(--line-strong);padding:var(--s-2) 0 0}
 .sdl-content .sr-fact small{display:block;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .sdl-content .sr-fact b{font:700 20px var(--mono);color:var(--ink-hi);font-variant-numeric:tabular-nums}
+
+/* tabela de resultado e painéis lado a lado (databases e cache) */
+.sdl-content .pc-out{margin:0 0 6px}
+.sdl-content table.pc-table{min-width:0}
+.sdl-content table.pc-table th{width:38%}
+.sdl-content .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 6px}
+.sdl-content .ls-panel{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0}
+.sdl-content .ls-h{margin:0 0 6px;font:700 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-hi)}
+.sdl-content .ls-list{margin:0;padding-left:20px;font:13px/1.6 var(--mono)}
+.sdl-content ul.ls-list{list-style:none;padding-left:0}
