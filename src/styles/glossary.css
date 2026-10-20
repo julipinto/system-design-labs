@@ -52,7 +52,7 @@
 .gl-list{margin:0;padding:0 0 var(--s-2);display:grid;grid-template-columns:1fr}
 .gl-item{padding:var(--s-3) 0;border-top:var(--hair) solid var(--line)}
 .gl-item dt{font-weight:800;color:var(--ink-hi);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;overflow-wrap:anywhere}
-.gl-item dt .gl-layer{font:600 11px var(--mono);color:var(--muted)}
+.gl-item dt .gl-layer{font:600 12px var(--mono);color:var(--muted)}
 .gl-item dd{margin:4px 0 0;color:var(--ink);overflow-wrap:anywhere}
 .gl-item dd a{white-space:nowrap;font:700 13px var(--mono);display:inline-flex;align-items:center;min-height:44px;margin:-10px 0 -10px 4px;vertical-align:middle}
 @media (min-width:900px){.gl-list{grid-template-columns:1fr 1fr;column-gap:var(--s-6)}}

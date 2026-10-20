@@ -77,7 +77,22 @@ Regras fixadas no refinamento mobile. Valem para tudo até 480px, salvo quando d
 7. **Tabelas e código rolam dentro do bloco** (`.sr-tablewrap`, `pre`). Tabela de resultado de duas colunas (`.pc-table`) deixa o rótulo quebrar, para o valor não virar uma tira de 10px.
 8. **Home:** o número do módulo fica na linha do título e o texto usa a largura toda (até 760px).
 9. **Quiz:** links de ação ("Desmarcar todos", "Zerar progresso") alinhados à borda do conteúdo, sem recuo; cartões de tópico com 12×16px de respiro, 12px entre eles e a segunda linha do título alinhada depois do ponto; rodada 5/10/20 com o número em mono 18px e "perguntas" como rótulo embaixo; 24px entre a pergunta e as opções; a tecla da opção alinha com a primeira linha.
-10. **Fim da aula:** depois dos flashcards não há segunda régua; a mensagem vazia do "Entendi" não reserva espaço.
+10. **Tipografia no celular.** A escala é a do desktop com quatro ajustes (até 480px), por media query e não por `clamp()`, porque aqui o rótulo precisa *crescer* na tela pequena:
+
+    | Papel | Desktop | Celular | Nota |
+    |---|---|---|---|
+    | Corpo (`--fs-body`) | 17,5px / 1,65 | igual | ~38 caracteres por linha a 360px; medida máxima `--measure` |
+    | Lead, "Em uma frase", "Faça agora" | 19px | igual | |
+    | Título da aula (`--fs-h2`) | clamp(28px, 7,4vw, 38px) | 28px | é o título que se lê; maior que o do módulo |
+    | Título do módulo | `--fs-h1` | 26px | vira cabeçalho de página, não compete com a aula |
+    | Descrição do módulo | 19px | 16px, uma linha + "mais" | |
+    | Rótulo mono (`--fs-label`) | 12,5px | 13,5px | "Aula N de T", "Em uma frase", "Figura 3D", topo, widget |
+    | Rodapé (mono) | 13px | 14px | |
+    | `pre` | 13,5px | 14px | rola dentro do bloco |
+    | Código em linha | 0,86em | igual | ~15px no corpo |
+
+    **Piso de 12px** para qualquer texto (dados de widget, cabeçalhos de tabela, bits, selos do glossário, rótulo da rodada do quiz). Contraste: `--muted` 6,4:1 e `--faint` 5,1:1 no escuro; 6,0:1 e 5,4:1 no claro (4,9:1 sobre `--sunken`). **Controles de formulário herdam a fonte** (`button,input,select,textarea{font:inherit}` na base), senão o navegador usa Arial 13,3px.
+11. **Fim da aula:** depois dos flashcards não há segunda régua; a mensagem vazia do "Entendi" não reserva espaço.
 
 ## Como verificar
 

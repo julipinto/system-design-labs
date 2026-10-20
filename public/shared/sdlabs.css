@@ -98,13 +98,15 @@
   --shadow-pop:0 14px 32px -10px rgba(30,34,38,.28),0 2px 6px rgba(30,34,38,.12);
 }
 
-/* celular: respiro lateral de 20px (16px deixava as marcas de registro da figura a 11px da borda) */
-@media (max-width:480px){:root{--gutter:20px}}
+/* celular: respiro lateral de 20px e rótulo mono de 13,5px (12,5px de mono em caixa alta some na tela pequena) */
+@media (max-width:480px){:root{--gutter:20px;--fs-label:13.5px}}
 
 /* base */
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scrollbar-color:var(--line-strong) var(--bg);accent-color:var(--accent-fill)}
 body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-body)/var(--lh-body) var(--sans);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;caret-color:var(--accent-fill)}
+/* controles de formulário herdam a fonte do site (o padrão do navegador é Arial 13,3px) */
+button,input,select,textarea{font:inherit}
 ::selection{background:rgba(255,157,60,.32);color:var(--ink-hi)}
 h1,h2,h3,h4{color:var(--ink-hi);text-wrap:balance}
 a{color:var(--ink-hi);text-decoration-color:var(--accent-fill);text-decoration-thickness:1.5px;text-underline-offset:.22em}

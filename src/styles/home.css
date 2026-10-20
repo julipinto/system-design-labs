@@ -49,5 +49,6 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
 @media (max-width:480px){
   .home{padding-top:var(--s-1)}
   .home-head{padding:var(--s-6) 0 var(--s-5)}
+  .home-foot{font-size:14px}
   .home-foot p:last-child a{display:inline-flex;align-items:center;min-height:44px}
 }

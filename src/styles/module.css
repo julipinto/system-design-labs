@@ -21,8 +21,9 @@
 @media (max-width:480px){
   .sdl-top{padding-top:var(--s-1)}
   .sdl-hero{padding:var(--s-2) var(--gutter) var(--s-4)}
-  .sdl-hero h1{font-size:28px;margin-bottom:var(--s-1)}
-  .sdl-hero p{font-size:15px;line-height:1.45}
+  .sdl-hero h1{font-size:26px;margin-bottom:var(--s-1)}
+  .sdl-hero p{font-size:16px;line-height:1.45}
+  .sdl-credit{font-size:14px}
   .sdl-hero.clamp .sdl-lead p:not(.open){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;line-clamp:1;overflow:hidden}
 }
 @media (max-width:400px){.sdl-top-more{display:none}}
