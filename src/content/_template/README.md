@@ -26,5 +26,5 @@ Esta pasta não é uma collection (não está em `src/content.config.js`) e não
    (`src/styles/lesson.css`) e o modo foco (`src/scripts/focus-mode.js`) já vêm do `ModuleLayout`.
 5. Figuras: cada uma em `src/figures/<nome>/`, com um componente em `src/components/` que gera o HTML em tempo
    de build (modelo: `OsiFigure2D.astro`).
-6. Adicione o card do módulo em `src/pages/index.astro`, com `href={withBase('labs/<novo-modulo>/')}`.
+6. Adicione o módulo no array `modules` de `src/pages/index.astro` (slug, título, aulas, prévia da figura e texto).
 7. `npm run build` e confira as telas em 390px e 1280px, claro e escuro.
