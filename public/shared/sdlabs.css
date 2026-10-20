@@ -30,7 +30,8 @@
   --bad:#ff7a66;
   --warn:#ffb02e;
   --glow:0 0 12px rgba(255,157,60,.55);              /* ponto aceso */
-  --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 22px -8px rgba(255,157,60,.7); /* moldura acesa */
+  --ring:0 0 0 1px var(--accent-ink) inset;          /* selecionado: contorno de 1px, sem halo */
+  --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 22px -8px rgba(255,157,60,.7); /* aceso: só o "Faça agora" e a figura em foco */
   --shadow-pop:0 14px 32px -8px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.35);
   --plate:#121314;       /* fundo da prancha da figura (as prévias são escuras nos dois temas) */
 
@@ -80,6 +81,7 @@
   --accent-ink:#a34a00;--accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
   --signal:#1c5f80;--ok:#1b7343;--bad:#b3261e;--warn:#7a4a00;
   --glow:0 0 10px rgba(255,140,30,.65);
+  --ring:0 0 0 1px var(--accent-ink) inset;
   --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 18px -8px rgba(255,140,30,.55);
   --shadow-pop:0 14px 32px -10px rgba(30,34,38,.28),0 2px 6px rgba(30,34,38,.12);
 }}
@@ -90,6 +92,7 @@
   --accent-ink:#a34a00;--accent:#a34a00;--accent-fill:#ff9d3c;--on-accent:#1a1004;--accent-wash:rgba(255,157,60,.16);
   --signal:#1c5f80;--ok:#1b7343;--bad:#b3261e;--warn:#7a4a00;
   --glow:0 0 10px rgba(255,140,30,.65);
+  --ring:0 0 0 1px var(--accent-ink) inset;
   --glow-ring:0 0 0 1px var(--accent-ink) inset,0 0 18px -8px rgba(255,140,30,.55);
   --shadow-pop:0 14px 32px -10px rgba(30,34,38,.28),0 2px 6px rgba(30,34,38,.12);
 }

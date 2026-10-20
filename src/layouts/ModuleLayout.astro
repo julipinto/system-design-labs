@@ -19,9 +19,10 @@ interface Props {
   lead: string;           // frase abaixo do h1
   lessons: LessonRef[];   // na ordem, para o índice
   quizHref?: string;      // link do quiz no painel (opcional)
+  terms?: typeof glossaries[string]; // glossário próprio (a página do sistema de design usa)
 }
 const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
-const terms = glossaries[module] ?? [];
+const terms = Astro.props.terms ?? glossaries[module] ?? [];
 const label = `${heading} · ${lessons.length} tópicos`;
 ---
 <BaseLayout title={title} description={description}>

@@ -13,7 +13,7 @@
 .sdl-content .symptom strong{color:var(--bad)}
 .sdl-content .lesson>div.osi-wrap{scroll-margin-top:96px}
 /* mnemônico */
-.sdl-content .mnemonic{border:var(--hair) solid var(--accent-ink);border-radius:var(--r-3);padding:18px 18px 14px;background:var(--surface);box-shadow:var(--glow-ring);margin:var(--s-6) 0 0}
+.sdl-content .mnemonic{border:var(--hair) solid var(--accent-ink);border-radius:var(--r-3);padding:18px 18px 14px;background:var(--surface);box-shadow:var(--ring);margin:var(--s-6) 0 0}
 .sdl-content .mnemonic h3{margin:0 0 10px;color:var(--accent-ink);font-size:18px}
 .sdl-content .mn-line{margin-bottom:14px}
 .sdl-content .mn-dir{display:block;font:600 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);margin-bottom:var(--s-1)}

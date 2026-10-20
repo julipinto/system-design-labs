@@ -1,0 +1,279 @@
+---
+// Sistema de design do SDLabs: cada token e cada componente em uso, com os dados da história (Lena, a loja,
+// o gato de pelúcia = produto 42). A página usa o próprio ModuleLayout: a barra, o modo foco, o "Entendi"
+// e o glossário funcionam aqui como num módulo. Texto e regras: docs/design/SISTEMA.md.
+import ModuleLayout from '../layouts/ModuleLayout.astro';
+import Lesson from '../components/Lesson.astro';
+import OneLiner from '../components/OneLiner.astro';
+import DoIt from '../components/DoIt.astro';
+import HowItWorks from '../components/HowItWorks.astro';
+import WhyItMatters from '../components/WhyItMatters.astro';
+import Deep from '../components/Deep.astro';
+import Sources from '../components/Sources.astro';
+import Flashcards from '../components/Flashcards.astro';
+import Figure3D from '../components/Figure3D.astro';
+import { withBase } from '../lib/url.js';
+import '../styles/home.css';
+
+const sections = [
+  { id: 'principios', title: 'Princípios', min: 2 },
+  { id: 'cor', title: 'Cor', min: 3 },
+  { id: 'tipografia', title: 'Tipografia', min: 2 },
+  { id: 'espaco-forma-movimento', title: 'Espaço, forma, traço, brilho e movimento', min: 2 },
+  { id: 'aula', title: 'Componentes da aula', min: 4 },
+  { id: 'figura-widget', title: 'Figura 3D, widget e glossário', min: 3 },
+  { id: 'navegacao', title: 'Barra, navegação, home e quiz', min: 2 },
+];
+const N = sections.length;
+const at = (i: number) => ({ id: sections[i].id, n: i + 1, total: N, title: sections[i].title, min: sections[i].min, prev: sections[i - 1]?.id, next: sections[i + 1]?.id });
+
+const terms = [
+  { term: 'Cache', aliases: ['cache'], short: 'Uma cópia do dado guardada mais perto, ou num lugar mais rápido, de quem pergunta. Na loja, o produto 42 sai em 1 ms em vez de 40 ms.', lesson: 'figura-widget' },
+  { term: 'TTL', aliases: ['TTL'], short: 'Prazo de validade da cópia. Passou o TTL, o cache esquece e pergunta de novo ao banco.', lesson: 'figura-widget' },
+  { term: 'Token', aliases: ['token', 'tokens'], short: 'Nome de um valor do sistema de design (uma cor, um tamanho, um tempo), usado no lugar do número cru.', lesson: 'cor' },
+];
+
+// paleta: nome, papel, hex no escuro, hex no claro, contraste com o chão (escuro / claro)
+const colors = [
+  ['--bg', 'Chão (o mesmo da cena 3D)', '#121314', '#edeeee', '', ''],
+  ['--surface', 'Painel: barra, ficha, widget', '#191b1d', '#f8f8f7', '', ''],
+  ['--sunken', 'Poço: campo, código, trilho', '#0d0e0f', '#e2e3e3', '', ''],
+  ['--line', 'Traço fino (1px)', '#2a2d30', '#d3d6d8', '', ''],
+  ['--line-strong', 'Borda de controle', '#5b6269', '#7d848a', '3,0', '3,3'],
+  ['--ink', 'Texto corrido', '#d6dbe1', '#23272b', '13,4', '12,9'],
+  ['--ink-hi', 'Títulos e ênfase', '#f0f2f4', '#111315', '16,6', '16,0'],
+  ['--muted', 'Texto de apoio', '#8f98a3', '#535a61', '6,4', '6,0'],
+  ['--faint', 'Rótulo menor', '#7f8791', '#61686e', '5,1', '4,9'],
+  ['--accent-ink', 'Sódio: texto e traço do que está ativo', '#ff9d3c', '#a34a00', '9,0', '5,1'],
+  ['--accent-fill', 'Sódio: preenchimento do botão principal', '#ff9d3c', '#ff9d3c', '9,1*', '9,1*'],
+  ['--signal', 'Segunda cor, só para dados', '#7dbbd9', '#1c5f80', '8,8', '6,0'],
+  ['--ok', 'Entendida, certo', '#4fd68f', '#1b7343', '10,1', '5,0'],
+  ['--bad', 'Errado, falhou', '#ff7a66', '#b3261e', '7,3', '5,6'],
+];
+const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5', 24], ['--s-6', 32], ['--s-7', 48], ['--s-8', 64]];
+---
+<ModuleLayout
+  title="Sistema de design · SDLabs"
+  description="O sistema de design do SDLabs: tokens de cor, tipo, espaço, traço, brilho e movimento, e cada componente das aulas em uso."
+  module="sistema-de-design"
+  heading="Sistema de design"
+  lead="As peças do site, uma por vez, com a mesma história das aulas: a Lena, de Recife, e o gato de pelúcia da loja (o produto 42)."
+  lessons={sections.map((s) => ({ id: s.id, title: s.title }))}
+  quizHref={withBase('labs/cache/quiz/')}
+  terms={terms}
+>
+  <Fragment slot="head">
+    <link rel="stylesheet" href={withBase('shared/quiz.css')} />
+  </Fragment>
+<style is:global>
+  .ds-theme{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:0 0 var(--s-4)}
+  .ds-grid{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));margin:var(--s-4) 0}
+  .ds-sw{display:grid;grid-template-columns:44px 1fr;gap:4px var(--s-3);align-items:center;padding:var(--s-2) 0;border-top:var(--hair) solid var(--line)}
+  .ds-sw i{grid-row:span 2;width:44px;height:44px;border-radius:var(--r-2);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .ds-sw b{font:700 13px var(--mono);color:var(--ink-hi)}
+  .ds-sw span{font-size:13.5px;line-height:1.35;color:var(--muted)}
+  .ds-sw small{grid-column:2;font:600 11.5px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
+  .ds-spec{border-top:var(--hair) solid var(--line);padding:var(--s-3) 0}
+  .ds-spec .label{display:block;margin-bottom:4px}
+  .ds-space{display:grid;gap:6px;margin:var(--s-3) 0}
+  .ds-space div{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:var(--s-3);font:600 12px var(--mono);color:var(--muted)}
+  .ds-space i{display:block;height:8px;background:var(--signal);border-radius:1px}
+  .ds-shapes{display:flex;flex-wrap:wrap;gap:var(--s-4);margin:var(--s-3) 0}
+  .ds-shape{display:grid;place-items:center;width:96px;height:72px;border:var(--hair) solid var(--line-strong);font:600 11.5px var(--mono);color:var(--muted);text-align:center}
+  .ds-row{display:flex;flex-wrap:wrap;gap:var(--s-3);align-items:center;margin:var(--s-3) 0}
+  .ds-demo-track{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:12px;max-width:320px;flex:1 1 200px}
+  .ds-home{list-style:none;margin:var(--s-3) 0;padding:0;border-top:var(--hair) solid var(--line)}
+  .ds-quiz{max-width:var(--measure)}
+</style>
+
+  <Lesson {...at(0)}>
+    <p class="ponte">O site é a moldura de uma prancha técnica. As figuras 3D já tinham uma linguagem: chão grafite, traço fino, rótulo em mono e uma cor só que acende no que está vivo. O resto do site agora fala a mesma língua.</p>
+    <OneLiner>o que está ativo acende na cor de sódio; o resto fica quieto, em traço fino.</OneLiner>
+    <DoIt><p>Abra o índice na barra lá em cima e veja qual aula acende. Depois toque em <strong>Ver resposta</strong> num flashcard da seção 5: a pergunta aberta ganha o ponto aceso.</p></DoIt>
+    <HowItWorks title="As cinco regras">
+      <ol class="flow steps">
+        <li><strong>Uma cor que acende.</strong> O sódio (laranja) marca só o que está ativo: a aula atual na régua, o "Faça agora", o flashcard aberto, a figura em foco. Se tudo acende, nada acende.</li>
+        <li><strong>Traço fino em vez de caixa.</strong> Seções se separam por réguas de 1px; caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa.</li>
+        <li><strong>Mono para rótulo, número e dado.</strong> "Aula 10 de 13", o contador, o IP, o SQL. O texto corrido fica na Atkinson Hyperlegible, feita para ler sem esforço.</li>
+        <li><strong>Celular primeiro.</strong> Alvo de toque de 48px, uma aula por vez, nada importante escondido atrás da barra.</li>
+        <li><strong>Mesmos dados da história.</strong> Os exemplos daqui usam a Lena, a loja e o produto 42, como as aulas.</li>
+      </ol>
+    </HowItWorks>
+    <WhyItMatters>
+      <li>Com TDAH, cada elemento que pisca disputa a atenção. Uma cor só, num lugar só, diz onde olhar.</li>
+      <li>A figura 3D e a página parecem a mesma peça, então trocar de uma para a outra não exige reaprender o visual.</li>
+    </WhyItMatters>
+    <p class="gancho">Para a regra da cor única funcionar, a paleta precisa ser contida. Falta ver quais cores existem e onde cada uma entra.</p>
+  </Lesson>
+
+  <Lesson {...at(1)}>
+    <p>Os tokens moram em <code>public/shared/sdlabs.css</code>. O tema segue o celular (claro ou escuro); os botões abaixo forçam um dos dois para conferir.</p>
+    <div class="ds-theme" role="group" aria-label="Tema da página">
+      <button type="button" class="btn" data-ds-theme="">Seguir o sistema</button>
+      <button type="button" class="btn" data-ds-theme="dark">Escuro</button>
+      <button type="button" class="btn" data-ds-theme="light">Claro</button>
+    </div>
+    <OneLiner>neutros frios tirados da cena 3D, uma cor de sódio para o ativo e três cores de estado; todo texto passa de 4,5:1 nos dois temas.</OneLiner>
+    <div class="ds-grid">
+      {colors.map(([name, role, dark, light, cd, cl]) => (
+        <div class="ds-sw"><i style={`background:var(${name})`}></i><b>{name}</b><span>{role}</span><small>escuro {dark}{cd && ` · ${cd}:1`} · claro {light}{cl && ` · ${cl}:1`}</small></div>
+      ))}
+    </div>
+    <p class="muted">Contraste medido contra <code>--bg</code>. * O sódio de preenchimento é medido contra o texto escuro que vai em cima dele (<code>--on-accent</code>).</p>
+    <Deep min={1}>
+      <h4 class="deep-h">Por que existe --accent-ink</h4>
+      <p>O modelo das figuras 3D escreve <code>--accent</code> no &lt;html&gt; da página que a embute, para seguir a cor escolhida no seletor dela. No tema claro isso trocaria o marrom legível pelo laranja claro. Por isso o design usa <code>--accent-ink</code> para texto e traço, e <code>--accent</code> fica só como apelido antigo para os widgets.</p>
+      <h4 class="deep-h">Apelidos antigos</h4>
+      <p><code>--card</code> = <code>--surface</code>, <code>--fg</code> = <code>--ink</code>, <code>--accent-2</code> = <code>--signal</code>. Os widgets e a figura OSI 2D ainda usam esses nomes.</p>
+    </Deep>
+    <p class="gancho">Com a cor contida, quem carrega a hierarquia é o tipo. Falta ver as duas famílias e a escala.</p>
+  </Lesson>
+
+  <Lesson {...at(2)}>
+    <OneLiner>Atkinson Hyperlegible Next para ler e Atkinson Hyperlegible Mono para rotular; as duas são da mesma família e ficam no próprio site.</OneLiner>
+    <div class="ds-spec"><span class="label">--fs-h1 · 800</span><p style="font:800 var(--fs-h1)/1.04 var(--sans);letter-spacing:-.028em;color:var(--ink-hi);margin:0">Gato de pelúcia</p></div>
+    <div class="ds-spec"><span class="label">--fs-h2 · 800</span><p style="font:800 var(--fs-h2)/1.15 var(--sans);letter-spacing:-.018em;color:var(--ink-hi);margin:0">O pedido 1042 da Lena</p></div>
+    <div class="ds-spec"><span class="label">--fs-h3 · 750</span><p style="font:750 var(--fs-h3)/1.25 var(--sans);color:var(--ink-hi);margin:0">Como funciona</p></div>
+    <div class="ds-spec"><span class="label">--fs-lead</span><p style="font-size:var(--fs-lead);margin:0;color:var(--ink-hi)">A Lena abre a página do produto 42 em Recife.</p></div>
+    <div class="ds-spec"><span class="label">--fs-body · 17,5px / 1,65</span><p style="margin:0">O cache guarda uma cópia do produto 42 perto de quem pergunta. A primeira leitura vai ao banco e leva 40 ms; as seguintes saem do cache em 1 ms.</p></div>
+    <div class="ds-spec"><span class="label">.label · mono 12,5px caixa alta</span><p class="label" style="margin:0">Aula 4 de 7 · leitura ~5 min</p></div>
+    <div class="ds-spec"><span class="label">dado em mono</span><p style="margin:0"><code>GET produto:42</code> → <code>{'{"nome":"gato de pelúcia","preco":79.90}'}</code></p></div>
+    <WhyItMatters>
+      <li>A Atkinson foi desenhada para quem tem baixa visão: letras que não se confundem (I, l, 1; O, 0). Isso ajuda a ler rápido no celular.</li>
+      <li>São 52 KB no total (texto + mono), com <code>font-display: swap</code>: o texto aparece na hora com a fonte do sistema e troca quando a fonte chega. O itálico só baixa se a página usar.</li>
+    </WhyItMatters>
+    <p class="gancho">Tipo e cor definidos. Falta o ritmo: o espaço entre as coisas, os cantos, a espessura do traço e como o brilho se move.</p>
+  </Lesson>
+
+  <Lesson {...at(3)}>
+    <h3 class="sec" style="margin-top:0">Espaço (base 4)</h3>
+    <div class="ds-space">{space.map(([n, v]) => <div><span>{n} {v}</span><i style={`width:${v * 4}px`}></i></div>)}</div>
+    <p>Regra: mais espaço acima de um título do que abaixo dele. Seção abre com <code>--s-7</code> (48px) e o título encosta no texto com <code>--s-3</code>.</p>
+    <h3 class="sec">Forma e traço</h3>
+    <div class="ds-shapes">
+      <div class="ds-shape" style="border-radius:var(--r-1)">--r-1 3px<br>código, bit</div>
+      <div class="ds-shape" style="border-radius:var(--r-2)">--r-2 6px<br>controle</div>
+      <div class="ds-shape" style="border-radius:var(--r-3)">--r-3 10px<br>painel</div>
+      <div class="ds-shape" style="border-radius:var(--r-pill)">--r-pill<br>chip</div>
+      <div class="ds-shape" style="border-width:var(--stroke);border-color:var(--accent-ink)">--stroke 1,5px<br>ativo</div>
+    </div>
+    <h3 class="sec">Brilho</h3>
+    <div class="ds-row">
+      <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit"></i>.lit aceso</span>
+      <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit off"></i>.lit.off apagado</span>
+      <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit ok"></i>.lit.ok entendido</span>
+      <button type="button" class="btn" aria-pressed="true">--ring: selecionado</button>
+      <span class="label" style="display:inline-block;padding:10px 14px;border:1px solid var(--accent-ink);border-radius:var(--r-3);box-shadow:var(--glow-ring);color:var(--accent-ink)">--glow-ring: aceso</span>
+    </div>
+    <h3 class="sec">Movimento</h3>
+    <p>Saída exponencial (<code>--ease-out</code>), 120 a 320 ms, e nada além de estado: a régua cresce, o ponto acende, a ficha sobe. Com <code>prefers-reduced-motion</code>, tudo para.</p>
+    <div class="ds-row">
+      <div class="sdl-content-demo ds-demo-track pg-track" data-ds-track>{Array.from({ length: 7 }, (_, i) => <span class={'pg-seg' + (i < 2 ? ' done' : '') + (i === 2 ? ' cur' : '')}></span>)}</div>
+      <button type="button" class="btn" data-ds-step>Próxima aula</button>
+    </div>
+    <p class="gancho">Com as peças básicas no lugar, falta montar a aula com elas.</p>
+  </Lesson>
+
+  <Lesson {...at(4)}>
+    <p class="ponte">Toda aula segue a mesma ordem, e cada componente responde a uma pergunta que o anterior deixou. Abaixo, uma aula de mentira sobre o cache do produto 42.</p>
+    <h3 class="sec" style="margin-top:0">OneLiner · "Em uma frase"</h3>
+    <OneLiner>o cache guarda uma cópia do gato de pelúcia perto da Lena, e a página abre em 1 ms em vez de 40 ms.</OneLiner>
+    <h3 class="sec">DoIt · "Faça agora" (a única caixa acesa)</h3>
+    <DoIt><p>Na figura, peça o produto 42 duas vezes e compare o tempo da primeira resposta com o da segunda.</p></DoIt>
+    <HowItWorks>
+      <ol class="flow steps">
+        <li>A Lena abre a página do produto 42. O cache não tem a cópia: é um <strong>miss</strong>, e o app vai ao banco (40 ms).</li>
+        <li>Com a resposta em mãos, o app guarda uma cópia no cache com TTL de 60 s.</li>
+        <li>O Caio abre a mesma página 10 s depois. Agora é um <strong>hit</strong>: 1 ms, sem tocar no banco.</li>
+      </ol>
+    </HowItWorks>
+    <WhyItMatters>
+      <li>Com 1.000 visitas por minuto, o banco responde 1 vez em vez de 1.000.</li>
+      <li>O preço pode ficar velho por até 60 s: o TTL é a conta entre velocidade e frescor.</li>
+    </WhyItMatters>
+    <div class="callout why"><h3>Callout .why</h3><p>Explica o motivo de uma escolha, em azul de dado.</p></div>
+    <div class="callout remember"><h3>Callout .remember</h3><p>O que vale guardar, em verde.</p></div>
+    <Deep min={2}>
+      <h4 class="deep-h">Tabela de referência</h4>
+      <div class="sr-tablewrap"><table class="sr-table"><thead><tr><th>Pedido</th><th>Origem</th><th>Tempo</th><th>Banco consultado?</th></tr></thead>
+        <tbody><tr><th>1º (Lena)</th><td>banco</td><td>40 ms</td><td>sim</td></tr><tr><th>2º (Caio)</th><td>cache</td><td>1 ms</td><td>não</td></tr><tr><th>61 s depois (Bia)</th><td>banco</td><td>40 ms</td><td>sim (TTL venceu)</td></tr></tbody></table></div>
+      <h4 class="deep-h">Código</h4>
+      <pre><code>{'SET produto:42 \'{"nome":"gato de pelúcia","preco":79.90}\' EX 60\nGET produto:42'}</code></pre>
+      <Sources items={[
+        { label: 'Artigo público de Matheus Fidelis sobre cache', href: 'https://fidelissauro.dev/' },
+        { label: 'Exemplo de fonte sem link (texto puro)' },
+      ]} />
+    </Deep>
+    <Flashcards cards={[
+      { q: 'Quanto tempo a Lena espera no miss? E o Caio, no hit?', a: 'A Lena espera <strong>40 ms</strong> (vai ao banco); o Caio, <strong>1 ms</strong> (sai do cache).' },
+      { q: 'O que acontece quando a Bia abre a página 61 s depois?', a: 'O TTL de 60 s venceu: é um miss de novo e o app busca o produto 42 no banco.' },
+    ]} />
+    <p class="gancho">A aula termina no botão "Entendi" logo abaixo, que pinta este traço da régua de verde. Falta ver as peças que se manipulam: figura, widget e glossário.</p>
+  </Lesson>
+
+  <Lesson {...at(5)}>
+    <p class="ponte">Figura e widget são pranchas: caixa de traço fino com marcas de registro nos cantos. Quando estão em uso, as marcas e o ponto do rótulo acendem.</p>
+    <h3 class="sec" style="margin-top:0">Figure3D</h3>
+    <p class="muted">No desktop, a figura carrega embutida e recebe o foco com o mouse em cima (as setas passam a funcionar). No celular, aparece a prévia com o botão de tela cheia.</p>
+    <Figure3D path="labs/cache/cache-3d/" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: o cache do produto 42" alt="Prévia da figura 3D do cache da loja" hint="Arraste para girar · Próximo passo ou setas do teclado para avançar" />
+    <h3 class="sec">Widget</h3>
+    <div class="widget">
+      <p class="widget-title">Cache do produto 42</p>
+      <p class="widget-hint">Toque num botão: a moldura acende enquanto o widget está em uso.</p>
+      <div class="w-row"><button type="button" class="btn primary">Pedir produto 42</button><button type="button" class="btn" aria-pressed="true">TTL 60 s</button><button type="button" class="btn" disabled>Limpar cache</button><span class="counter">3 pedidos</span></div>
+      <div class="sr-chips"><button type="button" class="chip" aria-pressed="true">Lena · Recife</button><button type="button" class="chip">Caio · SP</button><button type="button" class="chip">Bia · Rio</button></div>
+      <div class="sr-bars">
+        <div class="sr-bar"><span>miss</span><div class="sr-track"><div class="sr-fill" style="width:100%"></div><span class="sr-lbl">40 ms</span></div></div>
+        <div class="sr-bar"><span>hit</span><div class="sr-track"><div class="sr-fill win" style="width:6%"></div><span class="sr-lbl">1 ms</span></div></div>
+      </div>
+      <div class="sr-verdict"><strong>Hit.</strong> O Caio recebeu o gato de pelúcia do cache, sem tocar no banco.</div>
+      <div class="sr-verdict bad"><strong>Velho.</strong> O preço mudou para 79,90 e o cache ainda mostra 89,90 até o TTL vencer.</div>
+      <div class="sr-facts"><div class="sr-fact"><small>hit rate</small><b>67%</b></div><div class="sr-fact"><small>banco</small><b>1 leitura</b></div><div class="sr-fact"><small>TTL restante</small><b>50 s</b></div></div>
+      <ol class="ib-tl"><li class="ib-step now"><div class="ib-head"><span class="ib-who">Lena</span><span class="ib-n">passo atual</span></div><pre class="ib-sql"><code>GET produto:42</code></pre><p class="ib-out">miss → busca no banco</p></li><li class="ib-step flag"><div class="ib-head"><span class="ib-who t2">Davi</span><span class="ib-n">deu errado</span></div><p class="ib-out">leu o preço velho</p></li></ol>
+    </div>
+    <h3 class="sec">Glossário</h3>
+    <p>Termos sublinhados com pontinhos abrem a ficha: no desktop, um balão; no celular, uma gaveta que sobe de baixo. Toque aqui: o cache do produto 42 vence pelo TTL.</p>
+    <p class="gancho">Falta a moldura de tudo isso: a barra fixa, a home e o quiz.</p>
+  </Lesson>
+
+  <Lesson {...at(6)} final={{ href: withBase(''), label: 'Voltar para os módulos' }}>
+    <h3 class="sec" style="margin-top:0">Barra fixa</h3>
+    <p>É a barra no topo desta página: anterior, aula atual (abre o índice), próxima e quiz. A régua tem um traço por aula: o atual acende e cresce, o entendido fica verde, o contador em mono mostra quantos já foram.</p>
+    <h3 class="sec">Home: índice de capítulos</h3>
+    <ol class="ds-home mods">
+      <li class="mod"><a class="mod-link" href={withBase('labs/cache/')}><span class="mod-n" aria-hidden="true">05</span><div class="mod-body"><h2>Estratégias de Cache</h2><p>Uma linha por módulo, na ordem da história, com a prévia da figura no desktop.</p><div class="mod-meta"><span class="label">Módulo 5 · 7 aulas</span><span class="label mod-prog" style="color:var(--ok)">3 de 7 entendidas</span></div></div></a></li>
+    </ol>
+    <h3 class="sec">Quiz</h3>
+    <div class="ds-quiz">
+      <p class="q-prompt">A Bia abre a página do produto 42 61 s depois do Caio. O que acontece?</p>
+      <ul class="q-opts">
+        <li><button type="button" class="q-btn is-wrong" disabled><span class="q-key">A</span><span class="q-opt-text">Hit: sai do cache em 1 ms</span><span class="q-badge">sua resposta</span></button></li>
+        <li><button type="button" class="q-btn is-right" disabled><span class="q-key">B</span><span class="q-opt-text">Miss: o TTL venceu e o app vai ao banco</span><span class="q-badge">certa</span></button></li>
+        <li><button type="button" class="q-btn is-dim" disabled><span class="q-key">C</span><span class="q-opt-text">Erro: o cache apaga o produto</span></button></li>
+      </ul>
+      <div class="q-fb is-wrong"><p class="q-fb-head">Quase</p><p>O TTL era de 60 s. Aos 61 s a cópia já foi esquecida.</p></div>
+    </div>
+  </Lesson>
+
+<script is:inline>
+  (function () {
+    // botões de tema: só nesta página
+    document.querySelectorAll('[data-ds-theme]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-ds-theme');
+        if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+        document.querySelectorAll('[data-ds-theme]').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+      });
+    });
+    // régua de demonstração: a aula atual vira entendida e o brilho passa para a próxima
+    var track = document.querySelector('[data-ds-track]'), step = document.querySelector('[data-ds-step]');
+    if (track && step) step.addEventListener('click', function () {
+      var segs = track.children, cur = Array.prototype.findIndex.call(segs, function (s) { return s.classList.contains('cur'); });
+      segs[cur].className = 'pg-seg done';
+      var nx = (cur + 1) % segs.length;
+      if (nx === 0) Array.prototype.forEach.call(segs, function (s) { s.className = 'pg-seg'; });
+      segs[nx].className = 'pg-seg cur';
+    });
+  })();
+</script>
+</ModuleLayout>
