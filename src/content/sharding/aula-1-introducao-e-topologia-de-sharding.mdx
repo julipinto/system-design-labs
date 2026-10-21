@@ -1,0 +1,84 @@
+---
+title: "Introdução e topologia de sharding"
+order: 1
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O módulo 15 terminou com o cubo de escala e um eixo que a loja nunca usou: o <strong>Z</strong>, partir por cliente. O motivo está no módulo 14. O banco do <code>pedidos</code> aguenta <strong>150 pedidos por segundo</strong>, e mais réplicas do serviço não mexem nesse teto. Só que o banco também ficou grande: a tabela <code>pedidos</code>, que no módulo 4 tinha 6 linhas (1041 a 1046), tem agora <strong>50 milhões</strong>. O problema deste módulo é <strong>partir a tabela entre servidores</strong>: por qual chave, onde cada linha cai e o que acontece quando as coisas mudam.</p>
+
+<OneLiner>Sharding é partir os dados de uma tabela entre vários <strong>servidores</strong>, cada um com um pedaço (um <strong>shard</strong>), e dar a cada linha um endereço calculado a partir de uma <strong>chave</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Topologia</strong>, avance os passos com a seta → do teclado e veja o servidor único de 140 GB virar 3 shards. Anote em qual shard cai o pedido <strong>1054</strong> da Lena, às 20:08, e quantas linhas cada shard recebe. Depois olhe a segunda topologia: o parceiro <code>mkt-01</code> num pool de computação só dele.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=topologia" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: De 1 servidor para 3 shards" alt="Prévia da figura 3D: De 1 servidor para 3 shards" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A tabela <code>pedidos</code> tem <strong>50.000.000 de linhas</strong> de cerca de <strong>2 KB</strong> cada (o pedido guarda o endereço e os itens num JSON, exemplo). São <strong>100 GB</strong>. Os índices somam mais 40%, então o banco pesa <strong>140 GB</strong>, num volume de <strong>200 GB</strong> que já está 70% cheio.</li>
+  <li>E a tabela cresce. Num dia comum a loja faz 5 pedidos por segundo: 5 × 86.400 = <strong>432.000 pedidos por dia</strong>, o que dá 432.000 × 2 KB × 1,4 = <strong>1,21 GB por dia</strong>. Os 60 GB livres acabam em cerca de <strong>50 dias</strong>. Isso sem a Black Friday.</li>
+  <li>Um backup completo, a 50 MB/s (exemplo), copia 140.000 MB em 2.800 s: <strong>47 minutos</strong>. Disco enchendo, backup de quase uma hora e um teto de 150 pedidos por segundo são os três gatilhos da loja. Os três pedem a mesma coisa: pedaços menores, em máquinas diferentes.</li>
+  <li>Antes de partir, existe uma <strong>escada de remédios</strong>: índice (módulo 4), cache (módulo 5), réplicas de leitura (módulo 17), <strong>partitioning</strong> dentro do mesmo servidor (aula 4) e só então sharding. <strong>50 milhões de linhas ainda cabem num PostgreSQL.</strong> A loja chega ao degrau do sharding porque o problema é escrita, disco e backup, e não só leitura.</li>
+  <li>O nome pede cuidado. <strong>Particionar</strong> é dividir uma tabela <em>dentro</em> de um servidor. Um <strong>shard</strong> é cada pedaço num servidor <em>diferente</em>. Daqui em diante, "partição" é a primeira coisa e "shard" é a segunda.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As duas topologias</h3>
+
+<p>Há duas maneiras de usar a ideia. Na <strong>topologia de dados</strong>, o que se parte é o dado: <code>shard-0</code>, <code>shard-1</code> e <code>shard-2</code> (servidores <code>pg-pedidos-0</code> a <code>pg-pedidos-2</code>) guardam cada um um terço da tabela, e um <strong>roteador</strong> calcula para qual vai cada linha. É o que o módulo inteiro estuda.</p>
+
+<p>Na <strong>topologia computacional</strong>, o que se separa é o processamento. O <code>mkt-01</code>, o parceiro do módulo 8, ganha um pool de servidores só dele, e o resto dos clientes usa outro. O dado pode continuar num banco só. O artigo chama isso de sharding também; é <strong>isolamento de carga</strong>, a ideia do bulkhead do módulo 25. Vale muito, mas é outra técnica.</p>
+
+<p>E a ideia não fica só no banco. O cache distribuído do módulo 5 já parte as chaves entre nós, e as partições do tópico <code>pedidos</code> no Kafka (módulo 13) são sharding de mensagens, com a chave e o <code>murmur2 mod 3</code>.</p>
+
+<h3 class="sec">E se der errado: o shard antes da hora</h3>
+
+<p>Suponha que a loja parta a tabela hoje, sem ter chegado aos gatilhos. O relatório "faturamento do dia", que hoje soma tudo numa consulta só, vira <strong>3 consultas, 3 conexões e 3 resultados para somar</strong>. Uma transação que mexe em pedidos de dois clientes pode tocar dois shards, e a transação única some: não há ACID de graça entre servidores. O sharding cobra caro, então só entra depois dos degraus mais baratos da escada.</p>
+
+<WhyItMatters>
+  <li><strong>O gatilho é medido.</strong> 140 GB em 200 GB, 1,21 GB por dia, 50 dias de folga, backup de 47 min e 150 pedidos/s.</li>
+  <li><strong>Réplicas do serviço não resolvem.</strong> O teto é o banco, e ele é um servidor só.</li>
+  <li><strong>Partição e shard são coisas diferentes.</strong> Uma fica dentro do servidor e a outra atravessa servidores.</li>
+  <li><strong>Tem custo.</strong> Consultas sem chave, relatórios em 3 partes e transações entre shards.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A escada de remédios, degrau por degrau</h4>
+  <p>Cada degrau resolve um sintoma e custa mais que o anterior. O índice (módulo 4) acelera a busca. O cache (módulo 5) tira leituras do banco. As réplicas de leitura (módulo 17) dividem as leituras entre servidores. O partitioning (aula 4) arruma a tabela por dentro. O sharding é o único que também multiplica a <strong>escrita</strong> e o <strong>espaço</strong>, e por isso o último.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Sharding não é sinônimo de particionamento.</strong> O artigo trata os dois como a mesma coisa. Aqui, particionar é dividir uma tabela dentro de uma instância (dá poda e retenção, não dá capacidade), e shard é cada pedaço num servidor diferente.</li>
+    <li><strong>Segregação computacional.</strong> O artigo a chama de sharding. É isolamento de carga (bulkhead, módulo 25): vale, mas não parte os dados.</li>
+    <li><strong>"Se um nó falhar, os outros shards continuam disponíveis."</strong> Só para as chaves que estão nos outros shards. Sem réplicas (módulo 17), os dados do shard que caiu ficam indisponíveis. A aula 2 faz a conta.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Azure Architecture Center: Sharding pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "Redis Cluster: especificação (16.384 slots)", href: "https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Partir custa consultas mais complicadas e mais coisas que podem quebrar. Falta saber o que a loja ganha em troca: quanta capacidade, quanto espaço, e o que acontece com as consultas que não trazem a chave.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três gatilhos que levam a loja ao sharding?",
+    a: "Disco (140 GB num volume de 200 GB, 50 dias de folga), backup (47 min) e o teto de escrita do banco (150 pedidos/s)." },
+  { q: "Qual a diferença entre particionar e fazer sharding?",
+    a: "Particionar divide a tabela dentro de uma instância. Shard é cada pedaço num servidor diferente." },
+  { q: "Quais são os degraus da escada de remédios?",
+    a: "Índice, cache, réplicas de leitura, partitioning na mesma instância e, por último, sharding." },
+  { q: "O que separa a topologia de dados da computacional?",
+    a: "Na de dados, cada servidor guarda um pedaço da tabela. Na computacional, só o processamento é isolado (o mkt-01 num pool próprio): é bulkhead." },
+  { q: "Qual o custo de partir cedo demais?",
+    a: "Relatórios viram N consultas, a transação única some e consultas sem a chave passam por todos os shards." },
+]} />

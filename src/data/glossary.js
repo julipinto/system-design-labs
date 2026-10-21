@@ -12,6 +12,7 @@ import { comunicacaoSincrona } from './glossary-comunicacao-sincrona.js';
 import { comunicacaoAssincrona } from './glossary-comunicacao-assincrona.js';
 import { performance } from './glossary-performance.js';
 import { scaleCube } from './glossary-scale-cube.js';
+import { sharding } from './glossary-sharding.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -86,5 +87,6 @@ export const glossaries = {
   'comunicacao-sincrona': comunicacaoSincrona,
   'comunicacao-assincrona': comunicacaoAssincrona,
   'performance': performance,
-  'scale-cube': scaleCube
+  'scale-cube': scaleCube,
+  sharding
 };

@@ -1,0 +1,125 @@
+---
+title: "Hashing"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import hashingGo from '../../lab-code/sharding/hashing.go?raw';
+
+<p class="ponte">Na aula passada as faixas deixaram shards vazios e outros sobrecarregados: a de datas e a de ids mandaram todas as escritas para o último. Uma <strong>função de hash</strong> resolve esse espalhamento: ela embaralha o <code>cliente_id</code> num número, e o resto da divisão desse número pelo total de shards escolhe o shard. Só que essa conta guarda uma armadilha, que aparece no dia em que o total de shards muda.</p>
+
+<OneLiner><code>hash(chave) mod N</code> espalha as linhas por igual e custa quase nada, e <strong>quebra quando N muda</strong>: ao passar de 3 para 4 shards, 75% das linhas trocam de lugar.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Hash</strong>, deixe os 14 pedidos caírem em 3 shards e anote a contagem de cada um. Depois aperte o botão que passa de 3 para 4 shards e conte as linhas que acendem. Confira que a Lena (<code>lena-77</code>) vai de 1 para 0.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=hash&step=3" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: murmur3 mod 3, depois mod 4" alt="Prévia da figura 3D: murmur3 mod 3, depois mod 4" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A função canônica deste módulo é o <strong>murmur3 de 32 bits</strong> (a do lab <code>murmur/</code>, <code>spaolacci/murmur3 Sum32</code>, seed 0) sobre os bytes UTF-8 do <code>cliente_id</code>, <strong>sem passar para minúsculas</strong>. Para a Lena: <code>murmur3("lena-77") = 0x8fd9d9d8</code>, que é 2.413.418.968 em decimal. Dividido por 3, sobra <strong>1</strong>. O roteador grava o pedido <strong>1054</strong>, a camiseta preta de 49,00 mais o frete de Recife (15,00), total <strong>64,00</strong>, no <code>shard-1</code>.</li>
+  <li>Com os 5 clientes e <code>mod 3</code>: <code>davi-12</code> (0x06de0db0) dá 0; <code>lena-77</code> e <code>bia-31</code> (0x12bd9b3b) dão 1; <code>caio-58</code> (0x8c6d56ed) e <code>mkt-01</code> (0x9ebaf255) dão 2. Na amostra de 14 linhas, as contagens são <strong>3 / 9 / 2</strong>: o <code>shard-0</code> tem o Davi (3), o <code>shard-1</code> tem a Lena (6) e a Bia (3), o <code>shard-2</code> tem o Caio (2).</li>
+  <li>Esse 3 / 9 / 2 parece desigual, e é a <strong>lei dos pequenos números</strong>: com 5 clientes, o acaso pesa. Na tabela de 50 milhões, os 1,5 milhão de clientes normais se espalham por igual, e o único desvio grande é o <code>mkt-01</code>, que a aula 3 já mediu.</li>
+  <li>O autor compara 5 funções num laço (lab <code>hashing-distrib/</code>): SHA-256, SHA-512, MD5, FNV-1a e uma "soma dos caracteres". Com <strong>41 entradas em 5 shards</strong>, o ideal é 8,2 por shard e o desvio esperado é √(41 × 0,2 × 0,8) = <strong>2,56</strong>. O 14 do FNV-1a está a 2,3 desvios, e com 25 contagens um valor assim é esperado por sorte. <strong>Não dá para concluir que o FNV é pior.</strong></li>
+  <li>Com <strong>100.000 chaves</strong> (<code>c-0</code> a <code>c-99999</code>, 5 shards), a razão máximo ÷ média é: SHA-256 <strong>1,009</strong>, MD5 <strong>1,018</strong>, FNV-1a <strong>1,003</strong>, murmur3 <strong>1,007</strong> e soma dos caracteres <strong>1,000</strong>. Todas ficam a menos de 2% do ideal. O balanceamento <strong>não decide</strong> a função; decidem a velocidade, a compatibilidade com quem mais usa a mesma chave (o Kafka usa murmur2 e o <code>sarama</code>, FNV-1a, módulo 13) e o <em>avalanche</em>, a propriedade de que uma mudança de 1 bit na entrada embaralha a saída inteira.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="qualshard" title="Qual é o shard? Hash, módulo e o que muda com N" hint="Digite um cliente_id, escolha a função e o número de shards (1 a 8). O widget mostra o hash, o mod e o shard dos 5 clientes. Os botões '+1 shard', 'dobrar' e '−1 shard' contam quantos clientes mudam e a fração das 100 mil chaves." />
+
+<h3 class="sec">O código do autor, o hashing por SHA-256</h3>
+
+<p>O lab <code>hashing/main.go</code> faz o mesmo com 10 <em>tenants</em> (clientes) e 3 shards. O trecho que importa:</p>
+
+<CodeLab code={hashingGo} from={10} to={32} />
+
+<p>Primeiro, o nome vira minúsculo (linha 12). Os 8 primeiros bytes do SHA-256 viram um inteiro (linha 16). Se o inteiro for negativo, o sinal é trocado (linhas 18 a 21), e o resto da divisão por <code>numShards</code>, fixo em 3 na linha 27, escolhe o shard (linha 30). A saída para os 10 tenants é <strong>2 / 4 / 4</strong> (Petshops-Souza 1, Pizzarias-Carvalho 2, Mecanica-Dois-Irmaos 1, e assim por diante, a lista completa está na aula 10). Com 4 shards e a mesma função, <strong>7 de 10</strong> mudam.</p>
+
+<h3 class="sec">A soma dos caracteres parece perfeita e não é</h3>
+
+<p>A "soma dos caracteres" tem o melhor número do teste (1,000), e é a pior função da lista. Ela soma os códigos das letras, então qualquer <strong>anagrama</strong> cai no mesmo shard: <code>lena-77</code> e <code>77-anel</code> sempre dividem o shard. E ids vizinhos (<code>c-100</code>, <code>c-101</code>) caem em shards vizinhos, o que é o oposto de embaralhar.</p>
+
+<h3 class="sec">O que muda quando N muda</h3>
+
+<p>Esta é a conta que as aulas 7 e 8 tentam melhorar. Com as 100.000 chaves sintéticas e murmur3:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Mudança</th><th>Chaves que mudam (mod N)</th><th>Na tabela de 50 milhões</th></tr></thead>
+  <tbody>
+    <tr><th>3 → 4 shards</th><td><strong>75,2%</strong> (teórico 75%)</td><td>37,5 milhões de linhas, 75 GB, <strong>25 min</strong> a 50 MB/s</td></tr>
+    <tr><th>3 → 6 (dobrar)</th><td><strong>49,9%</strong> (teórico 50%)</td><td>25 milhões, 50 GB, 16 min 40 s</td></tr>
+    <tr><th>3 → 2</th><td><strong>66,7%</strong></td><td>o 2/3 do módulo 7</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A regra: de N para N + 1, a fração que <strong>muda</strong> é N ÷ (N + 1) (3 → 4: 75%; 9 → 10: 90%), enquanto o ideal seria 1 ÷ (N + 1). Dobrar é o caso favorável: só 50% se mexem. E o que se mexe vai muitas vezes <em>entre shards antigos</em>, não só para o novo: com <code>mod 4</code>, 4 dos 5 clientes mudam (<code>lena-77</code> de 1 para 0, <code>bia-31</code> de 1 para 3, <code>caio-58</code> de 2 para 1, <code>mkt-01</code> de 2 para 1) e só o <code>davi-12</code> fica.</p>
+
+<h3 class="sec">E se der errado: o deploy em duas versões</h3>
+
+<p>A loja passa para 4 shards e faz o deploy do roteador aos poucos. A versão v1 ainda usa <code>mod 3</code>; a v2 já usa <code>mod 4</code>. A Lena faz um pedido pela v2: <code>mod 4</code> dá 0, e o <strong>1054</strong> vai para o <code>shard-0</code>. Quando ela abre "meus pedidos", a v1 procura no <code>shard-1</code> (<code>mod 3</code> deu 1) e <strong>não acha o pedido</strong>. Não há erro, só um pedido que sumiu da tela. Dois roteadores com N diferente enxergam bancos diferentes, e é um dos motivos de o módulo 22 (deployment) tratar esse tipo de mudança com cuidado.</p>
+
+<WhyItMatters>
+  <li><strong>O hash espalha por igual.</strong> Com 100 mil chaves, as 5 funções ficam a menos de 2% do ideal.</li>
+  <li><strong>Em poucas chaves, o acaso domina.</strong> 3 / 9 / 2 na amostra e 41 entradas do lab são ruído.</li>
+  <li><strong>O <code>mod N</code> quebra quando N muda.</strong> 3 → 4 move 75,2% das linhas (25 min de cópia); só dobrar é "barato" (49,9%).</li>
+  <li><strong>Dois roteadores com N diferente discordam.</strong> O 1054 da Lena some do "meus pedidos".</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As 41 entradas do lab de comparação</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Função</th><th>Shard 0 a 4 (41 entradas)</th></tr></thead>
+    <tbody>
+      <tr><th>SHA-256</th><td>9, 7, 6, 8, 11</td></tr>
+      <tr><th>SHA-512</th><td>8, 9, 12, 7, 5</td></tr>
+      <tr><th>MD5</th><td>13, 9, 4, 5, 10</td></tr>
+      <tr><th>FNV-1a</th><td>6, 6, 6, 14, 9</td></tr>
+      <tr><th>Hash simples</th><td>5, 7, 9, 10, 10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A lista tem <strong>38 tenants únicos</strong>: <code>Padaria-Estrela-Filial-1</code>, <code>-2</code> e <code>-3</code> aparecem duas vezes, e as 41 são <em>entradas</em>. Os valores de 4 a 14 são o esperado para 41 itens em 5 shards.</p>
+  <h4 class="deep-h">Correções ao artigo-base e aos labs</h4>
+  <ul>
+    <li><strong>Comparar com "uma amostra".</strong> O artigo recomenda comparar algoritmos numa amostra e mostra 41 entradas em 5 shards: as diferenças (6 a 14) são ruído. Com 100 mil chaves todas ficam a menos de 2% do ideal.</li>
+    <li><strong>O código do primeiro exemplo.</strong> <code>if int(hashInt) &lt; 0 {'{'} return -int(hashInt) {'}'}</code> ainda deixa negativo o menor valor de <code>int64</code> (probabilidade 2<sup>−64</sup>, só se registra). E o programa fixa <code>numShards := 3</code> dentro da função.</li>
+    <li><strong>O trecho do MurmurHash.</strong> O código impresso lista 12 nomes e não conta (o mapa nunca é incrementado). A saída de 39 entradas é do repositório. Outra diferença: o murmur não passa para minúsculas, os outros passam.</li>
+    <li><strong>No lab de comparação,</strong> <code>hashSimple</code> itera por runas (<code>range tenant</code>) e os hashes de 64 bits viram <code>int</code> e podem ser negativos.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Repositório público do autor: exemplos/sharding (hashing, hashing-distrib, murmur)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Go: pacote hash/fnv", href: "https://pkg.go.dev/hash/fnv" },
+    { label: "spaolacci/murmur3 (Go)", href: "https://github.com/spaolacci/murmur3" },
+    { label: "MongoDB: Hashed Sharding", href: "https://www.mongodb.com/docs/manual/core/hashed-sharding/" },
+    { label: "Documentação do Apache Kafka (o particionador com murmur2)", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Mover 75% da tabela para ganhar 1 servidor é caro demais, e o mesmo vale para tirar um. Falta saber como mover só cerca de <strong>1 ÷ N</strong>, o que é o trabalho do hashing consistente.</p>
+
+<Flashcards cards={[
+  { q: "Para onde vai o pedido 1054 da Lena?",
+    a: "murmur3(\"lena-77\") = 0x8fd9d9d8, mod 3 = 1: o shard-1." },
+  { q: "Por que a amostra de 14 linhas dá 3 / 9 / 2?",
+    a: "Lei dos pequenos números: com 5 clientes o acaso pesa. Na tabela inteira os clientes normais se espalham por igual." },
+  { q: "Qual função de hash é a melhor, pelo balanceamento?",
+    a: "Nenhuma: com 100 mil chaves todas ficam a menos de 2% do ideal. Decidem velocidade, compatibilidade e avalanche." },
+  { q: "Quantas linhas mudam ao passar de 3 para 4 shards com mod?",
+    a: "75,2% (N ÷ (N + 1)): cerca de 37,5 milhões de linhas, 75 GB, 25 minutos a 50 MB/s." },
+  { q: "O que acontece no deploy com roteadores de mod 3 e mod 4 ao mesmo tempo?",
+    a: "A Lena grava o 1054 no shard-0 pela v2 e a v1 procura no shard-1: o pedido some do 'meus pedidos'." },
+]} />

@@ -1,0 +1,36 @@
+---
+// Módulo Sharding e Particionamento: as 10 aulas de src/content/sharding/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/sharding.css';
+
+const entries = (await getCollection('sharding')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/sharding/quiz/');
+---
+<ModuleLayout
+  title="Sharding e Particionamento · SDLabs"
+  description="Sharding e particionamento: chave de sharding, shard quente, partições do PostgreSQL, ranges, hash, hashing consistente, slots, diretório e shuffle sharding, com widgets e quiz."
+  module="sharding"
+  heading="Sharding e Particionamento"
+  lead="A tabela pedidos chegou a 50 milhões de linhas e o banco para em 150 pedidos por segundo. Como partir a tabela entre servidores: por qual chave, onde cada linha cai, o que acontece quando um shard esquenta, quando entra um shard novo e como isolar o cliente que atrapalha os outros."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/sharding/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

@@ -1,0 +1,100 @@
+---
+title: "Ranges comuns: datas e tiers"
+order: 5
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a tabela ficou partida em 3 anos, e a escolha do ano foi uma <strong>faixa</strong> (range): cada partição cuida de um intervalo da chave. É a forma mais fácil de entender, porque a regra cabe numa linha. Também é a que <strong>mais concentra</strong>. A aula passa pelas quatro faixas mais comuns do artigo e mede onde cada uma pesa.</p>
+
+<OneLiner>Ranges são fáceis de ler e de explicar, mas a faixa que recebe o dado novo, como o ano corrente, é <strong>quente por construção</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Partições</strong>, avance até o passo em que o ano vira e a primeira linha de 2027 chega. Veja o erro e anote a mensagem exata. Depois leia como o <code>DROP</code> da partição de 2024 aposenta dados sem varrer nenhuma linha.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=particoes&step=7" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: Partições dentro de 1 servidor" alt="Prévia da figura 3D: Partições dentro de 1 servidor" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A faixa por <strong>inicial</strong>. O artigo divide o alfabeto em 6 faixas: A–E, F–J, K–N, O–R, S–V e W–Z. Com a amostra da loja, pela inicial do nome, a faixa <strong>A–E</strong> recebe Bia, Caio e Davi (<strong>8</strong> linhas) e a <strong>K–N</strong> recebe a Lena (<strong>6</strong>). As outras 4 faixas ficam <strong>vazias</strong>: 2 shards de 6 trabalham.</li>
+  <li>A faixa por <strong>identificador</strong>. Os 50 milhões de ids viram 3 faixas de 16,67 milhões. Só que o <code>id</code> é sequencial, e <strong>100% das escritas novas</strong> vão para a última faixa. As duas primeiras ficam cheias e paradas (é o "transbordo"), e a última faz todo o trabalho: eficiência de 33,3%, a mesma conta da aula 3.</li>
+  <li>A faixa por <strong>data</strong>. Por ano: 2024 tem <strong>8 milhões</strong> de linhas (16 GB), 2025 tem <strong>17 milhões</strong> (34 GB) e 2026 tem <strong>25 milhões</strong> (50 GB), 50 milhões e 100 GB no total (exemplo declarado). A partição do ano corrente recebe todas as escritas, então é quente por construção, e a de 2024 só é lida de vez em quando.</li>
+  <li>Daí vêm os <strong>tiers</strong>. A de 2026 é <strong>hot</strong>, num SSD rápido; a de 2025 é <strong>warm</strong>; a de 2024 é <strong>cold</strong>, em armazenamento barato e lento. A documentação do PostgreSQL diz que dados pouco usados podem ir para mídia mais barata. O que era um problema (o ano corrente é quente) vira uma regra de custo: dado antigo não precisa de disco caro.</li>
+  <li>E a <strong>retenção</strong> sai de graça. Para aposentar 2024, o <code>DETACH</code> leva 1,1 ms e o <code>DROP</code> 7,5 ms, contra os 62,9 ms do <code>DELETE</code> (105.407 linhas, PostgreSQL 14; a aula 4 tem a tabela). Os dois primeiros não varrem linhas e não deixam trabalho para o <code>VACUUM</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="particao" title="Vire o ano: a linha de 2027 e a partição que falta" hint="Use o atalho 'vira o ano: 01/01/2027' e veja o erro do INSERT. Depois ligue 'criar a partição pedidos_2027' e repita. O widget também compara DELETE, DROP e DETACH." />
+
+<h3 class="sec">Qual faixa para qual problema</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Faixa</th><th>Fica bem quando</th><th>Concentra em</th></tr></thead>
+  <tbody>
+    <tr><th>iniciais</th><td>o alfabeto é o padrão de acesso</td><td>nomes comuns (2 de 6 faixas trabalham na amostra)</td></tr>
+    <tr><th>identificadores</th><td>as consultas pedem um intervalo de ids</td><td>a última faixa (100% das escritas)</td></tr>
+    <tr><th>datas</th><td>há retenção e a consulta tem a data</td><td>o período corrente</td></tr>
+    <tr><th>tiers</th><td>dado antigo quase não é lido</td><td>só o tier hot</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: 01/01/2027 sem partição criada</h3>
+
+<p>Passou a meia-noite do Réveillon. O primeiro pedido de 2027 tenta gravar e o PostgreSQL responde <code>ERROR: no partition of relation "pedidos" found for row</code>. Nenhuma tabela filha cobre a data. A loja perde todos os pedidos do ano novo até alguém criar a partição, e quem acorda com o alerta descobre que o erro era <strong>previsível</strong>.</p>
+
+<p>O conserto é um job agendado que cria a partição do próximo período <strong>antes</strong> de ela ser necessária, com folga de semanas. Uma partição <code>DEFAULT</code> também segura as linhas fora de todas as faixas, mas esconde o problema: ela cresce sem ninguém olhar.</p>
+
+<WhyItMatters>
+  <li><strong>Faixa é simples e concentra.</strong> Iniciais deixam 4 de 6 faixas vazias; ids e datas mandam 100% das escritas à última.</li>
+  <li><strong>Datas rendem retenção.</strong> Aposentar o ano antigo é um <code>DROP</code> de 7,5 ms.</li>
+  <li><strong>Tiers aproveitam o desbalanço.</strong> 2026 em SSD, 2025 no meio, 2024 em disco barato.</li>
+  <li><strong>A partição do próximo período tem de existir antes.</strong> Senão o <code>INSERT</code> falha.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">As faixas da loja em números</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Partição</th><th>Linhas</th><th>Tamanho (2 KB/linha)</th><th>Tier</th></tr></thead>
+    <tbody>
+      <tr><th>pedidos_2024</th><td>8 milhões</td><td>16 GB</td><td>cold</td></tr>
+      <tr><th>pedidos_2025</th><td>17 milhões</td><td>34 GB</td><td>warm</td></tr>
+      <tr><th>pedidos_2026</th><td>25 milhões</td><td>50 GB</td><td>hot (SSD)</td></tr>
+      <tr><th>total</th><td>50 milhões</td><td>100 GB</td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Os números por ano são um exemplo declarado para fazer a conta fechar com as 50 milhões de linhas. O que vale é a forma: poucas linhas antigas, muitas recentes.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "PostgreSQL: Table Partitioning (poda, DROP e DETACH, mídia mais barata)", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "MongoDB: Ranged Sharding", href: "https://www.mongodb.com/docs/manual/core/ranged-sharding/" },
+    { label: "MongoDB: Hashed Sharding (o contraste com as faixas)", href: "https://www.mongodb.com/docs/manual/core/hashed-sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Uma função de hash espalha as linhas melhor que qualquer faixa, sem esquentar a última. Falta saber o preço: o que acontece com a tabela quando o número de shards <strong>muda</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Quantas das 6 faixas de inicial trabalham com a amostra da loja?",
+    a: "2: A–E (Bia, Caio e Davi, 8 linhas) e K–N (Lena, 6 linhas). As outras 4 ficam vazias." },
+  { q: "Por que um id sequencial concentra as escritas?",
+    a: "Todo id novo cai na última faixa: 100% das escritas num shard, as duas primeiras faixas cheias e paradas." },
+  { q: "O que são os tiers hot, warm e cold da loja?",
+    a: "2026 (25 milhões, 50 GB, SSD), 2025 (17 milhões, 34 GB) e 2024 (8 milhões, 16 GB, armazenamento barato)." },
+  { q: "Qual erro aparece na primeira linha de 2027 sem partição?",
+    a: "no partition of relation \"pedidos\" found for row. O conserto é um job que cria a próxima partição antes." },
+  { q: "Por que o DROP de uma partição é a melhor retenção?",
+    a: "Não varre linhas e não deixa trabalho para o VACUUM: 7,5 ms contra 62,9 ms do DELETE." },
+]} />

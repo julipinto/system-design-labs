@@ -37,6 +37,8 @@ const modules: Mod[] = [
     text: 'A Black Friday em números: tempo de resposta, quatro sinais e percentis, capacidade e gargalo, escalabilidade vertical e horizontal e a fórmula do HPA, com calculadoras e quiz de 41 perguntas.' },
   { slug: 'scale-cube', title: 'Scale Cube', lessons: 6, poster: 'labs/scale-cube/cubo-3d-previa.webp', alt: 'Prévia da figura 3D do cubo da escalabilidade',
     text: 'Três perguntas para decidir por onde crescer: clonar (X), separar por função (Y) ou separar por dados (Z). A loja em coordenadas, a tabela de sintomas, o roteador do Z e a conta de pods, com widgets e quiz de 37 perguntas.' },
+  { slug: 'sharding', title: 'Sharding e Particionamento', lessons: 10, poster: 'labs/sharding/shards-3d-previa.webp', alt: 'Prévia da figura 3D da tabela pedidos partida em shards',
+    text: 'Partir a tabela pedidos de 50 milhões de linhas: chave de sharding e shard quente, partições do PostgreSQL, ranges, hash, hashing consistente, slots, diretório e shuffle sharding, com os labs do autor lidos linha a linha. Com widgets e quiz de 57 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

@@ -1,0 +1,85 @@
+---
+title: "Shuffle sharding"
+order: 9
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o mapa deixou a loja mover o <code>mkt-01</code> para um shard dele. Mas há um tipo de problema em que mover o dado não ajuda: o cliente que <strong>atrapalha os outros</strong> com uma requisição ruim. O parceiro manda uma chamada que trava a réplica que a recebe, e o robô de 500 por segundo do módulo 8 a repete sem parar. O <strong>shuffle sharding</strong> troca "uma réplica travada derruba um grupo" por "derruba, no pior caso, quem tem o mesmo par".</p>
+
+<OneLiner>No shuffle sharding, cada cliente recebe um <strong>subconjunto embaralhado</strong> de réplicas, e o cliente barulhento só derruba quem tem o <em>mesmo</em> subconjunto: o raio de explosão cai de um grupo inteiro (20%) para cerca de 2,2%.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Shuffle</strong>, ligue o <code>mkt-01</code> e veja quais réplicas travam. Anote quem fica sem serviço com <strong>grupos fixos</strong> e quem fica com <strong>shuffle sharding</strong>. Depois desligue o retry do cliente e veja a Lena e o Davi perderem metade das chamadas.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/anel-3d/?mode=shuffle" poster="labs/sharding/anel-3d-previa.webp" title="Figura interativa: Shuffle sharding de 2 em 10" alt="Prévia da figura 3D: Shuffle sharding de 2 em 10" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O serviço <code>catalogo</code> tem <strong>10 réplicas</strong> (<code>catalogo-1</code> a <code>catalogo-10</code>, módulos 6, 7 e 14), e cada uma aguenta 100 req/s. Quando o <code>mkt-01</code> manda a requisição ruim, a réplica que a recebe trava. Se todos os clientes usassem as 10, a requisição ruim iria passando por todas e derrubaria o serviço.</li>
+  <li>A primeira defesa são <strong>grupos fixos de 2</strong>: 5 grupos, (1, 2), (3, 4), (5, 6), (7, 8) e (9, 10), e o grupo do cliente é <code>murmur3(cliente_id) mod 5</code>. Só que o <code>mkt-01</code> e a <code>bia-31</code> caem no <strong>mesmo grupo</strong>, o (3, 4). As duas réplicas travam, e <strong>20%</strong> dos clientes (1 grupo de 5) ficam sem serviço, <strong>a Bia incluída</strong>.</li>
+  <li>No <strong>shuffle sharding de 2 em 10</strong>, cada cliente recebe 2 réplicas escolhidas por <em>rendezvous</em>: as 2 de menor <code>murmur3(cliente_id + ":catalogo-" + r)</code>. Há <strong>C(10, 2) = 45</strong> pares possíveis. O <code>mkt-01</code> recebe as réplicas <code>{"{8, 9}"}</code>, a <code>lena-77</code> <code>{"{6, 8}"}</code>, a <code>bia-31</code> <code>{"{4, 6}"}</code>, o <code>caio-58</code> <code>{"{1, 4}"}</code> e o <code>davi-12</code> <code>{"{1, 9}"}</code>.</li>
+  <li>Quando o <code>catalogo-8</code> e o <code>catalogo-9</code> travam, a <strong>Bia e o Caio nem notam</strong>. A <strong>Lena</strong> (tem a 8) e o <strong>Davi</strong> (tem a 9) perdem <em>uma</em> das duas réplicas. Eles só continuam atendidos se o cliente <strong>tentar a outra</strong> réplica: é o retry que a AWS exige do cliente.</li>
+  <li>Em escala, com 10.000 clientes simulados (<code>c-0</code> a <code>c-9999</code>): <strong>240 (2,4%)</strong> têm o mesmo par do <code>mkt-01</code> (esperado 1 ÷ 45 = 2,2%), e <strong>3.868 (38,7%)</strong> dividem pelo menos uma réplica (esperado 1 − 28/45 = 37,8%). Os grupos fixos derrubam <strong>20%</strong> (2.007 de 10.000). Com <strong>4 réplicas</strong> por cliente (C(10, 4) = 210 conjuntos; o <code>mkt-01</code> recebe <code>{"{2, 4, 8, 9}"}</code>), só <strong>50 (0,5%)</strong> têm o mesmo conjunto (esperado 0,48%), mas <strong>93,2%</strong> dividem pelo menos uma réplica.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="shuffle" title="Shuffle sharding: quantos clientes caem com o barulhento" hint="Escolha as réplicas (4 a 20), o tamanho do subconjunto (1 a 4), o cliente barulhento e se o cliente tenta as outras réplicas. O widget calcula C(n, k), a fração totalmente afetada (1 ÷ C) e a parcial, e compara com os grupos fixos." />
+
+<h3 class="sec">A conta e o caso da AWS</h3>
+
+<p>Com n réplicas e subconjuntos de k, há C(n, k) subconjuntos. A chance de um cliente ter <strong>exatamente</strong> o mesmo subconjunto do barulhento é 1 ÷ C(n, k). A chance de dividir <strong>pelo menos uma</strong> réplica é 1 − C(n − k, k) ÷ C(n, k). O Route 53 usa <strong>2.048</strong> servidores virtuais e dá <strong>4</strong> a cada domínio: C(2048, 4) = <strong>730.862.190.080</strong> combinações (a AWS diz "730 bilhões"). Dois domínios com o mesmo conjunto são raros, e o ataque a um deles quase nunca mexe com outro.</p>
+
+<p>O shuffle sharding pode ser <strong>sem estado</strong> (o hash do cliente escolhe o subconjunto, como acima) ou <strong>com estado</strong> (sorteia e confere a sobreposição). Em qualquer caso, ele exige que o <strong>cliente tente todos os endpoints</strong> do seu subconjunto.</p>
+
+<h3 class="sec">E se der errado: o cliente não tenta a outra réplica</h3>
+
+<p>A <code>lena-77</code> tem as réplicas 6 e 8, e o <code>catalogo-8</code> está travado. O app dela escolhe uma réplica por chamada e não repete se a primeira falha. Metade das chamadas cai na réplica 8 e <strong>falha</strong>. O mesmo vale para o Davi com a réplica 9. O isolamento existe só no desenho: sem retry no cliente, o subconjunto de 2 vira metade das requisições perdidas, e a vantagem do embaralhamento some.</p>
+
+<WhyItMatters>
+  <li><strong>O raio de explosão cai de 20% para 2,2%.</strong> Grupos fixos derrubam 1 grupo de 5; o shuffle derruba só o mesmo par (1 em 45).</li>
+  <li><strong>Mais réplicas por cliente, menos coincidência.</strong> Com 4 em 10, só 0,5% repetem o conjunto; mas 93,2% dividem pelo menos uma réplica, por isso o retry importa.</li>
+  <li><strong>Não move dado.</strong> É isolamento de requisição e computação, o contrário do resto do módulo.</li>
+  <li><strong>Exige o retry do cliente.</strong> Sem tentar a outra réplica, os vizinhos de uma réplica travada perdem metade das chamadas.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Os números do post original</h4>
+  <p>O post da AWS (2014) usa 8 instâncias e conta <strong>56</strong> subconjuntos de 2 (e uma chance de 1 em 56). Esse 56 conta os pares <em>com ordem</em> (8 × 7). Sem ordem, que é o que interessa aqui, são <strong>28</strong> pares de 2 em 8 e <strong>70</strong> conjuntos de 4 em 8. O post também diz 1 em 1.680 para 4 em 8, que são os arranjos com ordem (8 × 7 × 6 × 5). A ideia não muda; este módulo usa <strong>conjuntos</strong>: 28, 45 e 210.</p>
+  <h4 class="deep-h">Onde mais isso aparece</h4>
+  <p>A AWS aplica a mesma ideia a servidores web, a filas, a limitadores de taxa e a travas. O Cortex a usa para dar a cada tenant um subconjunto dos ingesters e dos queriers.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Shuffle sharding não é replicação distribuída.</strong> O artigo descreve "sharding + replicação distribuída", com escrita num shard primário e em "shards secundários escolhidos pelo embaralhamento". A AWS descreve outra coisa: dar a <strong>cada cliente um subconjunto aleatório pequeno</strong> de instâncias (que podem se sobrepor) e exigir que o <strong>cliente tente todas</strong> as do seu subconjunto, para que uma requisição problemática derrube só aquele subconjunto. É isolamento de <strong>requisição e computação</strong>. Replicar o dado é outra decisão, do módulo 17.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "AWS: Shuffle Sharding: Massive and Magical Fault Isolation", href: "https://aws.amazon.com/blogs/architecture/shuffle-sharding-massive-and-magical-fault-isolation/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Cortex: Shuffle sharding", href: "https://cortexmetrics.io/docs/guides/shuffle-sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja já tem as peças: a chave, as faixas, o hash, o anel, o mapa e o isolamento. Falta saber como juntar tudo num exemplo executável, rodando os quatro programas do autor e vendo as saídas lado a lado.</p>
+
+<Flashcards cards={[
+  { q: "Quantos clientes grupos fixos de 2 em 10 réplicas derrubam com o mkt-01?",
+    a: "20% (1 grupo de 5), incluindo a bia-31, que cai no mesmo grupo (3, 4)." },
+  { q: "Quantos pares existem em 2 de 10 e que fração dos clientes tem o mesmo par?",
+    a: "C(10, 2) = 45 pares; 1 ÷ 45 = 2,2% em média (240 de 10.000 na simulação)." },
+  { q: "O que o shuffle sharding exige do cliente?",
+    a: "Tentar todas as réplicas do seu subconjunto. Sem retry, a Lena e o Davi perdem metade das chamadas." },
+  { q: "Qual o número do Route 53 e de onde vem?",
+    a: "2.048 servidores virtuais, 4 por domínio: C(2048, 4) = 730.862.190.080 combinações." },
+  { q: "Shuffle sharding é replicação de dados?",
+    a: "Não. É isolamento de requisição e computação: cada cliente usa um subconjunto de réplicas. Replicar dado é o módulo 17." },
+]} />

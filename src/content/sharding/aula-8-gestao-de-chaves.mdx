@@ -1,0 +1,99 @@
+---
+title: "Gestão de chaves"
+order: 8
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O anel move pouco quando entra um shard, mas ele não sabe que o <code>mkt-01</code> é diferente: para ele, é uma chave como outra. A aula 3 pediu um shard dedicado para o parceiro, e nenhuma função de hash faz isso. Quando um cliente precisa de tratamento especial, <strong>a decisão sai do hash e vai para um mapa</strong>. Há três maneiras de guardar a resposta.</p>
+
+<OneLiner>A chave pode ser <strong>calculada</strong> (hash ou anel, sem estado), <strong>mapeada em slots fixos</strong> (um mapa pequeno) ou <strong>registrada num diretório</strong> (um endereço por cliente): quanto mais explícito o mapa, mais fácil mover um cliente só.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Slots</strong>, mova os 256 slots para o <code>shard-3</code> e veja quem muda: só a <code>bia-31</code>. Depois avance até "e se der errado" e anote o que o shard antigo responde quando recebe uma chave que já não é dele.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/anel-3d/?mode=slots" poster="labs/sharding/anel-3d-previa.webp" title="Figura interativa: 1.024 slots e o diretório" alt="Prévia da figura 3D: 1.024 slots e o diretório" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O primeiro modo é <strong>calcular</strong>: <code>hash mod N</code> ou o anel. Não há tabela, não há consulta, e qualquer roteador chega à mesma resposta. É o que a loja usou até aqui, e o que não deixa tirar um cliente do lugar que o hash escolheu.</li>
+  <li>O segundo modo são os <strong>slots fixos</strong>. O hash cai em um de <strong>1.024 slots</strong> (<code>murmur3 mod 1.024</code>) e uma tabela diz de que shard é cada slot. Com 3 shards, são <strong>342 / 341 / 341</strong> slots, com <code>slot mod 3</code> como mapa inicial. A <code>lena-77</code> cai no slot 472 (shard-1), a <code>bia-31</code> no 827 (shard-2), o <code>caio-58</code> no 749 (shard-2), o <code>davi-12</code> no 432 (shard-0) e o <code>mkt-01</code> no 597 (shard-0). O Redis Cluster usa o mesmo modelo, com <strong>16.384</strong> slots e <code>CRC16(chave) mod 16384</code>.</li>
+  <li>Passar a 4 shards vira mover slots. O <code>shard-3</code> recebe os últimos <strong>86 + 85 + 85 = 256</strong> slots dos shards 0, 1 e 2 (slots 768 em diante do 0, 769 do 1 e 770 do 2): exatamente <strong>25%</strong>. Só a <code>bia-31</code> muda (slot 827, do shard-2 para o shard-3). O mapa, de 3 ou 4 colunas, cabe em <strong>1 KB</strong>, e o hash do cliente nunca muda.</li>
+  <li>O terceiro modo é o <strong>diretório</strong>: uma tabela <code>cliente_id → shard</code>, gravada quando o cliente nasce (o modo "cadastral" do artigo). Ele permite mover <strong>um cliente só</strong>. São 1,5 milhão de clientes × cerca de 100 B por entrada (exemplo), <strong>150 MB</strong>: cabe num Redis (módulo 5). Cada requisição paga 1 ms de consulta (módulo 11), ou 0 ms com um cache local de TTL curto.</li>
+  <li>Mover o <code>mkt-01</code> para o <code>shard-3</code> dedicado são 20 milhões de linhas × 2 KB = <strong>40 GB</strong>, e a 50 MB/s, <strong>800 s = 13 min 20 s</strong>. Quatro passos: (1) copiar o que existe, (2) aplicar as mudanças que chegam <em>durante</em> a cópia (é o CDC, que o módulo 17 vê), (3) trocar a entrada do diretório, (4) apagar a origem. Sem o passo 2, a cópia nasce velha.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="slots" title="Slots e diretório: quanto custa mover" hint="Arraste o número de slots movidos para o shard-3 (0 a 256) e ajuste os MB/s e os KB por linha. O widget mostra os slots por shard, os GB e os minutos de cópia, e as 5 chaves com o shard antes e depois (só a bia-31 muda com 256 slots)." />
+
+<h3 class="sec">O id que carrega o shard</h3>
+
+<p>Há um problema que o mapa sozinho não resolve. <code>WHERE id = 1042</code>, sem o <code>cliente_id</code>, não diz em que shard está o pedido, e a consulta vai a <strong>todos</strong> (o <code>Append</code> real da aula 4). Há duas saídas. Uma é um <strong>id com o shard embutido</strong>, como <code>1-1054</code> ou um número de 64 bits em que alguns bits dizem o shard. A outra é um <strong>índice global</strong> <code>pedido_id → cliente_id</code>, que é mais uma tabela para guardar e manter em dia.</p>
+
+<h3 class="sec">O Kafka e o banco com a mesma chave</h3>
+
+<p>O tópico <code>pedidos</code> do módulo 13 já é sharding: 3 partições, uma chave, <code>murmur2 mod 3</code>. Se a chave do evento for o <code>cliente_id</code> e o consumidor da partição <em>p</em> escrever no shard <em>p</em>, o consumidor nunca atravessa shards. Isso só funciona se <strong>a função e a chave são as mesmas</strong>. O Kafka usa <code>murmur2 mod 3</code> e o roteador do banco usa <code>murmur3 mod 3</code>, e eles coincidem em só <strong>2 de 5</strong> clientes: <code>lena-77</code> (1 e 1) e <code>caio-58</code> (2 e 2). <code>bia-31</code>, <code>davi-12</code> e <code>mkt-01</code> caem em lugares diferentes.</p>
+
+<h3 class="sec">E se der errado: o mapa desatualizado e o diretório fora do ar</h3>
+
+<p>Primeiro caso: a loja corta o <code>mkt-01</code> para o <code>shard-3</code>, mas um roteador guardou a rota antiga em cache. Ele manda o pedido ao shard antigo, que já não tem o cliente. Se o shard aceitar e gravar, o dado fica no lugar errado. A defesa é o shard <strong>recusar</strong> chaves que não são mais dele, como o <code>-MOVED</code> do Redis Cluster, que diz para onde ir. E o mapa precisa de uma <strong>época</strong> (um número de versão): o roteador com época velha busca o mapa novo antes de tentar de novo.</p>
+
+<p>Segundo caso: o diretório sai do ar. Com um cache local de <strong>TTL de 60 s</strong>, os clientes que ele já conhece continuam funcionando. Os <strong>clientes novos</strong> não conseguem se cadastrar, porque não há onde gravar o endereço deles. O diretório é um serviço a mais, e a loja trata a disponibilidade dele como a de um banco.</p>
+
+<WhyItMatters>
+  <li><strong>Slots separam o hash do shard.</strong> Mover slots muda o mapa de 1 KB, e o hash do cliente fica igual.</li>
+  <li><strong>O diretório move um cliente só.</strong> 150 MB, 1 ms por consulta, e o <code>mkt-01</code> custa 40 GB e 13 min 20 s.</li>
+  <li><strong>Mover precisa de CDC.</strong> Copiar sem aplicar o que chega durante a cópia entrega um dado velho.</li>
+  <li><strong>O mapa precisa de época e de recusa.</strong> Rota em cache pode apontar para o shard antigo.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Os três modos lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Modo</th><th>Estado</th><th>Mover um cliente</th><th>Exemplo</th></tr></thead>
+    <tbody>
+      <tr><th>calcular</th><td>nenhum</td><td>não dá</td><td>hash mod N, anel</td></tr>
+      <tr><th>slots fixos</th><td>mapa de 1 KB</td><td>um slot por vez</td><td>Redis Cluster (16.384)</td></tr>
+      <tr><th>diretório</th><td>150 MB</td><td>um cliente</td><td>o "cadastral" do artigo</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>O DynamoDB e o MongoDB (com chunks) também escondem um mapa assim por trás do "hash". A diferença entre eles está em quem move: o banco ou a aplicação.</p>
+  <h4 class="deep-h">Faltava no artigo-base</h4>
+  <ul>
+    <li><strong>Resharding online.</strong> Cópia, CDC e corte não aparecem no artigo, e são o que faz o sharding ser operável.</li>
+    <li><strong>Ids globais e índices secundários.</strong> Também faltam: sem a chave, a consulta vai a todos os shards.</li>
+    <li><strong>Transações entre shards.</strong> Não há ACID de graça entre servidores.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Redis Cluster: especificação (16.384 slots, CRC16, -MOVED e -ASK)", href: "https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/" },
+    { label: "DynamoDB: Partitions and data distribution", href: "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.Partitions.html" },
+    { label: "MongoDB: Sharding", href: "https://www.mongodb.com/docs/manual/sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o mapa, a loja pode tirar o <code>mkt-01</code> do caminho dos outros. Mas e se, em vez de mover o cliente barulhento, a gente <strong>limitar o estrago</strong> dele? Falta saber como dar a cada cliente só algumas réplicas, sem mover dado nenhum.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três modos de guardar o endereço de uma chave?",
+    a: "Calcular (hash ou anel), slots fixos (hash mod 1.024 e um mapa) e diretório (cliente_id → shard)." },
+  { q: "O que acontece com os 5 clientes ao mover 256 slots para o shard-3?",
+    a: "Só a bia-31 muda (slot 827, shard-2 → shard-3). Os 256 slots são 25% exatos." },
+  { q: "Quanto custa mover o mkt-01 para um shard dedicado?",
+    a: "20 milhões de linhas × 2 KB = 40 GB; a 50 MB/s, 800 s = 13 min 20 s, com cópia, CDC, troca no diretório e apagar a origem." },
+  { q: "Por que o shard deve recusar chaves que não são mais dele?",
+    a: "Um roteador com rota em cache velha manda a chave ao shard antigo: a recusa (como o -MOVED do Redis) e a época do mapa evitam gravar no lugar errado." },
+  { q: "Em quantos dos 5 clientes murmur2 mod 3 (Kafka) e murmur3 mod 3 (banco) coincidem?",
+    a: "2 de 5: lena-77 e caio-58. Para o consumidor não atravessar shards, a função e a chave têm de ser as mesmas." },
+]} />
