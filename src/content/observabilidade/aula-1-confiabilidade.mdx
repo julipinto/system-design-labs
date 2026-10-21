@@ -1,0 +1,120 @@
+---
+title: "Confiabilidade"
+order: 1
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O módulo 27 terminou com um número bom: <strong>MTTD de 30 s</strong> na queda de SP. Mas esses 30 s só existiram porque alguém tinha posto <strong>sondas</strong> na loja. Antes delas, o defeito do frete do módulo 22 (<code>201</code>, erros 0%, frete 0,00) levou <strong>60 min</strong> para ser notado, e só pela métrica de negócio. A loja já mediu muita coisa pelo caminho, cada medida num módulo diferente. Falta juntar tudo numa disciplina, e ela começa por uma pergunta simples: <strong>o que é uma loja confiável</strong>?</p>
+
+<OneLiner>A <strong>confiabilidade</strong> é entregar comportamento <strong>correto</strong> ao longo do tempo, e não só "estar de pé". A disponibilidade é um <strong>pedaço</strong> dela.</OneLiner>
+
+<DoIt>
+  <p>No widget <strong>Disponível × correto</strong>, ligue o defeito do frete da <code>2.5.0</code> e veja quais painéis ficam vermelhos. Depois mova o tempo até alguém notar, de 30 s para 60 min, e leia quanto a loja perde em Recife.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>"No ar".</strong> O <code>/healthcheck</code> responde <code>200</code>, as requisições voltam <code>2xx</code>, a taxa de erro é 0% e a latência é a de sempre. Pelo painel técnico, a loja está perfeita.</li>
+  <li><strong>"Correta".</strong> O artigo de que partimos define confiabilidade como a propriedade de entregar <strong>comportamento correto ao longo do tempo</strong>, sob condições esperadas e sob uma parte das adversas. Isso junta três coisas: <strong>continuidade</strong> (o serviço segue), <strong>integridade</strong> (o dado e a conta estão certos) e <strong>previsibilidade</strong> (a latência e a degradação não são uma surpresa).</li>
+  <li><strong>O caso da <code>2.5.0</code>.</strong> Com o defeito, o <code>pedidos</code> devolve <code>201</code>, rápido, com <strong>frete 0,00</strong> em Recife. Todo painel técnico fica verde. A loja está disponível e <strong>errada</strong>, e perde R$ 15,00 por pedido de Recife.</li>
+  <li><strong>Um contrato, não um desejo.</strong> O artigo põe a confiabilidade como <strong>restrição de arquitetura</strong> e <strong>contrato operacional</strong>, e não como um "atributo desejável". Um contrato tem número, medida e dono.</li>
+  <li><strong>As três metas.</strong> Daí saem os objetivos que o curso persegue desde o módulo 21: diminuir a <strong>probabilidade e o impacto</strong> do comportamento errado, diminuir o <strong>tempo para detectar e voltar</strong> e limitar o <strong>raio</strong> quando algo falhar.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O 60 min do frete, em dinheiro</h3>
+
+<p>A conta é a do módulo 22. A loja vende 5 pedidos por segundo num dia comum, e 20% vão para Recife: <strong>1 pedido por segundo</strong>. Cada um sai R$ 15,00 mais barato com o defeito. Em <strong>60 min</strong> (3.600 s) são 3.600 × 15 = <strong>R$ 54.000</strong>. Com uma sonda que enxerga o frete em <strong>30 s</strong>, são 30 × 15 = <strong>R$ 450</strong>. A diferença de 120 vezes está no tempo para <strong>perceber</strong>, e não no tempo para consertar.</p>
+
+<Widget name="disponivel-correto" title="Disponível × correto" hint="Liga e desliga o defeito do frete da 2.5.0. Mostra o 201, o healthcheck 200, os erros em 0% e a latência igual, e qual painel denuncia: o técnico (todos verdes) ou o de negócio (pedidos_frete_zero_total{cidade='recife'}). Mova o tempo até alguém notar e leia o prejuízo." />
+
+<p>O widget mostra o que o painel técnico <strong>não</strong> tem: uma pergunta sobre o conteúdo. Só uma métrica que conhece a regra do domínio (<code>pedidos_frete_zero_total</code>, no módulo 22) enxerga um frete que vale zero. É por isso que a definição do artigo cabe tanto: um sistema pode estar tecnicamente disponível e ser pouco confiável se <strong>responde com dado errado</strong>.</p>
+
+<h3 class="sec">Os 27 capítulos como respostas a "e se…"</h3>
+
+<p>Lida de trás para a frente, a loja é uma lista de perguntas que alguém fez e de peças que respondem a cada uma. O artigo diz que SLIs, redundância, padrões de resiliência e resposta a incidentes são <strong>consequência</strong> do objetivo de confiabilidade. A tabela mostra isso, uma linha por módulo:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Módulo</th><th>E se…</th><th>A peça</th></tr></thead>
+  <tbody>
+    <tr><th>1 Protocolos de rede</th><td>o dado se perder no caminho?</td><td>camadas, TCP, TLS, DNS</td></tr>
+    <tr><th>2 Storage e RAID</th><td>o disco queimar?</td><td>RAID 1, 5, 6, 10</td></tr>
+    <tr><th>3 CAP, ACID, BASE</th><td>a rede entre SP e Recife cair?</td><td>escolher entre C e A</td></tr>
+    <tr><th>4 Databases</th><td>achar o pedido 1042 demorar?</td><td>índices</td></tr>
+    <tr><th>5 Cache</th><td>a página do gato ficar lenta?</td><td>cache, TTL, CDN</td></tr>
+    <tr><th>6 Microsserviços</th><td>um relatório derrubar o programa todo?</td><td>partir por domínio</td></tr>
+    <tr><th>7 Load balancers</th><td>uma réplica do catálogo cair?</td><td>healthcheck e balanceador</td></tr>
+    <tr><th>8 API Gateways</th><td>um robô mandar 500 req/s?</td><td>porta única e <em>rate limit</em></td></tr>
+    <tr><th>9 BFF</th><td>a tela juntar 4 serviços?</td><td>um backend por canal</td></tr>
+    <tr><th>10 Service mesh</th><td>cada serviço tratar retry e TLS do seu jeito?</td><td>sidecar e mTLS</td></tr>
+    <tr><th>11 Concorrência</th><td>dois clicarem no último gato?</td><td>lock e semáforo</td></tr>
+    <tr><th>12 Comunicação síncrona</th><td>o pagamento demorar a responder?</td><td>REST, gRPC, <em>polling</em></td></tr>
+    <tr><th>13 Comunicação assíncrona</th><td>o consumidor estar fora do ar?</td><td>Kafka e DLQ</td></tr>
+    <tr><th>14 Performance</th><td>a Black Friday chegar?</td><td>percentis, joelho, HPA</td></tr>
+    <tr><th>15 Scale Cube</th><td>clonar réplicas não bastar?</td><td>eixos X, Y e Z</td></tr>
+    <tr><th>16 Sharding</th><td>a tabela tiver 50 milhões de linhas?</td><td><em>shards</em> por cliente</td></tr>
+    <tr><th>17 Replicação</th><td>a Lena não ver o próprio pedido?</td><td>réplicas e lag</td></tr>
+    <tr><th>18 CQRS</th><td>ler e escrever pedirem coisas diferentes?</td><td>modelo de leitura</td></tr>
+    <tr><th>19 Saga</th><td>o estoque falhar depois do pagamento?</td><td>compensação</td></tr>
+    <tr><th>20 Event Sourcing</th><td>for preciso saber como o pedido chegou ali?</td><td>fita de eventos</td></tr>
+    <tr><th>21 Resiliência</th><td>o PSP responder em 8 s?</td><td><em>timeout</em>, <em>breaker</em>, <em>fallback</em></td></tr>
+    <tr><th>22 Deployment</th><td>a versão nova estiver errada?</td><td><em>canary</em> e <em>rollback</em></td></tr>
+    <tr><th>23 Capacity Planning</th><td>o plano de 200 pedidos/s for real?</td><td>Little e filas</td></tr>
+    <tr><th>24 Testes de carga</th><td>o sistema quebrar antes do plano?</td><td>k6</td></tr>
+    <tr><th>25 Bulkhead</th><td>o relatório ocupar o pool?</td><td>compartimentos</td></tr>
+    <tr><th>26 Células</th><td>um cliente envenenar a loja toda?</td><td>4 células</td></tr>
+    <tr><th>27 SPoF e DR</th><td>a região de SP sumir?</td><td>failover, RTO, RPO</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cada linha dessa tabela reduz a <strong>chance</strong> da falha, o <strong>tempo</strong> até voltar ou o <strong>raio</strong> dela. Nenhuma garante que o defeito seguinte seja notado. Isso é outro assunto, o deste módulo: <strong>ver</strong> o que a loja está fazendo.</p>
+
+<h3 class="sec">E se der errado: disponível e errado</h3>
+
+<p>É o caso da <code>2.5.0</code>, e vale reler com a definição na mão. O <code>/healthcheck</code> mede continuidade, e ela está intacta. A integridade (o frete) está quebrada, e nenhum painel técnico faz essa pergunta. A previsibilidade também não aparece: a latência é a mesma. Quem avisou foi a métrica de negócio, 60 min depois. Se a loja só medisse o que o painel técnico mede, ela teria descoberto pela <strong>reclamação</strong> de uma cliente, ou pelo balanço do mês.</p>
+
+<WhyItMatters>
+  <li><strong>Disponível não basta.</strong> A <code>2.5.0</code> respondeu <code>201</code> e custou R$ 54.000 em 60 min.</li>
+  <li><strong>Detectar vale dinheiro.</strong> 60 min × 1 pedido/s de Recife × R$ 15,00 = R$ 54.000; 30 s = R$ 450.</li>
+  <li><strong>Os capítulos anteriores são a primeira metade.</strong> Eles reduzem a chance, o tempo e o raio; falta o que mostra, a cada instante, se a loja está certa.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O que o artigo faz e o que esta aula acrescenta</h4>
+  <p>O artigo se apresenta como um <em>recap</em>: junta, num capítulo só, o que ficou espalhado em performance, continuidade e resiliência. A definição de confiabilidade (continuidade, integridade e previsibilidade) é dele. O Google, no capítulo <em>Embracing Risk</em> do SRE book, parte do mesmo lugar: confiabilidade é uma meta com custo, e 100% não é a meta certa para quase nada. A aula 7 usa essa ideia para o orçamento de erro.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Sem lab do autor.</strong> O repositório público do autor não tem exemplo de observabilidade (conferido com <code>gh api</code> em 21/10/2026). As contas do módulo foram feitas em Python (<code>c28.py</code>, 21/10/2026); <strong>nenhum</strong> OpenTelemetry, Prometheus ou Grafana foi rodado, e as durações dos <em>spans</em> são <strong>exemplo</strong>, avisado nas aulas.</li>
+    <li><strong>O tempo de detecção entra na definição.</strong> O artigo cita "reduzir o tempo para detectar e recuperar" e deixa a detecção solta. Aqui ela tem um valor: 60 min (R$ 54.000) contra 30 s (R$ 450).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+    { label: "Red Hat: What is observability?", href: "https://www.redhat.com/en/topics/devops/what-is-observability" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja só ficou segura quando alguém <strong>enxergou</strong> o frete, e foi a métrica de negócio, uma hora depois. Falta saber como enxergar o que <strong>não</strong> está no painel: o que separa olhar o que já se conhece de poder perguntar o que ninguém previu. É a aula 2.</p>
+
+<Flashcards cards={[
+  { q: "O que é confiabilidade, segundo o artigo?",
+    a: "Entregar comportamento correto ao longo do tempo, sob condições esperadas e algumas adversas: continuidade, integridade e previsibilidade. Disponibilidade é um pedaço." },
+  { q: "O que é estar 'disponível e errado'?",
+    a: "A 2.5.0 devolve 201, o healthcheck responde 200, os erros ficam em 0% e a latência é a mesma, mas o frete de Recife vale 0,00. Só a métrica de negócio enxerga." },
+  { q: "Quanto custou o frete 0,00 em 60 min, e quanto custaria em 30 s?",
+    a: "1 pedido por segundo de Recife (20% de 5) × R$ 15,00: 3.600 × 15 = R$ 54.000 em 60 min; 30 × 15 = R$ 450 em 30 s." },
+  { q: "Por que o artigo fala em contrato operacional?",
+    a: "Porque confiabilidade tem medida e dono: é uma restrição de arquitetura, e não um 'atributo desejável'." },
+  { q: "Quais são as três metas que os módulos 21 a 27 perseguem?",
+    a: "Reduzir a probabilidade e o impacto do comportamento errado, reduzir o tempo para detectar e voltar e limitar o raio da falha." },
+]} />

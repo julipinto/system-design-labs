@@ -1,0 +1,148 @@
+---
+title: "Service levels: SLI, SLO, SLA e orçamento de erro"
+order: 7
+min: 18
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Alerta por sintoma e uma regra que pega o incidente de 90 s: a loja já sabe <strong>quando</strong> chamar alguém. Ficou faltando decidir <strong>quanto erro é aceitável</strong>. Sem essa resposta, qualquer alerta é palpite: 5% de erro é muito? 0,1% é pouco? E quem manda parar de publicar? Os <strong>service levels</strong> são a resposta, e começam por trocar adjetivos por números.</p>
+
+<OneLiner><strong>SLI</strong> é a <strong>medida</strong> (bons ÷ válidos). <strong>SLO</strong> é a <strong>meta interna</strong>. <strong>SLA</strong> é o <strong>contrato</strong> com consequência. O <strong>orçamento de erro</strong> é o que sobra entre a meta e 100%, e ele decide se a equipe publica ou congela.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Orçamento</strong>, avance: a <strong>queda de SP</strong> no mês e leia a porcentagem queimada; depois jogue o <strong>PSP sem proteção</strong>. Os botões da mesma figura mostram também a escada SLI → SLO → SLA e o orçamento por célula. No widget <strong>Orçamento de erro e <em>burn rate</em></strong>, mude o SLO de 99,9% para 99,99% e veja o orçamento encolher.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/contrato-3d/?mode=orcamento" poster="labs/observabilidade/contrato-3d-previa.webp" title="Figura interativa: O orçamento de erro" alt="Prévia da figura 3D: O orçamento de erro" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>SLI: a medida.</strong> Uma razão <strong>bons ÷ válidos</strong> sobre o <code>POST /pedidos</code>. <strong>Bom</strong> é uma resposta <code>2xx</code> <strong>e</strong> com duração de até <strong>800 ms</strong>. <strong>Válido</strong> é tudo, menos o que a loja não escolheu: o erro do cliente (<code>422</code>), o <code>409</code> de "esgotado" (módulo 11) e o <code>429</code> do <em>rate limit</em> do tenant (módulo 25).</li>
+  <li><strong>SLO: a meta.</strong> <strong>99,9% em 30 dias</strong> (erros ≤ 0,1% e p95 ≤ 800 ms, as metas do módulo 24). É uma meta <strong>interna</strong>, que o time usa para decidir.</li>
+  <li><strong>SLA: o contrato.</strong> Com o <code>mkt-01</code> a loja assinou <strong>99,5% por mês</strong>: 216 min, ou 3 h 36, de falha permitida. O SLA é <strong>menos exigente</strong> que o SLO, e é de propósito: o SLO é a <strong>blindagem</strong> do contrato.</li>
+  <li><strong>O orçamento.</strong> O que sobra entre o SLO e 100%: 0,1%. Em 30 dias, a 5 pedidos por segundo, são 5 × 2.592.000 = <strong>12.960.000</strong> requisições, e 0,1% são <strong>12.960 ruins</strong> (ou <strong>43,2 min</strong> de indisponibilidade total).</li>
+  <li><strong>Nunca 100%.</strong> O artigo recomenda: SLA se escreve com noves, e nunca 100%. Cada nove a mais custa muito, e uma meta de 100% proíbe qualquer mudança.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Os noves, em minutos</h3>
+
+<p>Em 30 dias há 43.200 minutos. A meta vira o tempo que a loja pode estar fora do ar:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Meta</th><th>99%</th><th>99,5%</th><th>99,9%</th><th>99,95%</th><th>99,99%</th></tr></thead>
+  <tbody>
+    <tr><th>minutos de falha por mês</th><td>432</td><td>216</td><td><strong>43,2</strong></td><td>21,6</td><td>4,32</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cada nove corta o orçamento em 10 vezes. Passar de 99,9% para 99,99% transforma 43,2 minutos em <strong>4,32</strong>. É por isso que a meta é uma decisão de negócio: quem paga o nove seguinte?</p>
+
+<h3 class="sec">O orçamento da loja, por célula</h3>
+
+<p>As 12.960 requisições ruins do mês não têm de ser divididas por igual. Pelas frações de cada célula (módulo 26): <code>celula-mkt</code> (40%) fica com <strong>5.184</strong>, <code>celula-sp</code> (33%) com <strong>4.276,8</strong>, <code>celula-rio</code> (15%) com <strong>1.944</strong> e <code>celula-recife</code> (12%) com <strong>1.555,2</strong>. A célula de Recife, a da Lena, tem o menor orçamento absoluto: o mesmo incidente a consome mais depressa.</p>
+
+<h3 class="sec">O que já queimou</h3>
+
+<p>Os incidentes dos módulos anteriores agora têm um preço, em fração do mês:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Incidente</th><th>Conta</th><th>Queimou</th></tr></thead>
+  <tbody>
+    <tr><th>PSP-A de 90 s <strong>sem</strong> proteção (módulo 21)</th><td>30 × 90 = 2.700 falhas</td><td><strong>20,8%</strong> de 12.960</td></tr>
+    <tr><th>Queda de SP (módulo 27)</th><td>9,9 × 65 s = 643,5</td><td><strong>4,97%</strong></td></tr>
+    <tr><th>Episódio do 1063 (aula 2)</th><td>8 pedidos acima de 800 ms</td><td><strong>0,06%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A conta da queda de SP é simplificada: conta só os 9,9 pedidos por segundo da <code>celula-sp</code> durante os 65 s do RTO e compara com um orçamento calculado a 5 pedidos por segundo de média. O PSP-A sem proteção, sozinho, gastaria um quinto do mês em 90 s. O 1063, que fez a Lena esperar, custou quase nada do orçamento: ele passou sem acender nenhum alarme, e por isso a investigação da aula 2 continua necessária: o orçamento mede o estrago, e não o acha.</p>
+
+<Widget name="orcamento" title="Orçamento de erro e burn rate" hint="SLO (99 a 99,99%), janela (30 dias), requisições por mês (12.960.000) e incidentes (PSP sem proteção, queda de SP, o 1063). Mostra o orçamento (12.960 · 43,2 min), o % queimado (20,8 · 4,97 · 0,06), o burn rate e o tempo até esgotar, e a política (publicar, só correções, congelar)." />
+
+<h3 class="sec">Burn rate: ligar o orçamento ao alerta</h3>
+
+<p>O <strong><em>burn rate</em></strong> é a velocidade da queima: 1× gasta o orçamento exatamente no fim do período; 2× o gasta na metade do tempo. A conta do <em>SRE Workbook</em> é <strong>consumo = burn × janela ÷ período</strong>. Três combinações viram regra:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><em>Burn rate</em></th><th>Janela</th><th>Consumo do orçamento</th><th>Ação</th></tr></thead>
+  <tbody>
+    <tr><th>14,4×</th><td>1 h (e 5 min)</td><td>14,4 × 1 ÷ 720 = <strong>2%</strong></td><td>página</td></tr>
+    <tr><th>6×</th><td>6 h (e 30 min)</td><td>6 × 6 ÷ 720 = <strong>5%</strong></td><td>página</td></tr>
+    <tr><th>1×</th><td>3 dias</td><td>1 × 72 ÷ 720 = <strong>10%</strong></td><td><em>ticket</em></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Os 720 são as horas de 30 dias. A janela curta (5 min, 30 min) evita que o alerta continue disparando depois de o problema acabar. Por que 14,4×? É o <strong>burn</strong> que gasta 2% do orçamento em 1 h, e 2% é um valor que o time achou digno de acordar alguém. Gastar 5% em 1 h exigiria 36×, o que quase só acontece numa queda total.</p>
+
+<h3 class="sec">A política: o orçamento manda no deploy</h3>
+
+<p>O orçamento é um <strong>sinal para o que a equipe faz</strong>. Uma política possível, como exemplo:</p>
+
+<ul>
+  <li><strong>Sobrou mais de 50%.</strong> Publicar normal.</li>
+  <li><strong>Entre 50% e 10%.</strong> Só correções e <em>canary</em> lento (módulo 22).</li>
+  <li><strong>Menos de 10%.</strong> Congela tudo que não for correção.</li>
+  <li><strong>Zerou.</strong> Sala de guerra, com prioridade para estabilidade.</li>
+</ul>
+
+<p>O orçamento de 12.960 e o 20,8% do PSP-A sem proteção deixam isso claro: um incidente desses e a loja fica com 79% e continua publicando; três, e ela já queimou 62,5% e entra na faixa de cautela. É um jeito de negociar entre <strong>velocidade</strong> e <strong>estabilidade</strong> com um número, e não com opinião.</p>
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>O SLI que mede a coisa errada.</strong> A <code>2.5.0</code> do módulo 22 devolve <code>201</code>, rápido, com frete 0,00. Pela definição acima isso conta como "bom": <code>2xx</code> e dentro de 800 ms. O orçamento <strong>não queima</strong>, o painel de SLO continua verde, e a loja perde R$ 15,00 por pedido em Recife. O SLI precisa medir o que o cliente (e o negócio) considera certo. Dois jeitos: um SLI de <strong>negócio</strong> (a razão de <code>pedidos_frete_zero_total</code>) e um SLI de <em>diff</em> contra a <code>2.4.0</code> (a mesma entrada dá a mesma resposta?).</p>
+
+<p><strong>O SLO de 100%.</strong> Nenhum erro em 30 dias significa nenhuma publicação, nenhuma manutenção e nenhuma tolerância: o primeiro incidente, mesmo de 1 s, quebra o contrato. É a razão de o artigo pedir noves, e não 100%.</p>
+
+<WhyItMatters>
+  <li><strong>Cada sigla tem um papel.</strong> SLI mede, SLO mira (99,9%), SLA promete (99,5%, 216 min) e o orçamento (12.960; 43,2 min) decide.</li>
+  <li><strong>Os incidentes ganham escala.</strong> 20,8% · 4,97% · 0,06%: o PSP sem proteção queima um quinto do mês.</li>
+  <li><strong>O SLI pode estar errado.</strong> Se frete 0,00 conta como bom, o orçamento não vê o defeito.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A margem do artigo, em minutos</h4>
+  <p>O artigo traz um exemplo: SLO de 99,95% e SLI medido em 99,98%, ou "0,03% de margem". Está certo. Em 30 dias, 99,95% permitem 21,6 min de falha, e a loja gastou 0,02% (8,64 min); a margem de 0,03% são 12,96 min. A aula só acrescenta a conta, e o <em>burn rate</em>.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>SLI como "o que materializa o SLA e o SLO".</strong> O SLI é a <strong>medida</strong>, uma razão <strong>bons ÷ válidos</strong> com a definição do que conta como "bom". O SLO é a <strong>meta</strong> sobre ele, e o SLA é o <strong>contrato</strong>. O artigo diz também que "a longo prazo, o SLO deve virar o SLA", e isso confunde: o SLO deve ficar <strong>mais exigente</strong> que o SLA para blindá-lo.</li>
+    <li><strong>Falta a conta do orçamento e o <em>burn rate</em>.</strong> 43,2 min e 12.960 requisições; 2% em 1 h = 14,4×, 5% em 6 h = 6×, 10% em 3 dias = 1× (<em>SRE Workbook</em>). É o que liga o orçamento ao alerta da aula 6.</li>
+    <li><strong>Contas, não medições.</strong> A política do orçamento é um <strong>exemplo</strong>. Nenhum Prometheus foi rodado; as contas saíram de <code>c28.py</code> (21/10/2026).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Service Level Objectives", href: "https://sre.google/sre-book/service-level-objectives/" },
+    { label: "Google SRE Workbook: Implementing SLOs", href: "https://sre.google/workbook/implementing-slos/" },
+    { label: "Google SRE Workbook: Alerting on SLOs", href: "https://sre.google/workbook/alerting-on-slos/" },
+    { label: "New Relic: What are SLOs, SLIs, and SLAs?", href: "https://newrelic.com/blog/observability/what-are-slos-slis-slas" },
+    { label: "Grafana: SLOs, a guide to setting and benefiting from them", href: "https://grafana.com/blog/slos-a-guide-to-setting-and-benefiting-from-service-level-objectives/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Meta, orçamento e alerta agora conversam entre si. Falta saber <strong>para onde olhar</strong> quando o orçamento começa a queimar: no recurso, no serviço ou no que o usuário sente. É a aula 8, e começa pelo método dos recursos.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre SLI, SLO e SLA?",
+    a: "SLI: a medida (bons ÷ válidos). SLO: a meta interna (99,9% em 30 dias). SLA: o contrato com consequência (99,5% com o mkt-01, 216 min). O SLO deve ser mais exigente que o SLA." },
+  { q: "O que é 'bom' e o que é 'válido' no SLI do POST /pedidos?",
+    a: "Bom: 2xx e duração ≤ 800 ms. Válido: tudo, menos 422 (erro do cliente), 409 (esgotado) e 429 (rate limit do tenant)." },
+  { q: "Quanto vale o orçamento de erro do mês?",
+    a: "5/s × 2.592.000 s = 12.960.000 requisições; 0,1% = 12.960 ruins, ou 43,2 min de indisponibilidade total." },
+  { q: "Quanto do orçamento cada incidente queimou?",
+    a: "PSP-A de 90 s sem proteção: 2.700 = 20,8%. Queda de SP: 643,5 = 4,97%. Episódio do 1063: 8 = 0,06%." },
+  { q: "Quais são os burn rates que viram alerta?",
+    a: "14,4× em 1 h = 2% e 6× em 6 h = 5% (página, com janela curta de 5 e 30 min); 1× em 3 dias = 10% (ticket). consumo = burn × janela ÷ período." },
+]} />

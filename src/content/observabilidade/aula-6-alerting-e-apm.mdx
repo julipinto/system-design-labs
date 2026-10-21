@@ -1,0 +1,109 @@
+---
+title: "Alertas e APM"
+order: 6
+min: 17
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A métrica, o <em>trace</em> e o log do 1063 apontaram para a mesma causa, mas só depois de a Lena escrever no chat. Ter os três sinais é poder <strong>ver</strong>. Ninguém fica olhando um painel o dia inteiro, e a pergunta que sobra é de outro tipo: <strong>quando o sistema deve chamar alguém</strong>? Para pensar nisso, volte ao incidente do módulo 21.</p>
+
+<p>Foi na noite da Black Friday, das <strong>20:20:00 às 20:21:30</strong> (90 s): o PSP-A parou de responder, a <strong>30 pedidos por segundo</strong>. Sem as defesas do módulo 21 (<em>breaker</em> e <em>fallback</em>), <strong>100% dos pedidos falhariam</strong>: 30 × 90 = <strong>2.700 falhas</strong>. A pergunta é qual desenho de alerta acordaria alguém a tempo.</p>
+
+<OneLiner>O <strong>alerta</strong> transforma um estado <strong>conhecido</strong> em sinal para intervenção. O bom alerta <strong>acorda por sintoma</strong> (o cliente sentiu) e deixa a <strong>causa</strong> para o painel e o <em>ticket</em>.</OneLiner>
+
+<DoIt>
+  <p>No widget <strong>Quando o alerta dispara</strong>, ponha <code>for: 5m</code> no incidente de 90 s e veja o alerta nunca disparar. Depois mude para a regra de <em>burn rate</em> e compare o tempo até disparar. Na figura, o cenário dos alertas mostra a mesma linha do tempo, das 20:20:00 às 20:21:30.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/sinais-3d/?mode=alerta" poster="labs/observabilidade/sinais-3d-previa.webp" title="Figura interativa: Alertas: os 90 s do PSP-A" alt="Prévia da figura 3D: Alertas: os 90 s do PSP-A" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O que é um alerta.</strong> Uma regra sobre um sinal ("a taxa de erro passou de 5%") que, ao ser verdadeira, avisa uma pessoa ou um robô. O artigo o vê como a peça que acelera o <em>feedback</em>: quanto mais cedo se percebe, menor o MTTD.</li>
+  <li><strong>Sintoma, não causa.</strong> O Google escreve no SRE book que a página deve ser por <strong>sintoma</strong> (o cliente está sentindo) e que a <strong>causa</strong> serve para depurar. O erro do checkout acorda alguém; o <code>breaker_state</code> aberto vira <em>ticket</em>.</li>
+  <li><strong>Página e <em>ticket</em>.</strong> <strong>Página</strong> é para agir <em>agora</em>, de madrugada se for preciso. <strong><em>Ticket</em></strong> é para olhar no próximo dia útil. Quem manda tudo como página gera <strong>fadiga</strong>, e a página real se perde.</li>
+  <li><strong><code>for</code> e o intervalo.</strong> A regra é avaliada de tempos em tempos (a cada 15 s, aqui). O <code>for</code> exige que a condição dure esse tempo antes de disparar, para não acordar por um pico de 2 s. Mas cada segundo de <code>for</code> é um segundo a mais no MTTD.</li>
+  <li><strong>Quatro desenhos.</strong> Para o mesmo incidente de 90 s, quatro regras, quatro resultados. É a tabela abaixo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Quatro alertas para os mesmos 90 s</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Alerta</th><th>Dispara em</th><th>MTTD</th></tr></thead>
+  <tbody>
+    <tr><th>A: erro &gt; 5% <strong>por 5 min</strong> (<code>for: 5m</code>)</th><td><strong>nunca</strong>: o incidente acaba em 90 s</td><td><strong>∞</strong></td></tr>
+    <tr><th>B: erro &gt; 5% <strong>por 1 min</strong> (<code>for: 1m</code>)</th><td>20:21:00 a 20:21:15</td><td><strong>60 a 75 s</strong></td></tr>
+    <tr><th>C: <strong>sonda sintética</strong> a cada 10 s, 3 falhas seguidas</th><td>20:20:30</td><td><strong>30 s</strong></td></tr>
+    <tr><th>D: <strong><em>burn rate</em></strong> rápido (14,4× na janela de 1 h <strong>e</strong> na de 5 min; SLO 99,9%)</th><td>depois de <strong>51,84 s</strong> de erro</td><td><strong>~52 a 67 s</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cada linha tem uma razão. O <strong>A</strong> é o alerta que parece seguro: 5 minutos sem erro alto, ninguém é acordado à toa. Só que o incidente dura 90 s, e a janela de 5 min <strong>nunca fecha</strong>. O <strong>B</strong> espera 1 min e avalia a cada 15 s, então pega entre 60 e 75 s. O <strong>C</strong> é a sonda do módulo 27: 3 falhas seguidas a cada 10 s são 30 s. O <strong>D</strong> é o mais sutil: o <em>burn rate</em> mede com que velocidade o orçamento de erro está sendo gasto (a aula 7 explica o orçamento). Com SLO 99,9%, o orçamento permite 0,1% de erro, e 14,4× é queimar o orçamento 14,4 vezes mais rápido que o permitido: 1,44% de erro. Com 100% de erro, a janela de 1 h chega a 1,44% depois de <strong>14,4 × 0,001 × 3.600 = 51,84 s</strong> de falha. O <em>burn rate</em> de 100% de erro é <strong>1.000×</strong> (1 ÷ 0,001).</p>
+
+<Widget name="alerta" title="Quando o alerta dispara" hint="Limiar, janela, for, intervalo de avaliação (15 s), sonda sintética (10 s × 3) e burn rate. Incidente com duração (90 s), erro em % e com ou sem breaker. Mostra o MTTD de cada alerta (∞ · 60–75 s · 30 s · ~52 s) e se vira página ou ticket." />
+
+<h3 class="sec">Com as defesas ligadas, ninguém é acordado</h3>
+
+<p>O incidente real do módulo 21 teve as defesas. O <em>breaker</em> abriu em 1,3 s e o <em>fallback</em> levou os pedidos ao PSP-B. Falharam só 30 × 1,3 ≈ <strong>39</strong> dos 2.700 pedidos, ou <strong>1,44%</strong> da janela de 90 s, o que dá 14,4×. Mas olhe as janelas do alerta D. Em 1 h, 39 em 108.000 (30 × 3.600) é <strong>0,036%</strong>, ou <strong>0,36×</strong>. Em 5 min, 39 em 9.000 é 0,43%, ou 4,3×. O D exige as duas janelas acima de 14,4×, e nenhuma passa. <strong>Nenhum alerta de página dispara, e não deve</strong>: o cliente quase não sentiu. O <code>breaker_state&#123;dependencia="psp-a"&#125;=aberto</code> é a <strong>causa</strong>, e vira <em>ticket</em>.</p>
+
+<p>O mesmo vale para o 1063. Oito pedidos ruins em uma janela de 5 min (1.500 pedidos) são 0,53%, ou <strong>5,3×</strong>, abaixo de 14,4×. Em 1 h, 8 em 18.000 é <strong>0,044%</strong> (0,44×). O episódio da Lena <strong>não dispara nada</strong>. Ele só se descobre com a investigação da aula 2: é o tipo de problema que o monitoramento conhecido não pega.</p>
+
+<h3 class="sec">APM: os sinais em volta da experiência</h3>
+
+<p>Na ponta de quem usa o painel todo dia está o <strong>APM</strong> (<em>Application Performance Monitoring</em>). O artigo o descreve como a camada que organiza métricas, <em>traces</em> e logs <strong>em torno da experiência</strong>: operações, rotas, dependências, tempos e erros, em vez de recursos. Ele responde a perguntas como "quais operações estão mais lentas agora?", "quais regrediram depois de um <em>deploy</em>?", "quais dependências consomem mais tempo da transação?". Na loja, é o painel que mostra que o <code>POST /pedidos</code> na versão <code>2.6.0</code> está mais lento que na <code>2.5.0</code>, e abre o <em>trace</em> de um pedido lento para ver o <em>span</em> culpado. O APM não é um quarto sinal: é uma <strong>vista</strong> dos mesmos três.</p>
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>O alerta que nunca dispara.</strong> É a regra A, com <code>for: 5m</code>. Ela passa em todos os testes e falha no dia em que importa. A prevenção é testar a regra contra incidentes <strong>passados</strong>: ela teria disparado no de 20:20?</p>
+
+<p><strong>O alerta que dispara demais.</strong> O <code>breaker</code> aberto às 3 h da manhã acordando alguém, e a pessoa descobre que o <em>fallback</em> estava funcionando e ninguém sentiu nada. Depois de três madrugadas assim, a quarta página é ignorada. É a <strong>fadiga de alertas</strong>: o que acorda tem de ser sintoma, e a causa vira <em>ticket</em>.</p>
+
+<WhyItMatters>
+  <li><strong>O mesmo incidente, quatro MTTDs.</strong> Nunca, 60 a 75 s, 30 s e ~52 s: o desenho do alerta decide.</li>
+  <li><strong>Página é para sintoma.</strong> Com defesas, o 1,44% do incidente de 90 s não dispara o <em>burn rate</em> (0,36× em 1 h), e o <em>breaker</em> aberto vira <em>ticket</em>.</li>
+  <li><strong>O 1063 não aciona alerta.</strong> 5,3× em 5 min e 0,44× em 1 h: só a investigação o acha.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As duas janelas do burn rate</h4>
+  <p>O <em>SRE Workbook</em> (<em>Alerting on SLOs</em>) recomenda exigir a janela <strong>longa e a curta</strong> ao mesmo tempo: a longa (1 h) diz que o orçamento está mesmo queimando, a curta (5 min) diz que ainda está queimando <em>agora</em>, e o alerta cessa logo que o problema para. É a combinação que o alerta D usa. Os valores 14,4× em 1 h (2% do orçamento) e 6× em 6 h (5%) viram <strong>página</strong>; 1× em 3 dias (10%) vira <em>ticket</em>. A aula 7 faz essas contas.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>O artigo diz que alertas reduzem o MTTD e não diz o que evita o ruído.</strong> Faltam <strong>alertar por sintoma</strong>, <strong>página × <em>ticket</em></strong>, o <code>for</code> e a <strong>janela dupla</strong> (SRE Workbook). Um alerta de 5 min <strong>nunca</strong> pega um incidente de 90 s.</li>
+    <li><strong>As contas não vêm de medição.</strong> O incidente de 90 s é o do módulo 21, e os tempos de disparo foram calculados em Python (<code>c28.py</code>, 21/10/2026). Nenhum Prometheus foi rodado: as regras são exemplo de forma.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Google SRE book: Practical Alerting", href: "https://sre.google/sre-book/practical-alerting/" },
+    { label: "Google SRE Workbook: Alerting on SLOs", href: "https://sre.google/workbook/alerting-on-slos/" },
+    { label: "Prometheus: Alerting (boas práticas)", href: "https://prometheus.io/docs/practices/alerting/" },
+    { label: "Splunk: What Are Feedback Loops?", href: "https://www.splunk.com/en_us/blog/learn/feedback-loops.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe quando chamar alguém: por sintoma, e com uma regra que pega o incidente de 90 s. Falta saber <strong>quanto erro é aceitável</strong> antes de uma página fazer sentido, e quem decide. É a aula 7, os contratos.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os MTTDs dos quatro alertas para os 90 s do PSP-A?",
+    a: "A (erro > 5% por 5 min): nunca. B (por 1 min): 60 a 75 s. C (sonda sintética de 10 s, 3 falhas): 30 s. D (burn rate 14,4× em 1 h e 5 min): ~52 a 67 s (51,84 s de erro)." },
+  { q: "Por que o alerta de 5 minutos nunca pega o incidente de 90 s?",
+    a: "A condição precisa durar 5 min e o incidente acaba em 90 s: a janela nunca fecha." },
+  { q: "O que é página e o que é ticket?",
+    a: "Página: sintoma que o cliente sentiu, para agir agora. Ticket: causa ou risco, para o próximo dia útil. O breaker aberto é ticket." },
+  { q: "Por que, com as defesas do módulo 21, nenhum alerta de página dispara?",
+    a: "Falham só ~39 de 2.700 (1,44%, 14,4×), mas 0,036% em 1 h (0,36×) e 0,43% em 5 min (4,3×): o burn rate exige as duas janelas acima de 14,4×." },
+  { q: "O que o APM acrescenta?",
+    a: "Organiza métricas, traces e logs em torno da experiência: operações, rotas, dependências e regressões por versão depois de um deploy. É uma vista, não um quarto sinal." },
+]} />

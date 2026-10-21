@@ -1,0 +1,110 @@
+---
+title: "USE: olhar os recursos"
+order: 8
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A loja tem uma meta (99,9%), um orçamento (12.960) e um alerta que avisa quando ele queima depressa. Mas quando a página toca, falta saber <strong>para onde olhar</strong>: há CPU, memória, pools, filas, disco e rede, e cada um tem dezenas de métricas. Sem um roteiro, a investigação vira passeio por painéis. O primeiro roteiro é para os <strong>recursos</strong>, e foi o que a loja já viu, sem esse nome, na Black Friday de 20:03.</p>
+
+<OneLiner>Para cada <strong>recurso</strong> (CPU, memória, disco, rede, <strong>pools e filas</strong>), meça <strong>U</strong>tilização, <strong>S</strong>aturação e <strong>E</strong>rros. A <strong>saturação</strong>, a fila, é o que a utilização esconde.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>USE</strong>, avance até o <strong>relatório das 23:00</strong> e leia a utilização, a saturação e os erros do pool de 20 conexões. Compare com a <code>catalogo-3</code>, a réplica a 99% entre as outras a 64%.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/contrato-3d/?mode=use" poster="labs/observabilidade/contrato-3d-previa.webp" title="Figura interativa: USE: os recursos" alt="Prévia da figura 3D: USE: os recursos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O método.</strong> Brendan Gregg o descreveu como um jeito de <strong>começar</strong> uma investigação de desempenho: para cada recurso, três perguntas, e você passa por todos os recursos antes de teorizar. Os recursos são os físicos (CPU, memória, disco, rede) e também as filas e os pools.</li>
+  <li><strong>Utilização.</strong> Quanto do recurso está em uso, num intervalo: a CPU a 64%, as conexões em uso ÷ o limite. É um indicador de carga e de tendência; serve ao planejamento de capacidade.</li>
+  <li><strong>Saturação.</strong> O trabalho que <strong>espera</strong> porque o recurso não dá conta: a fila de execução da CPU, as requisições na fila do pool, o <em>iowait</em>, o atraso do consumidor Kafka. Um recurso a 99% pode ainda atender, e um com fila já degrada.</li>
+  <li><strong>Erros.</strong> Eventos de falha <strong>do recurso</strong>: um I/O error, um <em>OOMKill</em>, um <em>packet drop</em>, uma conexão recusada por pool cheio. No método original são do <strong>recurso</strong>; os erros do serviço ficam no RED (aula 9).</li>
+  <li><strong>O percurso.</strong> Liste os recursos da célula, preencha U, S e E de cada um e olhe primeiro o que está vermelho em S ou E. O método responde ao "qual recurso é o gargalo?" e fica mudo para o resto.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A <code>catalogo-3</code> em três linhas</h3>
+
+<p>Volte à Black Friday do módulo 14, às 20:03. A frota do catálogo tem 10 réplicas, nove a 64% de utilização e a <code>catalogo-3</code> a <strong>99%</strong>. A frota, em média, está a (9 × 64 + 99) ÷ 10 = <strong>67,5%</strong>: parece saudável. Pelas três perguntas do USE:</p>
+
+<p><strong>Utilização:</strong> 99% na <code>catalogo-3</code>; a média da frota (67,5%) a esconde. <strong>Saturação:</strong> a fila. Pela lei de Little (módulo 14), a <code>catalogo-3</code> tem 64 req/s × 1,01 s = <strong>64,6</strong> requisições em andamento, de um total de 86,4 na frota; cada réplica saudável tem 2,4. <strong>Erros:</strong> <strong>1%</strong> de <code>504</code> a 640 req/s. Qualquer das três, sozinha, aponta a réplica certa; a média, não.</p>
+
+<h3 class="sec">O pool de 20 conexões, de novo</h3>
+
+<p>O pool do módulo 25 é um recurso, e o USE o descreve bem. <strong>Utilização:</strong> conexões em uso ÷ 20. Sem o relatório, 0,4 de 20 (2%). Com o relatório das 23:00, 40,4 pedidas para 20: <strong>100%</strong>. <strong>Saturação:</strong> quem espera uma vaga, <code>db_pool_waiting</code>. <strong>Erros:</strong> os <code>503</code> do pool cheio, 33% do checkout e 10% do status no teste do módulo 25. É a mesma situação que o USE enxerga em outras palavras, com uma vantagem: a leitura <strong>não depende de saber o que causou</strong>.</p>
+
+<h3 class="sec">A tabela de recursos da célula</h3>
+
+<p>Para a <code>celula-recife</code>, a tabela completa de recursos tem a forma abaixo. Os valores são o modelo de leitura, e não uma medição:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Recurso</th><th>Utilização</th><th>Saturação</th><th>Erros</th></tr></thead>
+  <tbody>
+    <tr><th>CPU</th><td>% de uso</td><td>fila de execução, <em>throttling</em></td><td>(raros)</td></tr>
+    <tr><th>Memória</th><td>% do limite</td><td><em>swap</em>, pausas do GC</td><td><em>OOMKill</em></td></tr>
+    <tr><th>Pool do banco</th><td>em uso ÷ 20</td><td><code>db_pool_waiting</code></td><td><code>503</code> de pool cheio</td></tr>
+    <tr><th>Disco do WAL</th><td>% de I/O ocupado</td><td>fila de I/O, atraso de <em>flush</em></td><td>erro de I/O</td></tr>
+    <tr><th>Rede</th><td>banda ÷ capacidade</td><td><em>drops</em>, retransmissões</td><td><em>resets</em></td></tr>
+    <tr><th>Consumidor Kafka</th><td>mensagens/s ÷ capacidade</td><td><code>kafka_consumer_lag</code></td><td>mensagens na DLQ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Repare na última linha: o <strong>lag do consumidor</strong> é a saturação de um recurso que não parece um recurso. Se o consumidor do <code>estoque</code> não acompanha o tópico <code>pedidos</code>, o atraso cresce sem que a CPU suba.</p>
+
+<Widget name="use" title="USE: recursos" hint="Escolha o recurso (a catalogo-3, o pool de 20, ou o pedidos) e preencha U, S e E. Mostra o que o método enxerga (a réplica a 99%, o pool a 100% e os 503) e o que não enxerga (o frete 0,00)." />
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>O USE só vê recurso.</strong> Com a <code>2.5.0</code> no ar, a CPU está a 20%, o pool a 10%, o disco em paz, e o <code>pedidos</code> continua devolvendo frete 0,00 em Recife. Todo recurso está <strong>bem</strong>: o defeito está no serviço. Esse é o limite do método, e a aula 9 mostra o que cobre o buraco.</p>
+
+<p><strong>A média da frota.</strong> A <code>catalogo-3</code> a 99% some numa frota a 67,5%. Um painel de utilização <strong>por frota</strong> mostra um número tranquilo, enquanto 1 em cada 10 requisições vive na réplica saturada. O USE se aplica a cada <strong>instância</strong>, e depois se agrega.</p>
+
+<WhyItMatters>
+  <li><strong>A saturação mostra o que a utilização esconde.</strong> A <code>catalogo-3</code> tem 64,6 requisições em andamento e a frota está a 67,5%.</li>
+  <li><strong>O pool também é recurso.</strong> 100% de utilização, fila e 503: é o módulo 25 em três linhas.</li>
+  <li><strong>O método é cego ao serviço.</strong> Com CPU a 20%, a <code>2.5.0</code> segue errada.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde está o método original</h4>
+  <p>O artigo cita a ACM Queue (<em>Thinking Methodically about Performance</em>), que responde 403 a robôs. O método está descrito pelo próprio Gregg em <code>brendangregg.com/usemethod.html</code>, com listas de verificação por sistema operacional. Lá, a lista de recursos inclui a CPU, a memória, as interfaces de rede, os discos e os barramentos, e os <em>erros</em> são eventos do recurso.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Erros" por recurso mistura duas coisas.</strong> O artigo lista tanto erros do recurso (<em>I/O errors</em>, <em>OOMKills</em>) quanto erros do software (<em>thread pool exhausted</em>, <em>rate limit exceeded</em>). No método original os <strong>erros</strong> são eventos do recurso; os do serviço ficam no RED.</li>
+    <li><strong>Link da ACM Queue.</strong> Responde 403 a robôs; a fonte usada aqui é a página do Gregg.</li>
+    <li><strong>Contas.</strong> A tabela de recursos é um modelo de leitura. Os números da <code>catalogo-3</code> são os do módulo 14, e os do pool, os do módulo 25 (k6 real).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Brendan Gregg: The USE Method", href: "https://www.brendangregg.com/usemethod.html" },
+    { label: "PagerTree: USE and RED", href: "https://pagertree.com/learn/devops/what-is-observability/use-and-red-method" },
+    { label: "The New Stack: Monitoring Methodologies, RED and USE", href: "https://thenewstack.io/monitoring-methodologies-red-and-use/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Todos os recursos podem estar bem e o serviço, errado. O USE olha por dentro. Falta saber como olhar o serviço <strong>visto de fora</strong>: quantas requisições chegam, quantas falham e quanto demoram. É a aula 9, o RED.</p>
+
+<Flashcards cards={[
+  { q: "O que o USE mede e em quê?",
+    a: "Utilização, saturação e erros, para cada recurso: CPU, memória, disco, rede, pools e filas. A saturação (a fila) é o que a utilização esconde." },
+  { q: "O que o USE diz da catalogo-3?",
+    a: "Utilização 99% (frota 67,5%), saturação 64,6 de 86,4 requisições em andamento e erros de 1% de 504 a 640 req/s." },
+  { q: "Como o USE descreve o pool de 20 conexões com o relatório das 23:00?",
+    a: "Utilização 100% (40,4 pedidas), saturação na espera por vaga e erros nos 503 do pool cheio: 33% do checkout e 10% do status." },
+  { q: "Por que o lag do consumidor Kafka é saturação?",
+    a: "É o trabalho acumulado porque o consumidor não acompanha o tópico, e a CPU pode estar baixa." },
+  { q: "Qual é o limite do USE?",
+    a: "Só vê recurso. Com CPU a 20% e pool a 10%, a 2.5.0 segue devolvendo frete 0,00. E a média da frota esconde a réplica a 99%." },
+]} />

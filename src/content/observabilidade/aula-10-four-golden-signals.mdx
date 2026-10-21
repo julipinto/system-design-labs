@@ -1,0 +1,101 @@
+---
+title: "Os quatro sinais de ouro"
+order: 10
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O RED deu um painel para cada serviço, e o USE já dava um para cada recurso. A loja tem agora duas lentes, e quem está de plantão quer uma só pergunta: <strong>o que o usuário está sentindo?</strong> O SRE book do Google responde com quatro números, os que valem se você só puder ter <strong>quatro</strong>.</p>
+
+<OneLiner><strong>Latência, tráfego, erros e saturação</strong> descrevem a saúde do que o <strong>usuário</strong> usa e dão a base do SLO. A <strong>latência</strong> se separa em sucesso e erro, porque a média engana.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Golden</strong>, avance até o <strong><em>breaker</em> aberto</strong> e compare a latência <strong>média</strong> com a latência do <strong>sucesso</strong>. Depois leia a saturação com previsão. No widget <strong>USE × RED × quatro sinais</strong>, a mesma conta aparece com os números de 275 e 193 ms.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/contrato-3d/?mode=golden" poster="labs/observabilidade/contrato-3d-previa.webp" title="Figura interativa: Os quatro sinais de ouro" alt="Prévia da figura 3D: Os quatro sinais de ouro" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Latência.</strong> O tempo de uma requisição, medido em <strong>percentis</strong> e com <strong>duas curvas</strong>: a dos <strong>sucessos</strong> e a dos <strong>erros</strong>. Um erro rápido e um erro lento são problemas diferentes, e misturar os dois esconde ambos.</li>
+  <li><strong>Tráfego.</strong> Quanto trabalho chega: pedidos por segundo, mensagens, bytes. Serve para separar o <strong>uso legítimo</strong> da <strong>amplificação</strong>: <em>retries</em>, um <em>cache miss</em> em massa, <em>fan-out</em> (a tempestade do módulo 21).</li>
+  <li><strong>Erros.</strong> A fração que falha, e do jeito que o cliente entende: <code>5xx</code>, falha explícita de protocolo e <strong>o <code>200</code> com conteúdo errado</strong>. Os <code>4xx</code> se observam também.</li>
+  <li><strong>Saturação.</strong> O quanto o recurso <strong>mais apertado</strong> está do limite, e a previsão: não "o disco está a 80%", e sim "o disco enche em 4 h". O sinal mais útil para agir <em>antes</em>.</li>
+  <li><strong>A relação com os outros.</strong> Os quatro sinais são <strong>RED + saturação</strong>, no nível do serviço. O USE continua sendo a lente do <strong>recurso</strong>. Uma loja usa as três, cada uma onde se encaixa.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Por que separar a latência</h3>
+
+<p>Suponha o <em>breaker</em> do módulo 21 aberto. Ele recusa a chamada na hora, e <strong>30%</strong> das requisições falham em <strong>2 ms</strong>. Os outros <strong>70%</strong> respondem em <strong>275 ms</strong>, o normal. A latência média é 0,3 × 2 + 0,7 × 275 = <strong>193 ms</strong>: caiu de 275 para 193 ms, <strong>enquanto o sistema piorou</strong>, porque 3 em cada 10 clientes recebem um erro. Um painel com uma média só vê a melhora. Com duas curvas, a do sucesso continua em 275 ms, e a dos erros mostra a falha rápida: o problema aparece.</p>
+
+<p>O inverso também vale, e o SRE book o diz: um erro <strong>lento</strong> é pior que um erro rápido. Quem recebe um erro em 2 ms tenta de novo ou desiste; quem espera 8 s por um erro já gastou uma conexão, uma thread e a paciência. Só dá para ver essa diferença se as duas latências estão separadas.</p>
+
+<Widget name="golden" title="USE × RED × quatro sinais" hint="Escolha o recurso ou o serviço (a catalogo-3, o pool de 20, o pedidos) e preencha U, S, E ou R, E, D. Mostra o que cada método enxerga e o que não (o frete 0,00). Inclui a latência com falha rápida: a média cai de 275 para 193 ms com 30% de falha em 2 ms." />
+
+<h3 class="sec">O painel único da célula</h3>
+
+<p>Com quatro números, o painel de cada célula cabe numa tela e pode ser comparado com as outras três. Veja como fica, em exemplo, para a <code>celula-recife</code> na Black Friday:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Sinal</th><th>O que mostra</th><th>Exemplo (<code>celula-recife</code>)</th></tr></thead>
+  <tbody>
+    <tr><th>Latência</th><td>p95 do sucesso, e a do erro, separadas</td><td>p95 do sucesso 489 ms (SLO 800 ms); erros por <em>breaker</em>: 2 ms</td></tr>
+    <tr><th>Tráfego</th><td>pedidos por segundo da célula</td><td>3,6 pedidos/s</td></tr>
+    <tr><th>Erros</th><td><code>5xx</code>, <em>timeout</em> e erro de negócio</td><td>0% de <code>5xx</code>; <code>pedidos_frete_zero_total</code> a zero</td></tr>
+    <tr><th>Saturação</th><td>o recurso mais apertado e a previsão</td><td>pool a 2% (0,4 de 20); o lag da réplica passiva de SP (0,3 s) com alerta em 500 ms</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Quatro células × quatro sinais são 16 números. Eles respondem às duas perguntas do artigo: "o sistema está saudável do ponto de vista do usuário?" e "quais partes estão degradadas agora?". Cada sinal alimenta uma decisão: a latência e os erros dão o SLI da aula 7; o tráfego, o plano de capacidade do módulo 23; a saturação, o alerta de previsão.</p>
+
+<h3 class="sec">E se der errado: o monitoramento por acúmulo</h3>
+
+<p>O artigo dá nome ao oposto dos quatro sinais: <strong>monitoramento por acúmulo</strong>. A equipe junta 300 painéis e milhares de métricas, e quando alguém pergunta "a loja está bem?", ninguém responde sem abrir dez deles. O que se perde é o <strong>modelo mental</strong>. Quatro sinais por célula não substituem os detalhes (os recursos e os serviços continuam lá), mas dão por onde começar e a base do SLO.</p>
+
+<WhyItMatters>
+  <li><strong>Quatro números descrevem o usuário.</strong> Latência, tráfego, erros e saturação, por célula.</li>
+  <li><strong>A média pode melhorar com o sistema pior.</strong> 275 → 193 ms com 30% de falha em 2 ms.</li>
+  <li><strong>Cada lente tem o seu lugar.</strong> USE para o recurso, RED para o serviço e os quatro sinais para o usuário.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O que o SRE book diz sobre a latência</h4>
+  <p>No capítulo <em>Monitoring Distributed Systems</em>, o Google escreve que é preciso <strong>distinguir a latência das requisições bem-sucedidas da das que falharam</strong>: um <code>500</code> causado pela perda da conexão com o banco, por exemplo, sai muito rápido e, se entrar na média, produz um cálculo enganoso. O mesmo capítulo defende alertar por <strong>sintomas</strong> e usar a causa para depurar.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Latência.</strong> O artigo diz que a latência "inclui tanto respostas bem-sucedidas quanto com erro". O SRE book diz o <strong>contrário</strong>: é preciso <strong>distinguir</strong>, porque um <code>500</code> rápido puxa a média para baixo ("misleading calculations"), e "um erro <strong>lento</strong> é pior que um erro rápido". Na loja: 275 → 193 ms com 30% de falha rápida.</li>
+    <li><strong>Referências.</strong> O artigo cita o Nanoshots (429 em 21/10/2026) e a ACM Queue (403 a robôs); nenhum dos dois entra. O texto de Lamport abre e fica em "Aprofundar".</li>
+    <li><strong>Contas.</strong> A média de 193,1 ms (0,3 × 2 + 0,7 × 275) foi calculada em Python em 21/10/2026. Nenhum painel de verdade foi construído.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems (os quatro sinais)", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "FireHydrant: 4 SRE Golden Signals", href: "https://firehydrant.com/blog/4-sre-golden-signals-what-they-are-and-why-they-matter/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja tem agora 28 capítulos de problema e peça: rede, disco, banco, cache, serviços, balanceador, gateway, BFF, malha, concorrência, comunicação, capacidade, cubo, <em>shards</em>, réplicas, CQRS, saga, eventos, resiliência, <em>deploy</em>, planejamento, testes, <em>bulkheads</em>, células, DR e observabilidade. Falta saber uma coisa: <strong>se alguém apagasse o desenho, você refaria a loja do zero, na ordem, sabendo o porquê de cada peça?</strong> É o módulo 29, as Provas Finais.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os quatro sinais de ouro?",
+    a: "Latência, tráfego, erros e saturação: RED + saturação, no nível do serviço, para o que o usuário sente." },
+  { q: "Por que separar a latência do sucesso da do erro?",
+    a: "Com o breaker aberto, 30% falham em 2 ms e 70% respondem em 275 ms: a média cai de 275 para 193 ms (0,3 × 2 + 0,7 × 275) enquanto o sistema piora." },
+  { q: "O que o tráfego separa?",
+    a: "O uso legítimo da amplificação: retries, cache miss em massa, fan-out." },
+  { q: "O que é saturação com previsão?",
+    a: "O recurso mais apertado e quanto tempo falta: 'o disco enche em 4 h' em vez de 'o disco está a 80%'." },
+  { q: "Quando usar USE, RED e os quatro sinais?",
+    a: "USE para o recurso, RED para o serviço e os quatro sinais para o que o usuário sente. O monitoramento por acúmulo (300 painéis) não responde se o sistema está saudável." },
+]} />

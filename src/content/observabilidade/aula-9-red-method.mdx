@@ -1,0 +1,106 @@
+---
+title: "RED: olhar os serviços"
+order: 9
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Todos os recursos estavam bem e o <code>pedidos</code> devolvia frete 0,00: o USE olha por dentro e não vê o serviço. Quem fica do lado de fora do serviço, como o cliente, faz outras três perguntas, e elas se mantêm para qualquer serviço web. É o <strong>RED</strong>, o que se instrumenta primeiro.</p>
+
+<OneLiner>Para cada <strong>serviço</strong>, meça <strong>R</strong>ate (quantas requisições), <strong>E</strong>rrors (quantas <strong>falham</strong>, definidas <strong>semanticamente</strong>) e <strong>D</strong>uration (em <strong>percentil</strong>, de um histograma).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>RED</strong>, compare a <code>2.4.0</code> e a <code>2.5.0</code> do <code>pedidos</code> com e sem a métrica de negócio. Veja em qual das duas versões os três painéis (R, E e D) continuam verdes.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/contrato-3d/?mode=red" poster="labs/observabilidade/contrato-3d-previa.webp" title="Figura interativa: RED: os serviços" alt="Prévia da figura 3D: RED: os serviços" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A origem.</strong> O RED é associado a Tom Wilkie e à Grafana, como a versão para <strong>serviços</strong> do que o USE faz para recursos. Foi pensado para microsserviços, onde há muitos e cada um precisa do mesmo conjunto de sinais.</li>
+  <li><strong>Rate.</strong> Quantas requisições por segundo chegam, por serviço, por rota, por tenant, por célula, por versão. É a pressão sobre o serviço, e a primeira métrica a olhar: se o <em>rate</em> sobe e o serviço não escala, vêm a saturação, a fila e os erros.</li>
+  <li><strong>Errors.</strong> A fração das requisições que <strong>falham</strong>. O ponto do artigo é que o erro precisa ser definido <strong>pelo que o cliente espera</strong>: <code>5xx</code>, <em>timeout</em>, resposta inválida, duplicidade, sucesso que chegou tarde demais, e <strong>o frete 0,00</strong>.</li>
+  <li><strong>Duration.</strong> O tempo da requisição, em <strong>percentis</strong> (p50, p95, p99) de um <strong>histograma</strong>. A média esconde a cauda, e é na cauda que os <em>timeouts</em> disparam e os <em>retries</em> amplificam a carga.</li>
+  <li><strong>As dimensões.</strong> Cada um dos três se corta por <strong>rota</strong>, por <strong>versão</strong> e por <strong>célula</strong>. Cortar por versão é o que permite comparar a <code>2.5.0</code> com a <code>2.4.0</code> no <em>canary</em> (módulo 22).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O <code>pedidos</code> por célula</h3>
+
+<p>Na Black Friday, a 30 pedidos por segundo, o Rate se divide pelas quatro células do módulo 26:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Célula</th><th>Fração</th><th>Rate (pedidos/s)</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-sp</code></th><td>33%</td><td><strong>9,9</strong></td></tr>
+    <tr><th><code>celula-rio</code></th><td>15%</td><td><strong>4,5</strong></td></tr>
+    <tr><th><code>celula-recife</code></th><td>12%</td><td><strong>3,6</strong></td></tr>
+    <tr><th><code>celula-mkt</code></th><td>40%</td><td><strong>12,0</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Esse Rate por célula serve ao planejamento (o <em>rate</em> como sinal de capacidade, módulo 23) e ao diagnóstico: se a <code>celula-mkt</code> passa de repente de 12 para 40 pedidos por segundo, a pergunta é o que mudou nela. Se as quatro sobem juntas, a pergunta é a campanha. Um Rate só, o da loja inteira, não separa uma coisa da outra.</p>
+
+<h3 class="sec">Erro é tudo o que viola a expectativa</h3>
+
+<p>O artigo pede que o <strong>Errors</strong> não seja só <code>5xx</code>, e dá a razão: um <code>4xx</code> também pode ser degradação (um JWT recusado por diferença de relógio, uma validação quebrada por mudança de contrato). Na loja, o erro do RED inclui três famílias: o <code>5xx</code> e o <em>timeout</em>; a resposta <strong>inválida</strong> ou duplicada; e o <strong>sucesso errado</strong>, o <code>201</code> com frete 0,00.</p>
+
+<p>Os <code>4xx</code> são <strong>observados e ficam fora do SLO</strong>: o <code>409</code> de "esgotado" (módulo 11), o <code>422</code> do cliente e o <code>429</code> do tenant (módulo 25) são decisões legítimas da loja, e não falhas. Mas um salto de <code>429</code> numa célula é um sinal, e se vê no painel. Como diz o artigo, <strong>todo código se monitora, e nem todo código entra no SLO</strong>.</p>
+
+<Widget name="red" title="RED: serviços" hint="Escolha o serviço (o pedidos) e preencha R, E, D por versão (2.4.0 e 2.5.0). Ligue e desligue a métrica de negócio e a definição de erro. Mostra o que o RED enxerga e o que não enxerga (o frete 0,00)." />
+
+<h3 class="sec">Duration, por versão</h3>
+
+<p>O <em>canary</em> do módulo 22 mandava 10% do tráfego para a <code>2.5.0</code> e comparava com a <code>2.4.0</code>. O RED por versão faz essa comparação sem ninguém olhar: um painel com Rate, Errors e Duration lado a lado para as duas. A <code>2.5.0</code> tinha <strong>a mesma Duration</strong> da <code>2.4.0</code>, <strong>0% de <code>5xx</code></strong> e o mesmo Rate. Todas as três linhas ficam verdes. Só um <strong>Errors semântico</strong> (<code>pedidos_frete_zero_total</code> sobre o total, por cidade) a denuncia: 20% dos pedidos da <code>2.5.0</code> (os de Recife, no mix do módulo 22) saíam com frete 0,00.</p>
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>Erro = só <code>5xx</code>, e Duration = só média.</strong> É o painel que quase toda equipe monta primeiro. Nele, a <code>2.5.0</code> fica <strong>verde</strong>: sem <code>5xx</code>, média igual. A loja perde R$ 15,00 por pedido em Recife por 60 min. O RED só ajuda se a palavra "erro" for escrita no <strong>domínio</strong> da loja e se a Duration for percentil. Foi a aula 1 de novo, agora com um painel e um nome para o que faltou.</p>
+
+<WhyItMatters>
+  <li><strong>O RED é o primeiro painel de cada serviço.</strong> Rate, Errors e Duration respondem ao que o cliente sente.</li>
+  <li><strong>O erro é semântico.</strong> <code>5xx</code>, <em>timeout</em>, resposta inválida, duplicidade, sucesso tardio e o frete 0,00.</li>
+  <li><strong>Por versão, é a base do <em>canary</em>.</strong> A <code>2.5.0</code> × <code>2.4.0</code> lado a lado.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">RED e USE se completam</h4>
+  <p>Os textos da Grafana, do PagerTree e da SolarWinds repetem a regra prática: USE para os recursos (infraestrutura, bancos, filas), RED para os serviços. Quem investiga começa pelo RED do serviço que o cliente usa e desce ao USE do recurso que ele consome. O RED é muito próximo dos quatro sinais da aula 10; a diferença é a saturação.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Pouca coisa a corrigir no RED.</strong> O artigo está certo ao pedir erro semântico e percentil. O que a aula acrescenta é o corte <strong>por versão e por célula</strong>, que o artigo cita só de passagem.</li>
+    <li><strong>Referências repetidas.</strong> O artigo lista o texto da Grafana duas vezes; aqui entra uma.</li>
+    <li><strong>Contas.</strong> O Rate por célula é a divisão de 30 pedidos/s pelas frações do módulo 26. Nenhum painel foi construído de verdade.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Grafana: The RED Method, how to instrument your services", href: "https://grafana.com/blog/the-red-method-how-to-instrument-your-services/" },
+    { label: "PagerTree: USE and RED", href: "https://pagertree.com/learn/devops/what-is-observability/use-and-red-method" },
+    { label: "SolarWinds: Monitoring and Observability with USE and RED", href: "https://www.solarwinds.com/blog/monitoring-and-observability-with-use-and-red" },
+  ]} />
+</Deep>
+
+<p class="gancho">O USE olha o recurso, o RED olha o serviço, e a loja ainda precisa de <strong>um painel só</strong> para dizer se o que o usuário sente está bem. Falta saber quais quatro números, se só pudesse ter quatro, descrevem isso. É a aula 10, os quatro sinais de ouro.</p>
+
+<Flashcards cards={[
+  { q: "O que o RED mede e em quê?",
+    a: "Rate, Errors e Duration, para cada serviço. É o que se instrumenta primeiro." },
+  { q: "Qual é o Rate do pedidos por célula na Black Friday?",
+    a: "30 pedidos/s: celula-sp 9,9 · celula-rio 4,5 · celula-recife 3,6 · celula-mkt 12,0." },
+  { q: "O que conta como erro no RED?",
+    a: "Tudo o que viola a expectativa: 5xx, timeout, resposta inválida, duplicidade, sucesso tardio e o 201 com frete 0,00. Os 4xx (409, 422, 429) são observados e ficam fora do SLO." },
+  { q: "Por que cortar o RED por versão?",
+    a: "Compara a 2.5.0 com a 2.4.0 no canary: com Rate, Errors e Duration iguais, só um Errors semântico mostra o frete 0,00." },
+  { q: "Como o RED falha?",
+    a: "Com erro = só 5xx e Duration = só média, a 2.5.0 fica verde enquanto a loja perde R$ 15,00 por pedido em Recife." },
+]} />

@@ -1,0 +1,99 @@
+---
+title: "Observabilidade × monitoramento"
+order: 2
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja estava no ar e errada, e só a métrica de negócio percebeu, uma hora depois. Aquele painel não era ruim: ele respondia, bem, às perguntas que alguém tinha pensado em fazer. Uma pergunta que ninguém previu ficou sem resposta. Veja o que acontece numa <strong>quinta-feira comum</strong>.</p>
+
+<p>É <strong>03/12/2026, 15:30:07.412</strong>, 5 pedidos por segundo. A newsletter das 15:30 anunciou "caneca em dobro", e <strong>todo</strong> pedido leva a <strong>caneca azul</strong> (produto 7). A Lena, de Recife (<code>celula-recife</code>, <code>lena-77</code>), compra <strong>3 canecas</strong>: 19,90 × 3 = 59,70, mais o frete de Recife, 15,00, <strong>R$ 74,70</strong>. O app mostra "pedido confirmado" depois de <strong>1,9 s</strong>; o normal é uns 0,3 s. O painel está <strong>verde</strong>: média boa, <code>5xx</code> em 0%, p95 dentro do SLO. A Lena escreve no chat. O app mostra um <strong>código de suporte</strong>, <code>9c1e5a7b</code>. É a única pista que ela tem. A pergunta do suporte é nova: <strong>por que o pedido dela foi lento?</strong></p>
+
+<OneLiner><strong>Monitoramento</strong> responde a perguntas que você já sabia fazer. <strong>Observabilidade</strong> é a propriedade do sistema que deixa fazer <strong>perguntas novas</strong> e achar a resposta pelo que ele emite.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Pilares</strong>, siga o <strong>1063</strong> de uma caixa à outra e conte as marcas que cada serviço deixa: um log, uma barra de métrica e um <em>span</em>. Depois ligue o "e se der errado" e veja quais caixas deixam de soltar o <code>trace_id</code>. A figura também tem um cenário de correlação, que refaz a investigação em três passos.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/sinais-3d/?mode=pilares" poster="labs/observabilidade/sinais-3d-previa.webp" title="Figura interativa: Os três sinais do 1063" alt="Prévia da figura 3D: Os três sinais do 1063" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Monitorar é acompanhar o conhecido.</strong> "A taxa de erro passou de 5%?", "a CPU passou de 80%?", "a fila do Kafka cresceu?". Você já sabe que a pergunta vale, escolhe um limite e deixa um alerta vigiando. O artigo chama isso de detectar <strong>sintomas</strong> conhecidos.</li>
+  <li><strong>Observar é perguntar o que ninguém previu.</strong> "Por que <strong>esta</strong> requisição da Lena foi lenta?" não tem um painel pronto. Se o sistema emite sinais ricos o bastante (cada um ligado ao pedido), dá para investigar sem mudar o código e sem esperar um novo <em>deploy</em>.</li>
+  <li><strong>A origem é a teoria de controle.</strong> Nos anos 1960, Rudolf Kalman chamou de <em>observável</em> o sistema cujo estado interno se infere <strong>só pelas saídas</strong>. Para o software, as saídas são os sinais: métricas, <em>traces</em> e logs.</li>
+  <li><strong>Uma é consequência da outra.</strong> O que a investigação descobre vira regra de monitoramento. O 1063 mostrou que uma tarefa de contagem trava o estoque; o time pode agora vigiar a espera por <em>lock</em> do <code>estoque</code>. Monitorar sem observar só repete o que já se sabe.</li>
+  <li><strong>É propriedade, não ferramenta.</strong> Uma empresa pode ter 50 painéis caros e nenhum <code>trace_id</code> nos logs. Ela monitora bastante e observa pouco. A observabilidade está na <strong>correlação</strong>, e não na marca do produto.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Os três sinais e o que cada um diz</h3>
+
+<p>O artigo fala em <strong>três pilares</strong>, e esta aula usa a palavra do projeto OpenTelemetry, <strong>sinais</strong>: a lista dele é maior (há também o <em>baggage</em> e outros em desenvolvimento), e "pilar" soa como definição. Os três sinais que o artigo traz respondem a coisas diferentes no mesmo episódio:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Sinal</th><th>Pergunta</th><th>No pedido 1063</th></tr></thead>
+  <tbody>
+    <tr><th>Métrica</th><td><strong>Que</strong> está lento? Quanto?</td><td><code>estoque_reservar_duracao_segundos</code>: 8 pedidos acima de 1 s numa janela de 5 min</td></tr>
+    <tr><th><em>Trace</em></th><td><strong>Onde</strong> o tempo foi?</td><td>1.895 ms no total; o <code>estoque</code> gastou <strong>1.640</strong>, ou 86,5%</td></tr>
+    <tr><th>Log</th><td><strong>Por quê</strong>?</td><td>WARN <code>espera por lock</code>, <code>holder</code>: <code>contagem-estoque</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Nenhum dos três responde sozinho. A métrica sabe que 8 pedidos demoraram e não sabe quais. O <em>trace</em> sabe qual pedido e onde, e não sabe o motivo. O log sabe o motivo e só o encontra por quem o procura. O que os <strong>liga</strong> é um identificador que viaja em todos: o <code>trace_id</code> <code>9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52</code>, do qual o código de suporte é o começo. Pense no <code>7f3a…</code> do pedido 1047, no módulo 6: era o mesmo gesto, ainda curto. Aqui ele ganha o tamanho de 32 caracteres hexadecimais, e as próximas aulas abrem cada um dos três sinais.</p>
+
+<h3 class="sec">O ciclo da investigação</h3>
+
+<p>Na prática o caminho é sempre o mesmo, e ele tem ordem, do mais barato ao mais caro: o <strong>alerta</strong> avisa que algo mudou; a <strong>métrica</strong> mostra <em>que</em> e <em>quanto</em>; o <strong>trace</strong> do pedido da Lena mostra <em>onde</em>; o <strong>log</strong> do mesmo <code>trace_id</code> mostra <em>por quê</em>. O último elo vira conserto (contar o estoque por <em>snapshot</em>, e não por <code>FOR UPDATE</code>) e novo alerta. Esse conserto fica fora do escopo da aula; o que ela mostra é o caminho que levou até ele.</p>
+
+<h3 class="sec">E se der errado: a ferramenta cara sem observabilidade</h3>
+
+<p>Imagine a loja com tudo instalado e mal ligado. Os logs não têm o <code>trace_id</code>: a linha do <code>estoque</code> existe, mas ninguém a acha. As métricas não têm o rótulo <code>celula</code>: a Lena está na <code>celula-recife</code>, e o painel mistura as quatro (o módulo 26 já pedia observabilidade <strong>segmentada</strong>). O consumidor do Kafka não repassa o <code>traceparent</code>: o <em>trace</em> parte ao meio. Cada ferramenta funciona, e juntas não respondem a nada. Ter os três sinais <strong>não</strong> é ter observabilidade; é preciso <strong>correlação</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>O painel verde não era mentira.</strong> Média, <code>5xx</code> e p95 estavam certos; o episódio atingiu 8 pedidos em 1.000 e ficou fora deles.</li>
+  <li><strong>A pergunta nova precisa de um fio.</strong> O <code>trace_id</code> liga o pedido da Lena à métrica, ao <em>trace</em> e ao log.</li>
+  <li><strong>O que se acha vira alerta.</strong> A espera por <em>lock</em> do <code>estoque</code> deixa de ser surpresa na próxima vez.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Por que correlacionar por id e não por horário</h4>
+  <p>Seria tentador juntar os logs pelo relógio: "tudo o que aconteceu às 15:30:07". Em um sistema distribuído os relógios divergem, e Lamport mostrou em <em>Time, Clocks, and the Ordering of Events in a Distributed System</em> que a ordem entre eventos de máquinas diferentes não se tira só dos horários. Um identificador que acompanha o pedido evita a conta.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Três pilares" como definição.</strong> O próprio artigo diz que observabilidade é propriedade, e não ferramenta. Os pilares são <strong>sinais</strong>, e a OpenTelemetry lista traces, métricas, logs e <em>baggage</em>, com outros em desenvolvimento. Ter os três não basta.</li>
+    <li><strong>O que falta no artigo.</strong> A observabilidade <strong>por célula</strong> (o rótulo <code>celula</code>, no sentido do módulo 26) e a propagação de contexto entre serviços, que a aula 5 mostra.</li>
+    <li><strong>Contas, não medições.</strong> Os números do 1063 (os <em>spans</em>, o <code>contagem-estoque</code>) são <strong>exemplo</strong> definido neste módulo. Nenhum OpenTelemetry, Prometheus ou Grafana foi rodado.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "OpenTelemetry: Observability primer", href: "https://opentelemetry.io/docs/concepts/observability-primer/" },
+    { label: "OpenTelemetry: Signals", href: "https://opentelemetry.io/docs/concepts/signals/" },
+    { label: "Wikipédia: Observability", href: "https://en.wikipedia.org/wiki/Observability" },
+    { label: "Lamport: Time, Clocks, and the Ordering of Events (aprofundar)", href: "https://lamport.azurewebsites.net/pubs/time-clocks.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">A Lena tem um código, <code>9c1e5a7b</code>, e o time tem três sinais com perguntas diferentes. Falta saber o que cada um responde e o que custa, a começar pelo mais barato: a <strong>métrica</strong>. É a aula 3.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre monitoramento e observabilidade?",
+    a: "Monitoramento responde a perguntas conhecidas ('o erro passou de 5%?'). Observabilidade é a propriedade que deixa fazer perguntas novas ('por que esta requisição da Lena foi lenta?')." },
+  { q: "De onde vem a palavra observabilidade?",
+    a: "Da teoria de controle, anos 1960 (Kalman): um sistema é observável se o estado interno se infere pelas saídas." },
+  { q: "O que cada sinal responde no pedido 1063?",
+    a: "A métrica diz que (8 pedidos acima de 1 s), o trace diz onde (1.640 de 1.895 ms no estoque) e o log diz por quê (o holder é a contagem-estoque)." },
+  { q: "Por que painel verde e Lena esperando 1,9 s não se contradizem?",
+    a: "O episódio atingiu 8 de 1.000 pedidos: não move o p95 nem o p99, e o 5xx é 0%. O painel responde ao que foi previsto." },
+  { q: "Como a ferramenta cara pode não dar observabilidade?",
+    a: "Logs sem trace_id, métricas sem o rótulo celula e traces que partem no Kafka: cada sinal existe, mas nada os liga." },
+]} />
