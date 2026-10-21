@@ -1,0 +1,105 @@
+---
+title: "Agregados"
+order: 3
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A aula passada deixou uma lista que só cresce, e uma pergunta: quem impede que entre qualquer coisa nela? Um <code>PedidoEnviado</code> para um pedido que ainda nem foi pago seria um fato <strong>falso</strong>, e como o evento é imutável, o falso ficaria para sempre. Alguém precisa conferir a regra <strong>antes</strong> de o fato existir. Esse alguém se chama <strong>agregado</strong>.</p>
+
+<OneLiner>O <strong>agregado</strong> é a unidade que <strong>decide</strong>, <strong>valida</strong> e <strong>ordena</strong> os eventos de um mesmo assunto: um <em>stream</em>, uma fronteira de consistência. Ele recebe <strong>comandos</strong> (imperativos, que podem ser recusados) e emite <strong>eventos</strong> (no passado, sempre verdadeiros).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Agregado</strong>, mande o comando <code>Enviar</code> com o pedido ainda em <code>criado</code> e veja a <strong>recusa</strong>: nenhum evento nasce. Depois mande <code>Pagar</code> e então <code>Enviar</code>, e veja o <code>PedidoEnviado</code> entrar na fita com a versão seguinte.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/eventos-3d/?mode=agregado" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Figura interativa: O agregado" alt="Prévia da figura 3D: O agregado" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Dois agregados na loja.</strong> O <code>Pedido</code> (stream <code>pedido-&lt;id&gt;</code>, no serviço <code>pedidos</code>) e o <code>Estoque</code> (stream <code>estoque-&lt;sku&gt;</code>). Cada um tem o seu estado interno, as suas regras e a sua fila de eventos.</li>
+  <li><strong>O comando pede.</strong> <code>Pagar</code>, <code>Enviar</code>, <code>Reservar</code> são imperativos: dizem o que se <strong>quer</strong> que aconteça. Podem ser recusados. Ninguém grava nada só porque pediu.</li>
+  <li><strong>A regra decide.</strong> O <code>Pedido</code> aceita <code>Pagar</code> só em <code>criado</code> e <code>Enviar</code> só em <code>pago</code>. O <code>Estoque</code> aceita <code>Reservar</code> enquanto o saldo for maior que 0 e <strong>recusa</strong> com o saldo em 0. Para decidir, o agregado primeiro reconstrói o seu estado a partir dos próprios eventos (a rehidratação da aula 7).</li>
+  <li><strong>O evento registra.</strong> Aceito o comando, nasce um fato no passado: <code>PedidoPago</code>, <code>PedidoEnviado</code>, <code>EstoqueReservado</code>. Ele entra no fim do stream com a próxima versão e <strong>nunca mais muda</strong>.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Agregado</th><th>Comando</th><th>Estado atual</th><th>Resultado</th></tr></thead>
+  <tbody>
+    <tr><th><code>pedido-1047</code></th><td><code>Pagar</code></td><td><code>criado</code></td><td>aceita: <code>PedidoPago</code> (<code>e-502</code>, versão 2)</td></tr>
+    <tr><th><code>pedido-1047</code></th><td><code>Enviar</code></td><td><code>criado</code></td><td><strong>recusa</strong>: ainda não foi pago</td></tr>
+    <tr><th><code>pedido-1047</code></th><td><code>Enviar</code></td><td><code>pago</code></td><td>aceita: <code>PedidoEnviado</code> (<code>e-504</code>, versão 3)</td></tr>
+    <tr><th><code>estoque-GATO-042</code></th><td><code>Reservar</code> (pedido 1047)</td><td>saldo 3</td><td>aceita: <code>EstoqueReservado</code> (<code>e-503</code>, versão 2; saldo 3 → 2)</td></tr>
+    <tr><th><code>estoque-GATO-042</code></th><td><code>Reservar</code></td><td>saldo 0</td><td><strong>recusa</strong>: sem estoque</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">De quem é cada fato</h3>
+
+<p>Uma escolha de desenho vale registrar, porque ela decide onde cada evento mora. O <code>PedidoPago</code> é fato do <strong>pedido</strong>: o serviço <code>pedidos</code> o registra quando o <code>pagamentos</code> avisa, e guarda o <code>evento_id</code> <code>e-502</code> nos <strong>metadados</strong>. O <code>EstoqueReservado</code> é fato do <strong>estoque</strong>: vai para o stream <code>estoque-GATO-042</code> como versão 2 (a versão 1 é o saldo inicial, +3). Por isso o pedido 1047 tem 4 eventos no seu stream, e não 5.</p>
+
+<p>O tamanho do agregado é uma decisão de desenho: <strong>pequeno</strong>. Um pedido, um SKU. Nunca "a loja". O motivo aparece abaixo.</p>
+
+<h3 class="sec">E se der errado: o agregado grande demais</h3>
+
+<p>Suponha que o estoque inteiro da loja seja <strong>um</strong> agregado, com um stream só. Na Black Friday a loja recebe 30 pedidos por segundo, e cada um precisa de um <code>Reservar</code>: são <strong>30 comandos por segundo no mesmo stream</strong>. Cada comando lê o estado, decide e tenta gravar a versão seguinte, e dois ao mesmo tempo disputam a <strong>mesma</strong> versão (o conflito da aula 4). O stream vira uma fila. O conserto é um stream <strong>por SKU</strong>: o gato (<code>estoque-GATO-042</code>) e a caneca (<code>estoque-CANECA-007</code>) deixam de brigar.</p>
+
+<p>Há uma segunda falha, mais silenciosa: o <strong>evento que mente</strong>. Se o comando passa pela regra errada (digamos, um <code>Enviar</code> aceito com o pedido em <code>criado</code>), o <code>PedidoEnviado</code> nasce, é "verdadeiro" para todo mundo e é <strong>permanente</strong>. Corrigir exige outro evento (aula 2). Por isso a regra mora <strong>dentro</strong> do agregado, antes do fato.</p>
+
+<WhyItMatters>
+  <li><strong>O agregado protege a verdade do log.</strong> Só entra evento que a regra aceitou; recusado não deixa rastro no stream.</li>
+  <li><strong>Comando e evento são diferentes.</strong> O comando é imperativo e pode falhar; o evento é passado e nunca falha.</li>
+  <li><strong>Um stream, uma fronteira de consistência.</strong> Dentro dele a ordem e a regra são garantidas; entre streams, não.</li>
+  <li><strong>Pequeno é melhor.</strong> Um SKU por stream: 30 comandos/s ficam espalhados, e não numa fila só.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Comando × evento, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Comando</th><th>Evento</th></tr></thead>
+    <tbody>
+      <tr><th>Tempo verbal</th><td>imperativo: <code>Pagar</code></td><td>passado: <code>PedidoPago</code></td></tr>
+      <tr><th>Pode ser recusado?</th><td>sim, pela regra do agregado</td><td>não: já aconteceu</td></tr>
+      <tr><th>Quantos por resultado</th><td>vários podem tentar</td><td>um por mudança aceita</td></tr>
+      <tr><th>Onde fica</th><td>só em trânsito</td><td>no stream, para sempre</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">O que o artigo diz e o que acrescentamos</h4>
+  <ul>
+    <li><strong>A definição.</strong> O artigo descreve o agregado como a unidade "que decide quais eventos podem ocorrer, em que ordem e sob quais condições". Está certo. Faltam duas coisas: o <strong>tamanho</strong> (o agregado grande vira gargalo, como acima) e a separação entre <strong>comando</strong> (pode falhar) e <strong>evento</strong> (fato). Fowler define o evento de domínio como o registro de algo que afeta o domínio e <strong>já aconteceu</strong>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "AWS Prescriptive Guidance: padrão Event sourcing", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html" },
+    { label: "Greg Young: CQRS Documents (PDF)", href: "https://cqrs.wordpress.com/wp-content/uploads/2010/11/cqrs_documents.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">O agregado decide e ordena, e o resultado é uma sequência de eventos com versões. Falta saber <strong>onde</strong> esses eventos moram, e o que impede dois comandos de gravarem a mesma versão ao mesmo tempo.</p>
+
+<Flashcards cards={[
+  { q: "O que é um agregado?",
+    a: "A unidade que decide, valida e ordena os eventos de um mesmo assunto: um stream, uma fronteira de consistência. Na loja, um pedido ou um SKU." },
+  { q: "Qual a diferença entre comando e evento?",
+    a: "O comando é imperativo (Pagar) e pode ser recusado pela regra. O evento é passado (PedidoPago): já aconteceu e nunca mais muda." },
+  { q: "O que o agregado Pedido recusa?",
+    a: "Enviar com o pedido ainda em criado (só aceita Enviar em pago) e Pagar fora de criado. Nada é gravado no stream quando o comando é recusado." },
+  { q: "De quem é o EstoqueReservado e o PedidoPago?",
+    a: "O EstoqueReservado é do estoque (stream estoque-GATO-042, versão 2, e-503). O PedidoPago é do pedido (e-502, versão 2 do pedido-1047); o pedidos o registra quando o pagamentos avisa." },
+  { q: "Por que o agregado deve ser pequeno?",
+    a: "Um stream com todo o estoque receberia 30 comandos/s e viraria fila de conflitos. Um stream por SKU espalha a carga." },
+]} />

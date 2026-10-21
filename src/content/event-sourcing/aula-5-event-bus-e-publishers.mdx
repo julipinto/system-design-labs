@@ -1,0 +1,106 @@
+---
+title: "Event Bus e publishers"
+order: 5
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import txListener from '../../lab-code/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
+
+<p class="ponte">Na aula passada o <code>PedidoEnviado</code> entrou no Event Store como versão 3 do <code>pedido-1047</code>, em ordem e sem corrida. Só que o Store é um <strong>log</strong>: ninguém lê dele a cada tela. Quem precisa dos fatos (o <code>estoque</code>, o <code>meus-pedidos</code>, o faturamento) está <strong>fora</strong>, e alguém precisa levar até lá. É o trabalho do <strong>Event Bus</strong>.</p>
+
+<OneLiner>O <strong>Event Store</strong> é a <strong>fonte da verdade</strong>; o <strong>Event Bus</strong> leva as <strong>consequências</strong> dos eventos a outros serviços. Os <strong>publishers</strong> leem os eventos já confirmados no Store e os publicam em tópicos, filas ou barramentos.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Bus</strong>, avance o <code>e-504</code> (<code>PedidoEnviado</code>) do Store até o barramento. Depois <strong>derrube o publisher logo depois do commit</strong>: o evento fica no Store e não sai. Veja a posição do último evento publicado trazer o <code>e-504</code> de volta.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/eventos-3d/?mode=bus" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Figura interativa: Publisher e bus" alt="Prévia da figura 3D: Publisher e bus" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Primeiro o Store, depois o bus.</strong> O <code>pedidos</code> grava o <code>PedidoEnviado</code> no Store. Só <strong>depois</strong> de confirmado o <em>publisher</em> o lê e o publica (Kafka, RabbitMQ, SQS, NATS ou Pulsar, conforme o SLA). O artigo resume: o Store é a <em>golden source</em>; o bus é o meio de projetar as consequências.</li>
+  <li><strong>A publicação só pode sair se a gravação deu certo.</strong> O artigo pede que a publicação seja "atômica" com a gravação e não diz como. É a mesma dívida do módulo 18: se publicar e gravar são duas escritas, uma pode falhar sem a outra. A saída é a <strong>outbox</strong> ou o <strong>CDC</strong>, que o módulo 18 mostrou.</li>
+  <li><strong>A ordem vale por stream.</strong> O publisher usa o <code>pedido_id</code> como chave da mensagem (módulo 13): todos os eventos do 1047 vão para a mesma partição, e a ordem de um pedido se mantém. Entre pedidos diferentes não há ordem, e nem precisa haver.</li>
+  <li><strong>A entrega é "pelo menos uma vez".</strong> O bus pode entregar o mesmo evento duas vezes (o relay reenvia, o consumidor cai e relê). Por isso o consumidor precisa ser <strong>idempotente</strong>, a aula 10.</li>
+  <li><strong>Mais de um barramento.</strong> O exemplo do artigo é uma conta bancária: um evento de <strong>nova conta</strong> vai para os domínios que precisam criar a estrutura base; depois, cada <strong>transação</strong> confirmada vai para outro barramento, de onde o saldo e o extrato se compõem. Na loja é igual: um tópico para o pedido, outro para o estoque.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O README do laboratório diz que ele "só publica os tópicos <strong>após</strong> commit bem-sucedido". O trecho é do <code>saveEventTx</code> e do que vem depois, no <code>transaction/listener.go</code>. Foi <strong>lido, não executado</strong>.</p>
+
+<CodeLab code={txListener} from={274} to={298} />
+
+<ol class="flow steps">
+  <li>As linhas 274 a 276 saem da função se a transação falhou: nada é publicado.</li>
+  <li>A linha 288 <strong>publica depois</strong> de a transação já ter confirmado (<code>publishConfirmation</code>). O evento já está no Store.</li>
+  <li>Se a publicação falha (linhas 289 a 298), o código <strong>só registra o erro</strong> e segue. Mais abaixo a função termina com sucesso. É a <strong>escrita dupla</strong> do módulo 18: o evento <strong>existe</strong> no Store e <strong>nunca</strong> chega aos modelos de leitura.</li>
+</ol>
+
+<p>O laboratório tem uma saída, só que à mão: o <code>rehydratate</code> (aula 7) lê o Store de novo e <strong>republica</strong>. Nada o dispara sozinho.</p>
+
+<h3 class="sec">E se der errado: o evento está no Store e nunca saiu</h3>
+
+<p>O processo cai <strong>entre</strong> o commit e o publish. O <code>PedidoEnviado</code> existe no <code>pedido-1047</code>, e o Kafka nunca o recebeu. O <code>meus-pedidos</code> continua mostrando <code>pago</code>. Nenhum erro aparece em lugar nenhum, porque a escrita no Store deu certo e a publicação nem foi tentada.</p>
+
+<p>A defesa é o publisher <strong>ler o próprio Store</strong> em vez de depender de quem escreveu: ele guarda a <strong>posição do último evento publicado</strong> e, ao voltar (ou a cada poucos segundos), publica tudo o que está depois dessa posição. O evento que ficou para trás sai, <strong>pelo menos uma vez</strong>, e o consumidor (idempotente) absorve o duplicado. É o que o <code>rehydratate</code> do laboratório faz à mão.</p>
+
+<WhyItMatters>
+  <li><strong>Store e bus têm papéis diferentes.</strong> O Store guarda a verdade; o bus entrega as consequências. Um não substitui o outro.</li>
+  <li><strong>Publicar é uma segunda escrita.</strong> Sem outbox ou CDC, a janela entre commit e publish perde eventos (a escrita dupla do módulo 18).</li>
+  <li><strong>A ordem vem da chave.</strong> Com o <code>pedido_id</code> como chave, cada pedido fica numa partição e mantém a ordem.</li>
+  <li><strong>O Store é a rede de segurança.</strong> Com a posição do último publicado, um evento esquecido volta sozinho.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde cada garantia mora</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Garantia</th><th>Quem dá</th><th>Como</th></tr></thead>
+    <tbody>
+      <tr><th>Ordem dentro do stream</th><td>Event Store</td><td><code>versao</code> e <code>UNIQUE (stream_id, versao)</code></td></tr>
+      <tr><th>Ordem por pedido no bus</th><td>Event Bus</td><td>chave <code>pedido_id</code>, uma partição</td></tr>
+      <tr><th>Evento não se perde</th><td>publisher</td><td>outbox, CDC ou ler o Store pela posição</td></tr>
+      <tr><th>Sem efeito duplicado</th><td>consumidor</td><td>idempotência (aula 10)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Um cuidado de quem lê o Store por posição: se a posição for o <code>id</code> de um <code>bigserial</code>, duas transações podem confirmar fora da ordem do <code>id</code>, e um publisher que só lê "tudo com id maior que o último" pode pular um evento que ainda não tinha confirmado. É o motivo de se preferir o CDC ou a outbox (módulo 18) a um simples <code>SELECT … WHERE id &gt; ?</code>.</p>
+  <h4 class="deep-h">Correções ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>Event Bus não é o Event Store.</strong> O artigo diz isso numa frase e mistura nas outras. O bus <strong>não é obrigatório</strong>: Event Sourcing existe sem ele.</li>
+    <li><strong>Publicação "atômica".</strong> O artigo pede que o evento só saia quando a gravação for bem-sucedida, sem dizer como. É a outbox ou o CDC (módulo 18). O laboratório publica <strong>depois do commit</strong>, com a janela de escrita dupla.</li>
+    <li><strong>Kafka como store.</strong> Serve ao bus, não ao store (aula 4).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Axon Framework: infraestrutura de eventos (Event Bus e Event Store)", href: "https://docs.axoniq.io/axon-framework-reference/4.11/events/infrastructure/" },
+    { label: "Repositório do autor: event-source-distributed-ledger", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "Módulo 18 do SDLabs (CQRS): escrita dupla, CDC e outbox" },
+  ]} />
+</Deep>
+
+<p class="gancho">O Store guarda e o bus entrega. Falta saber o que quem <strong>escuta</strong> faz com os eventos: como o <code>PedidoEnviado</code> vira uma tela de acompanhamento que a Lena consegue ler em um milissegundo.</p>
+
+<Flashcards cards={[
+  { q: "Qual a diferença entre Event Store e Event Bus?",
+    a: "O Store é a fonte da verdade (o log de fatos). O bus leva as consequências desses fatos a outros serviços. O bus não é obrigatório; o Store é." },
+  { q: "O que o publisher faz?",
+    a: "Lê os eventos já confirmados no Store e os publica em tópicos, filas ou barramentos (Kafka, RabbitMQ, SQS, NATS, Pulsar)." },
+  { q: "Como a publicação fica atômica com a gravação?",
+    a: "Com a outbox ou o CDC do módulo 18. O laboratório do autor publica depois do commit, com a janela de escrita dupla." },
+  { q: "O que acontece se o processo cai entre o commit e o publish?",
+    a: "O evento existe no Store e nunca sai: o estoque não reserva e a tela não atualiza. A defesa é o publisher ler o Store pela posição do último publicado." },
+  { q: "Que garantias o bus dá?",
+    a: "Ordem por stream (chave pedido_id) e entrega pelo menos uma vez. Sem duplicidade de efeito só se o consumidor for idempotente." },
+]} />

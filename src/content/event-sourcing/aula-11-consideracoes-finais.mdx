@@ -1,0 +1,103 @@
+---
+title: "Considerações finais"
+order: 11
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o <code>e-502</code> deixou de contar duas vezes, e a lista de cuidados do Event Sourcing ficou completa: versão esperada, publicação que não perde evento, projeções que se refazem, rehidratação com snapshot, ordem por versão, idempotência. Cada um custou uma aula. Falta somar a conta e decidir se, para a loja, <strong>vale pagá-la</strong>.</p>
+
+<OneLiner>O Event Sourcing dá <strong>histórico, auditoria, reconstrução e projeções à vontade</strong>, e cobra <strong>complexidade</strong>: eventos versionados, consistência eventual, uma projeção para tudo que se consulta e idempotência em toda ponta. Vale onde <strong>o histórico é o produto</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Tabela</strong>, compare a tabela e os eventos do 1047 e escolha <strong>onde a Lena veria cada resposta</strong>: "onde está meu pedido?" (a tabela, ou o modelo de leitura) e "o que aconteceu com ele às 14:15?" (os eventos).</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/eventos-3d/?mode=tabela-x-eventos" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Figura interativa: Tabela × eventos" alt="Prévia da figura 3D: Tabela × eventos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O que se ganha.</strong> Cada mudança fica guardada, em ordem, e pode ser <strong>auditada</strong> ("o que o 1047 era às 14:15?") e <strong>reconstruída</strong> (um modelo de leitura estragado se refaz do Store, em 2 h 47 min nos 200 milhões de eventos). Projeções novas nascem lendo o passado.</li>
+  <li><strong>O que se paga.</strong> Eventos <strong>versionados</strong> (o formato evolui com <em>upcasting</em>), <strong>consistência eventual</strong> entre o Store e os modelos, <strong>uma projeção</strong> para cada coisa que se consulta, <strong>idempotência</strong> em todo consumidor e uma estratégia de <strong>concorrência</strong> por stream.</li>
+  <li><strong>Quando usar.</strong> Em domínios em que <strong>o histórico é o produto</strong>: pagamento, saldo, pedido com auditoria, prontuário. Quando se precisa <strong>reconstruir</strong> estado. Quando o time tem maturidade com eventos.</li>
+  <li><strong>Quando não usar.</strong> Cadastro simples, CRUD, uma entidade que muda pouco e cujo histórico ninguém lê, e equipe sem prática de eventos. Fowler e a Microsoft apontam casos assim como de pouco ganho para o padrão.</li>
+  <li><strong>Com quem combina.</strong> Event Sourcing <strong>não é obrigatório</strong> para CQRS nem para Saga, mas combinam. A saga com o log como fonte (módulo 19) e o CQRS com o Store no lado do comando (módulo 18).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Ganho</th><th>O que custa</th><th>Aula</th></tr></thead>
+  <tbody>
+    <tr><th>histórico e auditoria</th><td>metadados (quem, por quê) e armazenamento: ~52,6 GB para 200 milhões de eventos</td><td>2 e 4</td></tr>
+    <tr><th>decisões seguras</th><td>agregados pequenos e conflito de versão com retry</td><td>3 e 4</td></tr>
+    <tr><th>leitura rápida</th><td>projeções e consistência eventual</td><td>5 e 6</td></tr>
+    <tr><th>reconstrução</th><td>rehidratação linear (1,8 s por milhão) e snapshot que pode mentir</td><td>7 e 8</td></tr>
+    <tr><th>modelos corretos</th><td>ordem por versão e idempotência em toda ponta</td><td>9 e 10</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">O que muda na loja</h3>
+
+<p>O pedido 1047 passa a ser a lista de eventos <code>e-501</code>, <code>e-502</code>, <code>e-504</code> e <code>e-505</code>, no stream <code>pedido-1047</code>. A tabela <code>pedidos</code> deixa de ser a <strong>fonte</strong> e vira uma <strong>projeção</strong>: um modelo de leitura que se pode apagar e refazer. O que não muda é a tela da Lena, que continua lendo uma linha pronta.</p>
+
+<h3 class="sec">E se der errado: dado pessoal num log imutável</h3>
+
+<p>O <code>PedidoCriado</code> do 1047 carrega o endereço da Lena. Um dia ela pede para a loja <strong>apagar os seus dados</strong>. Mas o evento é imutável, e o log é a fonte da verdade: não se edita. Há dois caminhos de que se costuma falar. Um é <strong>não colocar o dado pessoal no evento</strong> (o evento só tem uma referência, e o dado fica em outra tabela que se pode apagar). O outro é <strong>criptografar o dado pessoal por cliente</strong> e descartar a chave quando o pedido de apagar chega, de modo que o evento continua lá e o dado ficou ilegível. Este módulo <strong>só avisa</strong>: não há fonte verificada aqui sobre como cada lei exige apagar, e o desenho precisa ser pensado <strong>antes</strong> de o primeiro evento ser gravado, porque depois é tarde.</p>
+
+<WhyItMatters>
+  <li><strong>É um trade-off, não uma evolução.</strong> A loja troca simplicidade por histórico e reconstrução.</li>
+  <li><strong>Vale onde o histórico é o produto.</strong> Pagamento, saldo, pedido com auditoria e prontuário.</li>
+  <li><strong>Não vale para CRUD.</strong> Cadastro simples e equipe sem prática de eventos pagam a conta sem receber o ganho.</li>
+  <li><strong>Combina, mas não obriga.</strong> CQRS e Saga funcionam com ou sem Event Sourcing.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Event Sourcing, CQRS e Saga: três padrões, três perguntas</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Padrão</th><th>Pergunta que responde</th><th>Exige os outros?</th></tr></thead>
+    <tbody>
+      <tr><th>Event Sourcing</th><td>como guardar a verdade?</td><td>não</td></tr>
+      <tr><th>CQRS</th><td>como separar escrever de ler?</td><td>não</td></tr>
+      <tr><th>Saga</th><td>como terminar uma operação que cruza serviços?</td><td>não</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Auditoria.</strong> Os eventos dão "o quê e quando". "Quem e por quê" exigem <strong>metadados</strong> (<code>correlation_id</code>, <code>causation_id</code>, usuário). O laboratório do autor carrega só o <code>correlationID</code>.</li>
+    <li><strong>Imutabilidade.</strong> O artigo fala de eventos imutáveis e não de como corrigir (evento de correção), evoluir o formato (<em>upcasting</em>) ou lidar com dado pessoal num log que não se edita.</li>
+    <li><strong>Event Sourcing "em sistemas event-driven".</strong> Os quatro padrões de Fowler são independentes (aula 1).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Event Sourcing", href: "https://martinfowler.com/eaaDev/EventSourcing.html" },
+    { label: "Microsoft Learn: padrão Event Sourcing", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+    { label: "Greg Young: CQRS Documents (PDF)", href: "https://cqrs.wordpress.com/wp-content/uploads/2010/11/cqrs_documents.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora guarda os fatos, separa leitura de escrita e compensa o que dá errado. Mas tudo isso depende de <strong>chamadas que podem demorar, repetir ou falhar</strong>: o PSP respondendo em 8 s, o evento duplicado, a tempestade de retentativas, o <em>fallback</em>. Falta saber como a loja <strong>continua de pé</strong> quando as dependências falham: é o módulo 21, Patterns de Resiliência.</p>
+
+<Flashcards cards={[
+  { q: "O que o Event Sourcing dá?",
+    a: "Histórico, auditoria, reconstrução de estado e projeções à vontade, tudo a partir dos eventos guardados." },
+  { q: "O que ele cobra?",
+    a: "Complexidade: eventos versionados, consistência eventual, uma projeção para tudo que se consulta, idempotência em toda ponta e conflito de versão por stream." },
+  { q: "Quando usar e quando não usar?",
+    a: "Usar onde o histórico é o produto (pagamento, saldo, pedido auditado, prontuário). Não usar em CRUD e cadastros que mudam pouco, nem em equipe sem prática de eventos." },
+  { q: "Event Sourcing é obrigatório para CQRS ou para Saga?",
+    a: "Não. São padrões independentes que combinam: a saga com o log como fonte e o CQRS com o Store no lado do comando." },
+  { q: "O que fazer com dado pessoal num log imutável?",
+    a: "Planejar antes: dado pessoal fora do evento, ou criptografado por cliente com chave descartável. Este módulo só avisa; não há fonte verificada sobre a exigência de cada lei." },
+]} />

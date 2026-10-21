@@ -1,0 +1,92 @@
+---
+title: "Persistência tradicional × Event Sourcing"
+order: 2
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a tabela <code>pedidos</code> mostrou o seu defeito: o 1047 virou <code>entregue</code> e o caminho sumiu. Mas esconder o histórico é só metade da diferença. A outra metade está no <strong>verbo</strong>: a tabela <strong>substitui</strong>, e o Event Sourcing só <strong>acrescenta</strong>. Vale olhar o que cada jeito faz com as mesmas três operações, e que perguntas cada um responde.</p>
+
+<OneLiner>No modelo tradicional cada operação (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>) <strong>substitui</strong> o estado. No Event Sourcing toda operação é uma <strong>inserção</strong>, e para saber "como está agora" é preciso <strong>somar</strong> os eventos. Escrever fica barato e ler fica mais caro.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Tabela</strong>, "volte" o relógio para <strong>14:15</strong> e leia o status do 1047 <strong>pelos eventos</strong>: a resposta é <code>pago</code>, versão 2. Depois tente a mesma pergunta na tabela, que só sabe dizer <code>entregue</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/eventos-3d/?mode=tabela-x-eventos" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Figura interativa: Tabela × eventos" alt="Prévia da figura 3D: Tabela × eventos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O exemplo do artigo.</strong> Um pagamento recebe <code>PagamentoCriado</code> (<code>INSERT</code>, <code>status=criado</code>), <code>PagamentoConfirmado</code> (<code>UPDATE</code>, <code>confirmado</code>) e <code>PagamentoEstornado</code> (<code>UPDATE</code>, <code>estornado</code>). Ao fim existe <strong>uma</strong> linha, <code>estornado</code>. O pedido 1047 é a mesma história: três <code>UPDATE</code> e a linha diz <code>entregue</code>.</li>
+  <li><strong>O mesmo caso com eventos.</strong> As três operações viram três <strong>inserções</strong> numa tabela de eventos. Nada se apaga e nada se altera. Quem quer o estado lê os eventos do pedido e os <strong>soma</strong> (a aula 7 mostra a conta).</li>
+  <li><strong>Que perguntas só os eventos respondem.</strong> "Qual era o status às 14:15?" (<code>pago</code>, versão 2). "Quantas vezes o endereço mudou?" (conta os eventos <code>EnderecoAlterado</code>). "O que cada versão do app mostrou à Lena?" (dobra até a hora em que ela olhou). A tabela não responde nenhuma, porque o dado antigo foi sobrescrito.</li>
+  <li><strong>Que pergunta a tabela responde melhor.</strong> "Quais pedidos estão <code>enviado</code> <strong>agora</strong>?" A tabela tem um índice por status e devolve a lista direto. Nos eventos seria preciso dobrar o fluxo de cada pedido para descobrir o estado de cada um. Por isso o Event Sourcing sempre vem com modelos de leitura (aula 6).</li>
+</ol>
+</HowItWorks>
+
+<Widget name="armazenamento" title="Armazenamento: eventos × estado" hint="Eventos por pedido (2 a 10) e pedidos (1 a 50 milhões): quantos GB o Event Store ocupa (~263 B por evento) contra a tabela pedidos do módulo 16 (140 GB com 50 milhões de linhas)." />
+
+<h3 class="sec">A conta do espaço</h3>
+
+<p>A tabela <code>pedidos</code> do módulo 16 tem 50 milhões de linhas e <strong>140 GB</strong> com índices. Com 4 eventos por pedido são <strong>200 milhões</strong> de eventos. Medidos num PostgreSQL 14 (tabela e índices, payload pequeno), cada evento ocupa ~<strong>263 B</strong>, então o Event Store teria ~<strong>52,6 GB</strong>. É uma estimativa: o <code>PedidoCriado</code> real tem 336 B só de JSON.</p>
+
+<p>Dois cuidados com essa conta. Ela <strong>não</strong> diz que o Event Sourcing economiza: a tabela <code>pedidos</code> continua existindo como <strong>modelo de leitura</strong>, então os 52,6 GB se somam aos 140 GB. E ela vale para pedidos que mudam <strong>4 vezes</strong>. Uma entidade que muda 10 vezes por dia cresce muito mais, e é o que o widget deixa testar.</p>
+
+<h3 class="sec">E se der errado: corrigir um erro no passado</h3>
+
+<p>Digamos que o <code>PedidoPago</code> foi gravado com o valor errado. Na tabela, um <code>UPDATE</code> conserta. No Event Sourcing o evento é <strong>imutável</strong>: ele aconteceu, e a história registra que aconteceu assim. O conserto é gravar <strong>outro evento</strong>, um <code>PagamentoCorrigido</code>, que diz o valor certo. Dois custos vêm junto. Toda <strong>projeção</strong> precisa saber tratar o evento de correção, e quem lê o histórico vê o erro <strong>e</strong> o conserto. A Microsoft descreve o mesmo caminho: para desfazer um efeito, acrescenta-se um evento compensatório.</p>
+
+<WhyItMatters>
+  <li><strong>Substituir ou acrescentar é a diferença toda.</strong> A tabela troca o valor; os eventos só crescem.</li>
+  <li><strong>Escrever vira inserir.</strong> Nenhuma operação apaga nada, e o histórico sai de graça.</li>
+  <li><strong>Ler custa mais.</strong> "Como está agora" exige somar os eventos, e o artigo avisa que isso pede otimizações (aulas 6 e 8).</li>
+  <li><strong>Cada um responde a perguntas diferentes.</strong> Eventos dizem "como chegou aqui"; a tabela diz "o que é agora, por status".</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">As três operações, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Evento do artigo</th><th>Tradicional</th><th>Event Sourcing</th></tr></thead>
+    <tbody>
+      <tr><th><code>PagamentoCriado</code></th><td><code>INSERT</code>, <code>status=criado</code></td><td><code>INSERT</code> de um evento, versão 1</td></tr>
+      <tr><th><code>PagamentoConfirmado</code></th><td><code>UPDATE</code>, <code>confirmado</code> (apaga <code>criado</code>)</td><td><code>INSERT</code> de um evento, versão 2</td></tr>
+      <tr><th><code>PagamentoEstornado</code></th><td><code>UPDATE</code>, <code>estornado</code> (apaga <code>confirmado</code>)</td><td><code>INSERT</code> de um evento, versão 3</td></tr>
+      <tr><th>"Como está agora?"</th><td>ler a linha</td><td>dobrar os 3 eventos</td></tr>
+      <tr><th>"Como estava na versão 2?"</th><td>impossível</td><td>dobrar até a versão 2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: imutável, mas como se corrige?</h4>
+  <ul>
+    <li><strong>Imutabilidade sem saída.</strong> O artigo fala de eventos imutáveis e não diz <strong>como corrigir</strong> um erro (um evento de correção, como acima), <strong>como evoluir o formato</strong> de um evento antigo (versão do esquema e <em>upcasting</em>, aula 7) nem o que fazer com <strong>dado pessoal</strong> num log que não se edita (aula 11).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Event Sourcing", href: "https://martinfowler.com/eaaDev/EventSourcing.html" },
+    { label: "Microsoft Learn: padrão Event Sourcing", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com os eventos só se acrescenta, e o estado vem de somá-los. Mas somar <strong>qualquer</strong> coisa nessa lista seria um desastre: um <code>PedidoEnviado</code> antes de o pedido ser pago não deveria nem entrar. Falta saber <strong>quem decide</strong> se um evento pode acontecer.</p>
+
+<Flashcards cards={[
+  { q: "O que o modelo tradicional faz a cada operação, e o Event Sourcing?",
+    a: "O tradicional substitui o estado (INSERT, UPDATE, DELETE). O Event Sourcing só acrescenta: toda operação é uma inserção, e o estado atual vem de somar os eventos." },
+  { q: "Que pergunta os eventos respondem e a tabela não?",
+    a: "'Qual era o status do 1047 às 14:15?' Pelos eventos: pago, versão 2. A tabela já sobrescreveu esse valor com entregue." },
+  { q: "Que pergunta a tabela responde melhor?",
+    a: "'Quais pedidos estão enviado agora?', com um índice por status. Nos eventos seria preciso dobrar o fluxo de cada pedido; por isso existem modelos de leitura." },
+  { q: "Quanto ocupa o Event Store dos pedidos?",
+    a: "4 eventos por pedido × 50 milhões = 200 milhões de eventos × ~263 B ≈ 52,6 GB (estimativa com payload pequeno), somados aos 140 GB da tabela pedidos, que vira modelo de leitura." },
+  { q: "Como se corrige um PedidoPago gravado com valor errado?",
+    a: "Não se edita: grava-se um evento de correção (PagamentoCorrigido) e toda projeção precisa saber tratá-lo." },
+]} />

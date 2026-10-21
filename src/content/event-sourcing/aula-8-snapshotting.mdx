@@ -1,0 +1,100 @@
+---
+title: "Snapshotting"
+order: 8
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import snapshotsSql from '../../lab-code/event-sourcing/ledger_database_migrations_000004_create_snapshots_table.up.sql?raw';
+
+<p class="ponte">A aula passada deixou uma conta feia: depois de 1 milhão de eventos, cada comando para a caneca azul paga <strong>1,8 s</strong> só para saber o saldo. A maior parte desse trabalho é <strong>repetida</strong>: os primeiros 999.000 eventos não mudaram desde a última vez que alguém os somou. Bastaria guardar o resultado dessa soma em algum lugar. Esse resultado guardado se chama <strong>snapshot</strong>.</p>
+
+<OneLiner>Um <strong>snapshot</strong> é uma "foto" do estado de um agregado numa certa versão. Rehidratar vira <strong>a foto mais os eventos depois dela</strong>. A foto é <strong>derivada e descartável</strong>: a fonte da verdade continua sendo o Store.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Snapshot</strong>, mude a política de snapshot (nenhum, a cada 10.000, a cada 1.000) e compare os milissegundos da rehidratação do <code>estoque-CANECA-007</code>. Repare que o contador de eventos lidos cai de 1.000.000 para 1.000.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/replay-3d/?mode=snapshot" poster="labs/event-sourcing/replay-3d-previa.webp" title="Figura interativa: Snapshot" alt="Prévia da figura 3D: Snapshot" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A foto e a cauda.</strong> A tabela <code>snapshots(stream_id, versao, estado, criado_em)</code> guarda, por stream, o estado até uma versão. Para rehidratar, o sistema lê o <strong>snapshot</strong> e dobra só os eventos <strong>depois</strong> da versão dele.</li>
+  <li><strong>O que se mediu.</strong> No stream de 1.000.000 de eventos (saldo final 10.000), com um snapshot na versão <strong>999.000</strong> e os 1.000 eventos seguintes, a rehidratação levou <strong>13,1 · 19,6 · 12,1 ms</strong> (3 execuções, e o valor <strong>inclui subir o <code>psql</code> duas vezes</strong>). Sem snapshot eram 1.800 ms. É ~<strong>140× mais rápido</strong> (1.800 ÷ ~13) e <strong>1.000× menos eventos</strong> (1.000.000 ÷ 1.000). O saldo dos dois caminhos: <strong>10.000</strong>.</li>
+  <li><strong>A política.</strong> A loja gera um snapshot a cada <strong>1.000 eventos</strong>: na rehidratação lê 1 snapshot e <strong>no máximo 1.000</strong> eventos. O artigo exemplifica com um snapshot a cada 10.000 num stream de 1 milhão: a cauda é de até 10.000, <strong>100× menos</strong> que o milhão.</li>
+  <li><strong>Em segundo plano.</strong> O snapshot é gerado por outro processo, depois do evento, e <strong>não no caminho do comando</strong>. Se atrasar, o comando só rehidrata um pouco mais; não quebra.</li>
+  <li><strong>Descartável.</strong> Apagar <strong>todos</strong> os snapshots só deixa a leitura mais lenta: o Store tem tudo. Quem depende de um snapshot como verdade perdeu o ponto do padrão.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="custo" title="Custo de rehidratar" hint="Eventos no stream (1 mil a 10 milhões), velocidade de leitura (50 mil a 1 milhão por segundo) e política de snapshot (nenhum, a cada 10.000, 1.000 ou 100): ms com e sem snapshot. Medido: 1.800 ms contra ~13 ms em 1 milhão." />
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>A migração <code>000004</code> do laboratório cria a tabela de snapshots (aggregate_id, versão e estado em JSONB). Foi <strong>lido, não executado</strong>.</p>
+
+<CodeLab code={snapshotsSql} from={1} to={14} />
+
+<p>Ela <strong>existe e nenhum código Go a usa</strong>: a busca por "snapshot" nos arquivos <code>.go</code> do repositório (62 arquivos <code>.go</code> e <code>.sql</code> baixados e conferidos) não acha nada. A rehidratação do laboratório lê <strong>todos</strong> os eventos do agregado, sempre (aula 7). A tabela está pronta e ninguém a escreve nem a lê. Para usá-la faltariam duas peças pequenas: um processo que gere a foto a cada N eventos e uma rehidratação que leia a foto primeiro.</p>
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>(a) O snapshot de uma versão antiga do código.</strong> O formato do estado mudou (um campo novo, outro renomeado), e o snapshot gravado antes não é mais lido pelo código novo. A saída é <strong>descartá-lo</strong> e rehidratar do zero, e é por isso que o snapshot é descartável. Convém que o snapshot guarde <strong>a versão do código que o gerou</strong>, para a leitura reconhecer o formato antigo e ignorar a foto.</p>
+
+<p><strong>(b) O snapshot corrompido.</strong> Gerado por um bug, ele grava um saldo errado, e <strong>todo comando</strong> dali em diante começa dele. O erro se propaga <strong>para sempre</strong>, enquanto ninguém refizer o snapshot, e os eventos, que estão certos, nunca são relidos. A defesa é conferir por <strong>amostragem</strong> a foto contra a rehidratação completa (de vez em quando, em segundo plano) e, na dúvida, apagar a foto.</p>
+
+<WhyItMatters>
+  <li><strong>A foto evita reler o que não mudou.</strong> 1.000.000 de eventos viram 1.000: 1.800 ms caem para ~13 ms, ~140×.</li>
+  <li><strong>A política tem custo.</strong> Foto mais frequente (a cada 100) lê menos eventos, mas grava mais fotos: 10.000 fotos por milhão de eventos.</li>
+  <li><strong>O snapshot é derivado.</strong> Pode ser apagado, regerado e conferido contra o Store.</li>
+  <li><strong>Ele pode mentir.</strong> Foto de código antigo ou gerada com bug precisa ser descartável <strong>de verdade</strong>.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Quatro políticas, o mesmo milhão</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Política</th><th>Eventos lidos (pior caso)</th><th>Redução</th><th>Fotos gravadas</th></tr></thead>
+    <tbody>
+      <tr><th>nenhuma</th><td>1.000.000</td><td>1×</td><td>0</td></tr>
+      <tr><th>a cada 10.000</th><td>10.000</td><td>100×</td><td>100</td></tr>
+      <tr><th>a cada 1.000</th><td>1.000</td><td>1.000×</td><td>1.000</td></tr>
+      <tr><th>a cada 100</th><td>100</td><td>10.000×</td><td>10.000</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Medido só o caso "a cada 1.000". Os outros são conta de eventos lidos; o tempo total tem uma parte fixa (subir o cliente) que a redução de eventos não mexe.</p>
+  <h4 class="deep-h">Correções ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>O artigo descreve o snapshot certo</strong> (derivado, descartável, com o índice do último evento). Faltam a <strong>versão do código</strong> que o gerou e o fato de que o laboratório do autor <strong>tem a tabela e não a lê</strong>.</li>
+    <li><strong>A conta do exemplo.</strong> "1.000.000 de eventos, snapshot a cada 10.000" fecha: a cauda é de até 10.000, ou 100× menos. O medido com 1.000 dá 1.000×.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Microsoft Learn: padrão Event Sourcing", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+    { label: "Repositório do autor: event-source-distributed-ledger (snapshots)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+  ]} />
+</Deep>
+
+<p class="gancho">O snapshot resolve o custo de ler <strong>um</strong> stream. Mas os eventos que o Store guarda em ordem não chegam em ordem a quem escuta: partições, retentativas e consumidores em paralelo embaralham a fila. Falta saber se o estado derivado quebra quando os eventos chegam <strong>fora de ordem</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que é um snapshot?",
+    a: "Uma foto do estado de um agregado numa versão. A rehidratação lê a foto e dobra só os eventos depois dela." },
+  { q: "Quanto o snapshot ganhou no estoque-CANECA-007?",
+    a: "Com foto na versão 999.000 e 1.000 eventos depois: 13,1 · 19,6 · 12,1 ms contra ~1.800 ms sem foto. ~140× mais rápido, 1.000× menos eventos, saldo 10.000 nos dois." },
+  { q: "Quando gerar um snapshot?",
+    a: "A cada N eventos (a loja usa 1.000), em segundo plano, fora do caminho do comando." },
+  { q: "O que acontece se todos os snapshots forem apagados?",
+    a: "Só a leitura fica mais lenta: o Event Store continua sendo a fonte da verdade e a rehidratação volta a ler tudo." },
+  { q: "O que o laboratório do autor faz com a tabela snapshots?",
+    a: "Cria a tabela e não a usa: nenhum arquivo .go a menciona. A rehidratação do laboratório lê todos os eventos sempre." },
+]} />

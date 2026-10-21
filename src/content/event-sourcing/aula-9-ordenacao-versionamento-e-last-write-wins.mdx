@@ -1,0 +1,117 @@
+---
+title: "Ordem, versão e last-write-wins"
+order: 9
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import scylla from '../../lab-code/event-sourcing/balance_pkg_scylla_scylla.go?raw';
+
+<p class="ponte">Na aula passada o snapshot resolveu o custo de ler <strong>um</strong> stream, que o Store entrega em ordem de versão. Só que a tela de acompanhamento não lê do Store: ela recebe os eventos pelo bus. E o bus, com partições, retentativas e consumidores em paralelo, <strong>não entrega na ordem em que o Store gravou</strong>. Se a projeção aplicar o evento velho por cima do novo, o modelo fica errado.</p>
+
+<OneLiner>O Store garante a ordem <strong>dentro do stream</strong>; quem consome <strong>não a recebe</strong>. Por isso o consumidor usa a <strong>versão</strong> de cada evento para não aplicar o velho por cima do novo. A regra "o maior vence" vale <strong>no consumidor</strong>, com <strong>versão</strong> (e não com relógio).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Versão</strong>, embaralhe a chegada dos 5 eventos do 1047 e compare "<strong>último a chegar vence</strong>" com "<strong>só aplica se a versão for maior</strong>". Para o "e se der errado" (a versão 2 que nunca chega), olhe o botão que simula o buraco.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/replay-3d/?mode=versao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Figura interativa: Ordem e versão" alt="Prévia da figura 3D: Ordem e versão" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O Store ordena.</strong> No <code>pedido-1047</code> as versões são 1, 2, 3, 4: <code>e-501</code>, <code>e-502</code>, <code>e-504</code>, <code>e-505</code>. É uma ordem <strong>local</strong>, garantida pelo <code>UNIQUE (stream_id, versao)</code> da aula 4.</li>
+  <li><strong>O bus embaralha.</strong> Os eventos saem na ordem, mas chegam ao modelo de leitura de status em outra: <code>e-501</code> (v1), <code>e-504</code> (v3), <code>e-505</code> (v4), <code>e-502</code> (v2) e o <code>e-502</code> de novo (v2, duplicado). O artigo diz que isso não é uma falha: é o comportamento esperado da consistência eventual.</li>
+  <li><strong>"Último a chegar vence" erra.</strong> A projeção grava o que chegou por último. Passa por <code>criado</code>, <code>enviado</code>, <code>entregue</code> e então o <code>e-502</code> atrasado a leva de volta: o final é <strong><code>pago</code>, versão 2</strong>. Errado: o pedido já foi entregue. (Se o <code>e-505</code> chegasse por último, a regra acertaria por <strong>sorte</strong>.)</li>
+  <li><strong>"Só aplica se a versão for maior" acerta.</strong> A projeção guarda a versão que já aplicou e compara. O <code>e-501</code> aplica (0 → 1), o <code>e-504</code> aplica (1 → 3), o <code>e-505</code> aplica (3 → 4), e os <strong>dois <code>e-502</code> são descartados</strong> (2 não é maior que 4). Final: <strong><code>entregue</code>, versão 4</strong>. Medido num PostgreSQL 14.24.</li>
+  <li><strong>A versão vem do Store.</strong> Cada evento tem um <code>evento_id</code> único e uma <code>versao</code> crescente, atribuída <strong>pelo Store</strong>, sem olhar relógio de ninguém.</li>
+</ol>
+</HowItWorks>
+
+<p>Em SQL, a regra é uma condição na própria atualização (exemplo da loja, o mesmo princípio do laboratório):</p>
+
+<pre><code>{`UPDATE status_pedido
+   SET status = $status, versao = $versao
+ WHERE pedido_id = 1047
+   AND versao < $versao;   -- o 2 não passa por cima do 4`}</code></pre>
+
+<Widget name="ordem" title="Ordem e versão" hint="A chegada dos 5 eventos do 1047 (arraste ou use os botões para embaralhar) e a regra: último a chegar, versão maior, ou versão maior mais espera pela que falta. Mostra o estado final e os descartes." />
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O saldo do laboratório fica no ScyllaDB e usa exatamente essa regra, como <strong>transação leve</strong> (<em>lightweight transaction</em>, LWT): o <code>UPDATE</code> só vale <code>IF version &lt; ?</code>. O README diz que o consumidor do saldo usa LWT "para aplicar apenas versões maiores". O <code>InsertInitialBalance</code> usa <code>IF NOT EXISTS</code>, para que o saldo inicial seja gravado uma vez. Foi <strong>lido, não executado</strong>.</p>
+
+<CodeLab code={scylla} from={70} to={90} />
+
+<ol class="flow steps">
+  <li>A linha 71 cria o saldo inicial só se ele <strong>não existe</strong> (<code>IF NOT EXISTS</code>).</li>
+  <li>A linha 82 é a regra da aula: <code>UPDATE … SET balance = ?, version = ? WHERE id = ? IF version &lt; ?</code>. Um saldo de versão 3 não substitui um de versão 4.</li>
+  <li>A condição vai <strong>junto</strong> com a escrita, no próprio banco. Conferir a versão na aplicação e gravar depois seriam duas operações, com o mesmo problema da corrida da aula 4.</li>
+</ol>
+
+<h3 class="sec">Versão ou timestamp</h3>
+
+<p>O artigo oferece as duas opções: o último evento válido "por timestamp ou version". O <strong>timestamp</strong> depende de relógio, e o desvio de 120 ms do módulo 17 reaparece aqui: dois eventos do mesmo pedido com horas trocadas por causa de uma máquina atrasada. A <strong>versão</strong> é atribuída pelo Store, sem relógio nenhum, e cresce de 1 em 1 dentro do stream. Num modelo de status, a versão é a escolha certa. E o Event Store <strong>nunca</strong> faz LWW: ele só acrescenta. A regra "o maior vence" é do <strong>consumidor</strong>.</p>
+
+<h3 class="sec">O limite da regra</h3>
+
+<p>Descartar a versão menor serve a modelos de <strong>último estado</strong> (o status do 1047: o que importa é o mais novo). Num modelo que <strong>soma</strong>, como o saldo do estoque, é perigoso: se o evento da versão 2 (uma reserva de −1) chega atrasado e o consumidor o descarta por "versão menor", o desconto <strong>se perde</strong>. Aí a defesa é a <strong>idempotência por <code>evento_id</code></strong> (aula 10) e <strong>operações comutativas</strong>, que dão o mesmo resultado em qualquer ordem: a ideia dos CRDTs do módulo 17.</p>
+
+<h3 class="sec">E se der errado: a versão que pula</h3>
+
+<p>O consumidor recebeu a versão 1 e a versão 3. A versão 2 <strong>nunca chegou</strong> (a mensagem se perdeu, ou ainda está presa numa partição). A regra "só se a versão for maior" aplicaria a 3 sem hesitar, e o modelo teria um <strong>buraco</strong>: nunca soube que o pedido foi pago. A defesa é o consumidor <strong>detectar</strong> <code>versao ≠ última + 1</code> e esperar, ou pedir a versão 2 ao Store, ou reconstruir o agregado. É a terceira regra do widget: "versão maior e espera pela que falta".</p>
+
+<WhyItMatters>
+  <li><strong>A ordem do Store não chega inteira ao consumidor.</strong> O bus embaralha; a versão é o que permite desembaralhar.</li>
+  <li><strong>Último a chegar vence erra.</strong> O <code>e-502</code> atrasado leva o 1047 de volta a <code>pago</code>, versão 2.</li>
+  <li><strong>Só a versão maior acerta o status.</strong> Termina em <code>entregue</code>, versão 4, descartando os dois <code>e-502</code>.</li>
+  <li><strong>A regra tem limite.</strong> Em modelos que somam, descartar por versão perde dado; ali vale o <code>evento_id</code>.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As três regras, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Regra</th><th>Final na chegada do exemplo</th><th>Custo</th></tr></thead>
+    <tbody>
+      <tr><th>último a chegar vence</th><td><code>pago</code>, v2 (errado)</td><td>nenhum, e nenhuma proteção</td></tr>
+      <tr><th>só versão maior</th><td><code>entregue</code>, v4</td><td>uma condição no <code>UPDATE</code>; o evento que pula some</td></tr>
+      <tr><th>versão maior e espera pela que falta</th><td><code>entregue</code>, v4</td><td>buffer e tempo-limite para esperar</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A chegada do exemplo foi gerada para mostrar o erro: <code>e-501</code> (v1), <code>e-504</code> (v3), <code>e-505</code> (v4), <code>e-502</code> (v2) e <code>e-502</code> de novo. Em qualquer ordem o "só versão maior" termina igual; o "último vence" depende de quem chega por último.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>LWW "por timestamp ou version".</strong> O timestamp depende de relógio (módulo 17: 120 ms atrasado) e o Store nunca faz LWW. A regra vale <strong>no consumidor</strong>, com <strong>versão</strong>, e só para modelos de <strong>último estado</strong>; modelos que somam precisam do <code>evento_id</code> (aula 10).</li>
+    <li><strong>"Ordem global".</strong> O artigo diz que a ordem de consumo "não é globalmente garantida por padrão". É o que se espera: o Store só garante a ordem <strong>por stream</strong>, e o bus, por chave.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "ScyllaDB: Lightweight Transactions (LWT)", href: "https://opensource.docs.scylladb.com/stable/features/lwt.html" },
+    { label: "Repositório do autor: event-source-distributed-ledger (README, ingestão do saldo)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "Módulo 17 do SDLabs (Replicação): relógios e CRDTs" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com a versão, o consumidor ignora o evento velho e espera o que falta. Mas e o <strong>mesmo</strong> evento chegando duas vezes, com a mesma versão? Falta saber o que acontece quando o mesmo evento chega em <strong>dobro</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que o Event Store garante sobre a ordem?",
+    a: "A ordem dentro de cada stream, pela versão. Quem consome pelo bus não a recebe: partições, retentativas e consumidores em paralelo embaralham a chegada." },
+  { q: "O que o 'último a chegar vence' faz com o 1047?",
+    a: "Com a chegada e-501, e-504, e-505, e-502, e-502, termina em pago, versão 2: errado, o pedido já foi entregue." },
+  { q: "O que a regra 'só aplica se a versão for maior' faz?",
+    a: "Aplica e-501, e-504 e e-505 e descarta os dois e-502: termina em entregue, versão 4. Em SQL: UPDATE … WHERE pedido_id = … AND versao < $v." },
+  { q: "Por que versão e não timestamp?",
+    a: "O timestamp depende de relógio (o desvio de 120 ms do módulo 17). A versão é atribuída pelo Store, sem relógio." },
+  { q: "Quando a regra de descartar versão menor erra?",
+    a: "Em modelos que somam (o saldo do estoque): descartar o evento v2 atrasado perde o desconto. Ali vale a idempotência por evento_id e operações comutativas." },
+]} />

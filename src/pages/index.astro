@@ -43,6 +43,8 @@ const modules: Mod[] = [
     text: 'O mesmo dado em SP, no Rio e em Recife: Primary/Replica e Primary/Primary, síncrona, assíncrona e semi-síncrona, a Lena sem ver o próprio pedido, ECST, CDC com Debezium e CRDTs, com calculadoras e quiz de 41 perguntas.' },
   { slug: 'cqrs', title: 'CQRS', lessons: 10, poster: 'labs/cqrs/cqrs-3d-previa.webp', alt: 'Prévia da figura 3D dos dois modelos, o de comando e o de consulta',
     text: 'Um modelo para escrever e outro para ler: comandos e consultas, view materializada, réplicas de leitura, consistência eventual, SQL e NoSQL, modelos que juntam serviços, escrita dupla, CDC e outbox, com calculadoras e quiz de 50 perguntas.' },
+  { slug: 'event-sourcing', n: 20, title: 'Event Sourcing', lessons: 11, poster: 'labs/event-sourcing/eventos-3d-previa.webp', alt: 'Prévia da figura 3D do pedido 1047 como uma fita de eventos ao lado da tabela',
+    text: 'Guardar o que aconteceu como a fonte da verdade e derivar o estado: o pedido 1047 como eventos, agregados, Event Store com versão esperada, bus, projeções, rehidratação, snapshot, ordem por versão e idempotência, com calculadoras e quiz de 50 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

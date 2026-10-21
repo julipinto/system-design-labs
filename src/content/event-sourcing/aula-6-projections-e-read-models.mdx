@@ -1,0 +1,105 @@
+---
+title: "Projeções e modelos de leitura"
+order: 6
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o <code>PedidoEnviado</code> saiu do Store, passou pelo bus e chegou a quem escuta. Falta o que esse alguém faz com ele. A Lena abre a tela de acompanhamento e quer ver <code>enviado</code>, <strong>agora</strong>, sem que o sistema precise reler os eventos do 1047 a cada toque. O Store foi feito para <strong>escrever</strong> em volume; para ler, a loja monta outra coisa. Essa coisa é a <strong>projeção</strong>.</p>
+
+<OneLiner>A <strong>projeção</strong> escuta os eventos e mantém um <strong>modelo de leitura</strong> (<em>read model</em>): o CQRS do módulo 18, com o Event Store no lugar do banco de escrita. Ela é uma <strong>função pura</strong> dos eventos, e por isso o modelo é <strong>descartável</strong>: reconstrói-se.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Projeção</strong>, deixe os eventos do 1047 virarem o modelo de status. Depois <strong>quebre a projeção</strong> (ela passa a gravar o status errado), <strong>apague o modelo</strong> e <strong>reprocesse</strong> do Store. Repare que o Store não mudou em nada.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/replay-3d/?mode=projecao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Figura interativa: Projeções e modelos de leitura" alt="Prévia da figura 3D: Projeções e modelos de leitura" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O Store não serve para consulta.</strong> Ele é otimizado para gravar eventos em volume, e só guarda "o que aconteceu". Para "como está o 1047?" seria preciso dobrar os eventos dele. Para "quais pedidos estão <code>enviado</code>?" seria preciso dobrar os de <strong>todos</strong>.</li>
+  <li><strong>A projeção lê os eventos e escreve o modelo.</strong> Para cada evento que chega, ela aplica uma regra pequena: o <code>PedidoEnviado</code> põe <code>status = enviado</code> e <code>rastreio = LA123456789BR</code> na linha do 1047. O resultado é o <strong>modelo de leitura</strong>, no formato da tela.</li>
+  <li><strong>Vários modelos, um só Store.</strong> Na loja: o <code>meus_pedidos</code> (módulo 18), o <strong>status do 1047</strong> (a tela de acompanhamento) e o faturamento por cidade. Cada um tem a sua projeção e o seu banco, e todos leem os <strong>mesmos</strong> eventos.</li>
+  <li><strong>Mesma sequência, mesmo resultado.</strong> A projeção é uma <strong>função pura</strong> dos eventos: não olha o relógio (<code>now()</code>) nem chama serviço externo. Os mesmos 4 eventos do 1047, em qualquer máquina e a qualquer hora, dão o mesmo modelo.</li>
+  <li><strong>Por isso ela é descartável.</strong> Se o modelo estragar, apaga-se e <strong>reprocessa-se</strong> do início. O Store é a verdade; o modelo é só a cópia, e a cópia se refaz.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Três jeitos de manter o modelo</h3>
+
+<p>O artigo descreve três, que diferem em <strong>quando</strong> o modelo fica em dia e em <strong>quem paga</strong> por isso:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Jeito</th><th>Como funciona</th><th>O que dá</th><th>O que custa</th></tr></thead>
+  <tbody>
+    <tr><th>Transacional</th><td>a projeção é gravada <strong>na mesma transação</strong> do evento, no mesmo banco</td><td>leitura sempre em dia, sem atraso</td><td>pesa o Store e vira gargalo com volume</td></tr>
+    <tr><th>Semissíncrono</th><td>o Store confirma e publica; a projeção atualiza logo depois, em outro processo</td><td>o Store fica só com a escrita: "fonte da verdade", e o modelo é o "estado derivado seguro"</td><td>atraso de alguns milissegundos, e só serve onde dá para esperar</td></tr>
+    <tr><th>Assíncrono</th><td>os eventos viajam pelo bus e cada domínio monta o seu modelo</td><td>desacoplado do Store; cada time escolhe o seu banco</td><td>consistência eventual, e cada reconstrução pede o envio completo dos eventos</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>No laboratório do autor há os dois lados. Pelo README, o <code>ledger</code> atualiza modelos <strong>transacionais</strong> (<code>accounts</code> e <code>transactions</code>) dentro da <strong>mesma transação SQL</strong> do evento e só depois publica no Kafka. O saldo (ScyllaDB) e o extrato (MongoDB) são modelos <strong>assíncronos</strong>, montados por consumidores. Foi lido, não executado.</p>
+
+<Widget name="reconstruir" title="Reconstruir um modelo de leitura" hint="Eventos do Store (milhões) e ritmo de escrita no modelo (1.000 a 100.000 por segundo): quanto tempo leva reprocessar tudo (200 milhões a 20.000/s = 10.000 s = 2 h 47 min). O gargalo não é ler o Store." />
+
+<h3 class="sec">E se der errado: a projeção com defeito</h3>
+
+<p>Um <em>deploy</em> da projeção do status passa a gravar <code>enviado</code> para o <code>PedidoEntregue</code>. Por duas horas a tela mostra <code>enviado</code> para pedidos já entregues. Corrigir o código não corrige as <strong>linhas já gravadas</strong>. Mas os eventos estão intactos no Store. O conserto é <strong>apagar o modelo e reprocessar do início</strong>.</p>
+
+<p>A conta: 200 milhões de eventos (50 milhões de pedidos × 4) a 20.000 por segundo (o ritmo do módulo 18) são 10.000 s, ou <strong>2 h 47 min</strong>. Ler o Store <strong>não é</strong> o gargalo: medido num PostgreSQL 14, ele devolve ~555 mil eventos por segundo, então ler os 200 milhões levaria uns 6 minutos. O que demora é <strong>escrever</strong> no modelo. Sem o Event Store, com só o tópico do Kafka (7 dias), não haveria <strong>de onde</strong> reconstruir.</p>
+
+<WhyItMatters>
+  <li><strong>O Store grava e o modelo responde.</strong> A tela lê uma linha pronta, no formato dela, em vez de dobrar eventos.</li>
+  <li><strong>A projeção é uma função pura.</strong> Mesma sequência de eventos, mesmo modelo; sem <code>now()</code> e sem chamada externa.</li>
+  <li><strong>O modelo é descartável.</strong> Estragou? Apaga e reprocessa. Custa tempo (2 h 47 min nos 200 milhões), não dado.</li>
+  <li><strong>O gargalo é escrever, não ler.</strong> O Store entrega ~555 mil eventos/s; o modelo recebe 20.000/s.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Os modelos da loja</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Modelo</th><th>Eventos que consome</th><th>Quem lê</th></tr></thead>
+    <tbody>
+      <tr><th>status do pedido</th><td><code>PedidoCriado</code>, <code>PedidoPago</code>, <code>PedidoEnviado</code>, <code>PedidoEntregue</code></td><td>tela de acompanhamento da Lena</td></tr>
+      <tr><th><code>meus_pedidos</code></th><td>os mesmos, mais os de itens</td><td>a lista de pedidos (módulo 18)</td></tr>
+      <tr><th>faturamento por cidade</th><td><code>PedidoPago</code></td><td>o relatório das 23:00</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"As projections são determinísticas em relação ao estado atual".</strong> A frase é confusa. A projeção é determinística em relação à <strong>sequência de eventos</strong> (mesma entrada, mesma saída), e por isso é descartável. "Read Models não são apenas caches" está certo: são representações derivadas e podem ser reconstruídas.</li>
+    <li><strong>Projeções "baseadas no CQRS".</strong> O artigo liga as duas coisas. Em Fowler, Event Sourcing e CQRS são padrões independentes: dá para projetar sem separar modelos de comando e consulta, e dá para ter CQRS sem eventos como verdade.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "event-driven.io: Guide to Projections and Read Models", href: "https://event-driven.io/en/projections_and_read_models_in_event_driven_architecture/" },
+    { label: "Microsoft Learn: padrão Event Sourcing", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+  ]} />
+</Deep>
+
+<p class="gancho">Reconstruir um modelo inteiro leva horas, e tudo bem: é raro. O dia a dia é outro. Cada <strong>comando</strong> precisa do estado de <strong>um</strong> agregado antes de decidir. Falta saber como reconstruir <strong>um só</strong> agregado, e quanto isso custa.</p>
+
+<Flashcards cards={[
+  { q: "O que é uma projeção?",
+    a: "O processo que escuta os eventos e mantém um modelo de leitura derivado. É o CQRS do módulo 18 com o Event Store no lugar do banco de escrita." },
+  { q: "Quais são os três jeitos de manter o modelo?",
+    a: "Transacional (na mesma transação do evento: sempre em dia, mas pesa o Store), semissíncrono (o Store publica e a projeção atualiza em seguida) e assíncrono (via bus, desacoplado, consistência eventual)." },
+  { q: "Por que a projeção deve ser uma função pura dos eventos?",
+    a: "Mesma sequência, mesmo resultado, sem now() nem chamada externa. Só assim o modelo é descartável: dá para apagar e reconstruir." },
+  { q: "Quanto leva reconstruir um modelo de 200 milhões de eventos?",
+    a: "A 20.000 eventos/s: 10.000 s, ou 2 h 47 min. Ler o Store (~555 mil eventos/s) não é o gargalo; escrever no modelo é." },
+  { q: "O que acontece se a loja só tiver o tópico do Kafka?",
+    a: "A retenção de 7 dias apagou os eventos. Sem o Event Store não há de onde reconstruir o modelo estragado." },
+]} />
