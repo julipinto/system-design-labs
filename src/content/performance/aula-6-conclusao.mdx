@@ -1,0 +1,88 @@
+---
+title: "Conclusão"
+order: 6
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja aprendeu a calcular a frota com a fórmula do HPA e a ver onde ela falha. Com isso na mão, dá para juntar o módulo inteiro e perguntar o que as réplicas resolvem e o que elas deixam de fora. A resposta é uma tabela de números medidos, e um gargalo que andou até o banco.</p>
+
+<OneLiner>Performance, capacidade e escalabilidade são <strong>o mesmo problema olhado em três momentos</strong>: medir, limitar e crescer. E crescer não é só ligar máquinas, porque algoritmo, índice, cache, fila e paralelismo aumentam a capacidade <strong>por vCPU</strong> antes de comprar outro.</OneLiner>
+
+<DoIt>
+  <p>A figura abre no cenário <strong>Cadeia</strong>, no passo em que a loja recebe 200 pedidos/s. Volte com a seta ← e acompanhe o elo mais fraco andar: primeiro o <code>pagamentos</code> (40/s), depois o <code>pedidos</code> (90/s) e, por fim, o banco do <code>pedidos</code> (150/s). Anote em que valor as réplicas de serviço deixam de ajudar.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/capacidade-3d/?mode=cadeia&step=5" poster="labs/performance/capacidade-3d-previa.webp" title="Figura interativa: A cadeia do checkout" alt="Prévia da figura 3D: A cadeia do checkout" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Os três momentos se encadeiam. <strong>Medir</strong> (aulas 1 e 2) diz o que o usuário sente e onde: três pontos, quatro sinais, percentis. <strong>Limitar</strong> (aula 3) diz o que o sistema aguenta: capacidade, joelho, gargalo. <strong>Crescer</strong> (aulas 4 e 5) diz como adicionar capacidade: vertical, horizontal, a fórmula do HPA. Sem o primeiro, o terceiro é chute.</li>
+  <li>Os números medidos do módulo cabem numa tabela, e o módulo 23 (Capacity Planning) a usa para prever a Black Friday seguinte. O pico das 20:03 foi de <strong>640 req/s</strong> com p50 de <strong>32 ms</strong>, p95 de <strong>800 ms</strong>, p99 de <strong>2.000 ms</strong> e <strong>1%</strong> de erros. A réplica quente ficou a <strong>99%</strong> e a frota a <strong>67,5%</strong>. O catálogo dá <strong>1.000 req/s</strong> (10 × 100) e é seguro até <strong>700</strong>. O checkout faz <strong>30 pedidos/s</strong>, com o <code>pagamentos</code> (<strong>40/s</strong>) como elo mais fraco e o banco do <code>pedidos</code> com teto de <strong>150/s</strong>.</li>
+  <li>Escalar também não é só infraestrutura. Se uma requisição usa 10 ms de CPU, o catálogo dá 100 req/s por réplica. Um <strong>algoritmo</strong> melhor ou um <strong>índice</strong> (módulo 4) que corte esses 10 ms pela metade dobra a capacidade por vCPU. O <strong>cache</strong> (módulo 5) tira a requisição do banco, a <strong>fila</strong> (módulo 13) tira o trabalho do caminho da resposta, e o <strong>paralelismo</strong> (módulo 11) usa melhor cada vCPU. Tudo isso se faz antes de comprar outra máquina.</li>
+  <li>O gargalo andou. Com o <code>pagamentos</code> em 4 réplicas (80/s), o próximo elo a 100 pedidos/s é o <code>pedidos</code> (90/s). Com <code>pedidos</code> e <code>pagamentos</code> escalados, o elo é o <strong>banco do <code>pedidos</code>, 150/s</strong>: réplicas de serviço <strong>não</strong> resolvem mais, porque as escritas continuam num primário só.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: escalamos o estoque</h3>
+
+<p>O painel do checkout ficou vermelho e a primeira ação foi dobrar o <code>estoque</code>: de 2 para 4 réplicas, 2.000 pedidos/s de capacidade para um serviço que usava 4%. A saída do checkout continuou em <strong>40 pedidos/s</strong>, o limite do <code>pagamentos</code>, e a conta de CPU do <code>estoque</code> dobrou. O número que decide o que escalar é a capacidade medida por elo, e estava na tabela da aula 3.</p>
+
+<WhyItMatters>
+  <li><strong>Os três momentos têm uma ordem.</strong> Medir, limitar e crescer, nessa sequência, evitam escalar o que não é o problema.</li>
+  <li><strong>A tabela do módulo é reaproveitável.</strong> O módulo 23 parte dos mesmos 640 req/s, 1.000 de capacidade e 150 pedidos/s do banco.</li>
+  <li><strong>Capacidade por vCPU também é alavanca.</strong> Cortar de 10 para 5 ms a CPU da página dobra os 100 req/s de cada réplica.</li>
+  <li><strong>O gargalo anda até onde réplica não chega.</strong> Aqui, o banco do <code>pedidos</code> a 150/s.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Os números que o módulo entrega</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>O que</th><th>Valor</th></tr></thead>
+    <tbody>
+      <tr><th>Pico das 20:03</th><td>640 req/s (38.400 por minuto)</td></tr>
+      <tr><th>Tempo de resposta (amostra de 100)</th><td>média 135 · p50 32 · p95 800 · p99 2.000 ms</td></tr>
+      <tr><th>Erros</th><td>1% (meta: até 0,1%)</td></tr>
+      <tr><th>CPU</th><td><code>catalogo-3</code> a 99%; frota a 67,5%</td></tr>
+      <tr><th>Capacidade do catálogo</th><td>1.000 req/s; seguro até 700 (70%)</td></tr>
+      <tr><th>Checkout hoje</th><td>30 pedidos/s; elo mais fraco: <code>pagamentos</code> (40/s)</td></tr>
+      <tr><th>Banco do <code>pedidos</code></th><td>teto de 150 pedidos/s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Um relatório de verdade</h4>
+  <p>O repositório público do autor tem <code>exemplos/load-test/README.md</code>, um modelo de relatório de teste de performance: metas de p95 abaixo de 800 ms, 600 TPS e erro abaixo de 0,1%, com um pré-teste de <strong>uma</strong> réplica a 100 req/s e a política de autoscaling. Ele é o centro do módulo 24, onde os números deste módulo, que são de exemplo, passam a ser medidos.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Base de requisições.</strong> O artigo trata os 10 ou 15 TPS por réplica como constante. A capacidade depende do mix de requisições: a página de 20 ms e a busca de 900 ms pesam diferente, e só um teste de carga, por tipo de requisição, mostra o número real.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Michael T. Nygard, Release It! (livro; sem link verificável)" },
+    { label: "Livro de SRE do Google: sumário", href: "https://sre.google/sre-book/table-of-contents/" },
+    { label: "Repositório público do autor: exemplos/load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja já cresceu para os lados, com réplicas (módulo 7), e por função, com serviços (módulo 6). O banco do <code>pedidos</code> não cresce por nenhum dos dois: está a 150 pedidos por segundo e a Black Friday seguinte pede mais. Falta saber qual é a <strong>forma</strong> de crescer de cada gargalo, e o que falta para ter um mapa. Esse mapa é o <strong>Scale Cube</strong>, no módulo 15.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três momentos do módulo?",
+    a: "Medir (o que se sente e onde), limitar (o que aguenta: capacidade, joelho, gargalo) e crescer (vertical, horizontal, HPA)." },
+  { q: "Quais são os números medidos do pico das 20:03?",
+    a: "640 req/s; p50 32, p95 800 e p99 2.000 ms; 1% de erros; catalogo-3 a 99%, frota a 67,5%; catálogo com 1.000 req/s (seguro até 700); checkout 30 pedidos/s; banco do pedidos 150/s." },
+  { q: "O que aumenta a capacidade por vCPU antes de comprar máquina?",
+    a: "Algoritmo, índice (módulo 4), cache (5), fila (13) e paralelismo (11): cada um reduz a CPU gasta por requisição." },
+  { q: "Para onde o gargalo andou?",
+    a: "Do pagamentos (40/s) para o pedidos (90/s) e dele para o banco do pedidos (150/s), onde réplicas de serviço não ajudam." },
+  { q: "O que o módulo 15 resolve?",
+    a: "O mapa das formas de crescer (Scale Cube): X réplicas, Y serviços e Z partes dos dados. O banco do pedidos precisa de uma forma que ainda não usamos." },
+]} />

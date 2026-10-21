@@ -1,0 +1,87 @@
+---
+title: "Definindo e metrificando performance"
+order: 1
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O módulo 13 terminou com a loja conversando de todos os jeitos e com um incômodo da Black Friday: o catálogo respondeu em <strong>2 s</strong> para parte dos clientes, e ninguém soube dizer quanto a loja aguenta, onde está o gargalo ou se bastava ligar mais máquinas. A newsletter das 20:00 (50.000 e-mails a 100 por segundo, 500 s) fez os cliques chegarem ao catálogo entre 20:01 e 20:09. "A loja está lenta" não é um problema que alguém consiga resolver, e este é o primeiro módulo de números: o que medir, onde medir e contra qual meta.</p>
+
+<OneLiner>Performance é o tempo que <strong>quem usa sente</strong>, e só vira engenharia quando tem <strong>número, ponto de medida e meta</strong>: o tempo de resposta é a rede mais o processamento, medido no cliente, no balanceador e na réplica, e comparado a uma meta como "p95 até 300 ms".</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Medir</strong>, avance com a seta → e anote os três cronômetros da requisição da Lena: a réplica (20 ms), o <code>lb-loja</code> (20 ms) e o navegador (100 ms). No passo das 20:03:07, a <code>catalogo-3</code> está a 99% e os três viram 2.000, 2.000 e 2.080 ms. No último passo, compare com o painel médio de 135 ms, todo verde.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/latencia-3d/?mode=medir" poster="labs/performance/latencia-3d-previa.webp" title="Figura interativa: Três pontos de medida" alt="Prévia da figura 3D: Três pontos de medida" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>São 20:03 da Black Friday. O catálogo tem <strong>10 réplicas de 1 vCPU</strong> (<code>catalogo-1</code> até <code>catalogo-10</code>) atrás do <code>lb-loja</code>, com round robin sem peso, e o tráfego é a página do produto, <code>{"GET /produtos/{id}"}</code>. "Lento" se desfaz em três perguntas: <strong>o quê</strong> está lento (que requisição), <strong>onde</strong> (em que ponto da viagem) e <strong>quanto</strong> (qual número, contra qual meta).</li>
+  <li>Para o "quanto", o primeiro número é o <strong>tempo de resposta</strong>: o que passa entre o cliente pedir e receber. Ele é a <strong>latência de rede</strong> mais o <strong>tempo de processamento</strong>. Num dia normal, a Lena, em Recife, paga <strong>80 ms</strong> de ida e volta até a loja (o RTT de exemplo) e o servidor gasta <strong>20 ms</strong> (10 ms de CPU e 10 ms esperando cache e banco de documentos). O navegador dela marca <strong>100 ms</strong>; o painel do servidor, 20 ms.</li>
+  <li>Para o "onde", mede-se em <strong>três pontos</strong>: no cliente, no <code>lb-loja</code> e na réplica. Às 20:03:07 a página do gato da Lena leva <strong>2,08 s</strong> no navegador, <strong>2.000 ms</strong> no balanceador e <strong>2.000 ms</strong> na réplica. Os 80 ms de diferença são a rede, que não mudou; a degradação aconteceu dentro da <code>catalogo-3</code>.</li>
+  <li>Para saber se 2 s é um problema, falta a <strong>meta</strong>. No exemplo do módulo: <strong>p95 até 300 ms</strong> e <strong>erros até 0,1%</strong>, medidos no <code>lb-loja</code>, que corta a requisição em <strong>2 s</strong> (timeout). Metas vêm dos requisitos não funcionais: um sistema de tempo real e um armazenamento de longo prazo esperam coisas diferentes.</li>
+  <li>E o número depende de quanto tráfego chega. Um dia comum tem <strong>40 req/s</strong>, uma réplica a 40% de CPU e resposta de 26,7 ms. A média da Black Friday é de <strong>400 req/s</strong> (as 10 réplicas, o 10× do módulo 6) e o pico das 20:03 chega a <strong>640 req/s</strong>, 64 por réplica.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o painel que só mostra a média</h3>
+
+<p>O painel da loja desenha uma única linha, o tempo de resposta <strong>médio</strong> da frota, e às 20:03 ela marca <strong>135 ms</strong>. A meta é de 300 ms, então a linha está verde. Enquanto isso, a Lena esperou 2 s pela página do gato, e a página da camiseta preta do <strong>Davi</strong> (20:03:12) levou 2,1 s: passou do timeout, ele recebeu um <code>504</code>, recarregou, e a segunda tentativa levou 61 ms no balanceador.</p>
+
+<p>Às 20:03:30 o Davi fecha o <strong>pedido 1052</strong>: 3 camisetas pretas, 147,00, mais 9,00 de frete para SP, 156,00 no total. O Davi insistiu depois do <code>504</code> e comprou. Quem desistiu no primeiro erro não aparece em média nenhuma, e olhando só o painel verde ninguém saberia que eles existem.</p>
+
+<WhyItMatters>
+  <li><strong>"Lento" vira decisão.</strong> Com número, ponto de medida e meta, dá para dizer onde mexer e quando parar.</li>
+  <li><strong>Três pontos dizem onde dói.</strong> A diferença entre o navegador, o balanceador e a réplica separa a rede do servidor.</li>
+  <li><strong>A meta decide o que é problema.</strong> 2 s para a Lena é um defeito, e para um relatório noturno seria normal.</li>
+  <li><strong>A média engana.</strong> 135 ms verde e 2 s na tela da cliente convivem no mesmo minuto.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O mesmo pedido em dois dias</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Dia normal</th><th>20:03 da Black Friday</th></tr></thead>
+    <tbody>
+      <tr><th>No navegador da Lena</th><td>100 ms</td><td>2,08 s</td></tr>
+      <tr><th>No <code>lb-loja</code></th><td>20 ms</td><td>2.000 ms</td></tr>
+      <tr><th>Na réplica</th><td>20 ms</td><td>2.000 ms (<code>catalogo-3</code>)</td></tr>
+      <tr><th>Rede (RTT Recife a SP)</th><td>80 ms</td><td>80 ms</td></tr>
+      <tr><th>Tráfego</th><td>40 req/s</td><td>640 req/s no pico</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Os números são de exemplo, escolhidos para a conta ficar à vista, e as próximas aulas usam todos eles.</p>
+  <h4 class="deep-h">Correção ao artigo-base: latência e tempo de resposta</h4>
+  <ul>
+    <li><strong>Dois nomes para coisas diferentes.</strong> O artigo chama de latência o tempo de <strong>rede</strong> e de tempo de resposta a soma com o processamento. O livro de SRE do Google usa "latency" para o tempo de <strong>atender</strong> a requisição, e separa as que deram certo das que falharam: um erro rápido não pode entrar na média. O módulo usa <strong>tempo de resposta</strong> para o que o cliente vê e avisa quando um painel chama isso de "latência".</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Livro de SRE do Google: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Gil Tene: How NOT to measure latency (vídeo)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora a loja sabe medir em três pontos e tem uma meta, e já viu que a média de 135 ms esconde os 2 s da Lena. Falta saber que números olhar além do tempo médio: quais são os sinais que contam a saúde de um serviço, e o que um percentil mostra que a média não mostra.</p>
+
+<Flashcards cards={[
+  { q: "O tempo de resposta é feito de quê?",
+    a: "Latência de rede mais tempo de processamento. A Lena, num dia normal: 80 ms de RTT + 20 ms de servidor = 100 ms no navegador, contra 20 ms no painel do servidor." },
+  { q: "Para que medir em três pontos?",
+    a: "Cliente, lb-loja e réplica mostram onde a degradação aconteceu. Na Black Friday: 2,08 s, 2.000 ms e 2.000 ms. Os 80 ms são a rede e o resto está dentro da catalogo-3." },
+  { q: "Qual é a meta do módulo?",
+    a: "p95 até 300 ms e erros até 0,1%, medidos no lb-loja, que tem timeout de 2 s. É um exemplo." },
+  { q: "Como cresce o tráfego do catálogo?",
+    a: "Dia comum 40 req/s, média da Black Friday 400 req/s, pico das 20:03 em 640 req/s (64 por réplica)." },
+  { q: "Por que o painel de média engana?",
+    a: "Marca 135 ms (verde, a meta é 300) no minuto em que a Lena esperou 2 s e o Davi levou um 504 de 2,1 s." },
+]} />

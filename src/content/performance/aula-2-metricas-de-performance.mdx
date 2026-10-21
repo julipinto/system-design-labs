@@ -1,0 +1,92 @@
+---
+title: "Métricas de performance"
+order: 2
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o painel de média marcou 135 ms, verde, no minuto em que a Lena esperou 2 s. A loja tem a meta (p95 até 300 ms) e os três pontos de medida, e agora precisa dos números certos para olhar. Quatro sinais cobrem o essencial, e um deles, o percentil, é o que faz a Lena aparecer no painel.</p>
+
+<OneLiner>Os <strong>quatro sinais</strong> (tempo de resposta, tráfego, erros e saturação) contam a saúde de um serviço, e os <strong>percentis</strong> mostram o que a média esconde: no minuto das 20:03, a média é 135 ms, o p50 é 32 ms e o p99 é 2.000 ms.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Percentis</strong>, ache os marcadores da média (135) e do p95 (800) sobre os 100 pedidos ordenados. Depois ligue <strong>Tirar a catalogo-3</strong> (tecla X) e veja o p95 cair de 800 para 58. Por fim, aperte <strong>Quente</strong> para ver essa réplica a 99% de CPU e as outras nove a 64%.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/latencia-3d/?mode=percentis" poster="labs/performance/latencia-3d-previa.webp" title="Figura interativa: Média e percentis" alt="Prévia da figura 3D: Média e percentis" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O livro de SRE do Google propõe quatro sinais: <strong>tempo de resposta</strong> (o "latency" dele), <strong>tráfego</strong>, <strong>erros</strong> e <strong>saturação</strong>. Na loja das 20:03, o tempo de resposta é o da aula 1, o tráfego são 640 req/s, os erros são 1% e a saturação, vamos ver, é a que tem fila.</li>
+  <li>Três deles saem de contas simples. <strong>Utilização</strong> é usado ÷ disponível × 100: 1.024 de 2.048 MB é 50%. <strong>Vazão</strong> (throughput) é trabalho ÷ tempo: 6.000 requisições em 60 s são 100 req/s, e na loja 38.400 em 60 s são <strong>640 req/s</strong>. <strong>Taxa de erros</strong> é erros ÷ total × 100: 1 em 100 é <strong>1%</strong>, dez vezes acima da meta de 0,1%.</li>
+  <li>O tempo de resposta não cabe num número só. Pegue uma <strong>amostra</strong> de 100 requisições do minuto das 20:03, sorteadas das 38.400, e ordene. O <strong>percentil</strong> p é o valor abaixo do qual ficam p% das respostas; no método do posto mais próximo, é o valor na posição ⌈p% × n⌉. Com n = 100: <strong>média 135 ms, p50 32, p90 74, p95 800, p99 2.000, máximo 2.100</strong>.</li>
+  <li>Os 100 pedidos vêm de dois mundos. Nove réplicas a 64% respondem em 26 a 74 ms (média 37,8). A <code>catalogo-3</code>, a 99%, responde em 150 a 2.100 ms (média 1.010): as buscas pesadas de 900 ms do módulo 7 caíram quase todas nela, porque o round robin conta pedidos, e não esforço. Mistura os dois e a média sai 135, longe de ambos.</li>
+  <li>A <strong>saturação</strong> é o trabalho que <strong>espera</strong>: a fila de requisições, o pool de conexões cheio, o load average acima do número de núcleos. A <code>catalogo-3</code> tem fila e as outras não. Ela só aparece quando se olha <strong>por réplica</strong>, e a frota inteira, a 67,5% de CPU na média, parece saudável.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="percentis" title="Percentis e média: a amostra das 20:03" hint="Veja média, p50, p90, p95, p99, máximo e os erros da amostra de 100 requisições. Depois use o botão para tirar a catalogo-3 (a amostra depois da correção) e compare as duas métricas com a meta de 300 ms." />
+
+<h3 class="sec">E se der errado: a média dos p99</h3>
+
+<p>Cada réplica reporta o <strong>seu</strong> p99 ao painel. Com 10 requisições por réplica, o p99 de cada uma é o seu máximo: 4 réplicas com 55 ms, 5 com 74 ms e a <code>catalogo-3</code> com 2.100 ms. O painel junta tudo com uma média, (4 × 55 + 5 × 74 + 2.100) ÷ 10 = <strong>269 ms</strong>, e mostra um p99 que parece aceitável. O p99 verdadeiro da frota, calculado sobre as 100 requisições juntas, é <strong>2.000 ms</strong>.</p>
+
+<p>Percentil não se soma nem se tira média. O jeito certo é juntar os <strong>histogramas</strong> (as contagens por faixa de tempo, os buckets) e calcular o percentil de novo sobre o conjunto. E há um segundo cuidado: com 100 amostras, o p99 é só o 99º valor, e uma única requisição lenta o move. Ele só se estabiliza com mil amostras ou mais.</p>
+
+<WhyItMatters>
+  <li><strong>Cada sinal responde a uma pergunta.</strong> Está lento? Está chegando muito? Está falhando? Está cheio?</li>
+  <li><strong>O p95 está vermelho enquanto a média está verde.</strong> A meta de 300 ms olha o p95: 800 ms estoura, e 135 ms de média não avisa.</li>
+  <li><strong>A visão por réplica acha a quente.</strong> A frota a 67,5% esconde a <code>catalogo-3</code> a 99%.</li>
+  <li><strong>Agregar percentil engana.</strong> 269 ms no painel contra 2.000 ms reais.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A amostra das 20:03, por inteiro</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Grupo</th><th>Quantas</th><th>Tempo no <code>lb-loja</code> (ms)</th></tr></thead>
+    <tbody>
+      <tr><th>9 réplicas saudáveis (64%)</th><td>20 · 30 · 25 · 10 · 5</td><td>26 · 32 · 40 · 55 · 74 (média 37,8)</td></tr>
+      <tr><th><code>catalogo-3</code> (99%)</th><td>10</td><td>150 · 300 · 450 · 600 · 800 · 1.000 · 1.200 · 1.500 · 2.000 · 2.100 (média 1.010)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Cada réplica contribui com 10 requisições, porque o round robin dá o mesmo <strong>número</strong> de pedidos a todas. A requisição de 2.000 ms é a da Lena (20:03:07) e a de 2.100 ms é a do Davi (20:03:12): essa passa do timeout de 2 s e vira o único <code>504</code>, 1,0% da amostra.</p>
+  <h4 class="deep-h">Depois de corrigir o balanceamento</h4>
+  <p>Com o balanceador por menos requisições em andamento e peso (módulo 7), todas as réplicas ficam a 67,5% e respondem em 40,8 ms de média. A amostra tem 20 × 28 · 30 × 34 · 25 × 42 · 15 × 56 · 8 × 58 · 2 × 73 ms: <strong>média 40,8, p50 34, p95 58, p99 73, máximo 73, erros 0%</strong>. A média caiu 3,3 vezes (de 135 para 41) e o p99 caiu 27 vezes (de 2.000 para 73).</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Utilização não é saturação.</strong> O artigo chama de "saturado" o recurso perto de 100% de uso. Pelo método USE de Brendan Gregg (utilização, saturação e erros) e pelo livro de SRE, saturação é <strong>trabalho esperando</strong>: fila, pool de conexões cheio, load average acima dos núcleos. Um recurso a 100% sem ninguém esperando não está saturado, e a resposta pode piorar antes de 100% (o joelho da próxima aula).</li>
+    <li><strong>Percentis não se agregam.</strong> O artigo explica o que é p95 e p99, mas não que não se tira média deles, nem que p99 com 100 amostras é só o 99º valor. A documentação do Prometheus mostra o caminho dos histogramas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Livro de SRE do Google: Monitoring Distributed Systems (os quatro sinais)", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Brendan Gregg: o método USE (utilização, saturação e erros)", href: "https://www.brendangregg.com/usemethod.html" },
+    { label: "Prometheus: histogramas e sumários", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Gil Tene: How NOT to measure latency (vídeo)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com os quatro sinais por réplica, a loja achou a <code>catalogo-3</code>: o p99 dela está ruim e o resto está bem. Falta saber a pergunta maior, a de quanto a frota aguenta no total: onde está o limite do catálogo, e o que acontece com o checkout quando a demanda passa do que ele dá conta.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os quatro sinais?",
+    a: "Tempo de resposta, tráfego, erros e saturação. Na loja das 20:03: p95 de 800 ms, 640 req/s, 1% de erros e fila na catalogo-3." },
+  { q: "Como se calcula o percentil pelo posto mais próximo?",
+    a: "O valor na posição ⌈p% × n⌉ da amostra ordenada. Com n = 100: p50 = 32, p90 = 74, p95 = 800, p99 = 2.000." },
+  { q: "Por que o painel verde e a Lena esperando 2 s convivem?",
+    a: "A média é 135 ms (abaixo dos 300 ms), mas o p95 é 800 ms (acima). A média mistura as 9 réplicas saudáveis com a catalogo-3." },
+  { q: "O que é saturação, de verdade?",
+    a: "Trabalho esperando: fila, pool de conexões cheio, load average alto. Utilização alta sem fila não é saturação." },
+  { q: "Por que não se tira a média dos p99?",
+    a: "A média dos p99 por réplica dá 269 ms, e o p99 real da frota é 2.000 ms. Junta-se o histograma e calcula-se de novo. Com 100 amostras o p99 é só o 99º valor." },
+]} />

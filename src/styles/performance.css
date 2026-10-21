@@ -1,0 +1,12 @@
+/* SDLabs · Performance, Capacidade e Escalabilidade: o que só este módulo usa (tabelas dos widgets de percentis, joelho, cadeia, queda e HPA). Peças comuns em widgets.css */
+.sdl-content table.sr-table.pf-table{min-width:0}
+.sdl-content table.pf-table th,.sdl-content table.pf-table td{padding-right:var(--s-3)}
+.sdl-content table.pf-table td.pf-cell{font:700 14px var(--mono)}
+.sdl-content table.pf-table td.pf-cell.bad{color:var(--bad)}
+.sdl-content table.sr-table.pf-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.sr-table.pf-narrow{max-width:260px}
+.sdl-content table.sr-table.pf-wide{min-width:520px}
+.sdl-content tr.cr-cur th,.sdl-content tr.cr-cur td{background:var(--accent-wash)}
+.sdl-content tr.dl-wait td,.sdl-content tr.dl-wait th{color:var(--bad)}
+.sdl-content .pf-out{margin-top:var(--s-3)}
+.sdl-content .sr-ctl[hidden]{display:none}
