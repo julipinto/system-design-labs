@@ -1,0 +1,34 @@
+/* SDLabs · Resiliência: o que só este módulo usa (gráfico de chamadas, linha do tempo do breaker, shards, tabelas e JSON dos widgets). Peças comuns em widgets.css */
+.sdl-content table.sr-table.rs-table{min-width:0}
+.sdl-content table.rs-table th,.sdl-content table.rs-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.rs-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.rs-table td.rs-bad{color:var(--bad);font-weight:700}
+.sdl-content tr.rs-cur th,.sdl-content tr.rs-cur td{background:var(--accent-wash)}
+.sdl-content tr.rs-badrow td:nth-child(n+2){font-family:var(--mono)}
+.sdl-content .rs-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.rs-badfact b{color:var(--bad)}
+.sdl-content .rs-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .rs-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.sdl-content .rs-json{margin:var(--s-3) 0 0;max-height:220px;overflow:auto;white-space:pre;font:12.5px/1.5 var(--mono)}
+.sdl-content .rs-json code{font:inherit;background:none;padding:0;border:0}
+/* chamadas por janela de 100 ms */
+.sdl-content .rs-bars{display:flex;align-items:flex-end;gap:1px;height:96px;margin-top:var(--s-3);border-bottom:var(--hair) solid var(--line-strong)}
+.sdl-content .rs-bars i{flex:1 1 0;min-width:1px;background:var(--accent-ink);display:block}
+.sdl-content .rs-bars i.down{background:var(--muted)}
+.sdl-content .rs-axis{display:flex;justify-content:space-between;gap:var(--s-2);margin:4px 0 var(--s-3);font:600 12px var(--mono);color:var(--muted)}
+/* linha do tempo do breaker */
+.sdl-content .rs-tl{position:relative;display:flex;height:28px;margin-top:var(--s-3);border:var(--hair) solid var(--line-strong);border-radius:var(--r-1);overflow:hidden}
+.sdl-content .rs-tl i{display:block;height:100%}
+.sdl-content .rs-tl i.closed{background:var(--ok)}
+.sdl-content .rs-tl i.open{background:var(--bad)}
+.sdl-content .rs-tl i.half{background:var(--accent-ink)}
+.sdl-content .rs-tl i.psp{position:absolute;top:0;bottom:0;width:2px;background:var(--ink-hi)}
+.sdl-content .rs-legend{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:0 0 var(--s-3);font:600 12px var(--mono);color:var(--ink)}
+.sdl-content .rs-legend span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:-1px;border-radius:2px;background:var(--ok)}
+.sdl-content .rs-legend span.open::before{background:var(--bad)}
+.sdl-content .rs-legend span.half::before{background:var(--accent-ink)}
+/* blast radius */
+.sdl-content .rs-shards{display:flex;align-items:flex-end;gap:var(--s-2);height:120px;margin-top:var(--s-3)}
+.sdl-content .rs-shard{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:4px;font:600 12px var(--mono);color:var(--muted);text-align:center}
+.sdl-content .rs-shard i{display:block;background:var(--accent-ink);border-radius:var(--r-1) var(--r-1) 0 0}
+.sdl-content .rs-shard.hot i{background:var(--bad)}

@@ -1,0 +1,86 @@
+---
+title: "Sharding e bulkheads"
+order: 13
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o dado ganhou cópias, mas o problema de uma fatia ruim continuava aberto. A saída é a mesma do início: <strong>limitar o raio</strong>, agora com paredes. Duas paredes, em eixos diferentes: o <em>sharding</em> isola <strong>dados e clientes</strong> e o <em>bulkhead</em> isola <strong>recursos</strong>, como pools e filas.</p>
+
+<OneLiner><strong>Isolar</strong> é limitar o raio. O <em>sharding</em> isola dados e clientes, o <strong><em>bulkhead</em></strong> (o compartimento de um navio) isola recursos: pools, filas, versões. A falha de um compartimento não alaga os outros.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Bulkhead</strong>, ponha o PSP-A em <strong>8 s</strong> com o <strong>pool compartilhado</strong> e depois com os <strong>três pools</strong> (50, 30 e 20). Para ver o outro isolamento, troque para o cenário <strong>Shuffle</strong>: 2 de 10 réplicas, e o <code>mkt-01</code> barulhento.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/isolamento-3d/?mode=bulkhead" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Figura interativa: Bulkheads: as paredes" alt="Prévia da figura 3D: Bulkheads: as paredes" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O pool compartilhado.</strong> O <code>pagamentos</code> tem um pool de <strong>100</strong> conexões usado pelo PSP, pela cotação de frete e pelo e-mail. Com o PSP-A a 8 s e 30 pedidos/s ele enche em 100 ÷ 30 = <strong>3,33 s</strong>, e a cotação e o e-mail, que são rápidos, <strong>também</strong> não passam.</li>
+  <li><strong>As paredes.</strong> Com <em>bulkheads</em> de <strong>50</strong> (PSP), <strong>30</strong> (cotação de frete) e <strong>20</strong> (e-mail), só o pool do PSP esgota, em 50 ÷ 30 = <strong>1,67 s</strong>. Os outros dois seguem.</li>
+  <li><strong>Outros eixos.</strong> Um pool por <strong>dependência</strong>, por <strong>prioridade</strong> e por <strong>cliente</strong>: o <code>mkt-01</code> com a sua própria fila.</li>
+  <li><strong>Shuffle sharding.</strong> O módulo 16 sorteou 2 de 10 réplicas para cada cliente: são 45 pares. O cliente barulhento derruba só quem tem o <strong>mesmo par</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Sharding e bulkhead não são a mesma coisa</h3>
+
+<p>O artigo chama o <em>bulkhead</em> de "evolução do sharding". São <strong>eixos diferentes</strong>: o sharding corta os dados e os clientes (o cubo do módulo 15, o <code>shard-2</code> da aula 3), e o bulkhead corta recursos e dependências. O <em>shuffle sharding</em> é o que liga os dois, porque corta clientes <em>e</em> compartimentos de recurso. A conta de 1/N continua com a ressalva da aula 3: o <code>shard-2</code> leva 60% das linhas por causa do <code>mkt-01</code>. O módulo 26 leva a ideia ao limite com as células por região.</p>
+
+<h3 class="sec">E se der errado: três paredes que falham</h3>
+
+<p>A primeira é o <strong><em>bulkhead</em> pequeno demais</strong>: 30 conexões para um pico de 40 em voo recusam tráfego legítimo. A segunda é o <strong>isolamento furado</strong>: dois pools separados que dependem do <strong>mesmo</strong> banco têm o raio do banco, e a parede não adianta. A terceira é a <strong>carga desigual</strong>: o <code>mkt-01</code> enche a fatia dele e a parede é do tamanho errado.</p>
+
+<Widget name="bulkhead" title="Bulkhead" hint="Pool total (20 a 300), partições do PSP e do frete (o resto vai para o e-mail) e latência do PSP. Mostra o tempo para esgotar (3,33 s no pool único contra 1,67 s no do PSP) e quem fica de fora." />
+
+<WhyItMatters>
+  <li><strong>Um pool, um raio.</strong> O pool compartilhado põe PSP, frete e e-mail no mesmo compartimento.</li>
+  <li><strong>As paredes custam um pouco de capacidade.</strong> 50/30/20 não dão a flexibilidade de 100 juntos, e um bulkhead pequeno recusa o legítimo.</li>
+  <li><strong>Shuffle sharding vale para os dois eixos.</strong> Com 2 de 10, o cliente barulhento só alcança quem tem o mesmo par.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O <em>lease</em>: uma concessão com prazo</h4>
+  <ul>
+    <li><strong>O que é.</strong> Um <em>lease</em> é uma concessão <strong>com prazo</strong> que o cliente precisa <strong>renovar</strong>. Se não renova, o recurso volta ao pool.</li>
+    <li><strong>Onde aparece.</strong> No pool de conexões com <em>heartbeat</em>: a conexão que parou de avisar é recolhida. No consumidor Kafka com uma partição: se o consumidor para de avisar, a partição vai para outro.</li>
+    <li><strong>Por que combina com o bulkhead.</strong> O pool de 50 do PSP só se recupera se as conexões presas por 8 s voltarem; o lease é o que garante que elas voltem.</li>
+  </ul>
+  <h4 class="deep-h">Correção ao artigo-base: sharding × bulkhead e o lease</h4>
+  <ul>
+    <li><strong>"O bulkhead é a evolução do sharding".</strong> São eixos diferentes, e o <em>shuffle sharding</em> é o que liga os dois.</li>
+    <li><strong>O <em>lease</em> está no artigo e não está na lista de aulas.</strong> Entra aqui, neste bloco, como aprofundamento. O mesmo vale para o <em>throttling</em> e o <em>rate limiting</em>, que entraram na aula 11.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Microsoft: padrão Bulkhead", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Resilience4j: Bulkhead", href: "https://resilience4j.readme.io/docs/bulkhead" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Hillside: Leasing (Jain e Kircher)", href: "https://hillside.net/plop/plop2k/proceedings/Jain-Kircher/Jain-Kircher.pdf" },
+    { label: "Enterprise Integration Patterns: Lease", href: "https://www.enterpriseintegrationpatterns.com/patterns/conversation/Lease.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora aguenta o PSP lento sem sair do ar. Mas a causa mais comum de incidente é a própria <strong>mudança</strong>: uma versão nova, uma configuração. Falta saber como lançar sem ser o incidente: <em>rolling</em>, <em>blue/green</em>, <em>canary</em> e <em>feature toggle</em> (módulos 8, 9 e 10), que o módulo 22, Deployment, reúne.</p>
+
+<Flashcards cards={[
+  { q: "O que é um bulkhead?",
+    a: "Um compartimento de recurso (pool, fila) que isola uma dependência das outras, como as divisórias de um navio." },
+  { q: "Quanto leva para esgotar o pool com e sem bulkheads?",
+    a: "Pool único de 100: 100 ÷ 30 = 3,33 s, levando frete e e-mail junto. Com 50/30/20, só o do PSP esgota, em 1,67 s." },
+  { q: "Qual é a diferença entre sharding e bulkhead?",
+    a: "Sharding isola dados e clientes; bulkhead isola recursos e dependências. O shuffle sharding liga os dois." },
+  { q: "Quantos pares tem o shuffle sharding de 2 em 10?",
+    a: "45. O cliente barulhento derruba só quem tem o mesmo par." },
+  { q: "O que é um lease?",
+    a: "Uma concessão com prazo que o cliente renova. Se não renova, o recurso volta ao pool." },
+]} />

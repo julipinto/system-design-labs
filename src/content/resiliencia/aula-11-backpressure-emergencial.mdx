@@ -1,0 +1,98 @@
+---
+title: "Backpressure emergencial"
+order: 11
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja desligou recomendações para segurar a entrada. Mas o excesso que já passou continua dentro das filas. O projetor <code>meus-pedidos</code> do módulo 18 recebe <strong>120 eventos por segundo</strong> e processa <strong>100</strong>. Falta fazer o consumidor <strong>avisar quem manda</strong> que precisa desacelerar.</p>
+
+<OneLiner><strong><em>Backpressure</em></strong> é o consumidor avisar o produtor para desacelerar. O "emergencial" é quando o sinal vem de fora do ritmo normal: <strong>fila cheia</strong> ou <strong>atraso alto</strong>. Exige fila <strong>limitada</strong> e um <strong>sinal</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Backpressure</strong>, ponha <strong>120 eventos/s</strong> contra <strong>100/s</strong> e escolha a política na fila de <strong>5.000</strong>: ilimitada, bloquear, <code>429</code> ou descartar por prioridade. Leia o tempo para encher: <strong>250 s</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=backpressure" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Backpressure" alt="Prévia da figura 3D: Backpressure" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O déficit.</strong> Chegam 120/s e saem 100/s: sobram <strong>20/s</strong> que ficam na fila.</li>
+  <li><strong>Fila limitada.</strong> Com 5.000 de limite, ela enche em 5.000 ÷ 20 = <strong>250 s</strong> (4 min 10 s). Cheia, ela precisa recusar: o produtor fica sabendo.</li>
+  <li><strong>Fila ilimitada.</strong> Em 10 min são 12.000 eventos na fila e <strong>120 s</strong> de atraso (12.000 ÷ 100), e o atraso continua crescendo.</li>
+  <li><strong>Drenar.</strong> Quando a crise passa e a chegada cai para 20/s, a fila de 12.000 só escoa a 100 − 20 = 80/s: <strong>150 s</strong>.</li>
+  <li><strong>Os sinais.</strong> Fila limitada, <code>429</code> com <code>Retry-After</code> (RFC 6585 e RFC 9110), pausa do consumidor, <code>request(n)</code> nos <em>streams</em> reativos, janela do TCP. Todos dizem a mesma coisa: "mais devagar".</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Descartar por prioridade</h3>
+
+<p>Sob sobrecarga, é melhor recusar cedo o que é <code>SHEDDABLE</code> (marketing, relatório) do que atrasar tudo. É o <em>load shedding</em>: descartar. O pedido pago precisa do projetor; a campanha de e-mail pode esperar ou ser descartada. A ordem é a mesma da aula 10.</p>
+
+<h3 class="sec">Três coisas que o artigo mistura</h3>
+
+<p>O <strong><em>rate limiting</em></strong> limita a taxa por cliente na porta (token bucket, módulo 8). O <strong><em>throttling</em></strong> reduz o ritmo de quem passou da cota, em vez de recusar. O <strong><em>load shedding</em></strong> recusa o excesso de <strong>todos</strong> quando a loja está sobrecarregada. As três são porta de entrada da defesa, e cada uma responde a uma pergunta diferente: quanto cada um pode, quanto desacelerar e o que descartar agora.</p>
+
+<p>O artigo também liga o backpressure ao orçamento de erro (reduzir a ingestão quando o orçamento acaba) e às malhas de serviço, que podem aplicar os sinais no proxy sem mexer no código (módulo 10).</p>
+
+<h3 class="sec">E se der errado: "enfileirar em memória"</h3>
+
+<p>O artigo trata "enfileirar o processamento em memória" como forma de backpressure. Sem limite, ela só <strong>esconde</strong> a sobrecarga: a latência cresce sem ninguém ver, a memória enche e o processo morre <strong>com a fila dentro</strong>, levando os 12.000 eventos junto. Backpressure exige fila <strong>limitada</strong> e um <strong>sinal</strong> ao produtor. Sem o sinal, a fila só adia o problema.</p>
+
+<Widget name="fila" title="Fila e backpressure" hint="Chegada, capacidade, limite da fila, duração da crise e política (ilimitada, bloquear, 429 ou descartar por prioridade). Mostra o tempo para encher (250 s), o atraso e o tempo de dreno (150 s)." />
+
+<WhyItMatters>
+  <li><strong>Sem limite, não há sinal.</strong> A fila ilimitada atrasa 120 s em 10 min e esconde o problema.</li>
+  <li><strong>O 429 devolve a decisão a quem manda.</strong> O produtor com <code>Retry-After</code> sabe quando voltar.</li>
+  <li><strong>Descartar é melhor que atrasar tudo.</strong> Com a fila no limite, SHEDDABLE sai primeiro.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">As quatro políticas, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Política</th><th>O que acontece com o excesso</th><th>Quem paga</th></tr></thead>
+    <tbody>
+      <tr><th>ilimitada</th><td>cresce até a memória acabar</td><td>todos, por último</td></tr>
+      <tr><th>bloquear</th><td>o produtor espera</td><td>o produtor</td></tr>
+      <tr><th><code>429</code></th><td>recusa com <code>Retry-After</code></td><td>quem excedeu</td></tr>
+      <tr><th>descartar por prioridade</th><td>tira os SHEDDABLE da fila</td><td>os menos importantes</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: enfileirar não é backpressure</h4>
+  <ul>
+    <li><strong>"Enfileirando o processamento em memória" como backpressure.</strong> Fila ilimitada esconde a sobrecarga. O artigo também mistura <em>rate limiting</em>, <em>throttling</em> e <em>load shedding</em>; aqui ficam três coisas separadas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Using load shedding to avoid overload", href: "https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/" },
+    { label: "Reactive Streams", href: "https://www.reactive-streams.org/" },
+    { label: "RFC 6585: 429 Too Many Requests", href: "https://www.rfc-editor.org/rfc/rfc6585" },
+    { label: "Google SRE book: Handling Overload", href: "https://sre.google/sre-book/handling-overload/" },
+    { label: "Microsoft: padrão Throttling", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling" },
+  ]} />
+</Deep>
+
+<p class="gancho">O excesso agora tem limite e quem manda sabe. Mas o lugar onde ele custa mais caro é o banco. Falta saber como o dado, a camada mais difícil de proteger, sobrevive quando o primário cai.</p>
+
+<Flashcards cards={[
+  { q: "O que é backpressure?",
+    a: "O consumidor avisar o produtor para desacelerar. Exige fila limitada e um sinal (429, pausa, request(n))." },
+  { q: "Em quanto tempo a fila de 5.000 enche?",
+    a: "5.000 ÷ 20 = 250 s (4 min 10 s), com 120 chegando e 100 saindo por segundo." },
+  { q: "E se a fila for ilimitada?",
+    a: "Em 10 min são 12.000 eventos e 120 s de atraso, que continua crescendo. Drenar leva 12.000 ÷ 80 = 150 s." },
+  { q: "O que é descartar por prioridade?",
+    a: "Load shedding: sob sobrecarga, recusar cedo o SHEDDABLE (marketing, relatório) em vez de atrasar tudo." },
+  { q: "Por que 'enfileirar em memória' não é backpressure?",
+    a: "Sem limite ela esconde a sobrecarga e o processo morre com a fila dentro. Falta o limite e o sinal ao produtor." },
+]} />

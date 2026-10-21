@@ -1,0 +1,88 @@
+---
+title: "Idempotência"
+order: 5
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o balanceador mandou a chamada para uma réplica boa. E se a <strong>mesma chamada</strong> chegar duas vezes? Quase toda defesa que vem a seguir (timeout, retry, breaker) acaba repetindo uma chamada. Dois fios soltos da loja nasceram disso: o <code>PedidoPago</code> <code>e-502</code> do módulo 6, entregue duas vezes (o estoque foi de 3 para 2 e para 1), e o app do Davi, no módulo 12, que refez o <code>POST</code> e criou dois pedidos e duas cobranças.</p>
+
+<OneLiner><strong>Idempotência</strong> é repetir a operação e obter o mesmo resultado. É o que torna <strong>seguro repetir</strong>, e por isso vem antes de timeout e retry.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Timeout</strong>, repita o <code>POST</code> do pedido <strong>sem chave</strong> e depois <strong>com a chave</strong>, e conte os pedidos criados. Sem chave, nascem dois; com ela, o app recebe de volta o <strong>mesmo 1058</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=timeout&step=7" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Timeout, prazos e chave" alt="Prévia da figura 3D: Timeout, prazos e chave" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A chave nasce uma vez.</strong> O app cria um identificador para a <strong>intenção</strong> de pagar e o manda no cabeçalho: <code>Idempotency-Key: "3f9a2c7e-5b1d-4e8a-9c3f-7a2b4d6e8f10"</code>. O cabeçalho custa <strong>57 bytes</strong>: a requisição do módulo 12 (cabeçalhos de 157 B + corpo de 53 B = 210 B) ganha 57 B de cabeçalho e vira 214 B + 53 B = <strong>267 B</strong> (o acréscimo é o que vale; o corpo do pedido do app é outro).</li>
+  <li><strong>A 1ª chegada executa.</strong> O servidor tenta registrar a chave numa tabela. Se conseguir, a operação roda e o resultado é guardado.</li>
+  <li><strong>A repetição devolve o guardado.</strong> O app perdeu a resposta e tenta de novo com a mesma chave. O servidor acha a chave, não executa nada e devolve a resposta de antes.</li>
+  <li><strong>Corpo diferente é erro.</strong> A mesma chave com outro corpo não é repetição: o servidor compara o <em>hash</em> do corpo e responde <code>422</code>.</li>
+  <li><strong>Em andamento espera.</strong> Se a primeira ainda está processando, a segunda espera o commit e então devolve o resultado (no rascunho do IETF, <code>409</code>).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que o banco diz</h3>
+
+<p>A tabela é <code>idempotencia(chave text PRIMARY KEY, hash_corpo text, estado text, resposta jsonb, criada_em)</code>. A 1ª chegada da chave do Caio fez <code>INSERT … ON CONFLICT (chave) DO NOTHING RETURNING chave</code> e o PostgreSQL 14 devolveu <strong>uma linha</strong> (<code>INSERT 0 1</code>): executa, grava <code>estado = concluido</code> e <code>resposta = &#123;"status":201,"pedido_id":1058&#125;</code>. Na repetição o mesmo <code>INSERT</code> devolveu <strong>0 linhas</strong> (<code>INSERT 0 0</code>) e a resposta guardada voltou, <code>201</code> e <code>pedido_id 1058</code>, com <code>mesmo_corpo = t</code>. Com corpo diferente, <code>mesmo_corpo = f</code>. O índice único faz o trabalho de trancar: se a primeira ainda processa, o <code>INSERT</code> concorrente espera o commit e só então devolve 0 linhas.</p>
+
+<p>Resultado para o Caio: o app perde a resposta, repete com a mesma chave e recebe o <strong>mesmo 1058</strong>, não um 1059 (o 1059 aqui é hipotético: não consome número da história).</p>
+
+<h3 class="sec">Três lugares onde a chave mora</h3>
+
+<p>Na <strong>API</strong>, é a <code>Idempotency-Key</code> do app. No <strong>consumidor</strong>, é o <code>evento_id</code> do módulo 20: o <code>e-502</code> repetido é barrado por já ter sido processado. Na <strong>compensação</strong>, é uma chave própria da operação, como <code>estorno-c-7732</code> (módulo 19). Em todos o raciocínio é o mesmo: a operação carrega a sua identidade.</p>
+
+<h3 class="sec">E se der errado: a chave que nasce a cada tentativa</h3>
+
+<p>O app cria um UUID novo no <em>retry</em>. Cada tentativa vira uma intenção nova e a tabela nunca acha repetição: dois pedidos e duas cobranças, como se a chave não existisse. A chave nasce <strong>uma vez por intenção</strong>, antes da primeira chamada, e se repete nas seguintes.</p>
+
+<p>O segundo erro é perder o resultado da 1ª tentativa. A chave foi reservada, o processo caiu antes de gravar a resposta e a repetição encontra <code>processando</code> <strong>para sempre</strong>. Guarde um prazo na reserva e deixe o dono da operação (a saga do módulo 19) decidir se refaz ou compensa.</p>
+
+<Widget name="idem" title="Chave de idempotência" hint="Reenvie um POST de 1 a 5 vezes, com e sem chave e com o corpo igual ou diferente. O widget mostra os pedidos criados, a linha da tabela idempotencia e o status (201 ou 422)." />
+
+<WhyItMatters>
+  <li><strong>Sem idempotência, toda defesa que repete piora o dano.</strong> Retry, reenvio do app e entrega pelo menos uma vez criam dois pedidos.</li>
+  <li><strong>A chave dá identidade à intenção.</strong> Uma vez por intenção, guardada junto da resposta.</li>
+  <li><strong>O índice único é o porteiro.</strong> Quem chega por último espera o commit e devolve o resultado, sem executar duas vezes.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Quanto tempo guardar a chave</h4>
+  <ul>
+    <li><strong>Pelo menos 24 h.</strong> O Stripe guarda a chave por ao menos 24 horas e aceita até 255 caracteres; depois disso pode removê-la. Se a mesma chave volta com parâmetros diferentes, é erro.</li>
+    <li><strong>O IETF discute o cabeçalho.</strong> O rascunho <code>Idempotency-Key</code> definiu o valor como <em>structured header</em> entre aspas, <code>400</code> para chave ausente, <code>422</code> para corpo diferente e <code>409</code> para processamento concorrente. O rascunho expirou em 18/04/2026: é uma referência, não um padrão final.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Stripe: Idempotent requests", href: "https://docs.stripe.com/api/idempotent_requests" },
+    { label: "IETF: rascunho do cabeçalho Idempotency-Key (expirado)", href: "https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/" },
+    { label: "microservices.io: Idempotent Consumer", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "RFC 9110: HTTP Semantics (métodos idempotentes)", href: "https://www.rfc-editor.org/rfc/rfc9110.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora repetir uma chamada é seguro. Falta saber por quanto tempo esperar uma resposta antes de repetir, porque esperar sem limite esgota o pool.</p>
+
+<Flashcards cards={[
+  { q: "O que é idempotência?",
+    a: "Repetir a operação e obter o mesmo resultado. Torna seguro repetir uma chamada." },
+  { q: "O que a 1ª e a repetição fazem na tabela idempotencia?",
+    a: "A 1ª: INSERT 0 1, executa e grava a resposta. A repetição: INSERT 0 0 e devolve a resposta guardada (201, pedido 1058)." },
+  { q: "E com a mesma chave e corpo diferente?",
+    a: "O hash do corpo não bate (mesmo_corpo = f) e o servidor responde 422." },
+  { q: "Quanto a chave custa no cabeçalho?",
+    a: "57 bytes. A requisição do módulo 12 sobe de 210 B para 267 B." },
+  { q: "Qual é o erro típico do app com a chave?",
+    a: "Gerar um UUID novo a cada tentativa. A chave nasce uma vez por intenção." },
+]} />

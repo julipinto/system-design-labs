@@ -1,0 +1,90 @@
+---
+title: "Graceful degradation"
+order: 10
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o fallback trocou o <strong>caminho</strong>. Mas às vezes não existe um caminho melhor: só existe gente demais. Às 20:20 uma newsletter manda uma rajada de poucos segundos de <strong>1.300 req/s</strong> ao catálogo, que aguenta <strong>1.000</strong> (10 réplicas × 100 req/s). Falta decidir o que desligar para o essencial seguir.</p>
+
+<OneLiner><strong>Degradar com elegância</strong> é <strong>desligar de propósito</strong> o que não é essencial para proteger o essencial, <strong>antes</strong> de cair. O fallback troca o caminho; a degradação reduz a <strong>funcionalidade</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Degradação</strong>, suba a demanda para <strong>1.300</strong> e escolha o <strong>nível mínimo</strong> que a segura. Depois ligue a variante "tarde demais" e veja por que desligar com o pool já saturado não funciona.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=degradacao" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Degradação" alt="Prévia da figura 3D: Degradação" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A rajada.</strong> A demanda de <strong>1.300 req/s</strong> contra a capacidade de <strong>1.000</strong> dura poucos segundos. Não é o pico sustentado: o módulo 14 mediu 640 req/s e projetou 950. O <em>autoscaling</em> (HPA, de 10 para 14 réplicas = 1.400 req/s) leva minutos, e a rajada acaba antes.</li>
+  <li><strong>Nível 0.</strong> Normal: 10 ms de CPU por página, 100 req/s por réplica, <strong>1.000</strong> no total.</li>
+  <li><strong>Nível 1.</strong> Sem recomendações: 7,5 ms, 133 req/s por réplica, <strong>1.333</strong>. Já fecha a conta de 1.300.</li>
+  <li><strong>Nível 2.</strong> Mais busca simplificada e sem avaliações: 6 ms, 167 req/s por réplica, <strong>1.667</strong>.</li>
+  <li><strong>Nível 3.</strong> Só a página estática da CDN (módulo 5). A loja inteira sai do servidor e a CDN segura a vitrine.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Quem desliga primeiro</h3>
+
+<p>O SRE book dá nome às classes: <code>CRITICAL_PLUS</code>, <code>CRITICAL</code>, <code>SHEDDABLE_PLUS</code> e <code>SHEDDABLE</code>. Para a loja a ordem é <strong>checkout</strong> › <strong>catálogo</strong> › <strong>recomendações e "meus pedidos"</strong> › <strong>relatórios</strong>. A degradação desliga de baixo para cima, e o checkout só entra no fim.</p>
+
+<p>O gatilho pode ser <strong>manual</strong> (a <em>feature toggle</em> do módulo 9) ou <strong>automático</strong> (um sinal de saturação do módulo 14). Fallback e degradação são parentes: o artigo as separa por "depois da falha" e "antes", mas as duas podem ser automáticas ou manuais. O que as distingue é <strong>o que se sacrifica</strong>: o caminho ou a funcionalidade.</p>
+
+<h3 class="sec">E se der errado: três degradações que falham</h3>
+
+<p>A primeira é <strong>degradar tarde</strong>: com o pool já saturado, não há como ligar nem desligar nada, porque a configuração é lida do serviço que caiu. A segunda é a <strong>chave que não volta</strong>: a <em>toggle</em> fica no nível 2 depois do pico, e a loja vende sem avaliações por semanas. Defina <strong>histerese</strong> (voltar só depois de um tempo abaixo do limite) e um dono. A terceira é <strong>degradar o essencial por engano</strong>: a busca desligada junto com as recomendações, e ninguém acha o produto.</p>
+
+<Widget name="degradacao" title="Degradação por nível" hint="Demanda (500 a 2.000 req/s), réplicas e ms de CPU por nível. O widget mostra a capacidade de cada nível e o nível mínimo que segura (1 para 1.300 req/s)." />
+
+<WhyItMatters>
+  <li><strong>Desligar de propósito compra tempo.</strong> O nível 1 (1.333) segura os 1.300 enquanto o HPA leva minutos.</li>
+  <li><strong>Prioridade é decisão de produto.</strong> Checkout, catálogo, recomendações e relatórios, nessa ordem.</li>
+  <li><strong>Toda degradação precisa de volta.</strong> Histerese e dono, senão o provisório vira definitivo.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os níveis, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Nível</th><th>O que desliga</th><th>CPU</th><th>Capacidade</th></tr></thead>
+    <tbody>
+      <tr><th>0</th><td>nada</td><td>10 ms</td><td>1.000</td></tr>
+      <tr><th>1</th><td>recomendações</td><td>7,5 ms</td><td>1.333</td></tr>
+      <tr><th>2</th><td>+ busca simplificada, avaliações</td><td>6 ms</td><td>1.667</td></tr>
+      <tr><th>3</th><td>tudo dinâmico; a CDN serve a vitrine</td><td>CDN</td><td>a CDN segura</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: degradação e fallback</h4>
+  <ul>
+    <li><strong>O artigo separa por "preventiva" e "depois da falha".</strong> Na prática as duas podem ser automáticas ou manuais; a diferença real é o que se sacrifica. Faltam a prioridade (a criticidade do SRE) e a histerese para voltar.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Google SRE book: Handling Overload (criticidade)", href: "https://sre.google/sre-book/handling-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora desliga o que não é essencial. Mas o excesso que já entrou nas filas continua lá dentro, esperando. Falta saber como o consumidor manda o produtor desacelerar.</p>
+
+<Flashcards cards={[
+  { q: "O que é degradar com elegância?",
+    a: "Desligar de propósito o que não é essencial para proteger o essencial, antes de cair." },
+  { q: "Quanto cada nível aguenta?",
+    a: "Nível 0: 1.000 req/s (10 ms). Nível 1: 1.333 (7,5 ms). Nível 2: 1.667 (6 ms). Nível 3: só a página estática da CDN." },
+  { q: "Qual nível segura os 1.300 req/s?",
+    a: "O nível 1, sem recomendações, que aguenta 1.333. Os 1.300 são uma rajada de poucos segundos; o pico sustentado é 640 (projetado 950)." },
+  { q: "Em que ordem se desliga?",
+    a: "Relatórios, depois recomendações e 'meus pedidos', depois o catálogo; o checkout é o último (CRITICAL_PLUS, CRITICAL, SHEDDABLE_PLUS, SHEDDABLE)." },
+  { q: "Como a degradação falha?",
+    a: "Tarde demais (o pool já saturou), sem volta (a toggle fica no nível 2) ou desligando o essencial (a busca)." },
+]} />
