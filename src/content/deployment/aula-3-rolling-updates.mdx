@@ -1,0 +1,75 @@
+---
+title: "Rolling updates"
+order: 3
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o Recreate custou 40 s fora do ar, e só se justifica quando as duas versões não convivem. Se elas convivem, dá para trocar <strong>pod por pod</strong> sem parar de atender. É o <em>rolling update</em>, o padrão do Kubernetes.</p>
+
+<OneLiner>No <strong>rolling update</strong> o Kubernetes sobe pods novos e derruba pods antigos em ondas, e <strong>nunca fica sem atender</strong>. Mas o único portão é o <em>readiness</em>: ele confere se o pod <strong>está saudável</strong>, não se o <strong>resultado</strong> está certo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Rolling</strong>, avance as ondas e leia a coluna <strong>"% na 2.5.0"</strong>: 0% → 33% → 67% → 100%, em 90 s. Em nenhum instante os pods prontos caem abaixo de 3.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=rolling" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Rolling update" alt="Prévia da figura 3D: Rolling update" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Dois números mandam.</strong> <code>maxSurge</code> é quantos pods <strong>a mais</strong> podem existir durante a troca; <code>maxUnavailable</code> é quantos pods podem estar <strong>fora</strong>. Os dois valem <strong>25%</strong> por padrão.</li>
+  <li><strong>O arredondamento não é simétrico.</strong> O <code>maxSurge</code> em número absoluto <strong>arredonda para cima</strong>; o <code>maxUnavailable</code>, <strong>para baixo</strong> (documentação do Kubernetes). Com 3 réplicas: 25% × 3 = 0,75, então <code>maxSurge</code> <strong>1</strong> e <code>maxUnavailable</code> <strong>0</strong>.</li>
+  <li><strong>Com 3 pods, o rolling mais seguro sai de graça.</strong> Nunca falta pod pronto, mas sobe <strong>um</strong> por vez: 3 ondas × 30 s = <strong>90 s</strong>. A 2.5.0 vê 0% (0–30 s), 33% (30–60 s), 67% (60–90 s) e 100%.</li>
+  <li><strong>Com 10 pods é diferente.</strong> No <code>catalogo</code> (10 pods de 100 req/s) o padrão vira <code>maxSurge</code> <strong>3</strong> e <code>maxUnavailable</code> <strong>2</strong>: durante a troca há no mínimo <strong>8</strong> pods prontos. A 640 req/s isso é 80% de CPU e R = <strong>60 ms</strong> (a tabela do módulo 14).</li>
+  <li><strong>Subir o <code>maxUnavailable</code> custa caro.</strong> Com 3 no <code>catalogo</code> seriam 7 pods prontos: <strong>91,4%</strong> e <strong>126,7 ms</strong>. A troca fica mais rápida e o serviço perto da saturação.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="rolling" title="Rolling update: ondas e pods prontos" hint="Réplicas (1 a 20), maxSurge e maxUnavailable (número ou %), tempo do pod pronto (5 a 120 s), demanda e capacidade por pod. O widget mostra os valores arredondados, as ondas, o tempo total, o mínimo de pods prontos e a utilização nele. Presets: pedidos (3 pods) e catalogo (10 pods)." />
+
+<p>Durante esses 90 s a loja tem <strong>duas versões ao mesmo tempo</strong>. O <code>lb-loja</code> (módulo 7) reparte por round robin, então a fatia de tráfego é a fatia de pods. Tudo que as duas versões tocam (banco, eventos, cache) precisa funcionar para as duas, e é exatamente o assunto da aula 8.</p>
+
+<h3 class="sec">E se der errado: o frete zero passa</h3>
+
+<p>O rolling confere o <em>readiness</em> (e o <code>minReadySeconds</code>), não o resultado. A 2.5.0 é saudável, responde <code>201</code> e tem 0% de erros: os três pods novos <strong>passam</strong> em todos os portões. Em 90 s a versão com defeito está em 100% do tráfego, e a loja perde <strong>15,00 por segundo</strong> (1 pedido de Recife por segundo) até alguém notar: R$ <strong>54.000</strong> em 60 minutos. O <code>undo</code> volta em mais 90 s; os pedidos já gravados ficam.</p>
+
+<WhyItMatters>
+  <li><strong>Sem downtime.</strong> Com <code>maxUnavailable</code> 0, a capacidade nunca cai, e é por isso que o rolling é o padrão.</li>
+  <li><strong>O arredondamento decide.</strong> 25% de 3 e 25% de 10 dão pares diferentes (1 e 0; 3 e 2), com tempo e margem diferentes.</li>
+  <li><strong>Velocidade e capacidade brigam.</strong> Subir o <code>maxUnavailable</code> acelera, mas leva o mínimo de pods prontos a 91,4% de CPU.</li>
+  <li><strong>Saúde não é resultado.</strong> O frete zero passa por todos os portões do rolling.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base: há portões</h4>
+  <p>O artigo diz que o rolling não tem "validações intermediárias". Isso vale para a validação do <strong>resultado</strong>. Há portões de saúde: <code>readinessProbe</code>, <code>minReadySeconds</code>, <code>progressDeadlineSeconds</code> (marca o rollout como parado) e <code>kubectl rollout pause</code>. O artigo também diz que os clientes "não terão mais acesso à receita anterior": isso vale só se ninguém voltar, e o <code>kubectl rollout undo</code> volta (o código, não o dado).</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Kubernetes: Deployments (RollingUpdate, maxSurge, maxUnavailable)", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Kubernetes: tutorial de atualização de aplicação", href: "https://kubernetes.io/docs/tutorials/kubernetes-basics/update/update-intro/" },
+    { label: "Spacelift: tipos de estratégia de deployment no Kubernetes (referência do artigo)", href: "https://spacelift.io/blog/kubernetes-deployment-strategies" },
+  ]} />
+</Deep>
+
+<p class="gancho">O rolling não para de atender, mas põe a 2.5.0 em produção sem que ninguém a tenha testado com cliente real. Falta saber como testar a versão nova <strong>antes</strong> de ela atender.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os padrões de maxSurge e maxUnavailable?",
+    a: "25% cada. O maxSurge arredonda para cima e o maxUnavailable para baixo." },
+  { q: "Quanto dão os dois com 3 pods e com 10 pods?",
+    a: "3 pods: maxSurge 1 e maxUnavailable 0 (3 ondas de 30 s = 90 s). 10 pods: maxSurge 3 e maxUnavailable 2 (mínimo de 8 prontos)." },
+  { q: "Qual é a utilização do catalogo no mínimo de pods prontos?",
+    a: "8 prontos a 640 req/s: 80% e 60 ms. Com maxUnavailable 3, 7 prontos: 91,4% e 126,7 ms." },
+  { q: "O que o rolling confere antes de seguir para a onda seguinte?",
+    a: "O readiness do pod novo (e o minReadySeconds): saúde, não o resultado de negócio." },
+  { q: "Por que o frete zero passa no rolling?",
+    a: "A 2.5.0 responde 201, o healthcheck dá 200 e a taxa de erros é 0%. Em 90 s está em 100% do tráfego, perdendo R$ 15,00 por segundo." },
+]} />

@@ -1,0 +1,83 @@
+---
+title: "Feature flags"
+order: 11
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o shadow mostrou que o risco nem sempre é de infraestrutura: às vezes é a <strong>regra</strong> que o cliente vê, como o cálculo do frete. Para esse caso falta separar duas coisas que o rolling, o blue/green e o canary juntam: <strong>publicar</strong> o código e <strong>liberar</strong> o comportamento. É o que a <em>feature flag</em> faz.</p>
+
+<OneLiner>A <strong>feature flag</strong> separa <strong>publicar</strong> de <strong>liberar</strong>: o código da 2.5.0 vai a 100% dos pods com a flag <code>frete_v2</code> <strong>desligada</strong>, e liberar é ligá-la, por cliente, em porcentagens. Dá ao negócio um botão, e voltar leva <strong>segundos</strong> sem novo deploy.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Flag</strong>, suba de <strong>10% para 20%</strong> e veja quando a Lena entra: o <em>bucket</em> dela é <strong>19</strong>, então a 20% ela liga, e a 10% ainda não.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/liberacao-3d/?mode=flag" poster="labs/deployment/liberacao-3d-previa.webp" title="Figura interativa: Publicar × liberar" alt="Prévia da figura 3D: Publicar × liberar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Publicar sem liberar.</strong> A 2.5.0 vai ao ar pelo rolling seguro (aula 3), com a flag <code>frete_v2</code> desligada: sem efeito no cliente, e o código novo já está em todos os pods.</li>
+  <li><strong>A decisão é um cálculo estável do cliente.</strong> <code>bucket = murmur3("frete_v2:" + cliente_id) mod 100</code>, e <code>ligada = bucket &lt; percentual</code>. O mesmo cliente cai sempre do mesmo lado; a função é a do módulo 16.</li>
+  <li><strong>Os buckets da loja.</strong> <code>caio-58</code> → <strong>3</strong>, <code>lena-77</code> → <strong>19</strong>, <code>bia-31</code> → <strong>38</strong>, <code>mkt-01</code> → <strong>41</strong>, <code>davi-12</code> → <strong>94</strong>.</li>
+  <li><strong>A escada.</strong> A <strong>1%</strong> ninguém da amostra liga. A <strong>10%</strong> só o Caio (Rio: o defeito de Recife <strong>não aparece</strong>). A <strong>20%</strong> entra a Lena (Recife: aparece). A <strong>50%</strong>, Caio, Lena, Bia e <code>mkt-01</code>; a <strong>100%</strong>, o Davi.</li>
+  <li><strong>A função espalha.</strong> Em 100.000 clientes (<code>c-0</code> a <code>c-99999</code>) ficam <strong>985</strong> abaixo de 1, <strong>9.878</strong> abaixo de 10 e <strong>49.909</strong> abaixo de 50.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="bucket" title="Bucket da flag" hint="Escreva o cliente_id, o nome da flag e o percentual. O widget calcula o murmur3, o bucket (0 a 99) e se a flag liga. Presets: lena-77 (19), bia-31 (38), caio-58 (3), davi-12 (94), mkt-01 (41). A barra mostra 100.000 clientes: 985, 9.878 e 49.909." />
+
+<p>A mesma conta, com outro sal, dá a flag <code>nova_home</code> do módulo 9: <code>lena-77</code> → 80, <code>bia-31</code> → 2, <code>caio-58</code> → 72, <code>davi-12</code> → 67, <code>mkt-01</code> → 87. O <strong>nome da flag entra no hash</strong>: cada flag sorteia os clientes de novo, e quem é "o primeiro" numa flag não é o primeiro na outra.</p>
+
+<h3 class="sec">Tipos e vida</h3>
+
+<p>Fowler separa quatro tipos, com vidas diferentes: <em>release toggle</em> (dias, e deve ser <strong>removido</strong> depois), <em>experiment toggle</em> (A/B), <em>ops toggle</em> (desligar uma peça cara: o <em>kill switch</em>) e <em>permission toggle</em> (quem pode: o cluster de clientes do artigo). A dívida é real: cada flag <strong>dobra</strong> os estados possíveis, e 5 flags são <strong>32</strong> combinações.</p>
+
+<h3 class="sec">Onde se decide e quanto demora</h3>
+
+<p>A decisão mora no <code>bff-app</code> (módulo 9: a flag de tela) ou no <code>pedidos</code> (a regra). O pod guarda o valor num cache local com <strong>TTL de 30 s</strong> (o mesmo padrão do módulo 5): ligar ou desligar leva <strong>até 30 s</strong> para chegar a todos os pods. Nesse intervalo dois pods podem discordar, e é por isso que o cálculo é <strong>por cliente</strong> e não por requisição: a mesma pessoa não vê as duas versões. A API padrão para isso é a do <strong>OpenFeature</strong>.</p>
+
+<h3 class="sec">E se der errado: o serviço de flags cai e o padrão está errado</h3>
+
+<p>O serviço de flags cai. O pod usa o <strong>último valor em cache</strong> e, quando o cache expira, o <strong>padrão compilado</strong>. Se o padrão era <code>true</code> (alguém esqueceu de voltá-lo depois do lançamento), a feature liga para <strong>todos</strong> de uma vez, <strong>sem deploy e sem canary</strong>: o frete zero chega a Recife inteira. A regra é <strong>padrão = comportamento antigo (<code>false</code>)</strong>, e a flag é <strong>removida</strong> do código assim que chega a 100% e estabiliza.</p>
+
+<WhyItMatters>
+  <li><strong>Publicar e liberar são decisões diferentes.</strong> A flag dá ao negócio o botão, sem pedir um deploy.</li>
+  <li><strong>O cálculo é por cliente.</strong> O mesmo bucket sempre dá o mesmo lado, mesmo com pods discordando por 30 s.</li>
+  <li><strong>Voltar é desligar.</strong> Até 30 s, contra os 90 s do rolling.</li>
+  <li><strong>Flag velha é dívida.</strong> 5 flags são 32 combinações; remova a flag assim que o lançamento estabilizar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <p>O artigo omite quatro pontos: a <strong>dívida de flag</strong>, o <strong>padrão</strong> quando o serviço de flags cai, a <strong>consistência</strong> da decisão por cliente e o <strong>ciclo de vida</strong> (release, experimento, operação, permissão, em Fowler). Os dois textos do Split.io da lista de referências são de um fornecedor de flags; ficam como leitura de apoio, não como fonte.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: Feature Toggles", href: "https://martinfowler.com/articles/feature-toggles.html" },
+    { label: "OpenFeature: especificação", href: "https://openfeature.dev/specification/" },
+    { label: "Split.io: canary release e feature flags (referência do artigo; blog de fornecedor)", href: "https://www.split.io/blog/canary-release-feature-flags/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A flag escolhe <strong>quais clientes</strong> por sorteio, e o sorteio pode demorar a chegar ao cliente que o defeito atinge. Falta saber <strong>quem recebe primeiro</strong> quando há muitos clientes diferentes.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre publicar e liberar com flag?",
+    a: "O código da 2.5.0 vai a 100% dos pods com a flag frete_v2 desligada (publicar); ligá-la, por cliente, é liberar." },
+  { q: "Como se calcula o bucket e quando a flag liga?",
+    a: "bucket = murmur3('frete_v2:' + cliente_id) mod 100; liga quando bucket < percentual. O mesmo cliente cai sempre do mesmo lado." },
+  { q: "Quais são os buckets de caio-58, lena-77, bia-31, mkt-01 e davi-12?",
+    a: "3, 19, 38, 41 e 94. A 10% só o Caio liga; a 20% entra a Lena." },
+  { q: "Quanto leva para uma flag desligar em todos os pods?",
+    a: "Até 30 s (o TTL do cache local). Nesse intervalo dois pods podem discordar; o cálculo por cliente evita que a mesma pessoa veja as duas versões." },
+  { q: "O que acontece se o serviço de flags cai com o padrão true?",
+    a: "Quando o cache expira a feature liga para todos, sem deploy e sem canary. O padrão deve ser o comportamento antigo (false), e a flag é removida ao chegar a 100%." },
+]} />

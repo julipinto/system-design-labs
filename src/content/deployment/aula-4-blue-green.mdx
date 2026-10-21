@@ -1,0 +1,80 @@
+---
+title: "Blue/Green"
+order: 4
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o rolling pôs a 2.5.0 em 100% do tráfego sem que ninguém a testasse com cliente. Se existir um segundo ambiente, dá para <strong>testar a versão nova antes</strong> de ela atender e só então virar. É o <em>blue/green</em>.</p>
+
+<OneLiner>No <strong>blue/green</strong> existem dois ambientes iguais: o <strong>blue</strong> (2.4.0, atendendo) e o <strong>green</strong> (2.5.0, sem cliente). Testa-se o green, e a <strong>virada</strong> é trocar um ponteiro. Voltar é virar de volta, enquanto o blue ainda estiver de pé.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Blue/Green</strong>, vire para o <strong>green frio</strong> (o que acabou de nascer) e leia a fila: a primeira requisição leva 200 ms em vez de 20 ms, e 128 requisições em voo não cabem nos 100 workers.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=bluegreen&step=4" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Blue/Green" alt="Prévia da figura 3D: Blue/Green" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O ambiente em dobro.</strong> O <em>green</em> tem o <strong>mesmo tamanho</strong> do blue: 3 + 3 = 6 pods de <code>pedidos</code>. Para o <code>catalogo</code> na Black Friday seriam 10 + 10 = 20 pods, ou <strong>10 réplica-horas a mais por hora</strong> de janela.</li>
+  <li><strong>O ponteiro.</strong> Um Service (ou uma rota) aponta para um dos dois. Virar é trocar o ponteiro, em cerca de <strong>1 s</strong>.</li>
+  <li><strong>Teste sem cliente.</strong> O green recebe testes de fumaça (módulo 24), <em>warm-up</em> e validações manuais ou automáticas, tudo antes de a virada acontecer.</li>
+  <li><strong>O banco é um só.</strong> Blue e green falam com o mesmo <code>pg-pedidos-*</code>. A coluna <code>frete</code>, e as duas versões escrevendo na mesma tabela, são o assunto da aula 8: "voltar para o blue" não desfaz o que o green gravou.</li>
+  <li><strong>O blue fica de pé um tempo.</strong> No Argo Rollouts o <code>scaleDownDelaySeconds</code> é <strong>30 s</strong> por padrão (<strong>60 s</strong> no laboratório da aula 5). Nesse intervalo voltar é virar o ponteiro.</li>
+</ol>
+</HowItWorks>
+
+<p>"Instantâneo" é o <strong>ponteiro</strong>, não o fluxo. Conexões já abertas (HTTP keep-alive, HTTP/2, gRPC de longa duração, módulo 12) continuam nos pods antigos até fecharem, e se a virada é por DNS, vale o TTL (módulo 1). A virada é rápida; o último cliente sair do blue demora mais.</p>
+
+<p>Há ainda o teste que o green permite e que decide o resultado: se o teste de fumaça inclui um pedido <strong>para Recife</strong>, o frete zero aparece com 0 cliente exposto. Se o teste não inclui Recife, ninguém percebe, e o defeito sai com 3.600 pedidos em 60 minutos (R$ 54.000), como no rolling. O blue/green não decide o que se mede.</p>
+
+<h3 class="sec">E se der errado: o green frio</h3>
+
+<p>O green nasce com o cache local <strong>vazio</strong>. A primeira requisição leva <strong>200 ms</strong> em vez de 20 ms (exemplo). Pela Lei de Little (módulo 23), a 640 req/s: 640 × 0,2 s = <strong>128</strong> requisições em voo, contra 640 × 0,02 = 12,8. Se cada pod tem <strong>10 workers</strong> (o <em>thread pool</em> do módulo 11), 10 pods suportam <strong>100</strong> em voo. O green <strong>forma fila</strong>, com a CPU a 64%, no instante em que recebe 100% do tráfego.</p>
+
+<p>O conserto é o <em>warm-up</em> antes da virada: tráfego sintético ou espelhado (aula 9) até o cache esquentar.</p>
+
+<WhyItMatters>
+  <li><strong>Teste sem cliente.</strong> É a vantagem do blue/green: o green é validado antes de receber um pedido real.</li>
+  <li><strong>Voltar em ~1 s</strong>, enquanto o blue vive. O custo é o <strong>dobro de pods</strong> durante a janela.</li>
+  <li><strong>O ponteiro é rápido; o fluxo não.</strong> Conexões abertas e o TTL do DNS atrasam a virada de verdade.</li>
+  <li><strong>O banco é compartilhado.</strong> O ambiente é idêntico no código, não nos dados.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Redireciona instantaneamente."</strong> O ponteiro troca rápido; conexões abertas e o TTL do DNS atrasam o fluxo.</li>
+    <li><strong>"Dois ambientes idênticos."</strong> No código, sim; no <strong>banco</strong>, é um só. O artigo diz, no fim, que o schema é a parte mais difícil; a aula 8 mostra por quê.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: BlueGreenDeployment", href: "https://martinfowler.com/bliki/BlueGreenDeployment.html" },
+    { label: "Argo Rollouts: estratégia BlueGreen", href: "https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/" },
+    { label: "Glossário da CNCF: Blue/Green deployment", href: "https://glossary.cncf.io/pt-br/blue-green-deployment/" },
+    { label: "Red Hat: o que é blue/green (referência do artigo)", href: "https://www.redhat.com/en/topics/devops/what-is-blue-green-deployment" },
+  ]} />
+</Deep>
+
+<p class="gancho">O blue/green testa antes e volta em 1 s, mas só enquanto o blue estiver de pé e só se o teste olhar o que importa. Falta saber o que o laboratório do autor realmente faz com isso, linha a linha.</p>
+
+<Flashcards cards={[
+  { q: "O que é o blue/green?",
+    a: "Dois ambientes iguais: o blue (2.4.0) atende, o green (2.5.0) é testado sem cliente, e a virada é trocar o ponteiro." },
+  { q: "Quanto custa o ambiente em dobro?",
+    a: "O pedidos usa 3 + 3 = 6 pods. O catalogo na Black Friday, 10 + 10 = 20 pods: 10 réplica-horas a mais por hora de janela." },
+  { q: "O que é instantâneo na virada?",
+    a: "O ponteiro. As conexões abertas (keep-alive, HTTP/2, gRPC) e o TTL do DNS atrasam o fluxo." },
+  { q: "O que é o green frio?",
+    a: "O green nasce com o cache vazio: a primeira requisição leva 200 ms em vez de 20 ms, e 128 em voo contra 100 workers formam fila. O conserto é o warm-up." },
+  { q: "O blue/green volta o dado?",
+    a: "Não. Blue e green usam o mesmo banco, e voltar para o blue não desfaz o que o green gravou." },
+]} />

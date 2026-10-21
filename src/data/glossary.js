@@ -14,6 +14,7 @@ import { performance } from './glossary-performance.js';
 import { scaleCube } from './glossary-scale-cube.js';
 import { sharding } from './glossary-sharding.js';
 import { saga } from './glossary-saga.js';
+import { deployment } from './glossary-deployment.js';
 import { replicacao } from './glossary-replicacao.js';
 import { cqrs } from './glossary-cqrs.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
@@ -94,5 +95,6 @@ export const glossaries = {
   sharding,
   'replicacao': replicacao,
   cqrs,
-  saga
+  saga,
+  deployment
 };

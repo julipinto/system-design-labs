@@ -1,0 +1,103 @@
+---
+title: "Deploy e rollback"
+order: 1
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No fim do módulo 21 a loja aguentava o PSP lento sem sair do ar. Mas a causa mais comum de incidente não vem de fora: é a própria <strong>mudança</strong>, uma versão nova ou uma configuração. Falta saber como lançar sem ser o incidente. A conta começa numa terça-feira comum, às 14:00, com o <code>pedidos</code> indo da <strong>2.4.0</strong> para a <strong>2.5.0</strong>.</p>
+
+<OneLiner><strong>Publicar</strong> (<em>deploy</em>) é pôr uma versão no ar; <strong>liberar</strong> (<em>release</em>) é o cliente passar a usá-la. Entre os dois fica o <strong>rollback</strong>, que troca o <strong>código</strong> em segundos ou minutos e <strong>não devolve o dado</strong> que a versão ruim já gravou.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Rollback</strong>, volte da 2.5.0 para a 2.4.0 e conte as linhas que <strong>continuam erradas</strong> na tabela depois da volta. O código voltou em 90 s; o <code>frete 0,00</code> do pedido da Lena (1059) ficou.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=rollback" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Deploy e rollback" alt="Prévia da figura 3D: Deploy e rollback" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O pipeline em duas linhas.</strong> <em>Commit</em> → imagem <code>pedidos:2.5.0</code> → testes → produção. A integração contínua (CI) produz e testa a imagem; a entrega contínua (CD) a coloca no ar. O <em>deployment</em> é esse último passo.</li>
+  <li><strong>A mudança do módulo.</strong> A 2.5.0 grava o <strong>frete em coluna própria</strong> (<code>frete numeric(10,2)</code>; hoje ele só existe dentro do <code>total</code> e do JSON <code>detalhes</code>) e calcula o frete com uma tabela nova por faixa de CEP. Os números abaixo são um <strong>exemplo</strong> combinado para o módulo todo.</li>
+  <li><strong>O defeito que só o dado real mostra.</strong> A tabela nova <strong>não tem a faixa de Recife</strong> (CEP 50000–52999) e devolve <code>frete = 0,00</code>. A 2.5.0 responde <code>201</code>, o <code>/healthcheck</code> dá <code>200</code>, a latência é a mesma e a taxa de erros é <strong>0%</strong>. O pedido 1059 da Lena (1 camiseta preta, 49,00 + frete 15,00 = <strong>64,00</strong> na 2.4.0) sai por <strong>49,00</strong>.</li>
+  <li><strong>Voltar tem comando.</strong> <code>kubectl rollout undo deployment/pedidos</code> devolve o Deployment ao ReplicaSet anterior, o da 2.4.0. <code>kubectl rollout history</code> lista as revisões guardadas.</li>
+  <li><strong>Quanto tempo leva.</strong> Depende do modelo de deployment, e a tabela abaixo é o mapa do módulo: cada aula seguinte abre uma linha dela.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{`kubectl rollout history deployment/pedidos
+kubectl rollout undo deployment/pedidos
+kubectl rollout status deployment/pedidos`}</code></pre>
+
+<p>Esses comandos têm um limite escondido: o Kubernetes só consegue voltar para uma revisão que ele <strong>ainda guarda</strong>. O campo <code>revisionHistoryLimit</code> vale <strong>10</strong> por padrão, e com <code>0</code> a possibilidade de voltar some. Já o <code>progressDeadlineSeconds</code> marca o rollout como parado quando ele não avança, o que dá a quem observa um motivo para chamar o <code>undo</code>.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Modelo</th><th>Tempo para voltar (pods de 30 s, exemplo)</th></tr></thead>
+  <tbody>
+    <tr><th>Recreate</th><td>40 s, <strong>fora do ar</strong></td></tr>
+    <tr><th>Rolling (<code>undo</code>)</th><td>90 s</td></tr>
+    <tr><th>Blue/Green</th><td>~1 s com o <em>blue</em> de pé; ~30 s se ele já foi desligado</td></tr>
+    <tr><th>Canary</th><td>segundos: o peso volta a 0 (a malha empurra a regra, módulo 10)</td></tr>
+    <tr><th>Feature flag</th><td>até 30 s (o cache local da flag)</td></tr>
+    <tr><th>O dado</th><td><strong>não volta</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O tempo é só um dos fatores do estrago. O raio de explosão de uma mudança é <strong>a fração do tráfego exposta × o tempo até alguém perceber × o custo de cada pedido errado</strong>. Os modelos do módulo diferem no controle dos dois primeiros fatores; nenhum conserta o terceiro. O widget abaixo põe os seis modelos lado a lado com o mesmo defeito, e as aulas seguintes explicam de onde vem cada número.</p>
+
+<Widget name="raio" title="Raio de explosão por modelo" hint="Escolha o modelo, os pedidos por segundo (1 a 60), a parcela de Recife (0 a 100%), o valor perdido por pedido (15,00) e os minutos até alguém perceber (1 a 600). O widget mostra os pedidos afetados, a perda (R$ 54.000, R$ 450, R$ 0) e o tempo para voltar." />
+
+<h3 class="sec">E se der errado: o rollback não devolve o dado</h3>
+
+<p>A 2.5.0 fica no ar até alguém notar. O defeito não derruba nada, então o único alarme possível é uma <strong>métrica de negócio</strong> (pedidos com frete zero, por cidade). Suponha que o financeiro repare em 60 minutos. Recife é 20% de 5 pedidos por segundo, ou <strong>1 pedido/s</strong>: 1 × 3.600 s = <strong>3.600 pedidos</strong> com <code>frete 0,00</code>, e 3.600 × 15,00 = <strong>R$ 54.000</strong>. Se só o relatório das 23:00 do módulo 6 achasse, 9 h depois, seriam 32.400 pedidos e <strong>R$ 486.000</strong>.</p>
+
+<p>O <code>kubectl rollout undo</code> devolve a 2.4.0 em 90 s. Os 3.600 pedidos ficam onde estão, gravados com <code>frete 0,00</code>. Quem escreveu a 2.5.0 deixou um rastro (uma coluna <code>app_versao</code>, ou o <code>trace_id</code> do módulo 6 no log), e o conserto é um <code>UPDATE</code> de reconciliação só sobre essas linhas. <strong>Rollback troca o código, não o dado.</strong></p>
+
+<WhyItMatters>
+  <li><strong>Publicar não é liberar.</strong> A versão pode estar no ar sem que o cliente a use; é isso que flags e canary exploram.</li>
+  <li><strong>Voltar é parte do desenho.</strong> Um rollback que ninguém ensaiou demora mais que os 90 s da tabela.</li>
+  <li><strong>O alarme precisa medir o defeito.</strong> Saúde do pod não mede frete; o que decide o segundo fator do raio é <strong>o que se mede</strong>.</li>
+  <li><strong>O dado é outro problema.</strong> Voltar o código não desfaz linhas gravadas; a aula 8 mostra como mudar o banco sem depender de voltar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A analogia da padaria, uma vez</h4>
+  <p>O artigo conta os modelos com uma padaria que troca a receita do pão. Serve para sentir a diferença entre trocar tudo de manhã e trocar aos poucos. Na loja, o que a padaria não mostra é o <strong>dado</strong>: o pão que o cliente levou para casa é como a linha com <code>frete 0,00</code>, que não volta para a vitrine.</p>
+  <h4 class="deep-h">Correções e acréscimos ao artigo-base</h4>
+  <ul>
+    <li><strong>Rollback ≠ restaurar dados.</strong> O artigo diz que o rollback deve estar integrado a todos os modelos; falta dizer que ele cobre o código, e o dado gravado fica.</li>
+    <li><strong>Ferramentas.</strong> O artigo não fala de <em>progressive delivery</em> com Argo Rollouts ou Flagger; as aulas 4 a 7 usam o Argo Rollouts, do repositório do autor.</li>
+    <li><strong>Congelamento.</strong> Faltam as janelas de congelamento de mudança antes de eventos como a Black Friday (módulo 23).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Kubernetes: Deployments (rollout undo, revisionHistoryLimit)", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Fowler: BlueGreenDeployment", href: "https://martinfowler.com/bliki/BlueGreenDeployment.html" },
+    { label: "Google SRE Workbook: Canarying Releases", href: "https://sre.google/workbook/canarying-releases/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O rollback volta o código, e quase ninguém precisaria dele se publicar fosse simples. Falta saber qual é o jeito <strong>mais simples</strong> de publicar, e por que quase ninguém o usa.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre publicar (deploy) e liberar (release)?",
+    a: "Publicar é pôr a versão no ar; liberar é o cliente passar a usá-la. Com uma flag desligada, a 2.5.0 está publicada e não liberada." },
+  { q: "O que o kubectl rollout undo faz e o que não faz?",
+    a: "Volta o Deployment ao ReplicaSet anterior (a 2.4.0). Não devolve o dado já gravado: os 3.600 pedidos com frete 0,00 ficam." },
+  { q: "O que acontece com revisionHistoryLimit igual a 0?",
+    a: "O Kubernetes não guarda revisões antigas, e a possibilidade de voltar com rollout undo desaparece. O padrão é 10." },
+  { q: "Quanto custa o defeito do frete se alguém notar em 60 minutos?",
+    a: "Recife é 1 pedido/s: 3.600 pedidos × 15,00 = R$ 54.000. Se só o relatório das 23:00 achasse (9 h), R$ 486.000." },
+  { q: "Qual é a fórmula do raio de explosão?",
+    a: "Fração do tráfego exposta × tempo até alguém perceber × custo por pedido errado. Os modelos controlam os dois primeiros; nenhum conserta o terceiro." },
+]} />

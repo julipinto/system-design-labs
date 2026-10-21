@@ -45,6 +45,8 @@ const modules: Mod[] = [
     text: 'Um modelo para escrever e outro para ler: comandos e consultas, view materializada, réplicas de leitura, consistência eventual, SQL e NoSQL, modelos que juntam serviços, escrita dupla, CDC e outbox, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'saga', title: 'Saga Pattern', lessons: 10, poster: 'labs/saga/saga-3d-previa.webp', alt: 'Prévia da figura 3D do pedido 1057 atravessando os serviços',
     text: 'Um pedido que atravessa pedidos, pagamentos, estoque e entregas sem transação distribuída: passos locais e compensações, coreografia e orquestração, máquina de estados, log de saga, escrita dupla e o laboratório do autor lido, com o 1057 do Davi, widgets e quiz de 50 perguntas.' },
+  { slug: 'deployment', n: 22, title: 'Modelos de Deployment', lessons: 12, poster: 'labs/deployment/rollout-3d-previa.webp', alt: 'Prévia da figura 3D dos pods trocando de versão atrás do balanceador',
+    text: 'Publicar o pedidos 2.5.0 numa terça-feira comum sem a Lena notar, e conseguir voltar: rollback, recreate, rolling, blue/green, canary, migrations com medições reais de PostgreSQL, shadow, feature flags e anéis por shard, com os laboratórios do autor lidos, widgets e quiz de 60 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---
