@@ -1,0 +1,97 @@
+---
+title: "A proposta arquitetural do Saga"
+order: 3
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada ficou claro que não há transação única, nem trava que aguente o Pix, nem <em>two-phase commit</em> que fale com o PSP. Sobra <strong>fazer um passo de cada vez e saber desfazer cada um</strong>. É a proposta da Saga: cada serviço faz a sua <strong>transação local</strong>, e a cada passo corresponde uma <strong>compensação</strong>.</p>
+
+<OneLiner>Quebre a operação em <strong>transações locais</strong> T1…Tn, cada uma com a sua <strong>compensação</strong> C1…Cn. Ou todas passam, ou as que já passaram são compensadas <strong>em ordem inversa</strong>. A compensação não é um <code>ROLLBACK</code>: é uma <strong>transação nova</strong> que desfaz o <strong>efeito de negócio</strong>. E a Saga não tem isolamento: os estados do meio aparecem para os outros.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>State-machine</strong>, avance pelo caminho feliz até <code>FINALIZADO</code> e depois pelo 1057 de verdade, com os 7 horários e as 2 compensações em ordem inversa. No simulador abaixo, ponha a falha em <strong>reservar</strong> e compare com a ordem trocada.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/saga-3d/?mode=state-machine" poster="labs/saga/saga-3d-previa.webp" title="Figura interativa: A saga como máquina de estados" alt="Prévia da figura 3D: A saga como máquina de estados" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Passos e compensações.</strong> Cada passo local tem um desfazer: criar o pedido (compensação: <code>CancelarPedido</code>), cobrar (<code>EstornarCobranca</code>), reservar o estoque (<code>LiberarEstoque</code>) e agendar a entrega (<code>CancelarEntrega</code>).</li>
+  <li><strong>Ordem inversa.</strong> Se o passo 3 falha, a saga compensa o 2 e depois o 1. No 1057, o estoque falhou no passo de reservar: desfaz-se a cobrança e cancela-se o pedido, na ordem inversa do que foi feito.</li>
+  <li><strong>A compensação é uma transação nova.</strong> O estorno é um <strong>lançamento a mais</strong>, não um apagamento: o <code>c-7732</code> continua no extrato e o estorno aparece ao lado. O PSP pode cobrar uma taxa que não volta, e o e-mail "pedido confirmado" que já saiu não se recolhe: manda-se outro.</li>
+  <li><strong>Três tipos de passo.</strong> O <strong>compensável</strong> tem desfazer (cobrar, reservar). O <strong>pivô</strong> é o ponto sem volta: na loja, o caminhão que sai. O <strong>repetível</strong> vem depois do pivô e só se repete até dar certo (avisar o cliente).</li>
+  <li><strong>A ordem importa.</strong> O que é <strong>difícil de desfazer vai por último</strong>. Cobrar dói mais que reservar: por isso, na aula 10, a loja reserva <strong>antes</strong> de cobrar.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="simulador" title="Simulador da saga do 1057" hint="Escolha a ordem (cobrar antes ou reservar antes), o passo que falha e a espera do Pix. Veja o log, as compensações na ordem inversa, o tempo total (44,95 s contra cerca de 100 ms) e se houve estorno." />
+
+<h3 class="sec">E se der errado: a leitura suja</h3>
+
+<p>A Saga é <strong>ACD sem o I</strong>: tem atomicidade (por compensação), consistência e durabilidade, mas <strong>não tem isolamento</strong>. Enquanto a saga do 1057 está em <code>RESERVANDO</code>, a camiseta fica reservada. Se a saga vai falhar mais adiante, durante alguns segundos o estoque mostra "esgotado" para <strong>outros clientes</strong> que nunca poderiam ter comprado aquela unidade e que, quando a reserva for liberada, já foram embora. Ninguém fez nada errado: o estado do meio é visível.</p>
+
+<p>Três contramedidas (microservices.io):</p>
+
+<ol class="flow steps">
+  <li><strong>Bloqueio semântico.</strong> O estado <code>RESERVA_PENDENTE</code> fica visível: quem lê sabe que aquela unidade pode voltar.</li>
+  <li><strong>Atualizações comutativas.</strong> Operações que dão o mesmo resultado em qualquer ordem (somar e subtrair), para que uma saga não atrapalhe a outra.</li>
+  <li><strong>Reler o valor.</strong> Antes de mudar, conferir que o dado ainda é o que a saga leu.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Passo local mais compensação.</strong> É a troca: abre-se mão da atomicidade de uma transação por pedaços que se desfazem.</li>
+  <li><strong>Compensar não é voltar no tempo.</strong> O efeito de negócio é desfeito por outra transação, e pode não devolver tudo (a taxa do PSP).</li>
+  <li><strong>A ordem decide o custo.</strong> Reservar antes de cobrar troca estorno por reserva presa (aula 10).</li>
+  <li><strong>Sem isolamento, o meio aparece.</strong> Quem lê durante a saga vê estados que talvez sejam desfeitos.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Os tipos de passo, em um lugar</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Tipo</th><th>Tem desfazer?</th><th>Na loja</th></tr></thead>
+    <tbody>
+      <tr><th>compensável</th><td>sim</td><td>cobrar (<code>EstornarCobranca</code>), reservar (<code>LiberarEstoque</code>)</td></tr>
+      <tr><th>pivô</th><td>não: é o ponto sem volta</td><td>o caminhão sai</td></tr>
+      <tr><th>repetível</th><td>não precisa: repete até dar certo</td><td>avisar o cliente, depois do despacho</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A divisão em compensável, pivô e repetível vem de Richardson (<em>Microservices Patterns</em>, livro; sem link verificado). O artigo-base não a traz.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Atomicidade e rollback.</strong> A Saga tem atomicidade <strong>por compensação, não por rollback</strong>, e <strong>não tem isolamento</strong> (microservices.io: "lack of isolation"). Também não há rollback automático: o desenvolvedor escreve cada compensação. As contramedidas acima não aparecem no artigo (há ainda atualizações "por valor", visão pessimista e arquivo de versão).</li>
+    <li><strong>Compensação não é desfazer exato.</strong> Pode ser outra transação (um estorno, um novo e-mail), pode <strong>não devolver tudo</strong> (a Microsoft: cancelar uma reserva "might not entitle the customer to a complete refund"), precisa ser <strong>idempotente e repetível</strong> e às vezes falha (aí é gente; aula 7). O artigo trata a compensação como sempre possível.</li>
+    <li><strong>Ordem dos passos.</strong> O artigo não diz que o passo difícil de desfazer vai por último.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "microservices.io: Pattern: Saga (lack of isolation e contramedidas)", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Compensating Transaction pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction" },
+    { label: "Temporal: Compensating Actions, Part of a Complete Breakfast with Sagas", href: "https://temporal.io/blog/compensating-actions-part-of-a-complete-breakfast-with-sagas" },
+  ]} />
+</Deep>
+
+<p class="gancho">A saga está definida: passos locais e compensações em ordem inversa. Falta saber <strong>quem decide</strong> o próximo passo e a hora de compensar: cada serviço, olhando o que o anterior publicou, ou um só que conhece o mapa inteiro?</p>
+
+<Flashcards cards={[
+  { q: "O que a Saga propõe?",
+    a: "Quebrar a operação em transações locais T1…Tn, cada uma com uma compensação C1…Cn. Ou todas passam, ou as feitas são compensadas em ordem inversa." },
+  { q: "A compensação é um ROLLBACK?",
+    a: "Não. É uma transação nova que desfaz o efeito de negócio: o estorno é um lançamento a mais, o PSP pode cobrar taxa e o e-mail enviado não volta." },
+  { q: "Quais são os três tipos de passo?",
+    a: "Compensável (cobrar, reservar), pivô (o ponto sem volta: o caminhão sai) e repetível (depois do pivô, repete até dar certo)." },
+  { q: "Por que o passo difícil de desfazer vai por último?",
+    a: "Porque quanto mais tarde ele roda, menos vezes precisa ser desfeito. Por isso a loja reserva antes de cobrar (aula 10)." },
+  { q: "O que significa 'ACD sem o I'?",
+    a: "A Saga tem atomicidade (por compensação), consistência e durabilidade, mas não isolamento: os estados do meio são visíveis. Contramedida: bloqueio semântico (RESERVA_PENDENTE)." },
+]} />

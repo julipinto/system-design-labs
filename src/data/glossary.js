@@ -13,6 +13,7 @@ import { comunicacaoAssincrona } from './glossary-comunicacao-assincrona.js';
 import { performance } from './glossary-performance.js';
 import { scaleCube } from './glossary-scale-cube.js';
 import { sharding } from './glossary-sharding.js';
+import { saga } from './glossary-saga.js';
 import { replicacao } from './glossary-replicacao.js';
 import { cqrs } from './glossary-cqrs.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
@@ -92,5 +93,6 @@ export const glossaries = {
   'scale-cube': scaleCube,
   sharding,
   'replicacao': replicacao,
-  cqrs
+  cqrs,
+  saga
 };

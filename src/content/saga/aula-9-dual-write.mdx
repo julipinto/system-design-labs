@@ -1,0 +1,103 @@
+---
+title: "Dual write"
+order: 9
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import orquestradorMain from '../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">Na aula passada o log da saga ficou com um problema: gravar a linha e mandar o comando são <strong>duas escritas</strong>, e entre elas o orquestrador pode cair. É o mesmo problema do módulo 18 (o <code>pedidos</code> gravava o pedido e publicava o evento em separado), agora <strong>dentro da saga</strong>, no coordenador e em cada serviço.</p>
+
+<OneLiner>A saga grava no banco <strong>e</strong> manda mensagem: duas escritas não atômicas. Se o processo cai no meio, ou o passo foi feito e ninguém soube, ou o comando sai duas vezes. A saída é a <strong>outbox</strong> (o passo e a mensagem entram na mesma transação, e um relay envia) ou o <strong>CDC</strong>, com o <strong>serviço que recebe idempotente</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Dual write</strong>, avance até o orquestrador cair <strong>entre mandar o comando e gravar o estado</strong> e veja o <code>ReservarEstoque</code> sair duas vezes. Nos passos seguintes entra a <strong>outbox</strong>: o passo e a mensagem gravados juntos.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/compensacao-3d/?mode=dual-write" poster="labs/saga/compensacao-3d-previa.webp" title="Figura interativa: A escrita dupla" alt="Prévia da figura 3D: A escrita dupla" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Duas escritas.</strong> Para avançar a saga do 1057, o orquestrador precisa <strong>gravar</strong> o novo estado no banco e <strong>mandar</strong> o comando ao Kafka. O banco e o Kafka não participam da mesma transação: um dos dois pode acontecer sem o outro.</li>
+  <li><strong>(a) Na coreografia.</strong> O <code>estoque</code> <strong>grava</strong> a reserva e cai antes de <strong>publicar</strong> o <code>EstoqueReservado</code>. A reserva existe, ninguém foi avisado, e a saga <strong>para</strong> sem erro nenhum.</li>
+  <li><strong>(b) Na orquestração.</strong> O orquestrador manda <code>ReservarEstoque</code> e cai antes de gravar <code>RESERVANDO</code>. Ao voltar, a última linha ainda diz <code>PAGO</code>, então ele manda <code>ReservarEstoque</code> <strong>de novo</strong>, e o <code>estoque</code> reserva <strong>duas vezes</strong> se não for idempotente. É o que o laboratório do autor faz (trecho abaixo).</li>
+  <li><strong>A solução do artigo: outbox.</strong> A saga grava o passo <strong>e</strong> a mensagem na <strong>mesma transação</strong> do banco, e um <strong>relay</strong> as envia depois. Se a transação desfaz, os dois somem. O <strong>CDC</strong> (módulo 17) faz o mesmo lendo o log do banco.</li>
+  <li><strong>Reiniciar a saga.</strong> Com a mesma <code>saga_id</code> (ou chave de idempotência), o orquestrador que volta de uma queda <strong>retoma do passo sem resposta</strong>, em vez de começar outra saga.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>No <code>processReply</code> do orquestrador, o comando é enviado antes de o estado ser gravado (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original). Primeiro o envio, na resposta de <code>pedidos-reply</code>:</p>
+
+<CodeLab code={orquestradorMain} from={335} to={348} />
+
+<p>E, depois do <code>switch</code>, a gravação do estado novo:</p>
+
+<CodeLab code={orquestradorMain} from={390} to={398} />
+
+<ol class="flow steps">
+  <li>A linha 346 <strong>envia</strong> <code>RESERVE_STOCK</code> ao <code>estoque</code>. O <code>return err</code> da 347 só cobre falha de envio.</li>
+  <li>A linha 391 só <strong>depois</strong> grava o estado (<code>saveEvent</code>). Entre a 346 e a 391 existe uma janela: se o processo cai ali, o serviço faz o passo e o orquestrador não sabe.</li>
+  <li>Ao voltar, o consumidor lê de <code>OffsetNewest</code> (linha 194), e nem <code>command_id</code> nem <code>reply_id</code> são conferidos em lugar nenhum. A repetição passa direto.</li>
+</ol>
+
+<h3 class="sec">A outbox dentro da saga</h3>
+
+<p>A forma, em SQL (exemplo, não rodado): a saga e a mensagem entram na mesma transação.</p>
+
+<pre><code>{String.raw`BEGIN;
+  UPDATE saga SET estado = 'RESERVANDO', versao = versao + 1
+   WHERE saga_id = 's-1057' AND estado = 'PAGO';
+  INSERT INTO outbox (destino, tipo, payload)
+  VALUES ('estoque-commands', 'ReservarEstoque', '{"saga_id":"s-1057", …}');
+COMMIT;   -- os dois entram, ou nenhum`}</code></pre>
+
+<p>Um relay lê a <code>outbox</code> e manda ao Kafka. O <code>UPDATE ... WHERE estado = 'PAGO'</code> é a transição condicional da aula 6, e continua valendo: se a saga já saiu de <code>PAGO</code>, nem a linha da outbox é gravada.</p>
+
+<h3 class="sec">E se der errado: o relay publica e cai antes de marcar</h3>
+
+<p>O relay manda o <code>ReservarEstoque</code> ao Kafka e cai <strong>antes</strong> de marcar a linha como enviada. Ao voltar, ele a envia <strong>de novo</strong>: a entrega é <strong>pelo menos uma vez</strong>. O comando sai duas vezes, e o <code>estoque</code> precisa ser <strong>idempotente</strong>: ele guarda o <code>command_id</code> e, ao ver o mesmo, responde o resultado que já deu, sem reservar outra vez. A outbox não elimina a duplicata; ela troca "perder" por "repetir".</p>
+
+<WhyItMatters>
+  <li><strong>É o mesmo problema do módulo 18.</strong> Gravar e publicar não são atômicos, e a saga os faz a cada passo.</li>
+  <li><strong>Dois defeitos, dois sintomas.</strong> Passo feito sem aviso (a saga para) ou comando repetido (reserva duas vezes).</li>
+  <li><strong>A outbox une o passo e a mensagem.</strong> Mesma transação, e um relay envia.</li>
+  <li><strong>Quem recebe é idempotente.</strong> A outbox garante "pelo menos uma vez", e o <code>command_id</code> evita o efeito duplo.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Correção ao artigo-base: o commit só depois da comunicação</h4>
+  <ul>
+    <li><strong>"Dual write" resolvido por transação?</strong> O artigo diz que, num banco ACID, dá para "executar a publicação do evento dentro de uma transaction e só realizar o commit quando os processos de comunicação estiverem concluídos". <strong>Isso não é atômico</strong> (a mesma correção do módulo 18): o <code>COMMIT</code> pode falhar depois do <em>publish</em>, e a transação aberta segura travas enquanto espera o broker. O próprio artigo apresenta a solução certa logo depois: outbox e CDC.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Confluent: The Dual-Write Problem", href: "https://www.confluent.io/blog/dual-write-problem/" },
+    { label: "microservices.io: Pattern: Transactional outbox", href: "https://microservices.io/patterns/data/transactional-outbox.html" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com estado durável, transição condicional, log e outbox, as peças estão todas na mesa. Falta saber <strong>como ficam juntas, rodando</strong>, num sistema de pedidos de verdade.</p>
+
+<Flashcards cards={[
+  { q: "O que é a escrita dupla (dual write) numa saga?",
+    a: "Gravar o estado no banco e mandar o comando ou evento são duas escritas não atômicas: se o processo cai no meio, uma acontece sem a outra." },
+  { q: "O que acontece se o orquestrador manda o comando e cai antes de gravar?",
+    a: "Ao voltar, lê PAGO e manda ReservarEstoque de novo. O estoque reserva duas vezes se não for idempotente (é o que o laboratório do autor faz)." },
+  { q: "Como a outbox resolve?",
+    a: "A saga grava o passo e a mensagem na mesma transação; um relay envia. Ou os dois entram, ou nenhum." },
+  { q: "Por que o serviço que recebe precisa ser idempotente mesmo com outbox?",
+    a: "O relay pode publicar e cair antes de marcar, e o comando sai duas vezes (pelo menos uma vez). O command_id evita o efeito duplo." },
+  { q: "'Publicar dentro da transação e só dar commit depois' é atômico?",
+    a: "Não. O COMMIT pode falhar depois do publish, e a transação aberta segura travas. A solução é outbox ou CDC." },
+]} />

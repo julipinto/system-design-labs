@@ -1,0 +1,122 @@
+---
+title: "Exemplo de sistema de pedidos distribuído"
+order: 10
+min: 18
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import estoqueMain from '../../lab-code/saga/estoque-main.go?raw';
+
+<p class="ponte">Na aula passada faltava juntar as peças: estado durável, transição condicional, log, compensação e outbox. O laboratório público do autor junta uma parte delas num sistema de pedidos que se pode subir e testar. Vale lê-lo com o 1057 na mão, porque ele faz uma escolha que a loja não fez: <strong>reserva o estoque antes de cobrar</strong>.</p>
+
+<OneLiner>O laboratório do autor tem <strong>5 serviços, 5 bancos, Kafka e um simulador</strong>, com a saga <strong>orquestrada</strong>. Ele reserva antes de cobrar, e a conta fecha: <strong>85,5%</strong> dos pedidos completam. Com a ordem trocada, o 1057 cancelado leva <strong>cerca de 100 ms</strong> sem estorno, em vez de 44,95 s com estorno, e o preço é a reserva presa. Lido com cuidado, o código também mostra os problemas das aulas 6 a 9 <strong>de graça</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Lab</strong>, avance até os <strong>20 pedidos</strong> com 10% de falha no estoque e 5% no pagamento e confira cerca de <strong>17</strong> completos, <strong>2</strong> com falha no estoque e <strong>1</strong> no pagamento. Depois aperte <strong>Reserva antes</strong> para ver as duas ordens lado a lado.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/compensacao-3d/?mode=lab" poster="labs/saga/compensacao-3d-previa.webp" title="Figura interativa: O laboratório do autor" alt="Prévia da figura 3D: O laboratório do autor" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O laboratório.</strong> Go 1.23 e Kafka (modo KRaft), <strong>5 bancos PostgreSQL</strong> (um por serviço) e 5 serviços: <code>orquestrador</code>, <code>pedidos</code>, <code>estoque</code>, <code>pagamentos</code> e <code>entregas</code>. Um <code>simulador</code> interativo manda 1 pedido, 20 pedidos ou N, e monitora os tópicos de resposta. Só existe a versão <strong>orquestrada</strong>: não há exemplo coreografado.</li>
+  <li><strong>O fluxo de sucesso.</strong> <code>VALIDATE_ORDER</code> → <code>RESERVE_STOCK</code> → <code>PROCESS_PAYMENT</code> → <code>SCHEDULE_DELIVERY</code> → <code>COMPLETED</code>. E o de compensação, como o README descreve: <code>… PROCESS_PAYMENT</code> (falha) → <code>COMPENSATING</code> → <code>CANCEL_PAYMENT</code> → <code>RELEASE_STOCK</code> → <code>CANCEL_ORDER</code> → <code>FAILED</code>.</li>
+  <li><strong>As probabilidades.</strong> O estoque falha em <strong>10%</strong> das vezes e o pagamento em <strong>5%</strong>. Sucesso: 0,9 × 0,95 = <strong>85,5%</strong> (17,1 de 20). Falha no estoque: <strong>10%</strong> (2,0 de 20). Falha no pagamento: 0,9 × 0,05 = <strong>4,5%</strong> (0,9 de 20), e aí é preciso <strong>liberar o estoque</strong>. O README resume: com 20 pedidos, cerca de 17 a 18 completam, 2 falham no estoque e 1 no pagamento.</li>
+  <li><strong>A ordem dos passos.</strong> O laboratório reserva o estoque <strong>antes</strong> de cobrar. A loja (módulo 6) cobra antes de reservar. A tabela abaixo compara as duas com o 1057.</li>
+  <li><strong>O que se leva para fora.</strong> Idempotência em toda ponta, estado durável, vigia de saga parada, outbox e compensação repetível. O módulo 21 junta tudo isso em resiliência.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>O 1057 com a falta de estoque</th><th>cobrar antes (a loja)</th><th>reservar antes (o laboratório)</th></tr></thead>
+  <tbody>
+    <tr><th>tempo até <code>CANCELADO</code></th><td>44,95 s</td><td>cerca de 100 ms</td></tr>
+    <tr><th>estorno</th><td>1 (R$ 58,00)</td><td>nenhum: não houve cobrança</td></tr>
+    <tr><th>o Davi vê o dinheiro sair</th><td>sim, e volta em 3,7 s</td><td>não</td></tr>
+    <tr><th>o custo</th><td>espera, estorno e taxa do PSP</td><td>reserva presa enquanto o cliente paga</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="probabilidades" title="Probabilidades do laboratório" hint="Falha no estoque (0 a 30%), falha no pagamento (0 a 30%), número de pedidos (1 a 1.000) e a ordem dos passos: sucessos esperados (85,5% no padrão), compensações e estornos." />
+
+<h3 class="sec">O que o código do estoque faz</h3>
+
+<p>A falha de 10% é um sorteio no serviço <code>estoque</code> (lido, <strong>não executado</strong>; <code>estoque/main.go</code>, sem alteração, com os números de linha do original):</p>
+
+<CodeLab code={estoqueMain} from={293} to={299} />
+
+<p>O pagamento tem o mesmo desenho com 5%. A saga é de brinquedo, e isso é bom: os defeitos aparecem sem esconderijo.</p>
+
+<h3 class="sec">E se der errado: a reserva presa</h3>
+
+<p>Reservar antes de cobrar troca o estorno por outra dívida. Enquanto o cliente decide pagar o Pix, a unidade fica <strong>reservada e não vendida</strong>. Com <strong>20%</strong> dos pedidos desistindo e a reserva durando <strong>10 min</strong>, a 30 pedidos por segundo ficam 30 × 0,2 × 600 = <strong>3.600</strong> unidades presas (exemplo). Por isso a reserva tem <strong>prazo</strong>, e a <strong>expiração é uma compensação</strong>: a vigia da aula 6 libera a reserva que ninguém pagou.</p>
+
+<Widget name="reserva-presa" title="Reserva presa" hint="Pedidos por segundo (1 a 60), desistência do Pix (0 a 50%) e prazo da reserva (1 a 30 min): quantas unidades ficam reservadas e não vendidas (3.600 no exemplo)." />
+
+<h3 class="sec">O que o laboratório mostra de graça, lido com cuidado</h3>
+
+<p>Seis observações da leitura do código (<code>orquestrador/main.go</code> e <code>estoque/main.go</code>), todas <strong>lidas e não executadas</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Observação</th><th>Efeito</th><th>Conserto</th><th>Aula</th></tr></thead>
+  <tbody>
+    <tr><th>avança pelo tópico, sem conferir o estado, e as respostas das compensações voltam como sucesso</th><td>a saga cancelada ressuscita</td><td><code>command_type</code> na resposta e transição condicional</td><td>7</td></tr>
+    <tr><th>compensações disparadas e esquecidas; <code>FAILED</code> sai antes</th><td><code>FAILED</code> = "pedi para compensar"</td><td>esperar as respostas das compensações</td><td>7</td></tr>
+    <tr><th>comando enviado antes de gravar o estado</th><td>passo feito que o orquestrador não conhece</td><td>outbox</td><td>9</td></tr>
+    <tr><th>sem vigia e sem idempotência</th><td>resposta que não vem fica parada; repetição passa</td><td>prazo por estado e <code>command_id</code></td><td>6 e 9</td></tr>
+    <tr><th><code>CANCEL_DELIVERY</code> existe e nunca é enviado</th><td>faltaria se entrasse um passo depois da entrega</td><td>enviar na compensação</td><td>7</td></tr>
+    <tr><th>README: "Event Sourcing (simplificado)"</th><td>é um log de transições</td><td>derivar o estado do log (módulo 20)</td><td>8</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Uma sétima, de leitura do <code>startCompensation</code>: o README lista <code>CANCEL_PAYMENT</code> no fluxo de falha do pagamento, mas o orquestrador decide pelo <strong>estado atual</strong>. Quando o pagamento falha, o estado ainda é <code>STOCK_RESERVED</code> (<code>PAYMENT_PROCESSED</code> não foi gravado), então só saem <code>RELEASE_STOCK</code> e <code>CANCEL_ORDER</code>. O <code>CANCEL_PAYMENT</code> sairia numa falha da <strong>entrega</strong>, quando o estado é <code>PAYMENT_PROCESSED</code>. Faz sentido (não há o que estornar), mas o diagrama do README não diz isso.</p>
+
+<WhyItMatters>
+  <li><strong>Um laboratório se lê como um relatório.</strong> Cada observação da tabela é um defeito que a saga de produção precisa resolver.</li>
+  <li><strong>A ordem decide o custo.</strong> Cobrar antes: estorno e 44,95 s. Reservar antes: 100 ms e reserva presa.</li>
+  <li><strong>As probabilidades fecham.</strong> 85,5%, 10% e 4,5% somam 100% e dão 17,1, 2,0 e 0,9 em 20 pedidos.</li>
+  <li><strong>A saga depende de tudo o que vem depois.</strong> Comandos que se repetem, eventos que chegam em dobro e serviços que demoram.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Os mesmos 10%, em duas ordens</h4>
+  <p>Na ordem da loja, os mesmos 10% de falha de estoque viram <strong>estornos</strong>: 2,0 a cada 20 pedidos, contra <strong>0</strong> na ordem do laboratório (conta que supõe que o pagamento nunca falha; com os 5% de falha do pagamento vindo antes, a conta exata do widget é 1,9). Cada estorno é dinheiro que sai e volta, uma taxa possível e um cliente que viu o saldo cair.</p>
+  <h4 class="deep-h">Correções ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>O laboratório é didático.</strong> A lista de observações acima vira exercício: o orquestrador avança pelo tópico, as compensações são disparadas e esquecidas, o comando sai antes do estado, e não há vigia nem idempotência.</li>
+    <li><strong>O que falta no artigo.</strong> Tempo-limite por estado e vigia de saga parada, a ordem dos passos, idempotência do <strong>comando</strong> (não só da saga), correlação por <code>saga_id</code> e <code>trace_id</code>, sagas com passo humano e o <em>Try-Confirm-Cancel</em> (TCC), que está só nas referências.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Repositório público do autor: saga/orquestrado", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+    { label: "Microsoft Learn: Saga distributed transactions pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/saga" },
+    { label: "AWS Prescriptive Guidance: Saga orchestration pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-orchestration.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A saga depende de comandos que se repetem, de eventos que chegam duas vezes e de serviços que demoram, e tudo isso quer <strong>idempotência, tempo-limite, <em>retry</em> e <em>circuit breaker</em></strong>. Antes, outra pergunta: e se o estado do pedido fosse <strong>só a lista dos eventos</strong>, e o que está na tabela fosse um resumo? O log de saga já é metade disso. Falta saber o que acontece quando o log vira a fonte: é o módulo 20, Event Sourcing.</p>
+
+<Flashcards cards={[
+  { q: "O que o laboratório do autor tem?",
+    a: "Go e Kafka, 5 serviços (orquestrador, pedidos, estoque, pagamentos, entregas), 5 bancos PostgreSQL e um simulador. Só a versão orquestrada." },
+  { q: "Quais são as probabilidades do laboratório?",
+    a: "10% de falha no estoque e 5% no pagamento: 85,5% completam (17,1 de 20), 10% falham no estoque (2,0) e 4,5% no pagamento (0,9, com liberação do estoque)." },
+  { q: "Cobrar antes ou reservar antes: o que muda no 1057?",
+    a: "Cobrar antes: CANCELADO em 44,95 s, com 1 estorno de R$ 58,00. Reservar antes: cerca de 100 ms, sem estorno, mas com reserva presa enquanto o cliente paga." },
+  { q: "Quanta reserva fica presa a 30 pedidos/s, 20% de desistência e 10 min?",
+    a: "30 × 0,2 × 600 = 3.600 unidades. Por isso a reserva tem prazo, e a expiração é uma compensação." },
+  { q: "Que defeitos o laboratório mostra de graça?",
+    a: "A saga cancelada que ressuscita, FAILED antes de compensar, comando antes do estado, sem vigia nem idempotência, CANCEL_DELIVERY nunca enviado e um log chamado de event sourcing." },
+]} />

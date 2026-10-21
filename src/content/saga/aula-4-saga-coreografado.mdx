@@ -1,0 +1,88 @@
+---
+title: "Saga coreografado"
+order: 4
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a saga ganhou passos e compensações, mas alguém precisa decidir <strong>quando cada passo roda</strong> e <strong>quando se compensa</strong>. A primeira resposta é a mais simples de imaginar: ninguém decide. Cada serviço escuta o que aconteceu, faz a sua parte e conta o que fez. É a <strong>coreografia</strong>.</p>
+
+<OneLiner>Na <strong>coreografia</strong> ninguém manda: cada serviço escuta o evento do anterior, faz o seu passo e <strong>publica</strong> o resultado, sem saber quem vai ouvir. Não há ponto central, mas o fluxo <strong>não está em lugar nenhum</strong>: fica espalhado pelos serviços, e achar "onde está o 1057?" exige juntar logs.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Coreografado</strong>, avance e siga os eventos do 1057 de serviço em serviço, do <code>PedidoCriado</code> até o estorno e o <code>PedidoCancelado</code>. Conte: <strong>5</strong> eventos na falha, contra 4 no sucesso. No último passo, o <code>e-1903</code> se perde.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/saga-3d/?mode=coreografado" poster="labs/saga/saga-3d-previa.webp" title="Figura interativa: Saga coreografada" alt="Prévia da figura 3D: Saga coreografada" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Ninguém manda.</strong> O <code>pedidos</code> grava o pedido e publica <code>PedidoCriado</code>. Quem se interessa escuta: o <code>pagamentos</code> cobra e publica <code>PedidoPago</code>, o <code>estoque</code> escuta esse e tenta reservar.</li>
+  <li><strong>O caminho feliz tem 4 eventos.</strong> <code>PedidoCriado</code> → (<code>pagamentos</code>) <code>PedidoPago</code> → (<code>estoque</code>) <code>EstoqueReservado</code> → (<code>entregas</code>) <code>EntregaAgendada</code>. Cada serviço fez uma transação local e publicou um fato.</li>
+  <li><strong>A falha tem 5.</strong> O <code>estoque</code> publica <code>EstoqueIndisponivel</code>. Quem desfaz é o <code>pagamentos</code>, que agora <strong>escuta o estoque</strong> e publica <code>PagamentoEstornado</code>; o <code>pedidos</code> escuta o estorno e publica <code>PedidoCancelado</code>. São <code>PedidoCriado</code>, <code>PedidoPago</code>, <code>EstoqueIndisponivel</code>, <code>PagamentoEstornado</code> e <code>PedidoCancelado</code>.</li>
+  <li><strong>A vantagem é não ter centro.</strong> Nenhum componente que todo pedido atravessa, e os serviços se acoplam pouco: cada um conhece <strong>eventos</strong>, não os outros serviços.</li>
+  <li><strong>O custo é não ter dono.</strong> O fluxo está espalhado por quatro repositórios, o <code>pagamentos</code> passou a escutar o <code>estoque</code> (e o <code>estoque</code> já escutava o <code>pagamentos</code>: <strong>dependência circular</strong>), e achar o 1057 exige juntar os logs dos quatro pelo <code>trace_id</code> (módulo 6).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Evento</th><th>Quem publica</th><th>Quem escuta</th></tr></thead>
+  <tbody>
+    <tr><th><code>PedidoCriado</code></th><td><code>pedidos</code></td><td><code>pagamentos</code></td></tr>
+    <tr><th><code>PedidoPago</code></th><td><code>pagamentos</code></td><td><code>estoque</code></td></tr>
+    <tr><th><code>EstoqueReservado</code></th><td><code>estoque</code></td><td><code>entregas</code></td></tr>
+    <tr><th><code>EntregaAgendada</code></th><td><code>entregas</code></td><td><code>pedidos</code> (finaliza)</td></tr>
+    <tr><th><code>EstoqueIndisponivel</code></th><td><code>estoque</code></td><td><code>pagamentos</code> (estorna)</td></tr>
+    <tr><th><code>PagamentoEstornado</code></th><td><code>pagamentos</code></td><td><code>pedidos</code> (cancela)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: o EstoqueIndisponivel se perde</h3>
+
+<p>O <code>estoque</code> não achou a camiseta, e o <code>EstoqueIndisponivel</code> (<code>e-1903</code>) <strong>nunca chega</strong> ao <code>pagamentos</code> (a mensagem se perdeu; a aula 9 mostra como). Ninguém compensa. O 1057 fica <code>pago</code> <strong>para sempre</strong>, e ninguém sabe: não existe um dono da saga que perceba que faltou uma resposta. Cada serviço fez a sua parte e nenhum deles é responsável pelo conjunto.</p>
+
+<WhyItMatters>
+  <li><strong>Sem ponto central.</strong> Nada que todo pedido atravessa, e nada para cair e levar as sagas junto.</li>
+  <li><strong>O serviço publica o fato.</strong> Quem produz não sabe quem escuta; acopla-se ao evento, não ao vizinho.</li>
+  <li><strong>O fluxo some.</strong> Ele não está escrito em lugar nenhum: é o que sobra da soma de quatro escutas.</li>
+  <li><strong>Falta quem perceba o silêncio.</strong> Evento perdido, saga parada: só uma vigia (aula 6) acharia.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Coreografia ou cadeia ponto a ponto?</h4>
+  <p>Se o <code>pagamentos</code> terminar e <strong>chamar</strong> o <code>estoque</code> diretamente, isso é uma cadeia ponto a ponto, com o acoplamento de uma chamada. Coreografia de verdade é o que o microservices.io descreve: cada transação local <strong>publica eventos de domínio</strong> que disparam transações locais em outros serviços.</p>
+  <h4 class="deep-h">Correção ao artigo-base: a coreografia</h4>
+  <ul>
+    <li><strong>Quem conhece quem.</strong> O artigo diz que cada serviço "conhece o serviço seguinte e o anterior e o protocolo que ele usa" e que quem falha "notifica o anterior ou aciona o botão do pânico". Na coreografia de verdade o serviço <strong>publica o fato e não sabe quem escuta</strong>. Chamar o próximo direto é cadeia ponto a ponto.</li>
+    <li><strong>Mais simples, menos garantias.</strong> O artigo diz isso da coreografia. A dificuldade real é <strong>não ter dono do fluxo</strong>: sem vigia, sem rastreio fácil e com dependência circular.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "AWS Prescriptive Guidance: Saga choreography pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-choreography.html" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Sem dono, o evento perdido deixa o 1057 pago para sempre, e o fluxo não está em nenhum lugar que se possa abrir. Falta saber o que muda se <strong>um lugar só</strong> souber o mapa inteiro.</p>
+
+<Flashcards cards={[
+  { q: "Como a coreografia funciona?",
+    a: "Ninguém manda: cada serviço escuta o evento do anterior, faz o seu passo e publica o resultado, sem saber quem escuta." },
+  { q: "Quantos eventos tem a saga do 1057 na coreografia?",
+    a: "4 no sucesso (PedidoCriado, PedidoPago, EstoqueReservado, EntregaAgendada) e 5 na falha (PedidoCriado, PedidoPago, EstoqueIndisponivel, PagamentoEstornado, PedidoCancelado)." },
+  { q: "Qual é a vantagem da coreografia?",
+    a: "Não há ponto central, e os serviços se acoplam só aos eventos." },
+  { q: "Quais são os custos da coreografia?",
+    a: "O fluxo não está em lugar nenhum, há dependência circular (pagamentos escuta o estoque) e achar o 1057 exige juntar logs pelo trace_id." },
+  { q: "O que acontece se o EstoqueIndisponivel se perde?",
+    a: "Ninguém compensa: o 1057 fica pago para sempre, porque não há dono da saga para perceber a falta." },
+]} />
