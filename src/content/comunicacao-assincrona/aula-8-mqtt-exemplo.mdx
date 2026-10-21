@@ -1,0 +1,90 @@
+---
+title: "MQTT: exemplo"
+order: 8
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o caminhão <code>caminhao-17</code> publicava a posição num tópico e o <code>rastreio</code> assinava um filtro, com QoS, retida e Last Will. Agora o código: o repositório público do autor tem um produtor e um consumidor em Go que conversam por um Mosquitto. Ele é pequeno e mostra a base, e esconde algumas coisas que a aula 7 prometeu e o laboratório não entrega.</p>
+
+<OneLiner>No laboratório, um produtor publica uma mensagem por segundo com <strong>QoS 1</strong> e um consumidor assina o mesmo tópico com <strong>sessão limpa</strong>: tudo que o consumidor perde enquanto está fora, <strong>se perde para sempre</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Lab MQTT</strong> com os dados do laboratório, troque o tópico do laboratório pelo da loja, <code>loja/entregas/caminhao-17/posicao</code>, e a string pelo JSON da aula 7. Depois siga o "e se der errado": o consumidor sobe depois do produtor. Conte quantas mensagens ele perdeu com a sessão limpa.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/fila-3d/?mode=lab-mqtt" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Figura interativa: MQTT: o lab" alt="Prévia da figura 3D: MQTT: o lab" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A pasta <code>messages/mqtt/default/</code> tem um <code>docker-compose.yml</code> com o <code>eclipse-mosquitto:2.0</code>, nas portas <strong>1883</strong> (MQTT) e <strong>9001</strong>, e um <code>mosquitto.conf</code> de 4 linhas: <code>listener 1883</code>, <code>allow_anonymous true</code>, <code>persistence true</code> e o local da persistência.</li>
+  <li>O <code>producer.go</code> conecta em <code>tcp://localhost:1883</code> com o <code>clientID</code> <code>producer-&lt;unix&gt;</code>, liga o <code>SetAutoReconnect(true)</code> e publica <code>Mensagem #N - &lt;hora&gt;</code> com <strong>QoS 1</strong> no tópico do laboratório, <code>linuxtips/iot</code>, <strong>a cada 1 s</strong>. Depois de cada <code>Publish</code>, ele espera o token: é o <code>PUBACK</code> da aula 7.</li>
+  <li>O <code>consumer.go</code> assina o mesmo tópico com QoS 1 e <code>SetCleanSession(true)</code>. Sessão limpa quer dizer que, ao desconectar, o broker <strong>esquece</strong> a assinatura e as mensagens pendentes dele.</li>
+  <li>O mapa para a loja é um por um: o tópico <code>linuxtips/iot</code> vira <code>loja/entregas/caminhao-17/posicao</code>, e a string de texto vira o JSON <code>&#123;"lat":-8.0476,"lng":-34.877,"vel":62&#125;</code> de 38 bytes. O resto, o produtor com QoS 1 e o consumidor que assina um tópico, é exatamente o desenho do <code>rastreio</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Cinco divergências entre o laboratório e a aula</h3>
+
+<ol class="flow steps">
+  <li><strong>O README e o código se contradizem.</strong> O <code>README</code> fala do tópico <code>linuxtips/demo</code> e de um intervalo de <strong>5 s</strong>; o código usa <code>linuxtips/iot</code> e <strong>1 s</strong> (o comentário do código também diz 5 s, e o laço espera 1 s).</li>
+  <li><strong>O compose sobe só o broker.</strong> O <code>README</code> diz que o <code>docker compose up</code> sobe produtor e consumidor; o <code>docker-compose.yml</code> só sobe o <strong>Mosquitto</strong>. Produtor e consumidor rodam à mão, com <code>go run</code>.</li>
+  <li><strong>A configuração é só de laboratório.</strong> O compose expõe a porta 9001 (WebSocket), mas o <code>mosquitto.conf</code> só declara o listener <strong>1883</strong>; e o <code>allow_anonymous true</code> aceita qualquer um. Em produção, usuário e senha, ACL por tópico e TLS na porta 8883.</li>
+  <li><strong>O cliente é MQTT 3.1.1.</strong> O <code>paho.mqtt.golang v1.4.3</code> fala 3.1.1. A assinatura compartilhada (<code>$share</code>) é do <strong>MQTT 5.0</strong> e pede outro cliente, o <code>eclipse/paho.golang</code>.</li>
+  <li><strong>O <code>clientID</code> muda a cada execução.</strong> Com <code>time.Now().Unix()</code>, o consumidor nunca é o mesmo, e <strong>não dá para retomar uma sessão persistente</strong>.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o consumidor sobe depois do produtor</h3>
+
+<p>O produtor começa a publicar e o consumidor sobe minutos depois. Com <code>CleanSession(true)</code>, as mensagens enviadas enquanto ele estava fora <strong>se perdem</strong>, e o próprio <code>README</code> avisa. Para guardá-las, é preciso <code>CleanSession(false)</code>, um <code>clientID</code> <strong>fixo</strong> e QoS 1: o broker guarda as mensagens do assinante enquanto ele estiver fora.</p>
+
+<p>Esse guardar tem limite. Em 10 minutos, a 1 mensagem por segundo, são <strong>600</strong> mensagens. O limite padrão da fila por cliente no Mosquitto é <strong>1.000</strong> (<code>max_queued_messages</code>, conferido na documentação). Com 20 minutos, são <strong>1.200</strong>, e as 200 excedentes são descartadas. Sessão persistente não é um log: é uma fila curta por assinante.</p>
+
+<WhyItMatters>
+  <li><strong>Sessão limpa esquece.</strong> O que passa com o consumidor fora some.</li>
+  <li><strong>Sessão persistente pede <code>clientID</code> fixo.</strong> O laboratório gera um novo a cada execução.</li>
+  <li><strong>A fila da sessão tem teto.</strong> 600 cabem nas 1.000; 1.200 perdem 200.</li>
+  <li><strong>O laboratório é a base, e não a produção.</strong> Sem autenticação, sem TLS e em 3.1.1.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O produtor, sem alteração</h4>
+  <p>Este é o <code>producer.go</code> do repositório público de exemplos do autor (os números à esquerda são os das linhas do arquivo). O <code>Publish</code> com QoS 1 está na linha 46, e o <code>Sleep</code> de 1 s, na linha 56.</p>
+  <pre><code>{"19  func main() {\n20  \tbroker := \"tcp://localhost:1883\"\n21  \n22  \ttopic := \"linuxtips/iot\"\n23  \n24  \tclientID := fmt.Sprintf(\"producer-%d\", time.Now().Unix())\n25  \n26  \topts := mqtt.NewClientOptions()\n27  \topts.AddBroker(broker)\n28  \topts.SetClientID(clientID)\n29  \topts.OnConnect = connectHandler\n30  \topts.OnConnectionLost = connectLostHandler\n31  \topts.SetAutoReconnect(true)\n32  \n33  \tclient := mqtt.NewClient(opts)\n34  \tif token := client.Connect(); token.Wait() && token.Error() != nil {\n35  \t\tlog.Fatal(token.Error())\n36  \t}\n37  \n38  \t// Aguarda um pouco para garantir que o consumer está pronto\n39  \ttime.Sleep(3 * time.Second)\n40  \n41  \t// Publica mensagens a cada 5 segundos\n42  \tcounter := 1\n43  \tfor {\n44  \t\tmessage := fmt.Sprintf(\"Mensagem #%d - %s\", counter, time.Now().Format(time.RFC3339))\n45  \n46  \t\ttoken := client.Publish(topic, 1, false, message)\n47  \t\ttoken.Wait()\n48  \n49  \t\tif token.Error() != nil {\n50  \t\t\tfmt.Printf(\"[PRODUCER] Erro ao publicar: %v\\n\", token.Error())\n51  \t\t} else {\n52  \t\t\tfmt.Printf(\"[PRODUCER] Mensagem publicada: %s\\n\", message)\n53  \t\t}\n54  \n55  \t\tcounter++\n56  \t\ttime.Sleep(1 * time.Second)\n57  \t}\n58  }"}</code></pre>
+  <h4 class="deep-h">O consumidor e a configuração, sem alteração</h4>
+  <p>O <code>consumer.go</code> com a sessão limpa (linha 40) e a assinatura (linha 48), e o <code>mosquitto.conf</code> inteiro.</p>
+  <pre><code>{"27  \tbroker := \"tcp://localhost:1883\"\n28  \n29  \ttopic := \"linuxtips/iot\"\n30  \n31  \tclientID := fmt.Sprintf(\"consumer-%d\", time.Now().Unix())\n32  \n33  \topts := mqtt.NewClientOptions()\n34  \topts.AddBroker(broker)\n35  \topts.SetClientID(clientID)\n36  \topts.SetDefaultPublishHandler(messagePubHandler)\n37  \topts.OnConnect = connectHandler\n38  \topts.OnConnectionLost = connectLostHandler\n39  \topts.SetAutoReconnect(true)\n40  \topts.SetCleanSession(true)\n41  \n42  \tclient := mqtt.NewClient(opts)\n43  \tif token := client.Connect(); token.Wait() && token.Error() != nil {\n44  \t\tlog.Fatal(token.Error())\n45  \t}\n46  \n47  \t// Subscreve no tópico\n48  \tif token := client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {\n49  \t\tlog.Fatal(token.Error())\n50  \t}\n51  \tfmt.Printf(\"[CONSUMER] Inscrito no tópico: %s\\n\", topic)\n52  \n53  \t// Aguarda sinal de interrupção\n54  \tsigChan := make(chan os.Signal, 1)\n55  \tsignal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)\n56  \t<-sigChan\n57  \n58  \tfmt.Println(\"\\n[CONSUMER] Encerrando...\")\n59  \tclient.Disconnect(250)\n60  }"}</code></pre>
+  <pre><code>{"1  listener 1883\n2  allow_anonymous true\n3  persistence true\n4  persistence_location /mosquitto/data/"}</code></pre>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Labs.</strong> As cinco divergências acima são do repositório. O artigo não traz o código MQTT; ele apenas lista o cliente Eclipse Paho Go como referência.</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos de mensageria (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/messages" },
+    { label: "Eclipse Paho MQTT Go client (referência do artigo)", href: "https://pkg.go.dev/github.com/eclipse/paho.mqtt.golang" },
+    { label: "Eclipse Mosquitto: mosquitto.conf (max_queued_messages)", href: "https://mosquitto.org/man/mosquitto-conf-5.html" },
+    { label: "MQTT 3.1.1 (OASIS): sessões e clean session", href: "https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O MQTT cuida do caminhão, e o Kafka, dos eventos entre serviços. Falta o terceiro caminho: o <code>notificacoes</code> manda e-mails, uns transacionais e outros promocionais, e um provedor que aceita 100 por segundo faz o e-mail da Lena esperar atrás de 50.000. Falta saber como separar o que é urgente do que é volume, e quem decide a fila de cada mensagem: é o AMQP, no RabbitMQ.</p>
+
+<Flashcards cards={[
+  { q: "O que o produtor e o consumidor do laboratório MQTT fazem?",
+    a: "O produtor publica uma mensagem por segundo com QoS 1 no tópico do laboratório. O consumidor assina o mesmo tópico, com QoS 1 e sessão limpa." },
+  { q: "O que acontece se o consumidor sobe depois do produtor, com CleanSession(true)?",
+    a: "As mensagens enviadas enquanto ele estava fora se perdem. O README avisa." },
+  { q: "O que é preciso para o broker guardar as mensagens do assinante?",
+    a: "CleanSession(false), clientID fixo e QoS 1. O laboratório gera um clientID novo a cada execução, então não dá." },
+  { q: "Quantas mensagens ficam guardadas em 10 e em 20 minutos a 1 msg/s?",
+    a: "600 (cabem nas 1.000 do max_queued_messages) e 1.200 (200 descartadas)." },
+  { q: "Por que não dá para usar $share com o paho.mqtt.golang v1.4.3?",
+    a: "Ele fala MQTT 3.1.1; a assinatura compartilhada é do MQTT 5.0 e pede o cliente eclipse/paho.golang." },
+]} />

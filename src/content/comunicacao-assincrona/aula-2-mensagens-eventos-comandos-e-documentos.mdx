@@ -1,0 +1,91 @@
+---
+title: "Mensagens, eventos, comandos e documentos"
+order: 2
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o <code>pedidos</code> passou a publicar um aviso e seguir, em vez de chamar três serviços. Mas "aviso" é uma palavra frouxa. O que o <code>pedidos</code> manda quando a Lena paga o 1051 é uma ordem para alguém, um fato que aconteceu ou um pacote de dados? A resposta decide quem pode ouvir, quantos podem ouvir e o que dá errado se um time escolher a forma errada.</p>
+
+<OneLiner>"Mensagem" é o gênero, e dele saem três tipos: o <strong>comando</strong> manda fazer (um destinatário), o <strong>evento</strong> conta o que aconteceu (ninguém é obrigado a ouvir) e o <strong>documento</strong> entrega dados (quem recebe decide o que fazer).</OneLiner>
+
+<DoIt>
+  <p>Leia os quatro nomes e, antes de olhar a tabela abaixo, classifique cada um como comando, evento ou documento: <code>CobrarPedido</code>, <code>ResumoDoDia</code>, <code>PedidoPago</code>, <code>ReservarEstoque</code>. Use só o nome: está no imperativo ou no passado? Depois confira com a tabela e com a pergunta "quem muda quando aparece um novo interessado?".</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O <strong>comando</strong> é uma ordem com destinatário conhecido: <code>CobrarPedido &#123; pedido_id: 1051, valor: 54.80 &#125;</code>. Está no <strong>imperativo</strong>, vai para <strong>um</strong> serviço (o <code>pagamentos</code>) e quem manda espera que algum efeito aconteça.</li>
+  <li>O <strong>evento</strong> é o oposto na intenção: <code>PedidoPago &#123; pedido_id: 1051 &#125;</code> conta um <strong>fato no passado</strong>. O produtor não sabe quem escuta e não espera nada de volta. O <code>estoque</code>, as <code>entregas</code> e as <code>notificacoes</code> reagem, cada um do seu jeito.</li>
+  <li>O <strong>documento</strong> é dado sem ordem e sem fato: <code>ResumoDoDia &#123; pedidos: 612, itens: 1390 &#125;</code>. Quem recebe decide o que fazer com ele, sem precisar perguntar nada a quem mandou.</li>
+  <li>Para reconhecer o tipo sem decorar, há duas perguntas. A primeira é o nome: <code>CobrarPedido</code> (imperativo) é comando e <code>PedidoPago</code> (passado) é evento. A segunda é <strong>quem muda quando aparece um novo interessado</strong>. Um quarto consumidor, o <code>antifraude</code>, ouve o <code>PedidoPago</code> e o <code>pedidos</code> não mexe em nada. Um quarto destino de um comando obriga o produtor a mandar <strong>mais uma mensagem</strong>.</li>
+  <li>Por isso o acoplamento muda. Com comandos, o <code>pedidos</code> conhece <strong>3 destinos</strong> e manda 3 mensagens. Com um evento, conhece <strong>1 tópico</strong> e manda 1.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Evento com pouco ou com muito dentro</h3>
+
+<p>Escolhido o tipo evento, falta decidir o tamanho. Martin Fowler separa dois jeitos. No <em>event notification</em> o evento é só o aviso, <code>&#123; pedido_id: 1051 &#125;</code>, e o consumidor precisa perguntar o resto: <strong>uma chamada síncrona a mais</strong> para cada consumidor, que traz de volta o acoplamento que o evento tirou. No <em>event-carried state transfer</em> o evento leva os dados de que o consumidor precisa, como o SKU e a quantidade. É maior, e o consumidor não chama ninguém de volta.</p>
+
+<p>Nenhum dos dois é o certo. O primeiro é leve e mantém o dado num lugar só. O segundo deixa o consumidor funcionar mesmo com o produtor fora do ar, e custa bytes e o risco de o dado enviado já estar velho quando chega.</p>
+
+<h3 class="sec">E se der errado: um comando num tópico com vários grupos</h3>
+
+<p>Um time novo precisa baixar o estoque e, por hábito, publica <code>ReservarEstoque</code>, um <strong>comando</strong>, no tópico <code>pedidos</code>. O grupo <code>estoque</code> lê e baixa a caneca azul: 40 para 38. Meses depois, o time de BI cria o grupo <code>estoque-bi</code> para outra coisa e ele também lê o tópico, e também age sobre o comando. O estoque vai a <strong>36</strong> para um pedido só.</p>
+
+<p>Todo grupo de consumo recebe todas as mensagens do tópico. Isso é ótimo para um evento, que cada grupo trata à sua maneira, e é um desastre para um comando, que manda <em>fazer</em>. A regra é simples: <strong>comando em tópico com vários grupos é ação duplicada</strong>. Comando vai para uma fila de um destinatário só (aulas 9 e 10); o tópico fica para fatos.</p>
+
+<WhyItMatters>
+  <li><strong>O nome ensina o tipo.</strong> Imperativo é comando, passado é evento. Um time que nomeia direito já evita metade dos erros.</li>
+  <li><strong>O novo interessado mostra o acoplamento.</strong> Se o produtor muda a cada consumidor novo, a mensagem era um comando.</li>
+  <li><strong>Evento pequeno custa chamadas, evento grande custa bytes.</strong> A escolha é entre o acoplamento de volta e o dado possivelmente velho.</li>
+  <li><strong>Comando num tópico compartilhado duplica a ação.</strong> 40 → 38 → 36 com dois grupos.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Os três tipos com a loja</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Comando</th><th>Evento</th><th>Documento</th></tr></thead>
+    <tbody>
+      <tr><th>Exemplo</th><td><code>CobrarPedido</code></td><td><code>PedidoPago</code></td><td><code>ResumoDoDia</code></td></tr>
+      <tr><th>Tempo do nome</th><td>imperativo</td><td>passado</td><td>substantivo</td></tr>
+      <tr><th>Destinatários</th><td>1, conhecido</td><td>quem quiser ouvir</td><td>quem receber</td></tr>
+      <tr><th>Espera-se</th><td>um efeito</td><td>nada</td><td>que o receptor decida</td></tr>
+      <tr><th>Novo interessado</th><td>produtor manda mais uma mensagem</td><td>produtor não muda</td><td>depende do canal</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Tipo da mensagem não é transporte.</strong> O artigo contrapõe "mensagens, por filas, de 1 para 1" e "eventos, por tópicos, de 1 para N". Isso mistura o <strong>tipo</strong> (comando, documento, evento) com o <strong>transporte</strong> (fila, tópico). Dá para mandar evento por fila, no RabbitMQ com uma exchange fanout, e comando por tópico, com os riscos desta aula. O próprio artigo conclui que "eventos são mensagens"; o que muda é a intenção, imperativo ou fato. Este módulo usa a segunda visão, a dos tipos de mensagem de Hohpe e Woolf, como a principal.</li>
+    <li><strong>"Event-driven" junta quatro coisas.</strong> Fowler separa <em>event notification</em>, <em>event-carried state transfer</em>, <em>event sourcing</em> e CQRS. O artigo as trata como uma só. Aqui entram as duas primeiras, e as outras ficam para os módulos 19 e 20.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Enterprise Integration Patterns: padrões de mensageria (Command, Document e Event Message)", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Akka: Message Driven vs Event Driven (referência do artigo)", href: "https://developer.lightbend.com/docs/akka-guide/concepts/message-driven-event-driven.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com os tipos separados, o <code>pedidos</code> sabe o que manda. Falta saber como essas mensagens esperam: numa fila, numa pilha, copiadas para várias filas? E o que acontece com a mensagem que ninguém consegue processar? São os conceitos de mensageria da próxima aula.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre comando, evento e documento?",
+    a: "Comando manda fazer (imperativo, 1 destinatário). Evento conta um fato no passado (o produtor não sabe quem escuta). Documento entrega dados e quem recebe decide." },
+  { q: "Como reconhecer um evento pelo nome e por uma pergunta?",
+    a: "Nome no passado (PedidoPago). E a pergunta: quem muda quando aparece um novo interessado? Num evento, ninguém no produtor." },
+  { q: "Qual é a diferença entre event notification e state transfer?",
+    a: "Notification leva só o aviso e o consumidor pergunta o resto (+1 chamada síncrona). State transfer leva os dados que o consumidor precisa: maior, sem chamada de volta." },
+  { q: "O que acontece se ReservarEstoque (comando) for publicado no tópico pedidos com os grupos estoque e estoque-bi?",
+    a: "Duas baixas: 40 → 38 → 36. Todo grupo recebe tudo, e um comando manda fazer." },
+  { q: "Quantos destinos o pedidos conhece com comandos e com eventos?",
+    a: "Com comandos, 3 destinos. Com eventos, 1 tópico." },
+]} />

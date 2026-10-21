@@ -23,3 +23,4 @@ node_modules
 public/labs/load-balancers/*-3d/
 public/labs/bff/*-3d/
 public/labs/concorrencia/*-3d/
+public/labs/comunicacao-assincrona/*-3d/

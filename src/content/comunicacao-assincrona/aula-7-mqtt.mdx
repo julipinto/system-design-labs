@@ -1,0 +1,98 @@
+---
+title: "MQTT"
+order: 7
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o laboratório do Kafka rodava num computador, com rede de sobra. Agora a loja tem um problema de outro tamanho: o pedido <strong>1048</strong>, da Lena, está num caminhão a caminho de Recife, e o rastreador do caminhão manda a posição por 4G, uma rede que cai em trechos ruins. Um cliente Kafka seria pesado demais para um dispositivo pequeno. Para esse caso existe o MQTT.</p>
+
+<OneLiner>MQTT é um protocolo de <strong>publicar e assinar</strong> feito para dispositivos pequenos e redes instáveis: o dispositivo publica num <strong>tópico</strong>, o broker <strong>empurra</strong> a mensagem para quem assina agora, e o <strong>QoS</strong> escolhe quanta garantia cada trecho paga.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>MQTT</strong>, avance os passos e leia o <code>PUBLISH</code> de 77 bytes e o <code>PUBACK</code> de 4 bytes, byte a byte. Depois veja a mensagem retida e o Last Will. No widget abaixo, escolha o QoS 1 e perca a confirmação: a mensagem chega duas vezes?</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/fila-3d/?mode=mqtt" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Figura interativa: MQTT: o caminhão" alt="Prévia da figura 3D: MQTT: o caminhão" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="qos" title="QoS do MQTT: os pacotes, a perda e a duplicata" hint="Escolha o QoS (0, 1 ou 2) e qual pacote se perde na rede. O widget mostra a troca de pacotes, os bytes e se o assinante recebe a mensagem uma vez, duas ou nenhuma." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O caminhão <code>caminhao-17</code> leva o 1048 para Recife. Um rastreador publica a posição a cada <strong>5 s</strong>. A rede 4G cai em trechos, e o rastreador é um aparelho pequeno: é para isso que o MQTT foi feito.</li>
+  <li>O rastreador <strong>publica</strong> no tópico <code>loja/entregas/caminhao-17/posicao</code>. O serviço <code>rastreio</code> <strong>assina</strong> o filtro <code>loja/entregas/+/posicao</code>, em que <code>+</code> vale <strong>um</strong> nível e <code>#</code> vale <strong>vários</strong> (<code>loja/entregas/#</code>). O broker, o Mosquitto, entrega a quem está assinando <strong>agora</strong>. O tópico <strong>não é fila nem log</strong>: não guarda histórico.</li>
+  <li>O pacote é pequeno. Um <code>PUBLISH</code> de QoS 1 com o tópico de 33 B e o payload <code>&#123;"lat":-8.0476,"lng":-34.877,"vel":62&#125;</code> de 38 B tem <strong>77 bytes</strong>: 1 de tipo, 1 de tamanho, 2 do tamanho do tópico, 33 do tópico, 2 do identificador e 38 do payload. A resposta, o <code>PUBACK</code>, tem <strong>4 bytes</strong>. O mesmo dado num <code>POST</code> HTTP com JWT sai com cerca de <strong>234 bytes</strong>. O <code>CONNECT</code> do <code>caminhao-17</code>, com keep-alive de 60 s, tem 25 bytes.</li>
+  <li>O <strong>QoS</strong> vale por trecho, do publicador ao broker e do broker ao assinante. <strong>QoS 0</strong> é no máximo uma vez, sem confirmação. <strong>QoS 1</strong> é pelo menos uma vez: <code>PUBLISH</code> e <code>PUBACK</code>, e <strong>pode duplicar</strong> (a flag DUP marca o reenvio). <strong>QoS 2</strong> é exatamente uma vez, com 4 pacotes: <code>PUBLISH</code>, <code>PUBREC</code>, <code>PUBREL</code> e <code>PUBCOMP</code>.</li>
+  <li>Duas peças cobrem o que o tópico não guarda. A mensagem <strong>retida</strong> faz o broker guardar a <strong>última</strong> posição de cada tópico e entregá-la na hora a quem assinar depois: a tela abre e já vê o caminhão. O <strong>Last Will</strong> (testamento) é a mensagem que o broker publica se o caminhão some sem se despedir: <code>loja/entregas/caminhao-17/status = offline</code>. O broker declara a conexão morta depois de <strong>1,5 × o keep-alive</strong>, 90 s.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Assinatura padrão e assinatura compartilhada</h3>
+
+<p>O <code>rastreio</code> roda em 2 réplicas, e cada uma assina o mesmo filtro. Na assinatura <strong>padrão</strong>, as <strong>duas</strong> recebem <strong>todas</strong> as posições, e cada WebSocket do módulo 12 recebe o push duplicado. Com <code>$share/rastreio/loja/entregas/+/posicao</code>, uma <strong>assinatura compartilhada</strong> do <strong>MQTT 5.0</strong>, as 2 réplicas <strong>dividem</strong> as mensagens, como um balanceador. Com 200 caminhões na Black Friday, cada um mandando 1 mensagem a cada 5 s, são <strong>40 mensagens por segundo</strong>: 20 em cada réplica.</p>
+
+<h3 class="sec">E se der errado: três minutos sem sinal</h3>
+
+<p>O caminhão entra num trecho sem cobertura e fica <strong>3 minutos</strong> sem rede. São <strong>36 posições</strong> (3 × 60 ÷ 5) que o rastreador gerou e ninguém recebeu. Com <strong>QoS 0</strong>, elas se perdem. Com <strong>QoS 1</strong>, o cliente do caminhão precisa <strong>guardar e reenviar</strong>: o broker só guarda mensagem para <em>assinantes</em>, e não para quem publica. E como uma posição é idempotente, vale a mais recente pelo horário, o <code>rastreio</code> pode ignorar as velhas.</p>
+
+<p>O segundo risco é de configuração. Dois rastreadores com o <strong>mesmo <code>clientId</code></strong> se derrubam em loop: o broker desconecta o anterior a cada novo <code>CONNECT</code>, e cada um volta para derrubar o outro.</p>
+
+<WhyItMatters>
+  <li><strong>O pacote é pequeno.</strong> 77 B contra cerca de 234 B de um POST com JWT.</li>
+  <li><strong>O QoS é por trecho e tem preço.</strong> 0 não confirma, 1 pode duplicar e 2 gasta 4 pacotes.</li>
+  <li><strong>O tópico não guarda.</strong> Só a última retida e as sessões persistentes guardam algo.</li>
+  <li><strong>O dispositivo precisa de uma regra para a rede cair.</strong> Em 3 minutos são 36 posições, e quem publica é quem as guarda.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Os pacotes, byte a byte</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Pacote</th><th>Bytes</th><th>De quê</th></tr></thead>
+    <tbody>
+      <tr><th><code>CONNECT</code></th><td>25</td><td>2 de cabeçalho, 10 de protocolo (nome, versão, flags, keep-alive de 60 s), 13 do <code>clientId</code> <code>caminhao-17</code></td></tr>
+      <tr><th><code>PUBLISH</code> QoS 1</th><td>77</td><td>2 de cabeçalho, 35 de tópico (tamanho e texto), 2 de identificador, 38 de payload</td></tr>
+      <tr><th><code>PUBLISH</code> QoS 0</th><td>75</td><td>o mesmo sem o identificador de 2 bytes</td></tr>
+      <tr><th><code>PUBACK</code></th><td>4</td><td>2 de cabeçalho e 2 de identificador</td></tr>
+      <tr><th><code>PUBREC</code>, <code>PUBREL</code>, <code>PUBCOMP</code></th><td>4 cada</td><td>o mesmo formato, usados no QoS 2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Garantia de entrega.</strong> O artigo diz que o protocolo "garante que as mensagens sejam entregues mesmo em redes instáveis" e que os pacotes chegam "sem duplicidade". Isso é do <strong>TCP</strong>, e só enquanto a conexão vive. O MQTT tem <strong>QoS 0, 1 e 2</strong>, e o 1 <strong>pode duplicar</strong>.</li>
+    <li><strong>"O broker armazena as mensagens em tópicos."</strong> O tópico <strong>não guarda</strong> nada. O broker só guarda a <strong>última retida</strong> e as mensagens das <strong>sessões persistentes</strong> (aula 8).</li>
+    <li><strong>O que falta.</strong> O artigo não cita os curingas <code>+</code> e <code>#</code>, a mensagem retida, o Last Will, o keep-alive nem a sessão.</li>
+    <li><strong>Assinatura compartilhada.</strong> É do <strong>MQTT 5.0</strong> (OASIS, 2019, <code>$share/grupo/filtro</code>), e não de "versões mais recentes" em geral. O MQTT 3.1.1 não tem.</li>
+  </ul>
+  <Sources items={[
+    { label: "MQTT 3.1.1 (OASIS): PUBLISH, QoS, retain, will e keep alive", href: "https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html" },
+    { label: "MQTT 5.0 (OASIS): assinaturas compartilhadas", href: "https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html" },
+    { label: "mqtt.org (referência do artigo)", href: "https://mqtt.org/" },
+    { label: "Eclipse Mosquitto: mosquitto.conf", href: "https://mosquitto.org/man/mosquitto-conf-5.html" },
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o MQTT entendido no papel, falta ver o código que o prova: o laboratório do autor tem um produtor e um consumidor que conversam por um Mosquitto. Só que ele tem uma sessão limpa e um README que descreve outra coisa. Falta saber o que acontece com as mensagens quando o consumidor sobe depois do produtor.</p>
+
+<Flashcards cards={[
+  { q: "Quantos bytes tem o PUBLISH de QoS 1 da posição do caminhão e o PUBACK?",
+    a: "77 bytes (1 + 1 + 2 + 33 + 2 + 38) e 4 bytes. Um POST HTTP com JWT leva cerca de 234 bytes." },
+  { q: "Qual é a diferença entre QoS 0, 1 e 2?",
+    a: "0: no máximo uma vez, sem confirmação. 1: pelo menos uma vez (PUBLISH e PUBACK), pode duplicar. 2: exatamente uma vez, com 4 pacotes (PUBLISH, PUBREC, PUBREL e PUBCOMP)." },
+  { q: "O que são mensagem retida e Last Will?",
+    a: "Retida: o broker guarda a última posição do tópico e a entrega a quem assina depois. Last Will: o broker publica status = offline se o caminhão some, depois de 1,5 × keep-alive (90 s)." },
+  { q: "Qual é a diferença entre assinatura padrão e compartilhada?",
+    a: "Na padrão, as 2 réplicas recebem todas as posições. Na compartilhada ($share, MQTT 5.0), elas dividem: 40 mensagens/s viram 20 em cada." },
+  { q: "O que se perde em 3 minutos sem sinal, e quem guarda as mensagens?",
+    a: "36 posições (3 × 60 ÷ 5). Com QoS 1, quem guarda e reenvia é o cliente do caminhão: o broker só guarda para assinantes." },
+]} />
