@@ -49,6 +49,8 @@ const modules: Mod[] = [
     text: 'Guardar o que aconteceu como a fonte da verdade e derivar o estado: o pedido 1047 como eventos, agregados, Event Store com versão esperada, bus, projeções, rehidratação, snapshot, ordem por versão e idempotência, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'resiliencia', title: 'Patterns de Resiliência', lessons: 13, poster: 'labs/resiliencia/chamadas-3d-previa.webp', alt: 'Prévia da figura 3D da chamada que atravessa a loja até o PSP',
     text: 'Continuar vendendo quando o PSP responde em 8 s: disponibilidade e orçamento de erro, blast radius, healthchecks, idempotência, timeouts, retry com backoff e jitter, circuit breaker, fallback, degradação, backpressure, camada de dados e bulkheads, com calculadoras e quiz de 72 perguntas.' },
+  { n: 24, slug: 'testes-de-carga', title: 'Testes de Carga e Estresse', lessons: 11, poster: 'labs/testes-de-carga/carga-3d-previa.webp', alt: 'Prévia da figura 3D do gerador de carga e da cadeia do checkout',
+    text: 'Refutar o plano de 300 pedidos por segundo com o k6: carga e estresse, smoke, carga média, spike, breakpoint, modelo aberto e fechado, metas e percentis, pré-teste e relatório, com os números medidos, calculadoras e quiz de 56 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

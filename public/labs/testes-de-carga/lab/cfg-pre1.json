@@ -1,0 +1,1 @@
+{"port":8080,"stages":[{"name":"pedidos","pods":1,"ms":33},{"name":"pagamentos","pods":100,"ms":50},{"name":"estoque","pods":4,"ms":2}],"shards":[{"ms":6.67},{"ms":6.67},{"ms":6.67},{"ms":6.67},{"ms":6.67},{"ms":6.67},{"ms":6.67},{"ms":6.67}]}

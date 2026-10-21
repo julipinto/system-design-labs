@@ -1,0 +1,108 @@
+---
+title: "Respondendo a perguntas-chave"
+order: 8
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o breakpoint achou o ponto de quebra, mas com um script e uma taxa escolhidos por quem rodou. Antes de rodar qualquer outro, vale perguntar: <strong>o que esse teste precisa responder?</strong> Injetar carga sem uma pergunta gasta horas e não decide nada.</p>
+
+<OneLiner>Um teste responde <strong>uma pergunta</strong>. As nove perguntas do artigo, respondidas com a loja, dizem <strong>quanto</strong> injetar, <strong>com qual mix</strong> e <strong>contra qual meta</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Jornada</strong>, aperte <strong>Pôr 5% de busca</strong> e veja a capacidade por réplica cair de 100 para 74 req/s.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=jornada" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: Jornada e mix" alt="Prévia da figura 3D: Jornada e mix" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Tráfego e objetivos.</strong> Hoje: 30 pedidos/s na Black Friday de 2026 e 5 no dia comum. Metas: p95 ≤ 800 ms, erros ≤ 0,1%, ρ ≤ 70%.</li>
+  <li><strong>Picos e crescimento.</strong> A newsletter das 20:00 (640 req/s no catálogo às 20:03). Crescimento: 45 · <strong>200</strong> · 300 pedidos/s (módulo 23).</li>
+  <li><strong>Protocolos.</strong> HTTP/REST no app, gRPC entre serviços (módulo 12), Kafka no <code>entregas</code> (módulo 13) e o webhook do PSP. O k6 fala HTTP, WebSocket e gRPC; Kafka precisa de extensão.</li>
+  <li><strong>Cenário extremo.</strong> A Black Friday de 2027 com o PSP lento (módulo 21).</li>
+  <li><strong>Jornada e custo.</strong> O mix de ações e quanto cada uma custa em CPU.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As nove perguntas, com a loja</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Pergunta do artigo</th><th>Na loja</th></tr></thead>
+  <tbody>
+    <tr><th>Tráfego esperado hoje?</th><td>30 pedidos/s (Black Friday de 2026); 5 no dia comum</td></tr>
+    <tr><th>Objetivos?</th><td>p95 ≤ 800 ms, erros ≤ 0,1%, ρ ≤ 70%</td></tr>
+    <tr><th>Picos?</th><td>newsletter das 20:00: 640 req/s no catálogo às 20:03</td></tr>
+    <tr><th>Protocolos e estímulos?</th><td>HTTP/REST, gRPC, Kafka e o webhook do PSP</td></tr>
+    <tr><th>Crescimento?</th><td>45 · <strong>200</strong> · 300 pedidos/s</td></tr>
+    <tr><th>Cenário extremo?</th><td>Black Friday de 2027 com o PSP lento</td></tr>
+    <tr><th>Funcionalidades críticas?</th><td>checkout, busca, carrinho</td></tr>
+    <tr><th>Jornadas?</th><td>cartão 60% · Pix 35% · estorno 5% (exemplo declarado)</td></tr>
+    <tr><th>Endpoints mais usados × mais caros?</th><td>página 10 ms de CPU, busca 80 ms; no checkout o mais caro é o <code>pagamentos</code> (50 ms)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A jornada do artigo (50% cartão, 30% pagamento instantâneo, 15% boleto, 5% estorno) vira, na loja, <strong>cartão 60 · Pix 35 · estorno 5</strong>. É um exemplo declarado, com o Pix do módulo 12. Com 200 pedidos/s, o gerador manda 120 de cartão, 70 de Pix e 10 de estorno por segundo.</p>
+
+<h3 class="sec">Usuários virtuais não são TPS</h3>
+
+<p>A aula 2 apresentou a conta: <strong>VUs = taxa × (tempo de resposta + pausa)</strong>. Para os 200 pedidos/s do plano, com 0,4 s de resposta e <strong>3 s de pensamento</strong> (o cliente preenchendo o endereço), são (0,4 + 3) × 200 = <strong>680 VUs</strong>. No modelo aberto, o k6 fixa a taxa e <strong>deixa os VUs variarem</strong>: <code>preAllocatedVUs</code> e <code>maxVUs</code> só reservam o que a taxa pedir.</p>
+
+<Widget name="little" title="VUs, taxa e pausa" hint="Taxa (1 a 400/s), tempo de resposta e pausa: calcula os VUs (680 para 200/s) e converte os 800 usuários do relatório do autor em ciclo (800 ÷ 600 = 1,33 s)." />
+
+<h3 class="sec">O endpoint caro muda a conta</h3>
+
+<p>O módulo 23 deu o custo: a página custa <strong>10 ms</strong> de CPU e a busca <strong>80 ms</strong>. Um mix com 5% de buscas tem custo médio de 0,95 × 10 + 0,05 × 80 = <strong>13,5 ms</strong>, o que reduz a capacidade de uma réplica do catálogo de 100 para <strong>74 req/s</strong>. Para os 950 req/s do plano e ρ ≤ 70%, são necessárias <strong>19</strong> réplicas, e não 14.</p>
+
+<Widget name="jornada" title="Jornada e mix" hint="Pesos do checkout (cartão, Pix, estorno) e a busca no catálogo, de 0% a 20%: mostra o custo médio por requisição, a capacidade por réplica e as réplicas necessárias (14 sem busca, 19 com 5%)." />
+
+<h3 class="sec">E se der errado: testar só o endpoint barato</h3>
+
+<p>Um teste que bate só em <code>GET /produtos/42</code> mostra o catálogo aguentando <strong>100 req/s</strong> por réplica. A jornada real, com 5% de buscas, aguenta <strong>74</strong>. Quem escolhe o endpoint barato porque ele "representa o catálogo" dimensiona <strong>14 réplicas onde são necessárias 19</strong>: cinco réplicas de diferença que só aparecem na Black Friday.</p>
+
+<p>O mesmo vale para a jornada feliz: um teste só com cartão aprovado nunca vê o estorno nem o Pix. A pergunta chave do artigo é essa: <strong>o que o cliente faz, com que frequência, e o que cada ação custa</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>A pergunta vem antes da carga.</strong> As nove perguntas definem taxa, mix, meta e cenário; sem elas o teste só injeta carga.</li>
+  <li><strong>VUs vêm da taxa.</strong> 200 pedidos/s com 0,4 s e 3 s de pausa são 680 VUs; o relatório do autor não traz a pausa.</li>
+  <li><strong>O mix muda a capacidade.</strong> 5% de busca derrubam a réplica de 100 para 74 req/s: 14 réplicas viram 19.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o artigo-base deixa de fora</h4>
+  <ul>
+    <li><strong>O artigo recomenda jornadas</strong> mas não mostra o custo de errar o mix. Aqui: 14 → 19 réplicas com 5% de busca (módulo 23).</li>
+    <li><strong>Histogramas.</strong> Quando o p95 vem de várias réplicas, ele sai de histogramas somados, e não de uma média de percentis (módulo 14 e a documentação do Prometheus).</li>
+    <li><strong>Executores.</strong> O k6 separa os de taxa (<code>*-arrival-rate</code>) dos de VUs; a escolha define o modelo aberto ou fechado.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Prometheus: histogramas e sumários", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Grafana k6: cenários", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com a pergunta, o mix e a taxa definidos, falta saber como <strong>decidir que passou</strong>: qual número olhar e contra qual meta.</p>
+
+<Flashcards cards={[
+  { q: "Quantos VUs pedem 200 pedidos/s com 0,4 s de resposta e 3 s de pausa?",
+    a: "(0,4 + 3) × 200 = 680 VUs. VUs = taxa × (resposta + pausa)." },
+  { q: "Qual é a jornada da loja, no lugar do mix do artigo?",
+    a: "Cartão 60% · Pix 35% · estorno 5% (exemplo declarado). A 200 pedidos/s: 120, 70 e 10 por segundo." },
+  { q: "Qual é o custo de CPU da página e da busca?",
+    a: "10 ms e 80 ms. Com 5% de busca o custo médio é 13,5 ms: 74 req/s por réplica, e não 100." },
+  { q: "Quantas réplicas o catálogo precisa com 5% de busca?",
+    a: "19, e não 14: 950 req/s ÷ (74 × 0,7)." },
+  { q: "Por que testar só o endpoint barato engana?",
+    a: "O catálogo parece aguentar 100 req/s por réplica, e a jornada real aguenta 74. O dimensionamento sai cinco réplicas abaixo." },
+]} />

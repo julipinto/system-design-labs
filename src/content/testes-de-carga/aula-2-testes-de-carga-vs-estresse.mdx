@@ -1,0 +1,115 @@
+---
+title: "Testes de carga vs. estresse"
+order: 2
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o smoke rodou e as duas metas passaram, com 2 pedidos por segundo. Isso não diz se a loja aguenta os 200/s do plano. Falta separar duas perguntas parecidas: <strong>a loja vai bem na carga que espera?</strong> e <strong>o que acontece quando vem mais?</strong></p>
+
+<OneLiner><strong>Carga</strong> é o <strong>esperado</strong>, medido contra uma meta. <strong>Estresse</strong> é o <strong>adverso</strong>: acima, em picos, até ver o que degrada. E <em>como</em> a carga é injetada (modelo aberto ou fechado) pode esconder a quebra.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Modelo</strong>, ponha primeiro <strong>20 VUs</strong> (modelo fechado) e depois <strong>54 pedidos/s</strong> (modelo aberto) e compare a vazão e os erros dos dois.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=modelo" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: Modelo aberto × fechado" alt="Prévia da figura 3D: Modelo aberto × fechado" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Carga:</strong> o comportamento <strong>esperado</strong>. A pergunta é "mantém a meta?": 200 pedidos/s com p95 ≤ 800 ms.</li>
+  <li><strong>Estresse:</strong> o comportamento <strong>adverso</strong>. A pergunta é "o que degrada primeiro e como volta?": 300/s, picos e rajadas.</li>
+  <li>Os <strong>cinco tipos</strong> (smoke, carga média, estresse, spike e breakpoint) cabem nos dois lados. O k6 ainda separa o <em>soak</em>, a carga média por horas.</li>
+  <li><strong>Modelo aberto:</strong> o gerador fixa a <strong>taxa</strong> (<code>*-arrival-rate</code>) e deixa os VUs variarem. Chegam 54 pedidos/s, o sistema esteja respondendo ou não.</li>
+  <li><strong>Modelo fechado:</strong> o gerador fixa os <strong>VUs</strong> (<code>constant-vus</code>). Cada VU só manda o próximo pedido quando o anterior volta, então a taxa depende do sistema.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As cinco formas de carga e a pergunta de cada uma</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Tipo</th><th>Forma no tempo</th><th>Pergunta</th><th>Na loja</th></tr></thead>
+  <tbody>
+    <tr><th>Smoke</th><td>poucos VUs, segundos</td><td>funciona com carga mínima?</td><td>2/s × 30 s: 61 reqs, p95 156 ms</td></tr>
+    <tr><th>Carga média</th><td>a carga esperada, longa</td><td>mantém a meta no normal?</td><td>30/s × 2 min: p95 381 ms</td></tr>
+    <tr><th>Estresse</th><td>acima, em degraus</td><td>o que degrada e como volta?</td><td>100 → 300/s no plano 2</td></tr>
+    <tr><th>Spike</th><td>salto súbito e volta</td><td>aguenta a rajada?</td><td>5 → 60/s em 10 s: 47–65% de erros</td></tr>
+    <tr><th>Breakpoint</th><td>rampa até quebrar</td><td>onde quebra?</td><td>1 → 60/s ("hoje"), 1 → 360/s ("plano")</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="tipos" title="Os cinco perfis no tempo" hint="Escolha um tipo e mude a taxa e a duração: o desenho mostra a carga que o k6 injetaria, quantas requisições dá e a pergunta que o teste responde." />
+
+<h3 class="sec">Usuários não são pedidos por segundo</h3>
+
+<p>O relatório do autor fala em "500 usuários simultâneos" e em "600 TPS com 800 usuários ativos". Usuário e taxa são unidades diferentes, e a ponte entre elas é a Lei de Little: <strong>VUs = taxa × (tempo de resposta + pausa)</strong>. Com 800 usuários e 600 TPS, o ciclo de cada usuário é 800 ÷ 600 = <strong>1,33 s</strong>. Sem a pausa declarada, os números não se convertem. A aula 8 faz essa conta para os 200 pedidos/s da loja.</p>
+
+<h3 class="sec">O mesmo sistema, dois geradores</h3>
+
+<p>O ambiente "hoje" tem capacidade de ~40 pedidos/s, limitada pelo <code>pagamentos</code> (2 pods × 20/s). Duas rodadas de 60 s:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Gerador</th><th>Vazão</th><th>Média</th><th>p95</th><th>Erros</th></tr></thead>
+  <tbody>
+    <tr><th>Fechado, 20 VUs</th><td>38,1/s</td><td>520 ms</td><td>1,07 s</td><td><strong>0%</strong></td></tr>
+    <tr><th>Fechado, 60 VUs</th><td>41,1/s</td><td>1,43 s</td><td>2 s</td><td>8,35%</td></tr>
+    <tr><th>Aberto, 54/s</th><td>~26/s</td><td>mediana 2 s</td><td>2 s</td><td><strong>52%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Com 20 VUs a Lei de Little fecha: 20 = 38,07 × 0,520. A vazão não passa de ~40/s por mais VUs que se ponha, porque cada VU <strong>espera</strong> a resposta antes de mandar outra. O gerador fechado se regula sozinho e nunca mostra os 52% de erro que o aberto mostrou a 54/s, que é a taxa que a loja pode receber de verdade.</p>
+
+<Widget name="modelo" title="Aberto × fechado" hint="Capacidade do sistema, VUs do modelo fechado e taxa do modelo aberto. Mostra vazão, p95 e erros dos dois lados: 20 VUs dão 38/s e 0%; 54/s aberto dá 52%." />
+
+<h3 class="sec">E se der errado: o teste fechado passa</h3>
+
+<p>Um teste com 20 VUs sem pausa termina com <strong>0% de erros</strong> e p95 de 1,07 s. O p95 já passou da meta de 800 ms (o k6 sai com <code>99</code>), mas nenhum erro aparece, e quem lê só os erros diz que está tudo bem. O gerador fechado <strong>esconde a quebra</strong> porque, quando o sistema atrasa, ele também atrasa. É o que a documentação do k6 chama de <em>coordinated omission</em>: o gerador omite as requisições que deveria ter feito enquanto esperava.</p>
+
+<p>O cliente da loja não espera: a newsletter das 20:00 chega a uma taxa, e não a um número de usuários que responde um de cada vez. Para esse caso, o modelo é o aberto.</p>
+
+<WhyItMatters>
+  <li><strong>Carga e estresse perguntam coisas diferentes.</strong> Uma tem meta de aprovação; a outra procura o que degrada e como volta.</li>
+  <li><strong>"Usuários" não convertem em taxa sem a pausa.</strong> 800 ÷ 600 = 1,33 s de ciclo; sem isso o número é só um palpite.</li>
+  <li><strong>O gerador fechado esconde a quebra.</strong> 20 VUs deram 0% de erro onde a taxa de 54/s deu 52%.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Usuários simultâneos" como unidade de carga.</strong> O relatório do artigo e do lab usa 500, 1.300 e 3.700 usuários e "600 TPS com 800 usuários ativos". Usuários são o modelo <strong>fechado</strong>; a taxa é a <strong>entrada</strong> do aberto. Aqui, 20 VUs deram 38,1/s e 0% de erro, contra 52% a 54/s no aberto.</li>
+    <li><strong>"Estresse é uma carga muito superior".</strong> O que o estresse mede é como degrada e se recupera (aula 5), e não só o tamanho da carga.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: tipos de teste", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/" },
+    { label: "Grafana k6: modelo aberto × fechado", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/" },
+    { label: "Gil Tene: How NOT to measure latency (YouTube)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Antes de pôr 2.000 usuários ou 300 pedidos por segundo, falta saber qual é a <strong>menor carga possível</strong> que prova que o teste roda: é o smoke.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre teste de carga e de estresse?",
+    a: "Carga mede o esperado contra uma meta (200 pedidos/s, p95 ≤ 800 ms). Estresse leva ao adverso (300/s, picos) para ver o que degrada e como volta." },
+  { q: "Qual é a conta que liga VUs à taxa?",
+    a: "VUs = taxa × (tempo de resposta + pausa), a Lei de Little. 800 usuários para 600 TPS dão ciclo de 1,33 s." },
+  { q: "O que diferencia o modelo aberto do fechado?",
+    a: "O aberto fixa a taxa e deixa os VUs variarem; o fechado fixa os VUs e deixa a taxa variar, porque cada VU espera a resposta." },
+  { q: "Quais foram os resultados de 20 VUs e de 54/s?",
+    a: "20 VUs fechados: 38,1/s, p95 1,07 s, 0% de erros. 54/s abertos: 52% de erros no mesmo sistema." },
+  { q: "O que é coordinated omission?",
+    a: "O gerador fechado espera o sistema responder e omite as requisições que deveria ter mandado nesse tempo; por isso a quebra some do resultado." },
+]} />

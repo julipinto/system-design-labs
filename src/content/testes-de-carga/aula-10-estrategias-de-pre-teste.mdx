@@ -1,0 +1,100 @@
+---
+title: "Estratégias de pré-teste"
+order: 10
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o teste ganhou metas claras. O teste completo, porém, atravessa quatro serviços e três shards, e quando ele quebra não diz qual peça quebrou. Antes dele, o artigo manda medir <strong>uma unidade sozinha</strong>.</p>
+
+<OneLiner>O <strong>pré-teste</strong> mede <strong>uma réplica</strong> primeiro, depois N, <strong>até o elo mudar</strong>: o ponto em que o poder computacional deixa de ser o gargalo e passa para a próxima dependência.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Pré-teste</strong>, aperte <strong>Adicionar um pod</strong> até o <code>pedidos</code> ter 3 e veja o <strong>elo</strong> mudar: a capacidade sobe 30 por pod até o <code>pagamentos</code> passar a ser o limite.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=pre" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O pré-teste" alt="Prévia da figura 3D: O pré-teste" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Uma réplica.</strong> Rampa até quebrar a meta. Um pod do <code>pedidos</code> tem 30/s nominais (33 ms) e ~21/s sustentáveis a 70%.</li>
+  <li><strong>Mais uma.</strong> Dobre e repita: 60/s nominais com 2 pods, 90/s com 3.</li>
+  <li><strong>Até o elo mudar.</strong> Quando a capacidade deixa de crescer linear, o gargalo é outra peça.</li>
+  <li><strong>Isole as dependências.</strong> Com o <code>pagamentos</code> "infinito" (100 pods), só o <code>pedidos</code> limita.</li>
+  <li><strong>Valide o assíncrono.</strong> Ligue <strong>uma</strong> réplica consumidora com a fila cheia e veja se ela se segura.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O pré-teste do <code>pedidos</code></h3>
+
+<p>O ambiente foi <code>pedidos</code> com 1, 2 e 3 pods, o <code>pagamentos</code> com 100 pods (o "infinito") e os shards sobrando. A rampa foi de 2 min até 38 × N pedidos/s, com a taxa oferecida:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Pods de <code>pedidos</code></th><th>Nominal (33 ms)</th><th>p95 cruza 800 ms em</th><th>Primeiros erros</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>30/s</td><td>~35/s (323 ms a 33,4; 1.371 ms a 36,5)</td><td>nenhum até 38/s</td></tr>
+    <tr><th>2</th><td>60/s</td><td>~62/s (678 ms a 60,4; 1.485 ms a 66,6)</td><td>72,9/s (25,5%)</td></tr>
+    <tr><th>3</th><td>90/s</td><td>~88/s (426 ms a 81,0; 1.024 ms a 90,5)</td><td>99,9/s (8,8%)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A capacidade escala <strong>linear, ~30 por pod</strong>, enquanto o <code>pedidos</code> é o elo, e a meta cai <strong>perto do nominal</strong>. A rampa mede o teto com atraso (aula 7), por isso o ponto da meta vem um pouco acima do nominal nos pods 1 e 2.</p>
+
+<h3 class="sec">O elo muda</h3>
+
+<p>Agora a prova. O "hoje" real tem 3 pods no <code>pedidos</code>, e a tabela acima diria <strong>~88/s</strong>. O breakpoint do "hoje" (aula 7) quebrou em <strong>36/s</strong>. A diferença é o <code>pagamentos</code>, que tem 2 pods de 20/s e é o elo. Com o <code>pagamentos</code> "infinito", três pods passariam de 85/s; com 2 pods, a cadeia para em ~40/s nominais.</p>
+
+<Widget name="pre" title="Pré-teste: qual elo limita" hint="Pods do pedidos (1 a 10), capacidade por pod (30/s), pods do pagamentos (2 a 15 ou sem limite), shards comuns (3 ou 4) e o shard dedicado ao mkt-01: mostra a capacidade de cada elo, qual limita e, quando houver medida, o ponto que o k6 achou (36 · ~250 · ~260)." />
+
+<h3 class="sec">O pré-teste assíncrono</h3>
+
+<p>Em consumidores de fila o artigo muda o procedimento: <strong>represa-se</strong> uma quantidade enorme de mensagens, <strong>liga-se uma única réplica</strong> e olha-se se ela consome só a vazão programada <strong>sem morrer</strong>. A conta da loja vem do módulo 23: cada partição do <code>entregas</code> processa 40 eventos/s. Uma réplica com a fila cheia de milhões de eventos não pode puxar mais do que consegue processar, ou a memória estoura e a réplica cai antes de a segunda ligar.</p>
+
+<h3 class="sec">E se der errado: as dependências sem limite</h3>
+
+<p>Testar o <code>pedidos</code> com o <code>pagamentos</code> "infinito" diz que 3 pods passam de 80/s. É uma resposta honesta para uma pergunta que ninguém fez: o <code>pagamentos</code> não é infinito. O "hoje" real quebra em <strong>36/s</strong>. O pré-teste só vale se as dependências estão na <strong>mesma forma</strong> que na produção, ou se o relatório diz que não estão.</p>
+
+<WhyItMatters>
+  <li><strong>Uma réplica dá a conta do plano.</strong> ~30/s por pod do <code>pedidos</code>, linear até o elo mudar.</li>
+  <li><strong>O elo muda.</strong> 3 pods dizem 88/s; com o <code>pagamentos</code> de 2 pods o "hoje" quebra em 36/s.</li>
+  <li><strong>Dependência ilimitada mente.</strong> O resultado só vale para a configuração em que foi medido.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O pré-teste do artigo e do README do autor</h4>
+  <ul>
+    <li><strong>O README</strong> usa 1 réplica a 100 req/s, com CPU 75% e 300 ms. A conta de Little: 100 × 0,3 = <strong>30 requisições em voo</strong> numa réplica.</li>
+    <li><strong>O artigo diz</strong> que se repete "até o poder computacional deixar de ser o gargalo" numa frase. O módulo mostra isso com número: o <code>pagamentos</code> a 36/s.</li>
+    <li><strong>A rampa mede o teto com atraso.</strong> Para confirmar, o degrau de 2 min (aula 7).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: cenários", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+    { label: "Repositório público do autor: exemplos/load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">Pré-teste, média, estresse, spike e breakpoint deram números. Falta saber como <strong>juntar tudo num documento</strong> que o produto leia.</p>
+
+<Flashcards cards={[
+  { q: "O que o pré-teste mede?",
+    a: "Uma unidade sozinha (1 réplica), depois N, até o elo mudar. Dá a capacidade por réplica para o plano." },
+  { q: "Quais foram os resultados do pedidos com 1, 2 e 3 pods?",
+    a: "A meta cai em ~35, ~62 e ~88/s: perto do nominal de 30, 60 e 90, ~30 por pod." },
+  { q: "Como se prova que o elo muda?",
+    a: "O 'hoje' (3 pods) quebra em 36/s, não em ~88: o pagamentos de 2 pods é o elo. Com ele 'infinito', 3 pods passam de 85/s." },
+  { q: "O que é a validação assíncrona?",
+    a: "Represar mensagens e ligar uma só réplica: ela deve consumir só a vazão programada sem morrer (o entregas, 40 eventos/s por partição)." },
+  { q: "Por que as dependências sem limite enganam?",
+    a: "O resultado só vale para a configuração medida: com o pagamentos infinito, 3 pods passam de 80/s e o 'hoje' real quebra em 36." },
+]} />

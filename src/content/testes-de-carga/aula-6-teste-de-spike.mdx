@@ -1,0 +1,86 @@
+---
+title: "Teste de spike"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a carga subiu em degraus e a loja teve 45 s em cada patamar para se ajustar. A newsletter das 20:00 não dá esse tempo: o catálogo chegou a 640 req/s no minuto das 20:03, e o checkout recebe a rajada <strong>de uma vez</strong>. Falta saber se a loja <strong>absorve</strong> e <strong>se recupera</strong>.</p>
+
+<OneLiner>O <strong>spike</strong> é um salto súbito de carga que <strong>volta</strong>. Ele pergunta se o sistema absorve a rajada, se se recupera e <strong>quanto tempo</strong> leva.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Spike</strong>, aperte <strong>Ligar a pré-escala</strong> e compare os erros no topo com os da rajada sem ela.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=spike" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O spike" alt="Prévia da figura 3D: O spike" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Base baixa.</strong> 5 pedidos/s por 30 s: a loja está calma.</li>
+  <li><strong>Salto.</strong> De 5 a 60/s em <strong>10 s</strong>, com <code>ramping-arrival-rate</code> (as <code>stages</code> do <code>checkout.js</code>).</li>
+  <li><strong>Topo.</strong> 60 s a 60/s, bem acima dos ~40/s que o "hoje" aguenta.</li>
+  <li><strong>Queda.</strong> De volta a 5/s por 90 s, para medir a recuperação.</li>
+  <li><strong>Leitura por janela.</strong> O p95 e o <em>goodput</em> de cada janela de 10 s, não o resumo final.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que a rajada fez com o "hoje"</h3>
+
+<p>Na janela do salto, com a taxa subindo de 5 a 60/s, o p95 foi a <strong>1,05 s</strong>. No topo, com <strong>60 pedidos/s oferecidos</strong>, os erros ficaram entre <strong>47% e 65%</strong> e o <em>goodput</em> entre <strong>21 e 30/s</strong>, menos que os 40/s de capacidade. O k6 saiu com código <code>99</code>.</p>
+
+<p>Ao descer para 5/s, o p95 voltou a <strong>168 ms na primeira janela</strong>. Não sobrou fila.</p>
+
+<h3 class="sec">A conta do autoscaling</h3>
+
+<p>O HPA do módulo 14 reage em cerca de <strong>60 s</strong>. Num topo de 60/s contra 40/s de capacidade, faltam 20 pedidos por segundo durante esses 60 s: 20 × 60 = <strong>1.200 pedidos</strong> recusados ou atrasados antes de a primeira réplica nova ficar pronta. A rajada de 10 s acaba antes de o autoscaling começar a ajudar.</p>
+
+<p>Quando a rajada é <strong>conhecida</strong>, como a newsletter das 20:00, o conserto é <strong>pré-escalar</strong> antes (o plano do módulo 23 manda pré-escalar às 19:50). O spike serve para provar isso: com a pré-escala, a mesma rajada cabe.</p>
+
+<h3 class="sec">E se der errado: a recuperação que é só erro</h3>
+
+<p>Voltar a 168 ms em uma janela parece bom demais. A explicação é o que o simulador faz: ele <strong>descarta</strong> as requisições que passam de 2 s, porque o cliente desistiu. A fila não esvazia porque o sistema ficou rápido, esvazia porque ela virou <code>504</code>. A recuperação rápida é, em parte, <strong>erro</strong>.</p>
+
+<p>Olhar só o p95 depois do pico esconderia isso. É preciso ler o p95 <strong>e</strong> os erros da fase de topo juntos: os 47–65% de erros são o preço da recuperação que se vê depois.</p>
+
+<WhyItMatters>
+  <li><strong>O spike testa o que o breakpoint não testa.</strong> Rajada com tempo curto, antes de o autoscaling reagir.</li>
+  <li><strong>O HPA é lento para 10 s.</strong> 20/s acima da capacidade × 60 s de atraso = 1.200 pedidos sem atendimento.</li>
+  <li><strong>Recuperar rápido pode ser erro.</strong> A fila virou <code>504</code>: confira os erros do topo junto do p95 depois dele.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Spike, estresse e a referência do k6</h4>
+  <ul>
+    <li><strong>O artigo</strong> trata o spike como variação ou complemento do estresse, podendo rodar dentro de um estresse ou de um breakpoint. Aqui ele roda sozinho, com forma própria.</li>
+    <li><strong>Pré-escala não é elasticidade.</strong> O que se testa no spike com a pré-escala ligada é a <strong>capacidade já pronta</strong>. O comportamento do HPA em si (~60 s) pede um teste à parte, como o k6 recomenda.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: spike testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/" },
+    { label: "Grafana blog: Spike testing", href: "https://grafana.com/blog/2024/01/30/spike-testing/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaler", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A rajada mostrou que a loja quebra, mas não <strong>onde</strong>. Falta saber quanta carga cabe <strong>antes</strong> de quebrar.</p>
+
+<Flashcards cards={[
+  { q: "O que o spike pergunta?",
+    a: "Se o sistema absorve um salto súbito, se se recupera e quanto tempo leva." },
+  { q: "Qual foi o resultado de 5 → 60/s em 10 s no 'hoje'?",
+    a: "p95 de 1,05 s no salto; no topo, 47–65% de erros e goodput de 21 a 30/s." },
+  { q: "Quantos pedidos o autoscaling deixa sem atendimento?",
+    a: "20 pedidos/s acima da capacidade × 60 s de atraso do HPA = 1.200 pedidos recusados ou atrasados." },
+  { q: "Qual é o conserto para uma rajada conhecida?",
+    a: "Pré-escalar antes, como às 19:50 para a newsletter das 20:00 (módulo 23)." },
+  { q: "Por que a recuperação de 168 ms enganaria?",
+    a: "O simulador descarta o que passa de 2 s: a fila virou 504. A recuperação rápida é, em parte, erro." },
+]} />
