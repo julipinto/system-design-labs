@@ -9,6 +9,7 @@ import { bff } from './glossary-bff.js';
 import { serviceMesh } from './glossary-service-mesh.js';
 import { concorrencia } from './glossary-concorrencia.js';
 import { comunicacaoSincrona } from './glossary-comunicacao-sincrona.js';
+import { comunicacaoAssincrona } from './glossary-comunicacao-assincrona.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -80,5 +81,6 @@ export const glossaries = {
   bff,
   'service-mesh': serviceMesh,
   concorrencia,
-  'comunicacao-sincrona': comunicacaoSincrona
+  'comunicacao-sincrona': comunicacaoSincrona,
+  'comunicacao-assincrona': comunicacaoAssincrona
 };

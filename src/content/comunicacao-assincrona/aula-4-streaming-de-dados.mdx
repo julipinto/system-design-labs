@@ -1,0 +1,85 @@
+---
+title: "Streaming de dados"
+order: 4
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada, toda estrutura apagava a mensagem depois de lida: a fila é um corredor por onde ela passa uma vez. Só que a loja quer o contrário. O time de fraude acabou de criar o <code>antifraude</code> e precisa dos eventos de <em>hoje</em>, que já foram lidos pelo <code>estoque</code>, pelas <code>entregas</code> e pelas <code>notificacoes</code>. E o financeiro quer saber o faturamento agora, e não às 23:00. A resposta aos dois é guardar os eventos num log e tratar o fluxo como um rio, e não como uma carga.</p>
+
+<OneLiner>Streaming é processar os eventos <strong>assim que acontecem</strong>, sobre um <strong>log</strong> que os guarda: ao contrário da fila, nada é apagado na leitura, e qualquer grupo novo pode reler desde o começo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance os passos e olhe a partição <strong>p0</strong> receber os quatro eventos do pedido 1051, nos offsets 48210, 48213, 48217 e 48301. Repare que eles não são vizinhos: no meio ficam eventos de outros pedidos. Depois imagine o <code>antifraude</code> chegando às 15:30: em que offset ele começa a ler?</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/kafka-3d/?mode=topico" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Figura interativa: O log do tópico pedidos" alt="Prévia da figura 3D: O log do tópico pedidos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O relatório das 23:00 é <strong>batch</strong>: junta o dia e mostra o faturamento às 23:00:12. Em <strong>streaming</strong>, cada <code>PedidoPago</code> atualiza o total do dia no instante em que acontece, com atraso de cerca de <strong>1 s</strong>. O mesmo cálculo, mas o número fica certo o dia todo.</li>
+  <li>Para isso os eventos precisam estar à mão depois de chegarem. A <strong>fila</strong> apaga a mensagem quando alguém a confirma. O stream é um <strong>log</strong>: os eventos ficam gravados na ordem em que chegaram, por exemplo <strong>7 dias</strong>, e cada leitor só anota até onde leu.</li>
+  <li>Por isso um grupo novo pode <strong>reler do offset 0</strong>. O <code>antifraude</code> sobe, pede os eventos desde o começo e processa os cerca de <strong>48 mil</strong> do dia. No laboratório do módulo isso é o <code>OffsetOldest</code>; no exemplo do artigo, <code>auto.offset.reset: earliest</code>. Esse replay volta no módulo 20.</li>
+  <li>Para somar o faturamento por minuto o stream precisa de uma <strong>janela</strong>: uma fatia de tempo, aqui de <strong>1 minuto</strong>. Cada <code>PedidoPago</code> entra na janela da hora em que o pedido foi pago, o <strong>tempo do evento</strong>, e não da hora em que o evento chegou, o <strong>tempo de processamento</strong>.</li>
+  <li>Os serviços da loja já são uma cadeia de <strong>reações</strong>: o <code>PedidoCriado</code> faz as <code>notificacoes</code> agirem, o <code>PedidoPago</code> faz o <code>estoque</code> agir, e o <code>EstoqueReservado</code> faz as <code>entregas</code> agirem. É o mesmo desenho do exemplo do artigo, um delivery de comida com CRIADO, ACEITO, PRONTO e A_CAMINHO, cada status acordando um grupo diferente.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o evento que chega depois da janela</h3>
+
+<p>Num dia em que o webhook do PSP atrasou, como no módulo 12, o <code>PedidoPago</code> da Lena aconteceu às <strong>14:20:03</strong> (tempo do evento), mas só chegou ao tópico às <strong>14:21:05</strong> (tempo de processamento). A janela de 14:20 já tinha fechado e somado o total sem os 54.80 da Lena. O pagamento caiu fora da conta do minuto.</p>
+
+<p>O conserto é uma janela com <strong>tolerância a atraso</strong>: ela fecha, por exemplo, 2 minutos depois do fim e o total é corrigido quando um evento atrasado chega. O preço é esperar mais para dar o número final. A escolha da tolerância é a mesma troca de sempre, entre rapidez e certeza.</p>
+
+<p>O outro risco é o de sempre num stream: o consumidor mais lento que o produtor. A distância entre o último offset gravado e o offset onde o grupo está é o <strong>lag</strong>, e ele cresce sem parar se o grupo não acompanha. A aula 5 mostra como medi-lo.</p>
+
+<WhyItMatters>
+  <li><strong>O log guarda.</strong> A fila apaga na leitura; o stream guarda por 7 dias, e quem chega depois lê desde o offset 0.</li>
+  <li><strong>O número fica vivo.</strong> O faturamento deixa de ser o das 23:00 e passa a ser o do último segundo.</li>
+  <li><strong>Tempo do evento não é tempo de chegada.</strong> Janela por tempo de processamento erra o total quando algo atrasa.</li>
+  <li><strong>Tolerância custa espera.</strong> Fechar a janela 2 minutos depois corrige o total e atrasa o número final.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Fila e log lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Fila (RabbitMQ)</th><th>Log (Kafka)</th></tr></thead>
+    <tbody>
+      <tr><th>Depois de lida</th><td>apagada quando alguém dá o ack</td><td>continua no log até a retenção (7 dias)</td></tr>
+      <tr><th>Quem sabe onde parou</th><td>o broker</td><td>cada grupo guarda o seu offset</td></tr>
+      <tr><th>Grupo novo</th><td>só vê o que chegar</td><td>pode reler do offset 0</td></tr>
+      <tr><th>Ordem</th><td>de chegada, com um consumidor</td><td>por partição, sempre</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">O texto de Jay Kreps</h4>
+  <p>A ideia de que o log é a estrutura central de um sistema de dados em tempo real vem do artigo "The Log", de Jay Kreps (2013), e do paper original do Kafka (Kreps, Narkhede e Rao, 2011). A retenção e os offsets de consumo estão na documentação do Kafka. A retenção por tempo é a de 7 dias do <code>KAFKA_LOG_RETENTION_HOURS: 168</code> do laboratório; existe também a compactação, que mantém só o último valor de cada chave, e que o artigo não cita.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Jay Kreps: The Log, what every software engineer should know about real-time data's unifying abstraction", href: "https://www.linkedin.com/pulse/log-what-every-software-engineer-should-know-about-real-time-datas-jay-kreps" },
+    { label: "Documentação do Apache Kafka (design, retenção e offsets de consumo)", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Para guardar os eventos por 7 dias e deixar vários grupos lerem do seu ponto, o Kafka divide o tópico em partições e põe cada uma em mais de um broker. Falta saber como a chave escolhe a partição, como os grupos andam em ritmos diferentes e o que acontece quando um broker cai no meio do <code>PedidoPago</code>.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre fila e log?",
+    a: "A fila apaga a mensagem quando alguém confirma. O log guarda os eventos (7 dias) e qualquer grupo novo pode reler do offset 0." },
+  { q: "O que o antifraude faz ao subir, e com que configuração do laboratório?",
+    a: "Relê os cerca de 48 mil eventos do dia desde o começo: OffsetOldest no laboratório, auto.offset.reset: earliest no exemplo do artigo." },
+  { q: "Qual é a diferença entre tempo do evento e tempo de processamento?",
+    a: "O do evento é quando aconteceu (14:20:03); o de processamento é quando chegou ao tópico (14:21:05, com o webhook atrasado)." },
+  { q: "Como se conserta o pagamento da Lena fora da janela de 14:20?",
+    a: "Janela com tolerância a atraso (fecha 2 min depois) e total corrigido quando o evento atrasado chega." },
+  { q: "O que é lag?",
+    a: "A distância entre o último offset do tópico e o offset onde o grupo está. Cresce sem parar se o consumidor é mais lento que o produtor." },
+]} />

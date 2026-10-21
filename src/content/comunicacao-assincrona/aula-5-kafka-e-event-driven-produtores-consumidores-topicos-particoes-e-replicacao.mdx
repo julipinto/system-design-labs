@@ -1,0 +1,120 @@
+---
+title: "Kafka e event-driven: produtores, consumidores, tópicos, partições e replicação"
+order: 5
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja decidiu guardar os eventos num log, por 7 dias, para qualquer grupo ler do seu ponto. É o que o Kafka faz. Mas um log só num servidor seria um ponto único de falha e um gargalo, e a Black Friday chega a 120 eventos por segundo. Para o log caber em vários brokers e vários consumidores, o Kafka o divide em <strong>partições</strong> e copia cada uma. Vamos ver o tópico <code>pedidos</code> peça por peça.</p>
+
+<OneLiner>O tópico é um <strong>log de só-acréscimo dividido em partições</strong>; o <strong>offset</strong> é a posição de cada evento na partição; a <strong>chave</strong> decide a partição, e cada <strong>grupo de consumo</strong> guarda o seu próprio offset.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Chave</strong>, veja a chave de cada pedido passar por <code>murmur2 mod 3</code> e cair numa partição: o 1051 vai para a <strong>p0</strong>. Depois use os botões dos outros cenários, um de cada vez: os grupos de consumo e seus ponteiros, as réplicas com o líder e os seguidores, e as partições, o "e se der errado" em que o tópico passa de 3 para 6. No widget, digite <strong>1051</strong> e troque o número de partições de 3 para 6.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/kafka-3d/?mode=chave" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Figura interativa: A chave decide a partição" alt="Prévia da figura 3D: A chave decide a partição" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O tópico <code>pedidos</code> tem <strong>3 partições</strong> (p0, p1, p2) e <strong>fator de replicação 3</strong>, nos brokers <code>kafka-1</code>, <code>kafka-2</code> e <code>kafka-3</code>. É o que o comando <code>kafka-topics --describe</code> mostra: cada partição com o seu líder, as suas réplicas e a ISR, o conjunto das réplicas em dia.<pre><code>{`Topic: pedidos  PartitionCount: 3  ReplicationFactor: 3
+  Partition: 0  Leader: 1  Replicas: 1,2,3  Isr: 1,2,3
+  Partition: 1  Leader: 2  Replicas: 2,3,1  Isr: 2,3,1
+  Partition: 2  Leader: 3  Replicas: 3,1,2  Isr: 3,1,2`}</code></pre></li>
+  <li>O <strong>produtor</strong> manda cada evento com uma <strong>chave</strong>, o <code>pedido_id</code>, e o cliente calcula <code>murmur2(chave) mod 3</code>. Todos os eventos do 1051 caem na <strong>p0</strong>, <strong>em ordem</strong>: offsets 48210, 48213, 48217 e 48301. Sem chave, o cliente escolhe a partição (por lote, no cliente Java). A ordem só vale <strong>dentro da partição</strong>; entre partições não há ordem.</li>
+  <li>O produtor também decide a durabilidade com <code>acks</code>: <code>0</code> não espera ninguém, <code>1</code> espera só o líder, <code>all</code> espera todos os da ISR (padrão desde o Kafka 3.0, junto com <code>enable.idempotence = true</code>). E decide o lote: <code>batch.size</code> é em <strong>bytes</strong> (padrão 16384) e <code>linger.ms</code> é o tempo para juntar (5 ms desde o Kafka 4.0).</li>
+  <li>O <strong>consumidor</strong> pertence a um <strong>grupo</strong>, e cada grupo guarda o <strong>seu</strong> offset em cada partição. Por isso <code>estoque</code>, <code>entregas</code> e <code>notificacoes</code> leem tudo, cada um no seu ritmo. Dentro do grupo, cada partição vai para <strong>um</strong> consumidor, então o <strong>máximo de consumidores úteis é o número de partições</strong>: o grupo <code>entregas</code> com 5 réplicas e 3 partições tem 2 paradas.<pre><code>{`GROUP          TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+estoque        pedidos 0          48220           48220           0
+notificacoes   pedidos 0          48219           48220           1
+entregas       pedidos 0          48210           48220           10`}</code></pre></li>
+  <li>Mesma chave, mesma partição, <strong>um consumidor por vez</strong>: os eventos do 1051 são lidos em ordem por um só consumidor do grupo, <strong>sem mutex nem lock</strong>. É a partição fazendo o trabalho da trava do módulo 11. Para os eventos sobreviverem a uma queda, cada partição tem 1 <strong>líder</strong>, que recebe a escrita e a leitura, e 2 <strong>seguidores</strong>, que copiam. Com <code>acks=all</code> e <code>min.insync.replicas = 2</code>, o produtor só recebe a confirmação quando pelo menos 2 réplicas têm o evento. Os metadados ficam no próprio Kafka, o <strong>KRaft</strong>, e o ZooKeeper saiu na série 4.x.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="particao" title="Qual partição? A chave decide" hint="Digite o pedido_id e o número de partições (1 a 12). O widget calcula o murmur2 (valor assinado, como no Kafka) e a partição, e mostra o que muda de 3 para 6 partições." />
+
+<h3 class="sec">E se der errado: o líder cai antes de o seguidor copiar</h3>
+
+<p>Com <code>acks=1</code>, o líder da <strong>p0</strong>, o <code>kafka-1</code>, confirma o <code>PedidoPago</code> da Lena (offset 48213) em t = 0 e <strong>cai em t = 5 ms</strong>, antes de o seguidor copiar, o que leva cerca de 10 ms. O <code>kafka-2</code> vira líder <strong>sem o evento</strong>. O produtor acha que enviou, o <code>estoque</code> nunca vê o pagamento e a Lena fica sem as canecas.</p>
+
+<p>Com <code>acks=all</code>, o <code>kafka-1</code> não confirma antes de pelo menos 2 réplicas terem o evento. Ele cai em 5 ms, sem confirmar. O produtor, sem confirmação, <strong>repete</strong>, e o evento entra no novo líder (a idempotência evita que entre duas vezes). Se <strong>dois</strong> brokers caírem, a ISR fica em {'{3}'}, menor que 2, e o produtor recebe <code>NotEnoughReplicas</code> e <strong>para de aceitar</strong>. A loja perde disponibilidade para não perder dado, a escolha do CAP do módulo 3.</p>
+
+<Widget name="acks" title="Perda com acks: o líder cai em t ms" hint="Escolha acks (0, 1 ou all), min.insync.replicas (1 a 3), quantas réplicas estão em dia e quando o líder cai (0 a 50 ms). A cópia para o seguidor leva 10 ms. O widget diz se o evento foi perdido, confirmado ou deu erro." />
+
+<p>Quanto demora a eleição? Numa queda abrupta, o controlador do KRaft só tira o broker do jogo quando o lease dele vence: <code>broker.session.timeout.ms</code> vale <strong>9000 ms</strong> (padrão da documentação da série 4.0), com heartbeats a cada 2000 ms. Então, como exemplo calculado dessas configurações, a p0 fica <strong>sem líder por até cerca de 9 s</strong> e o produtor repete até o <code>delivery.timeout.ms</code> (2 minutos por padrão). Num desligamento controlado, o líder muda antes, e a pausa é bem menor. O número real depende do seu cluster.</p>
+
+<h3 class="sec">E se der errado: o grupo está no limite e as partições acabam</h3>
+
+<p>O grupo <code>entregas</code> processa cada evento em 100 ms, ou seja, <strong>10 por segundo</strong> por consumidor. Na Black Friday chegam 30 eventos relevantes por segundo (<code>EstoqueReservado</code>), e 30 ÷ 3 consumidores = 10 por segundo cada, <strong>exatamente o limite</strong>. Qualquer rajada vira lag. Subir réplicas do consumidor <strong>não adianta</strong>: com 3 partições, mais que 3 consumidores ficam parados.</p>
+
+<p>Subir para <strong>6 partições</strong> adianta, mas muda o <code>hash mod 6</code>: a chave <strong>1051 passa de p0 para p3</strong> (e a 1049, de p0 para p3). Durante a transição, eventos do mesmo pedido ficam em duas partições, lidos por dois consumidores, e <strong>perdem a ordem</strong>: o <code>PedidoEnviado</code> pode ser lido antes do <code>PedidoPago</code>.</p>
+
+<Widget name="lag" title="Lag e consumidores: a conta do grupo" hint="Informe os eventos por segundo do tópico, as partições, os ms por evento e quantos consumidores o grupo tem. O widget calcula a capacidade, o lag por minuto e quantos consumidores ficam ociosos." />
+
+<WhyItMatters>
+  <li><strong>A chave escolhe o que fica em ordem.</strong> Com <code>pedido_id</code> como chave, os 4 eventos do 1051 saem em ordem da p0.</li>
+  <li><strong>Cada grupo lê no seu ritmo.</strong> Os 3 grupos têm offsets próprios: lag 0, 1 e 10 no mesmo instante.</li>
+  <li><strong>Partições limitam os consumidores.</strong> 5 réplicas em 3 partições deixam 2 paradas, e 6 partições mudam a partição das chaves.</li>
+  <li><strong><code>acks=all</code> só protege com <code>min.insync.replicas</code>.</strong> Com <code>acks=1</code> o <code>PedidoPago</code> da Lena pode sumir em 5 ms.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">As 3 partições contra as 6</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>pedido_id</th><th>murmur2 (assinado)</th><th>3 partições</th><th>6 partições</th></tr></thead>
+    <tbody>
+      <tr><th>1047</th><td>−29587144</td><td>p1</td><td>p4</td></tr>
+      <tr><th>1048</th><td>1636681634</td><td>p2</td><td>p2</td></tr>
+      <tr><th>1049</th><td>−364487243</td><td>p0</td><td>p3</td></tr>
+      <tr><th>1050</th><td>834011288</td><td>p2</td><td>p2</td></tr>
+      <tr><th>1051</th><td>−395860997</td><td>p0</td><td>p3</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>O particionador padrão do cliente Java faz <code>murmur2(chave) mod n</code>, com o bit de sinal zerado antes do <code>mod</code>. A função foi reimplementada e conferida contra os vetores de teste do Kafka (<code>"21"</code> dá −973932308 e <code>"foobar"</code> dá −790332482). Os pedidos 1048 e 1050 ficam na p2 nos dois casos: só muda a partição de quem cai em outro resto.</p>
+  <h4 class="deep-h">Entrega: at-least-once e a DLQ que não existe</h4>
+  <p>O padrão do Kafka para o consumidor é <strong>at-least-once</strong>: se o consumidor cair depois de processar e antes de gravar o offset, o evento é lido de novo. <em>Exactly-once</em> exige idempotência no consumidor (um <code>evento_id</code>, como o <code>e-502</code> repetido do módulo 6) ou transações. E o Kafka <strong>não tem DLQ nativa</strong> para consumidores: o time cria o tópico <code>pedidos.dlq</code> e a lógica de mandar para lá (o Kafka Connect tem a sua).</p>
+  <h4 class="deep-h">O tempo de eleição, com as fontes</h4>
+  <p>Os números vêm da <a href="https://kafka.apache.org/40/generated/kafka_config.html" target="_blank" rel="noopener">documentação de configuração da série 4.0</a>: <code>broker.session.timeout.ms</code> = 9000 (o tempo de vida de um lease de broker sem heartbeats), <code>broker.heartbeat.interval.ms</code> = 2000, <code>replica.lag.time.max.ms</code> = 30000 (um seguidor que não busca dados por esse tempo sai da ISR) e, para a eleição do próprio quórum do KRaft, <code>controller.quorum.election.timeout.ms</code> = 1000 e <code>controller.quorum.fetch.timeout.ms</code> = 2000. O "até cerca de 9 s" da aula é uma conta de exemplo feita com esses padrões, e não uma medição.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong><code>acks</code>.</strong> O artigo fala em "volume de ACKs" e "quanto maior o número de ACKs". No Kafka os valores são <code>0</code>, <code>1</code> e <code>all</code>, e o <code>all</code> só protege de verdade junto com <code>min.insync.replicas</code>. O exemplo do artigo usa <code>"acks": "1"</code> com o comentário "garantir durabilidade": <code>1</code> <strong>não</strong> dá essa garantia, como o cenário acima mostra.</li>
+    <li><strong>Balanceador na frente do Kafka.</strong> O artigo diz que a carga entre brokers pode ser feita por balanceador ou CNAME. O cliente consulta os metadados e conecta <strong>direto no líder de cada partição</strong> (o endereço de <code>advertised.listeners</code>); um balanceador de camada 4 na frente costuma quebrar isso. O recomendado é uma lista de <code>bootstrap.servers</code>. E "todos os brokers recebem qualquer evento" só vale para o primeiro contato: a escrita vai para o <strong>líder</strong> da partição.</li>
+    <li><strong>Partição "aleatória" sem chave.</strong> Desde o Kafka 2.4 (KIP-480) o cliente Java usa partição <strong>sticky</strong>: um lote inteiro vai para a mesma partição. No <code>librdkafka</code>, a partição "qualquer" usa o particionador padrão (<code>consistent_random</code>). Não há distribuição "uniforme" garantida.</li>
+    <li><strong>O que falta no Kafka do artigo.</strong> Offsets e commit, retenção e compactação, ISR e <code>min.insync.replicas</code>, rebalance, a semântica de entrega (at-most, at-least e exactly-once), o KRaft (o ZooKeeper foi removido na versão 4.0) e a ausência de DLQ nativa. O consumidor do exemplo do artigo também confirma <strong>a cada mensagem</strong> (lento) e <strong>para no primeiro erro</strong>, e o <code>ReadMessage(-1)</code> bloqueia para sempre.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Apache Kafka: documentação (design, replicação)", href: "https://kafka.apache.org/documentation/" },
+    { label: "Apache Kafka 4.0: configurações do produtor (acks, batch.size, linger.ms)", href: "https://kafka.apache.org/40/generated/producer_config.html" },
+    { label: "Apache Kafka 4.0: configurações do broker (broker.session.timeout.ms)", href: "https://kafka.apache.org/40/generated/kafka_config.html" },
+    { label: "KIP-480: Sticky Partitioner", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-480%3A+Sticky+Partitioner" },
+    { label: "KIP-500: Replace ZooKeeper with a Self-Managed Metadata Quorum", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum" },
+  ]} />
+</Deep>
+
+<p class="gancho">Os 3 brokers, a chave e os grupos são o desenho da loja, mas um desenho no papel. Falta saber o que acontece quando alguém sobe o Kafka de verdade: o laboratório do autor roda num broker só, num tópico de uma partição, e o particionador dele manda a chave 1051 para uma partição diferente da do Java. É o laboratório da próxima aula.</p>
+
+<Flashcards cards={[
+  { q: "O que decide a partição de um evento, e para onde vai a chave 1051 com 3 e com 6 partições?",
+    a: "murmur2(chave) mod nº de partições. Com 3 partições, p0; com 6, p3. A ordem só vale dentro da partição." },
+  { q: "Qual é o máximo de consumidores úteis num grupo?",
+    a: "O número de partições. O grupo entregas com 5 réplicas e 3 partições tem 2 paradas." },
+  { q: "Qual era o lag dos três grupos no exemplo da p0 (LOG-END-OFFSET 48220)?",
+    a: "estoque 0 (offset 48220), notificacoes 1 (48219) e entregas 10 (48210, com 100 ms por evento)." },
+  { q: "O que acontece com acks=1 se o líder cai 5 ms depois de confirmar?",
+    a: "O seguidor ainda não copiou (cerca de 10 ms). O novo líder não tem o PedidoPago e o estoque nunca o vê. Com acks=all o produtor repete e o evento entra." },
+  { q: "Por que o Kafka rejeita escritas com dois brokers caídos (ISR = 1 e min.insync.replicas = 2)?",
+    a: "NotEnoughReplicas: perde disponibilidade para não perder dado, a escolha do CAP." },
+  { q: "O que muda ao subir de 3 para 6 partições?",
+    a: "O hash mod 6 muda a partição das chaves (1051: p0 → p3), e durante a transição eventos do mesmo pedido ficam em duas partições e perdem a ordem." },
+]} />

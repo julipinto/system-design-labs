@@ -1,0 +1,97 @@
+---
+title: "Kafka: exemplo"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o tópico <code>pedidos</code> tinha 3 brokers, 3 partições e 3 grupos de consumo, tudo no papel. O repositório público do autor tem um laboratório que sobe um Kafka de verdade com um produtor e dois consumidores em Go. Ele prova metade da aula 5 (a chave, os grupos, o lag) e deixa a outra metade de fora, e vale saber qual é qual antes de rodar.</p>
+
+<OneLiner>O laboratório sobe <strong>um broker Kafka em KRaft</strong>, um produtor que publica um evento por milissegundo e dois consumidores de grupos diferentes: dá para ver a chave, os offsets de cada grupo e o lag crescer, mas <strong>não a replicação</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Lab</strong>, veja o cluster de 1 broker com o tópico <code>pedidos</code> (1 partição) e o tópico <code>pedidos-particionados</code> (3). Avance até o passo em que a mesma chave cai em partições diferentes no Go e no Java. Anote para qual partição o <strong>1051</strong> vai em cada um. Se subir o laboratório de verdade, abra o <code>kafka-ui</code> em <code>localhost:8080</code> e olhe a coluna LAG do grupo lento.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/kafka-3d/?mode=lab" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Figura interativa: O lab: 1 broker, sarama" alt="Prévia da figura 3D: O lab: 1 broker, sarama" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Dentro de <code>kafka/</code>, um <code>docker compose up -d</code> sobe o <code>confluentinc/cp-kafka:7.5.0</code> em <strong>KRaft</strong> (sem ZooKeeper), com <strong>1 nó</strong> que faz papel de broker e de controlador, nas portas 9092 e 9093, e o <code>kafka-ui</code> na porta 8080. A retenção é de 7 dias: <code>KAFKA_LOG_RETENTION_HOURS: 168</code>.</li>
+  <li>O <strong>produtor</strong> (<code>producer/main.go</code>) usa o cliente <strong>sarama</strong> da IBM com <code>RequiredAcks = WaitForAll</code>, <code>Retry.Max = 5</code> e compressão Snappy. A chave é o <code>pedido.ID</code> (<code>PEDIDO-00001</code>, <code>PEDIDO-00002</code>…), o tópico é <code>pedidos</code>, e um <code>ticker</code> de 1 ms dispara um evento por tick. O <code>SendMessage</code> é síncrono, então a vazão real é limitada pelo tempo de cada envio. O log mostra <code>Partition: N | Offset: M</code>.</li>
+  <li>Dois <strong>consumidores</strong> leem o mesmo tópico em grupos diferentes. O <code>consumer_estoque</code> está no grupo <code>estoque-consumer-group</code>, e o <code>consumer_faturamento</code>, no <code>faturamento-consumer-group</code>, com um <code>time.Sleep(100ms)</code> por evento. Os dois começam em <code>OffsetOldest</code>, confirmam o offset por <strong>auto-commit a cada 1 s</strong> e chamam <code>MarkMessage</code> só <em>depois</em> de processar.</li>
+  <li>A pasta <code>partition_key/</code> mostra a chave de verdade. O <code>setup.sh</code> cria o tópico <code>pedidos-particionados</code> com <strong>3 partições</strong> e fator de replicação 1. O produtor usa o <code>NewHashPartitioner</code> com a chave igual ao <code>cliente_id</code> e um campo <code>SequenciaCliente</code>, para provar que a sequência de cada cliente sai em ordem dentro da sua partição.</li>
+  <li>O mapa para a loja é direto. O <code>pedido.ID</code> do laboratório é o <code>pedido_id</code> da loja, e o <code>faturamento</code> do laboratório é o grupo <code>entregas</code>. O que o <code>partition_key</code> ensina é que <strong>a escolha da chave decide o que fica em ordem</strong>: com <code>cliente_id</code>, ficam em ordem os eventos de um cliente; com <code>pedido_id</code>, os eventos de um pedido, que é o que a loja quer.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Cinco coisas que o laboratório não faz como a aula</h3>
+
+<ol class="flow steps">
+  <li><strong>O tópico <code>pedidos</code> tem 1 partição.</strong> Ele nasce sozinho (<code>KAFKA_AUTO_CREATE_TOPICS_ENABLE</code>) e o padrão <code>num.partitions</code> é 1. Para ver partições, use o <code>pedidos-particionados</code>.</li>
+  <li><strong>O cluster tem 1 broker e fator de replicação 1.</strong> A replicação <strong>não é demonstrada</strong>: o líder, os seguidores e a ISR da aula 5 só existem na história.</li>
+  <li><strong>Dois deslizes no próprio código.</strong> O <code>setup.sh</code> manda rodar <code>go run consumer.go</code>, que não existe na pasta; e o comentário do produtor diz "50 mensagens", mas o laço só para em 15.000.</li>
+  <li><strong>O particionador do Go não é o do Java.</strong> O <code>NewHashPartitioner</code> do sarama usa <strong>FNV-1a</strong>; o cliente Java usa <strong>murmur2</strong>. O sarama tem o <code>NewMurmur2Partitioner</code> para ficar compatível, e o laboratório não o usa.</li>
+  <li><strong>O produtor e o consumidor lento têm ritmos diferentes.</strong> O produtor tenta 1 evento por milissegundo; o <code>faturamento</code> processa 10 por segundo. O lag cresce, e é isso que o <code>kafka-ui</code> mostra.</li>
+</ol>
+
+<p>O quinto ponto merece números. Com 3 partições, o mesmo <code>pedido_id</code> cai em lugares diferentes dependendo de quem produz: <strong>1051</strong> vai para a <strong>p2</strong> no sarama e para a <strong>p0</strong> no Java; o <strong>1049</strong> vai para p2 e p0; o <strong>1050</strong> vai para p0 e p2. Quem mistura clientes de linguagens diferentes no mesmo tópico quebra a ordem de um pedido sem erro nenhum.</p>
+
+<h3 class="sec">E se der errado: o consumidor cai entre processar e confirmar</h3>
+
+<p>O <code>faturamento</code> processa um evento e <strong>cai antes do próximo auto-commit</strong>, que sai a cada 1 s. Ao voltar, ele relê desde o último offset confirmado: até <strong>1 s de eventos</strong>. A 100 ms por evento, são <strong>cerca de 10 eventos duplicados</strong>. É o at-least-once da aula 5 mostrando a cara.</p>
+
+<p>Há dois consertos. O primeiro é a <strong>idempotência</strong> pelo <code>evento_id</code>: o consumidor guarda os ids já vistos (o <code>e-502</code> repetido do módulo 6) e ignora o repetido. O segundo é o <strong>commit manual</strong> depois de gravar o resultado. E o outro defeito do laboratório, o produtor muito mais rápido que o consumidor, é o lag da aula 5 ao vivo: a coluna LAG do <code>kafka-ui</code> só cresce.</p>
+
+<WhyItMatters>
+  <li><strong>O laboratório prova a chave e os grupos.</strong> Cada grupo tem o seu offset e o seu lag.</li>
+  <li><strong>Ele não prova a replicação.</strong> 1 broker e fator 1: <code>acks=all</code> aqui espera ninguém além do líder.</li>
+  <li><strong>Mistura de clientes quebra a ordem.</strong> FNV-1a e murmur2 mandam o 1051 para partições diferentes.</li>
+  <li><strong>O auto-commit tem janela.</strong> Uma queda no meio dela repete cerca de 10 eventos.</li>
+</WhyItMatters>
+
+<Deep min={9}>
+  <h4 class="deep-h">O produtor, sem alteração</h4>
+  <p>Este é o <code>main</code> do <code>producer/main.go</code> do repositório público de exemplos do autor (os números à esquerda foram acrescentados para a leitura). A chave sai do <code>pedido.ID</code> na linha 74 e o tópico é <code>pedidos</code>.</p>
+  <pre><code>{" 23  func main() {\n 24  \t// Configuração do Kafka\n 25  \tconfig := sarama.NewConfig()\n 26  \tconfig.Producer.Return.Successes = true\n 27  \tconfig.Producer.Return.Errors = true\n 28  \tconfig.Producer.RequiredAcks = sarama.WaitForAll // Espera confirmação de todas as réplicas\n 29  \tconfig.Producer.Retry.Max = 5\n 30  \tconfig.Producer.Compression = sarama.CompressionSnappy\n 31  \tconfig.Version = sarama.V3_5_0_0\n 32  \n 33  \tbrokers := []string{\"localhost:9092\"}\n 34  \n 35  \t// Cria o produtor\n 36  \tproducer, err := sarama.NewSyncProducer(brokers, config)\n 37  \tif err != nil {\n 38  \t\tlog.Fatalf(\"Erro ao criar produtor: %v\", err)\n 39  \t}\n 40  \tdefer producer.Close()\n 41  \n 42  \tlog.Println(\"Producer iniciado com sucesso!\")\n 43  \tlog.Println(\"Enviando mensagens para o tópico 'pedidos'...\")\n 44  \n 45  \t// Simula envio de mensagens periodicamente\n 46  \tticker := time.NewTicker(1 * time.Millisecond)\n 47  \tdefer ticker.Stop()\n 48  \n 49  \tcontador := 1\n 50  \n 51  \tfor {\n 52  \t\tselect {\n 53  \t\tcase <-ticker.C:\n 54  \t\t\t// Cria um pedido de exemplo\n 55  \t\t\tpedido := Pedido{\n 56  \t\t\t\tID:         fmt.Sprintf(\"PEDIDO-%05d\", contador),\n 57  \t\t\t\tCliente:    fmt.Sprintf(\"Cliente-%d\", contador%10+1),\n 58  \t\t\t\tProduto:    getProdutoAleatorio(contador),\n 59  \t\t\t\tQuantidade: (contador % 5) + 1,\n 60  \t\t\t\tValor:      float64((contador%10)+1) * 29.90,\n 61  \t\t\t\tTimestamp:  time.Now(),\n 62  \t\t\t}\n 63  \n 64  \t\t\t// Serializa para JSON\n 65  \t\t\tmensagemJSON, err := json.Marshal(pedido)\n 66  \t\t\tif err != nil {\n 67  \t\t\t\tlog.Printf(\"Erro ao serializar mensagem: %v\", err)\n 68  \t\t\t\tcontinue\n 69  \t\t\t}\n 70  \n 71  \t\t\t// Cria a mensagem Kafka\n 72  \t\t\tmsg := &sarama.ProducerMessage{\n 73  \t\t\t\tTopic: \"pedidos\",\n 74  \t\t\t\tKey:   sarama.StringEncoder(pedido.ID),\n 75  \t\t\t\tValue: sarama.ByteEncoder(mensagemJSON),\n 76  \t\t\t\tHeaders: []sarama.RecordHeader{\n 77  \t\t\t\t\t{\n 78  \t\t\t\t\t\tKey:   []byte(\"producer\"),\n 79  \t\t\t\t\t\tValue: []byte(\"go-producer-exemplo\"),\n 80  \t\t\t\t\t},\n 81  \t\t\t\t\t{\n 82  \t\t\t\t\t\tKey:   []byte(\"version\"),\n 83  \t\t\t\t\t\tValue: []byte(\"1.0\"),\n 84  \t\t\t\t\t},\n 85  \t\t\t\t},\n 86  \t\t\t}\n 87  \n 88  \t\t\t// Envia a mensagem\n 89  \t\t\tpartition, offset, err := producer.SendMessage(msg)\n 90  \t\t\tif err != nil {\n 91  \t\t\t\tlog.Printf(\"Erro ao enviar mensagem: %v\", err)\n 92  \t\t\t} else {\n 93  \t\t\t\tlog.Printf(\"Mensagem enviada | Pedido: %s | Partition: %d | Offset: %d | Cliente: %s | Produto: %s\",\n 94  \t\t\t\t\tpedido.ID, partition, offset, pedido.Cliente, pedido.Produto)\n 95  \t\t\t}\n 96  \n 97  \t\t\tcontador++\n 98  \n 99  \t\tcase <-context.Background().Done():\n100  \t\t\tlog.Println(\"Producer encerrado\")\n101  \t\t\treturn\n102  \t\t}\n103  \t}\n104  }"}</code></pre>
+  <h4 class="deep-h">O consumidor lento, sem alteração</h4>
+  <p>O trecho de <code>consumer_faturamento/main.go</code> com o laço de leitura (<code>ConsumeClaim</code>) e a configuração do grupo. O <code>Sleep</code> da linha 66 é o 100 ms por evento; o <code>MarkMessage</code> da linha 74 marca o offset depois de processar, e o auto-commit o envia a cada 1 s (linhas 90 a 92).</p>
+  <pre><code>{"42  func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {\n43  \tfor {\n44  \t\tselect {\n45  \t\tcase message := <-claim.Messages():\n46  \t\t\tif message == nil {\n47  \t\t\t\treturn nil\n48  \t\t\t}\n49  \n50  \t\t\t// Deserializa a mensagem\n51  \t\t\tvar pedido Pedido\n52  \t\t\tif err := json.Unmarshal(message.Value, &pedido); err != nil {\n53  \t\t\t\tlog.Printf(\"Erro ao deserializar mensagem: %v\", err)\n54  \t\t\t\tsession.MarkMessage(message, \"\")\n55  \t\t\t\tcontinue\n56  \t\t\t}\n57  \n58  \t\t\t// Processa a mensagem\n59  \t\t\tlog.Printf(\"| Consumer Group: %s | Mensagem recebida | Topic: %s | Partition: %d | Offset: %d\",\n60  \t\t\t\tgroupID, message.Topic, message.Partition, message.Offset)\n61  \n62  \t\t\tlog.Printf(\"Pedido ID: %s | Cliente: %s | Produto: %s | Quantidade: %d | Valor: R$ %.2f | Timestamp: %s\",\n63  \t\t\t\tpedido.ID, pedido.Cliente, pedido.Produto, pedido.Quantidade, pedido.Valor, pedido.Timestamp.Format(\"2006-01-02 15:04:05\"))\n64  \n65  \t\t\t// Simula processamento\n66  \t\t\ttime.Sleep(100 * time.Millisecond)\n67  \n68  \t\t\t// Headers\n69  \t\t\tfor _, header := range message.Headers {\n70  \t\t\t\tlog.Printf(\"   Header: %s = %s\", string(header.Key), string(header.Value))\n71  \t\t\t}\n72  \n73  \t\t\t// Marca a mensagem como processada\n74  \t\t\tsession.MarkMessage(message, \"\")\n75  \n76  \t\t\tlog.Println(\"Pedido processado com sucesso!\")\n77  \t\t\tlog.Println()\n78  \n79  \t\tcase <-session.Context().Done():\n80  \t\t\treturn nil\n81  \t\t}\n82  \t}\n83  }\n84  \n85  func main() {\n86  \t// Configuração do Kafka\n87  \tconfig := sarama.NewConfig()\n88  \tconfig.Version = sarama.V3_5_0_0\n89  \tconfig.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()\n90  \tconfig.Consumer.Offsets.Initial = sarama.OffsetOldest\n91  \tconfig.Consumer.Offsets.AutoCommit.Enable = true\n92  \tconfig.Consumer.Offsets.AutoCommit.Interval = 1 * time.Second\n93  \n94  \t// Lista de brokers\n95  \tbrokers := []string{\"localhost:9092\"}\n96  \ttopics := []string{\"pedidos\"}"}</code></pre>
+  <h4 class="deep-h">A chave e o particionador</h4>
+  <p>No <code>partition_key/main.go</code>, a linha 59 escolhe o <code>NewHashPartitioner</code> e a linha 125 usa o <code>ClienteID</code> como chave. O <code>setup.sh</code> cria o tópico nas linhas 29 a 33.</p>
+  <pre><code>{"49  \t// Configuração do Kafka\n50  \tconfig := sarama.NewConfig()\n51  \tconfig.Producer.Return.Successes = true\n52  \tconfig.Producer.Return.Errors = true\n53  \tconfig.Producer.RequiredAcks = sarama.WaitForAll // Espera confirmação de todas as réplicas\n54  \tconfig.Producer.Retry.Max = 5\n55  \tconfig.Producer.Compression = sarama.CompressionSnappy\n56  \tconfig.Version = sarama.V3_5_0_0\n57  \n58  \t// IMPORTANTE: Define o particionador para usar a chave\n59  \tconfig.Producer.Partitioner = sarama.NewHashPartitioner\n60  "}</code></pre>
+  <pre><code>{"121  \t\t// IMPORTANTE: A Key é o ID do Cliente - isso garante que mensagens\n122  \t\t// do mesmo cliente sempre vão para a mesma partição\n123  \t\tmsg := &sarama.ProducerMessage{\n124  \t\t\tTopic: \"pedidos-particionados\",\n125  \t\t\tKey:   sarama.StringEncoder(pedido.ClienteID), // PARTITION KEY = ClienteID\n126  \t\t\tValue: sarama.ByteEncoder(mensagemJSON),\n127  \t\t\tHeaders: []sarama.RecordHeader{"}</code></pre>
+  <pre><code>{"26  # Cria o tópico com 3 partições\n27  echo \"\"\n28  echo \"📝 Criando tópico 'pedidos-particionados' com 3 partições...\"\n29  docker exec kafka kafka-topics --create \\\n30    --topic pedidos-particionados \\\n31    --bootstrap-server localhost:9092 \\\n32    --partitions 3 \\\n33    --replication-factor 1\n34  \n35  echo \"\"\n36  echo \"📊 Detalhes do tópico:\"\n37  docker exec kafka kafka-topics --describe \\\n38    --topic pedidos-particionados \\\n39    --bootstrap-server localhost:9092"}</code></pre>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Labs.</strong> As divergências acima (tópico com 1 partição, fator 1, <code>setup.sh</code> com um <code>consumer.go</code> inexistente, comentário de 50 mensagens com laço de 15.000, FNV-1a no lugar de murmur2) são do repositório, e não do artigo. O artigo mostra só o código do produtor e do consumidor, e não fala de nenhuma delas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos Kafka (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/kafka" },
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "IBM/sarama (cliente Kafka em Go)", href: "https://pkg.go.dev/github.com/IBM/sarama" },
+    { label: "Apache Kafka: documentação (kafka-consumer-groups e offsets)", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Até aqui os eventos viajaram entre serviços de dentro da loja, por TCP estável e com broker de sobra. Mas o pedido 1048, da Lena, está num caminhão a caminho de Recife, com um rastreador que manda a posição por 4G, e a rede cai em trechos ruins. Falta saber que protocolo serve a um dispositivo pequeno numa rede ruim: o MQTT.</p>
+
+<Flashcards cards={[
+  { q: "O que o laboratório do Kafka sobe e o que ele não demonstra?",
+    a: "Um broker cp-kafka 7.5.0 em KRaft (1 nó), com kafka-ui. Não demonstra a replicação: 1 broker e fator 1." },
+  { q: "Qual é a chave do produtor do laboratório e no partition_key?",
+    a: "No producer, o pedido.ID (PEDIDO-00001…). No partition_key, o cliente_id, para provar a ordem da sequência de cada cliente." },
+  { q: "Para onde vai a chave 1051 com 3 partições no sarama e no Java?",
+    a: "p2 no sarama (FNV-1a) e p0 no Java (murmur2). Misturar clientes quebra a ordem." },
+  { q: "O que acontece se o faturamento cair entre processar e o auto-commit de 1 s?",
+    a: "Ao voltar, reprocessa até 1 s de eventos: cerca de 10 duplicados a 100 ms por evento. Conserto: idempotência pelo evento_id ou commit manual depois de gravar." },
+  { q: "Por que o lag cresce no kafka-ui?",
+    a: "O produtor tenta 1 evento por ms e o faturamento processa 10 por segundo." },
+]} />

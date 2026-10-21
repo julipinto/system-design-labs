@@ -1,0 +1,87 @@
+---
+title: "Introdução"
+order: 1
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">O módulo 12 terminou com o pedido <strong>1050</strong> do Davi pago: o PSP chamou o webhook da loja e o <code>PedidoPago</code> saiu. Só que esse aviso precisa chegar a três lugares, o <code>estoque</code>, as <code>entregas</code> e as <code>notificacoes</code>, e todas as chamadas do módulo passado ficam esperando alguém. Fazer as três em fila deixa o pagamento mais lento e, se as <code>entregas</code> estiverem fora do ar, o pagamento falha. O problema deste módulo é <strong>avisar sem esperar, sem perder o aviso e sem o produtor saber quem escuta</strong>.</p>
+
+<OneLiner>Comunicação assíncrona é entregar o aviso a um intermediário, o <strong>broker</strong>, e seguir em frente: quem precisa dele lê quando puder, e quem manda não espera resposta nem conhece quem lê.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance os passos com a seta → do teclado e acompanhe o evento do pedido <strong>1051</strong>, da Lena, entrando no tópico <code>pedidos</code>. Anote em que partição e em que offset ele cai e quantos serviços o leem. Depois some os tempos da cadeia síncrona, 20 + 100 + 10 ms, e compare com o único passo que o <code>pedidos</code> dá agora.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/kafka-3d/?mode=topico" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Figura interativa: O log do tópico pedidos" alt="Prévia da figura 3D: O log do tópico pedidos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Hoje, quando o pagamento da Lena entra, o <code>pedidos</code> chama o <code>estoque</code> (20 ms), depois as <code>entregas</code> (100 ms) e depois as <code>notificacoes</code> (10 ms), uma de cada vez. A resposta demora <strong>130 ms a mais</strong>, e a Lena fica olhando a tela enquanto a loja avisa quem não tem nada a ver com a resposta dela.</li>
+  <li>O segundo custo é a dependência. Se as <code>entregas</code> estiverem fora do ar, a segunda chamada falha e <strong>o pedido falha junto</strong>, embora o pagamento já tenha acontecido. A chamada síncrona prende o tempo de quem chama ao tempo de quem responde.</li>
+  <li>O caminho assíncrono troca as três chamadas por uma. O <code>pedidos</code> publica <strong>1 evento</strong> no tópico <code>pedidos</code> do Kafka e espera só o broker confirmar que gravou: cerca de <strong>10 ms</strong> com <code>acks=all</code>. Depois responde à Lena.</li>
+  <li>Os três serviços leem o tópico quando quiserem. As <code>entregas</code> caíram? O <code>PedidoPago</code> espera guardado no log e é lido quando elas voltarem. É a ideia que o módulo 6 já tinha dado, o "espera na fila", agora com um lugar real para esperar.</li>
+  <li>Quem manda também deixa de saber quem escuta. Sem eventos, o <code>pedidos</code> conhece <strong>3 destinos</strong>; com eventos, conhece <strong>1 tópico</strong>. Um quarto interessado, um <code>antifraude</code>, passa a ler o mesmo tópico sem mexer no <code>pedidos</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: a cadeia síncrona com as entregas fora do ar</h3>
+
+<p>São 14:20:03 e o PSP avisa que a Lena pagou o pedido 1051, de 54.80. O <code>pedidos</code> chama o <code>estoque</code> e dá certo. A chamada às <code>entregas</code> não volta, porque o serviço está em manutenção, e o <code>pedidos</code> devolve erro. O dinheiro da Lena já saiu, o pedido não avançou e as <code>notificacoes</code> nunca foram chamadas.</p>
+
+<p>Com o evento no Kafka, a mesma queda vira atraso: o <code>PedidoPago</code> fica no tópico, as <code>entregas</code> voltam e leem. O preço do desenho novo é outro, e aparece nas próximas aulas: a resposta à Lena já não diz se o estoque foi reservado, porque isso acontece <em>depois</em>. A tela dela mostra "pago" e o resto chega em seguida.</p>
+
+<WhyItMatters>
+  <li><strong>O pagamento deixa de esperar os vizinhos.</strong> A resposta cai de +130 ms para cerca de 10 ms de publicação.</li>
+  <li><strong>Uma queda não derruba o pedido.</strong> O aviso espera no log até o serviço voltar.</li>
+  <li><strong>O produtor fica leve.</strong> Conhece 1 tópico, e não 3 serviços e os seus endereços.</li>
+  <li><strong>Tem custo.</strong> O resultado chega depois da resposta, e é preciso lidar com aviso duplicado, fora de ordem ou atrasado (aulas 5 a 10).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Síncrono e assíncrono lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Síncrono (módulo 12)</th><th>Assíncrono (este módulo)</th></tr></thead>
+    <tbody>
+      <tr><th>Quem manda faz</th><td>chama e espera a resposta</td><td>entrega ao broker e segue</td></tr>
+      <tr><th>Tempo da resposta ao cliente</th><td>soma dos tempos: +130 ms</td><td>1 publicação: cerca de 10 ms</td></tr>
+      <tr><th>Destino fora do ar</th><td>a chamada falha</td><td>o aviso espera no broker</td></tr>
+      <tr><th>Quem manda conhece</th><td>3 destinos</td><td>1 tópico</td></tr>
+      <tr><th>Resultado do trabalho</th><td>vem na resposta</td><td>chega depois, por outro aviso</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Continua certo chamar de forma síncrona quando a tela precisa da resposta para seguir, como consultar o preço do gato ou checar a senha. O assíncrono serve ao que pode acontecer depois, como baixar o estoque, preparar a entrega e mandar o e-mail.</p>
+  <h4 class="deep-h">Os números do exemplo</h4>
+  <p>Os tempos de 20, 100 e 10 ms são de exemplo, escolhidos para a conta ficar à vista. O de 10 ms para o broker confirmar com <code>acks=all</code> também: depende da rede entre os brokers e do disco. O que não depende de número nenhum é a estrutura: a soma vira um passo só.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Enterprise Integration Patterns: padrões de mensageria (Hohpe e Woolf)", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/" },
+    { label: "Akka: Message Driven vs Event Driven (referência do artigo)", href: "https://developer.lightbend.com/docs/akka-guide/concepts/message-driven-event-driven.html" },
+    { label: "Documentação do Apache Kafka", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora o <code>pedidos</code> publica um aviso e segue. Mas o que exatamente viaja no tópico: uma ordem, um fato ou um punhado de dados? Falta saber a diferença entre comando, evento e documento, e por que confundir os três faz a loja baixar o estoque duas vezes.</p>
+
+<Flashcards cards={[
+  { q: "Quanto a cadeia síncrona atrasa a resposta do pedido, e o que acontece se as entregas caírem?",
+    a: "+130 ms (20 + 100 + 10). Com as entregas fora do ar o pedido falha, embora o pagamento já tenha acontecido." },
+  { q: "O que o pedidos faz no desenho assíncrono?",
+    a: "Publica 1 evento no tópico pedidos e espera só o broker confirmar (cerca de 10 ms com acks=all). Os três serviços leem depois." },
+  { q: "O que é um broker?",
+    a: "O intermediário que guarda o aviso entre quem manda e quem lê. No módulo, o Kafka, o Mosquitto (MQTT) e o RabbitMQ." },
+  { q: "Quantos destinos o produtor conhece antes e depois?",
+    a: "Antes, 3 serviços. Depois, 1 tópico. Um quarto interessado lê o tópico sem mexer no produtor." },
+  { q: "Qual é o custo do assíncrono?",
+    a: "O resultado chega depois da resposta, e o aviso pode vir duplicado, atrasado ou fora de ordem." },
+]} />

@@ -1,0 +1,112 @@
+---
+title: "AMQP"
+order: 9
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o MQTT resolveu o caminhão, com um dispositivo pequeno numa rede ruim. Falta o terceiro trecho da loja: os e-mails. O <code>notificacoes</code> manda e-mails <strong>transacionais</strong> (a confirmação do pedido 1051 para a Lena, o aviso de envio) e <strong>promocionais</strong> (a newsletter da Black Friday, com <strong>50.000</strong> e-mails). O provedor aceita <strong>100 por segundo</strong>. Numa fila única, o e-mail da Lena espera atrás dos 50.000.</p>
+
+<OneLiner>No AMQP o produtor não escolhe a fila: ele publica numa <strong>exchange</strong> com uma <strong>routing key</strong>, e o <strong>broker roteia</strong> por <strong>bindings</strong> para as filas; o consumidor lê da fila e dá o <strong>ack</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Exchange</strong>, siga a mensagem <code>email.pedido.confirmacao</code> do pedido 1051 e veja em quais filas ela cai. Depois compare com a newsletter, <code>email.promo.bf</code>. No widget abaixo, deixe 50.000 promocionais e 100 por segundo e veja quanto o e-mail da Lena espera na fila única e nas filas separadas.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/fila-3d/?mode=exchange" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Figura interativa: AMQP: a exchange emails" alt="Prévia da figura 3D: AMQP: a exchange emails" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="emails" title="Fila única ou filas separadas: quanto o e-mail da Lena espera" hint="Informe os e-mails promocionais na fila (1 a 100 mil) e a taxa do provedor (10 a 500 por segundo). O widget mostra quanto o e-mail transacional espera numa fila única e em filas separadas." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A conta mostra o problema. Numa fila única, o e-mail da Lena espera <strong>50.000 ÷ 100 = 500 s</strong>, ou <strong>8 min 20 s</strong>. Com <strong>filas separadas</strong>, uma para transacionais e outra para promocionais, ele sai em <strong>menos de 1 s</strong>. Falta um jeito de a mensagem chegar à fila certa sem o produtor saber qual é.</li>
+  <li>É o que o <strong>AMQP 0-9-1</strong>, o protocolo do RabbitMQ, faz. Uma conexão TCP (porta <strong>5672</strong>, aberta com o cabeçalho de 8 bytes <code>41 4D 51 50 00 00 09 01</code>, "AMQP" e a versão) carrega vários <strong>canais</strong>, virtuais. O produtor publica numa <strong>exchange</strong> com uma <strong>routing key</strong>; a exchange roteia pelos <strong>bindings</strong> para as <strong>filas</strong>; o consumidor lê da fila e dá o <strong>ack</strong>. A diferença para o Kafka é essa: o produtor <strong>não escolhe a fila</strong>, o broker roteia.</li>
+  <li>O roteamento depende do <strong>tipo de exchange</strong>. A <strong>direct</strong> casa a chave inteira (serve a comandos como <code>cobrar</code>). A <strong>topic</strong> casa padrões, com <code>*</code> para uma palavra e <code>#</code> para zero ou mais. A <strong>fanout</strong> copia para todas as filas ligadas. A <strong>headers</strong> casa por cabeçalhos. E há a <strong>default exchange</strong>, sem nome, que roteia pela chave igual ao nome da fila.</li>
+  <li>A loja usa uma <strong>topic exchange</strong> chamada <code>emails</code>. As chaves são <code>email.pedido.confirmacao</code>, <code>email.pedido.enviado</code> e <code>email.promo.bf</code>. As filas: <code>emails.transacionais</code> (binding <code>email.pedido.*</code>), <code>emails.promocionais</code> (<code>email.promo.#</code>) e <code>emails.auditoria</code> (<code>email.#</code>, que recebe cópia de tudo). A confirmação do 1051 cai em <code>transacionais</code> e em <code>auditoria</code>; a promoção da Black Friday cai em <code>promocionais</code> e em <code>auditoria</code>.</li>
+  <li>As <strong>garantias</strong> vêm de peças que se ligam uma a uma. O <strong>ack manual</strong> faz a mensagem voltar se o consumidor cair sem confirmar. O <strong><code>prefetch</code></strong> limita quantas mensagens soltas cada consumidor recebe. Fila <strong>durável</strong> mais mensagem <strong>persistente</strong> (<code>delivery_mode = 2</code>) sobrevivem a um reinício. <strong>Publisher confirms</strong> avisam o produtor que o broker guardou. A <strong>DLX</strong> (<em>dead letter exchange</em>) recebe a mensagem rejeitada sem reenfileirar, vencida (TTL) ou que estourou o limite da fila, e a manda para <code>emails.dlx</code> e <code>emails.dlq</code>. As <strong>quorum queues</strong>, com Raft, replicam entre nós.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Os três protocolos, cada um onde rende</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Kafka</th><th>MQTT</th><th>RabbitMQ (AMQP)</th></tr></thead>
+  <tbody>
+    <tr><th>Modelo</th><td>log em partições</td><td>publicar/assinar leve</td><td>fila com roteamento no broker</td></tr>
+    <tr><th>Quem move</th><td>o consumidor <strong>puxa</strong></td><td>o broker <strong>empurra</strong></td><td>o broker entrega e espera o ack</td></tr>
+    <tr><th>Depois de lida</th><td>guarda</td><td>não guarda (só a retida)</td><td>ack e apaga</td></tr>
+    <tr><th>Na loja</th><td>eventos entre serviços</td><td>posição do caminhão</td><td>e-mails</td></tr>
+    <tr><th>Para quê</th><td>milhões de eventos, ordem por chave, grupos</td><td>dispositivos, rede instável, QoS</td><td>tarefas e comandos, DLX</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: a routing key com erro de digitação</h3>
+
+<p>Num deploy, o produtor passa a publicar <code>emails.pedido.confirmacao</code> (<strong>plural</strong>, um erro de digitação) em vez de <code>email.pedido.confirmacao</code>. Nenhum binding casa com essa chave: nem <code>email.pedido.*</code> da fila de transacionais, nem <code>email.#</code> da auditoria. A exchange <strong>não acha nenhuma fila</strong> e <strong>descarta a mensagem em silêncio</strong>. O produtor recebe sucesso e acha que o e-mail foi enviado. A Lena nunca recebe a confirmação do 1051, e nenhum erro aparece em lugar nenhum.</p>
+
+<p>Há três remédios que se somam. O primeiro é <code>mandatory = true</code>: o broker <strong>devolve</strong> ao produtor a mensagem sem rota. O segundo é uma <strong>alternate exchange</strong>, que recebe o que ninguém roteou, e um alerta quando ela receber algo. O terceiro é testar as chaves e os bindings juntos, no deploy.</p>
+
+<WhyItMatters>
+  <li><strong>Filas separadas tiram o transacional da frente.</strong> 8 min 20 s viram menos de 1 s para o e-mail da Lena.</li>
+  <li><strong>O broker roteia.</strong> O produtor só conhece a exchange e a chave; as filas novas se ligam por binding.</li>
+  <li><strong>A garantia é montada em camadas.</strong> Ack, prefetch, persistência, confirms e DLX: cada um fecha uma falha.</li>
+  <li><strong>Sem rota, o silêncio é o padrão.</strong> <code>mandatory</code> e a alternate exchange trazem o erro de volta.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <h4 class="deep-h">Para onde cada chave vai na exchange <code>emails</code></h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>routing key</th><th>transacionais<br/><code>email.pedido.*</code></th><th>promocionais<br/><code>email.promo.#</code></th><th>auditoria<br/><code>email.#</code></th></tr></thead>
+    <tbody>
+      <tr><th><code>email.pedido.confirmacao</code></th><td>sim</td><td>não</td><td>sim</td></tr>
+      <tr><th><code>email.pedido.enviado</code></th><td>sim</td><td>não</td><td>sim</td></tr>
+      <tr><th><code>email.promo.bf</code></th><td>não</td><td>sim</td><td>sim</td></tr>
+      <tr><th><code>emails.pedido.confirmacao</code> (plural)</th><td>não</td><td>não</td><td>não</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A última linha é o erro de digitação: nenhum padrão casa com <code>emails.</code>, nem o <code>email.#</code>, porque a primeira palavra é outra.</p>
+  <h4 class="deep-h">AMQP 0-9-1 e AMQP 1.0</h4>
+  <p>O artigo descreve o modelo 0-9-1 e o chama só de "AMQP". O <strong>AMQP 1.0</strong> (OASIS, ISO/IEC 19464) é <strong>outro protocolo</strong>, sem exchanges. O RabbitMQ 4.0 o suporta nativamente; no 3.x, por plugin.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Versão do protocolo.</strong> O artigo mistura os dois: o que ele descreve (exchange, binding, fila) é o <strong>0-9-1</strong>.</li>
+    <li><strong>Canais.</strong> "Cada sessão é uma conexão independente" está errado: os <strong>canais</strong> são virtuais e dividem <strong>uma</strong> conexão TCP, e é por isso que são baratos.</li>
+    <li><strong>Routing key e binding key.</strong> O artigo as mistura. A <strong>routing key</strong> é a que o produtor envia; a <strong>binding key</strong> é o padrão da ligação entre a fila e a exchange.</li>
+    <li><strong>O que falta.</strong> A <strong>default exchange</strong>, os <strong>publisher confirms</strong>, o <strong>prefetch</strong>, a <strong>DLX</strong> e as <strong>quorum queues</strong>. E, nos exemplos do artigo, a fila é durável mas a mensagem não é persistente.</li>
+  </ul>
+  <Sources items={[
+    { label: "RabbitMQ: AMQP 0-9-1 Model Explained", href: "https://www.rabbitmq.com/tutorials/amqp-concepts" },
+    { label: "RabbitMQ: confirmações do consumidor e do publicador", href: "https://www.rabbitmq.com/docs/confirms" },
+    { label: "RabbitMQ: Dead Letter Exchanges", href: "https://www.rabbitmq.com/docs/dlx" },
+    { label: "RabbitMQ: Quorum Queues", href: "https://www.rabbitmq.com/docs/quorum-queues" },
+    { label: "RabbitMQ 4.0: AMQP 1.0 nativo", href: "https://www.rabbitmq.com/blog/2024/08/05/native-amqp" },
+    { label: "amqp.org (referência do artigo)", href: "https://www.amqp.org/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A topologia da loja está no papel: uma topic exchange, três filas e uma DLX. Falta saber o que o código do autor, que monta uma exchange direct, uma topic e uma fanout com o RabbitMQ, faz e o que deixa de fazer: persistência, <code>prefetch</code> e o <code>Ack(true)</code>. É o laboratório da próxima aula.</p>
+
+<Flashcards cards={[
+  { q: "Quanto o e-mail da Lena espera numa fila única com 50.000 promocionais a 100/s, e em filas separadas?",
+    a: "50.000 ÷ 100 = 500 s (8 min 20 s) na fila única; menos de 1 s com filas separadas." },
+  { q: "Qual é o caminho de uma mensagem no AMQP 0-9-1?",
+    a: "Conexão TCP (5672) com canais virtuais; o produtor publica numa exchange com uma routing key; a exchange roteia por bindings para as filas; o consumidor lê e dá o ack." },
+  { q: "Quais são os tipos de exchange?",
+    a: "direct (chave igual), topic (padrões com * e #), fanout (copia para todas) e headers; mais a default exchange (chave = nome da fila)." },
+  { q: "Para quais filas vai email.pedido.confirmacao na exchange emails?",
+    a: "emails.transacionais (email.pedido.*) e emails.auditoria (email.#)." },
+  { q: "O que acontece se o produtor publica emails.pedido.confirmacao (plural) e como consertar?",
+    a: "Nenhum binding casa (nem email.pedido.*, nem email.#): a exchange descarta em silêncio. Conserto: mandatory = true, alternate exchange e alerta." },
+]} />

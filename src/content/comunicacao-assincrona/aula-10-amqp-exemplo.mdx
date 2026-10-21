@@ -1,0 +1,109 @@
+---
+title: "AMQP: exemplo"
+order: 10
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a topologia dos e-mails estava no papel: uma topic exchange <code>emails</code>, três filas, uma DLX. O repositório público do autor tem três laboratórios em Go com RabbitMQ que montam exatamente os três jeitos de rotear: <code>default/</code> (direct), <code>topic/</code> e <code>fanout/</code>. Vamos lê-los contra a aula, porque cada um deixa de fora algo que a garantia da aula 9 pedia.</p>
+
+<OneLiner>Os três laboratórios mostram o roteamento por <strong>direct</strong> (uma fila), <strong>topic</strong> (padrões) e <strong>fanout</strong> (cópia para todas), mas nenhum tem <strong>mensagem persistente</strong>, <strong>prefetch</strong> ou <strong>publisher confirms</strong>: a mensagem de cada um se perde se o broker reiniciar.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Lab AMQP</strong>, passe pelas três topologias, uma de cada vez: a direct <code>cobrar</code>, a topic com 3 filas e a fanout com 3 filas. Em cada uma, conte quantas mensagens cada fila recebe. Depois olhe a linha do <code>Ack(true)</code> no código: o que "confirmar até aqui" quer dizer?</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/fila-3d/?mode=lab-amqp" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Figura interativa: AMQP: o lab" alt="Prévia da figura 3D: AMQP: o lab" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O <strong><code>default/</code></strong> declara a exchange <code>ecommerce.nova.venda</code> (direct, durável), a fila <code>cobrar</code> e o binding <code>cobrar</code>. O consumidor lê com <code>auto-ack = false</code> e confirma com <code>d.Ack(true)</code>. É o desenho de um comando para um destinatário, como o <code>CobrarPedido</code> da aula 2.</li>
+  <li>O <strong><code>topic/</code></strong> declara a exchange <code>ecommerce.nova.venda.faturamento</code> (topic) e três filas: <code>queue.faturamento</code> (binding <code>faturamento.prioridade.default</code>), <code>queue.faturamento.prioritario</code> (<code>faturamento.prioridade.alta</code>) e <code>queue.faturamento.datalake</code> (<code>faturamento.prioridade.*</code>). O produtor manda 20 mensagens, com 10% de chance de prioridade alta, e o datalake recebe <strong>todas as 20</strong>.</li>
+  <li>O <strong><code>fanout/</code></strong> declara uma exchange <code>ecommerce.nova.venda</code> do tipo fanout com as filas <code>cobrar_pedido</code>, <code>reservar_estoque</code> e <code>informar_logistica</code>. A routing key é ignorada, e <strong>cada uma das 3 filas recebe todas as mensagens</strong>. O código publica <strong>1.000</strong> (o laço é <code>i &lt; 1000</code>).</li>
+  <li>O mapa para a loja: <code>prioridade.alta</code> é o <code>email.pedido.*</code> (transacionais); <code>prioridade.default</code> é o <code>email.promo.*</code>; o datalake é o <code>emails.auditoria</code>, que recebe cópia de tudo. O <code>fanout</code> é o <code>PedidoPago</code> copiado para 3 filas, a mesma ideia dos 3 grupos de consumo do Kafka, agora com filas.</li>
+  <li>Para rodar, cada pasta tem um <code>docker-compose.yml</code> com <code>rabbitmq:3-management</code>, na porta <strong>5672</strong> (AMQP) e no painel em <strong>15672</strong>, com usuário <code>user</code> e senha <code>password</code>. O painel mostra as exchanges, os bindings e as filas enchendo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Nove divergências entre os laboratórios e a aula, em dois grupos</h3>
+
+<p>No código, cinco coisas que a garantia da aula 9 pediria:</p>
+
+<ol class="flow steps">
+  <li><strong>O cliente está arquivado.</strong> O <code>streadway/amqp</code> não recebe mais mudanças; o substituto é o <code>rabbitmq/amqp091-go</code>.</li>
+  <li><strong>O <code>default/producer.go</code> declara a topologia e publica em um laço de 3 bilhões de iterações</strong>, sem <em>publisher confirms</em>. Ele enche a fila e a memória do broker, porque o produtor nunca sabe se o broker acompanha.</li>
+  <li><strong>As mensagens não são persistentes.</strong> São <code>text/plain</code> sem <code>DeliveryMode: Persistent</code>. A fila é durável, a mensagem é transitória: ela sobrevive a um reinício do broker? <strong>Não.</strong></li>
+  <li><strong>Nenhum consumidor chama <code>ch.Qos(...)</code>.</strong> Sem <code>prefetch</code>, o broker empurra <strong>tudo</strong> para o primeiro consumidor que conectar.</li>
+  <li><strong><code>d.Ack(true)</code> usa <code>multiple = true</code>.</strong> Isso confirma <strong>todas</strong> as mensagens pendentes até aquela. Se o processamento for concorrente, mensagens ainda em andamento são confirmadas e podem se perder.</li>
+</ol>
+
+<p>E fora do código dos consumidores, quatro coisas do repositório:</p>
+
+<ol class="flow steps">
+  <li><strong>A imagem é <code>rabbitmq:3-management</code>.</strong> A série 3.13 teve o fim do suporte da comunidade em 30 de setembro de 2024, e a série atual é a 4.x.</li>
+  <li><strong>O comentário <code>routing key (binding key)</code> mistura os dois nomes</strong> que a aula 9 separou.</li>
+  <li><strong>Dois laboratórios usam o mesmo nome de exchange com tipos diferentes.</strong> O <code>default/</code> declara <code>ecommerce.nova.venda</code> como direct, e o <code>fanout/</code>, como fanout. Rodar os dois no mesmo broker faz o segundo falhar na declaração, porque o tipo não bate.</li>
+  <li><strong>O fanout publica 1.000 mensagens,</strong> e não um punhado: cada uma das 3 filas acumula as 1.000 se ninguém consumir.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o e-mail duplicado e a mensagem venenosa</h3>
+
+<p>O consumidor de e-mail manda o e-mail da confirmação do 1051 e <strong>cai antes do <code>ack</code></strong>. O RabbitMQ reentrega a mensagem com <code>redelivered = true</code> e a Lena recebe o <strong>e-mail duplicado</strong>. O conserto é a idempotência: um <code>message_id</code> por e-mail, e o consumidor ignora o que já enviou. Com <code>auto-ack</code>, o defeito é o oposto: a mensagem é apagada ao chegar, e se o consumidor cai antes de enviar, o e-mail <strong>se perde</strong>.</p>
+
+<p>A <strong>poison message</strong> (um endereço inválido) mostra a diferença entre os dois <code>nack</code>. Com <code>nack</code> e reenfileirar, ela volta para sempre, como na aula 3. Com <code>nack</code> <strong>sem</strong> reenfileirar, ela vai para a DLQ pela DLX, depois de 3 tentativas, e a fila segue.</p>
+
+<WhyItMatters>
+  <li><strong>Direct, topic e fanout são três formas de rotear.</strong> Uma fila, padrões e cópia para todas.</li>
+  <li><strong>Fila durável não basta.</strong> Sem <code>DeliveryMode: Persistent</code>, a mensagem some num reinício.</li>
+  <li><strong>Sem prefetch, um consumidor leva tudo.</strong> O broker empurra o que tem para o primeiro que conectar.</li>
+  <li><strong>O ack tem de ser idempotente do outro lado.</strong> Cair entre enviar e confirmar duplica o e-mail.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">O produtor e o consumidor direct, sem alteração</h4>
+  <p>Trechos do repositório público de exemplos do autor (os números à esquerda são os das linhas dos arquivos). No <code>default/producer.go</code>, o laço de 3 bilhões está na linha 66; no <code>default/consumer.go</code>, o <code>auto-ack = false</code> está na linha 42 e o <code>Ack(true)</code>, na 54.</p>
+  <pre><code>{"56  \t// Associando a Queue até a Exchange\n57  \t// e informando a binding key para roteamento\n58  \terr = ch.QueueBind(\n59  \t\tq.Name,                 // Nome da fila\n60  \t\t\"cobrar\",               // Binding key de roteamento\n61  \t\t\"ecommerce.nova.venda\", // Nome da exchange\n62  \t\tfalse,                  // no-wait\n63  \t\tnil,                    // arguments\n64  \t)\n65  \n66  \tfor i := 0; i < 3000000000; i++ {\n67  \n68  \t\tid := uuid.New()\n69  \n70  \t\t// Mensagem simples\n71  \t\tbody := fmt.Sprintf(\"id:%v\", id)\n72  \n73  \t\t// Publicando a mensagem na exchange\n74  \t\terr = ch.Publish(\n75  \t\t\t\"ecommerce.nova.venda\", // exchange\n76  \t\t\t\"cobrar\",               // routing key (binding key)\n77  \t\t\tfalse,                  // mandatory\n78  \t\t\tfalse,                  // immediate\n79  \t\t\tamqp.Publishing{\n80  \t\t\t\tContentType: \"text/plain\",\n81  \t\t\t\tBody:        []byte(body),\n82  \t\t\t})\n83  \t\tif err != nil {\n84  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n85  \t\t}\n86  \n87  \t\tfmt.Printf(\"Mensagem de venda enviada para a exchange ecommerce.nova.venda: %v\\n\", body)\n88  \t}"}</code></pre>
+  <pre><code>{"39  \tmsgs, err := ch.Consume(\n40  \t\tq.Name, // queue\n41  \t\t\"\",     // consumer\n42  \t\tfalse,  // auto-ack\n43  \t\tfalse,  // exclusive\n44  \t\tfalse,  // no-local\n45  \t\tfalse,  // no-wait\n46  \t\tnil,    // args\n47  \t)\n48  \n49  \tforever := make(chan bool)\n50  \n51  \tgo func() {\n52  \t\tfor d := range msgs {\n53  \t\t\tfmt.Printf(\"Mensagem de cobrança recebida na queue %v: %v\\n\", q.Name, string(d.Body))\n54  \t\t\td.Ack(true)\n55  \t\t}\n56  \t}()"}</code></pre>
+  <h4 class="deep-h">O topic: o binding do datalake e o produtor</h4>
+  <p>O binding <code>faturamento.prioridade.*</code> é o que copia tudo para o datalake (linhas 119 a 127). O produtor sorteia a prioridade (linhas 133 a 158).</p>
+  <pre><code>{"118  \n119  \t// Associando a queue na exchange, todas as mensagems que forem enviadas com o pattern\n120  \t// faturamento.prioridade.* será enviada para essa fila independente da prioridade informada\n121  \terr = ch.QueueBind(\n122  \t\tqueueLake.Name,                     // Nome da fila\n123  \t\t\"faturamento.prioridade.*\",         // Binding key de roteamento - chave de prioridade alta\n124  \t\t\"ecommerce.nova.venda.faturamento\", // Nome da exchange\n125  \t\tfalse,                              // no-wait\n126  \t\tnil,                                // arguments\n127  \t)\n128  \tif err != nil {"}</code></pre>
+  <pre><code>{"133  \tfor i := 0; i < 20; i++ {\n134  \n135  \t\troutingKey := \"faturamento.prioridade.default\"\n136  \t\tif rand.Float64() < 0.1 { // mock para dar 10% de chance de uma mensagem ser encaminhada para a queue prioritária\n137  \t\t\troutingKey = \"faturamento.prioridade.alta\"\n138  \t\t}\n139  \n140  \t\tid := uuid.New()\n141  \t\t// Mensagem simples\n142  \t\tbody := fmt.Sprintf(\"id:%v:%v\", routingKey, id)\n143  \n144  \t\t// Publicando a mensagem na exchange usando a routing key de default/prioritario\n145  \t\terr = ch.Publish(\n146  \t\t\t\"ecommerce.nova.venda.faturamento\", // exchange\n147  \t\t\troutingKey,                         // routing key (binding key)\n148  \t\t\tfalse,                              // mandatory\n149  \t\t\tfalse,                              // immediate\n150  \t\t\tamqp.Publishing{\n151  \t\t\t\tContentType: \"text/plain\",\n152  \t\t\t\tBody:        []byte(body),\n153  \t\t\t})\n154  \t\tif err != nil {\n155  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n156  \t\t}\n157  \t\tfmt.Printf(\"Mensagem de faturamento enviada para a queue %v: %v\\n\", routingKey, body)\n158  \t}"}</code></pre>
+  <h4 class="deep-h">O fanout: a chave ignorada</h4>
+  <p>Na publicação, a routing key é <code>""</code> (linha 118) e o laço é de 1.000 (linha 108).</p>
+  <pre><code>{"106  \t)\n107  \n108  \tfor i := 0; i < 1000; i++ {\n109  \n110  \t\tid := uuid.New()\n111  \n112  \t\t// Mensagem simples\n113  \t\tbody := fmt.Sprintf(\"id:%v\", id)\n114  \n115  \t\t// Publicando a mensagem na exchange\n116  \t\terr = ch.Publish(\n117  \t\t\t\"ecommerce.nova.venda\", // exchange\n118  \t\t\t\"\",                     // Binding key de roteamento - Ignorada no Fanout\n119  \t\t\tfalse,                  // mandatory\n120  \t\t\tfalse,                  // immediate\n121  \t\t\tamqp.Publishing{\n122  \t\t\t\tContentType: \"text/plain\",\n123  \t\t\t\tBody:        []byte(body),\n124  \t\t\t})\n125  \t\tif err != nil {\n126  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n127  \t\t}\n128  \n129  \t\tfmt.Printf(\"Mensagem de venda enviada para a exchange ecommerce.nova.venda: %v\\n\", body)\n130  \t}\n131  \n132  }"}</code></pre>
+  <h4 class="deep-h">O que um consumidor mais seguro faria</h4>
+  <p>Os remédios cabem em poucas linhas: <code>ch.Qos(10, 0, false)</code> para o <code>prefetch</code>, <code>amqp.Persistent</code> no <code>DeliveryMode</code>, <code>ch.Confirm(false)</code> no produtor para os <em>publisher confirms</em> e <code>d.Ack(false)</code> para confirmar uma mensagem por vez. A DLX entra como argumento da fila (<code>x-dead-letter-exchange</code>).</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Labs.</strong> As divergências acima são do repositório: <code>streadway/amqp</code> arquivado, laço de 3 bilhões, <code>Ack(true)</code>, ausência de persistência e de <code>prefetch</code>. O artigo reproduz esses mesmos exemplos sem apontar nenhuma delas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos RabbitMQ, pastas default, topic e fanout (sem vínculo)", href: "https://github.com/msfidelis/system-design-examples/tree/main/messages/rabbit-mq" },
+    { label: "rabbitmq/amqp091-go (cliente Go oficial)", href: "https://github.com/rabbitmq/amqp091-go" },
+    { label: "RabbitMQ: tutoriais oficiais (work queues, publish/subscribe e topics)", href: "https://www.rabbitmq.com/tutorials" },
+    { label: "RabbitMQ: Release Information (séries com suporte)", href: "https://www.rabbitmq.com/release-information" },
+    { label: "RabbitMQ: confiabilidade", href: "https://www.rabbitmq.com/docs/reliability" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora conversa de todos os jeitos: REST e gRPC entre serviços, eventos no Kafka, a posição do caminhão por MQTT e os e-mails no RabbitMQ. E a Black Friday mostrou algo que nenhum desses módulos mediu: o catálogo respondeu em <strong>2 s</strong> para parte dos clientes, e ninguém soube dizer quanto a loja aguenta. Quanto tempo leva de verdade, para quantos, e onde está o gargalo? Falta saber como <strong>medir</strong>: latência p50, p95 e p99, vazão e saturação. É o módulo 14, Performance, Capacidade e Escalabilidade.</p>
+
+<Flashcards cards={[
+  { q: "O que cada laboratório RabbitMQ roteia?",
+    a: "default: direct, exchange ecommerce.nova.venda e fila cobrar. topic: 3 filas, e o datalake recebe todas as 20 pelo faturamento.prioridade.*. fanout: 3 filas, cada uma recebe todas as mensagens." },
+  { q: "A mensagem do laboratório sobrevive a um reinício do broker?",
+    a: "Não. A fila é durável, mas a mensagem não tem DeliveryMode: Persistent." },
+  { q: "O que o Ack(true) faz de errado com processamento concorrente?",
+    a: "multiple = true confirma todas as pendentes até aquela, inclusive as que ainda estão em andamento, e elas podem se perder." },
+  { q: "O que acontece se o consumidor cair depois de enviar o e-mail e antes do ack?",
+    a: "O RabbitMQ reentrega com redelivered = true e a Lena recebe o e-mail duplicado. Conserto: message_id e idempotência." },
+  { q: "Qual é o próximo problema da loja, depois de comunicar de todos os jeitos?",
+    a: "Medir: o catálogo respondeu em 2 s na Black Friday e ninguém sabe quanto a loja aguenta. Latência p50, p95 e p99, vazão e saturação, no módulo 14." },
+]} />

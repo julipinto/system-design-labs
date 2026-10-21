@@ -1,0 +1,89 @@
+---
+title: "Conceitos de mensageria: FIFO, LIFO, DLQs e batches"
+order: 3
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja separou o que viaja: comando, evento e documento. Agora a mensagem precisa esperar em algum lugar até alguém lê-la, e esse lugar tem regras. Quem sai primeiro? Dá para sair na ordem inversa? Uma mensagem pode ir para vários lugares de uma vez? E o que se faz com a que ninguém consegue processar? Vamos ver cada uma dessas regras usando os e-mails do <code>notificacoes</code>.</p>
+
+<OneLiner>Uma <strong>fila</strong> entrega na ordem de chegada (FIFO), uma <strong>pilha</strong> na ordem inversa (LIFO), o <strong>fanout</strong> copia a mensagem para várias filas, e a <strong>DLQ</strong> guarda a que falhou, para a fila principal seguir.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>FIFO</strong>, avance com a seta → e veja os e-mails dos pedidos 1049, 1050 e 1051 saírem nessa ordem. Depois aperte o botão da <strong>DLQ</strong>, o "e se der errado": o e-mail do 1051 falha, e você conta as tentativas até a mensagem ir para <code>emails.dlq</code>. Anote quanto tempo passa entre elas.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-assincrona/fila-3d/?mode=fifo" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Figura interativa: Fila (FIFO) e pilha (LIFO)" alt="Prévia da figura 3D: Fila (FIFO) e pilha (LIFO)" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A fila <code>emails</code> recebe os e-mails dos pedidos <strong>1049, 1050 e 1051</strong>, nessa ordem. <code>Enqueue</code> põe no <strong>fim</strong>; <code>Dequeue</code> tira do <strong>começo</strong>. Sai o 1049, depois o 1050, depois o 1051: é o <strong>FIFO</strong> (<em>first in, first out</em>). É o mesmo programa do laboratório, que enfileira "Pizza, Hamburger, Churrasco" e tira nessa ordem.</li>
+  <li>A ordem tem preço. Um consumidor lento <strong>segura os de trás</strong>: se o e-mail do 1049 demora 30 s, o do 1051 espera junto. E a ordem global só existe com <strong>um</strong> consumidor; com vários lendo a mesma fila, cada um termina quando termina, e o 1051 pode sair antes do 1050.</li>
+  <li>A <strong>pilha</strong> (LIFO, <em>last in, first out</em>) faz o contrário: sai o que entrou por último. Na loja o uso certo é o <strong>desfazer</strong>. As ações do pedido 1051 empilham <code>pagar</code>, <code>reservar estoque</code> e <code>criar remessa</code>, e o desfazer sai na ordem inversa: <strong>cancelar a remessa, devolver o estoque, estornar o pagamento</strong> (isso volta na compensação do módulo 19). A pilha é uma estrutura de dados dentro do programa, e os brokers quase nunca oferecem fila LIFO.</li>
+  <li>O <strong>fanout</strong> é a cópia 1 para N: a mesma mensagem vai para N filas, uma por interessado. É o que acontece quando o <code>PedidoPago</code> precisa chegar ao <code>estoque</code>, às <code>entregas</code> e às <code>notificacoes</code>, cada um com a sua fila e o seu ritmo.</li>
+  <li>Falta o caso em que a mensagem não é processada. O <code>notificacoes</code> tenta mandar o e-mail do pedido 1051 e o provedor responde <code>550 endereço inválido</code>. Ele tenta <strong>3 vezes</strong>, esperando 1 s, 5 s e 30 s, e a mensagem vai para a <strong>DLQ</strong> (<em>dead letter queue</em>, fila de mensagens mortas), <code>emails.dlq</code>, com o motivo anexado. A fila principal segue com o 1052. A DLQ é monitorada: um alerta dispara se ela passar de 0.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Batch: duas coisas com o mesmo nome</h3>
+
+<p>"Lote" aparece em dois sentidos nesta área, e confundir os dois atrapalha. O primeiro é o <strong>processamento em lote</strong>: juntar o dia inteiro e processar de uma vez. O fechamento das 23:00 do módulo 11, com 400 mil linhas, que foi de 42 s a 12 s, é um batch.</p>
+
+<p>O segundo é o <strong>lote no envio</strong>, uma decisão do produtor. Com <code>linger.ms = 200</code>, o produtor espera até 200 ms antes de mandar, para juntar eventos. A 40 eventos por segundo em cada partição, acumulam <strong>8 eventos</strong> por lote: são <strong>5 envios por segundo</strong> por partição, 15 no total, em vez de 120. São <strong>8× menos requisições</strong>, ao custo de até 200 ms de atraso em cada evento.</p>
+
+<h3 class="sec">E se der errado: a mensagem ruim e o lote que espera</h3>
+
+<p>Sem DLQ, o e-mail inválido do 1051 volta para a fila e falha de novo, e de novo. É a <strong>poison message</strong> (mensagem envenenada): ela ocupa o começo da fila e <strong>trava a partição</strong>, aqui a <code>p0</code> (a aula 5 explica partições; por ora, pense numa fila). A 40 eventos por segundo, a fila atrás dela cresce <strong>2.400 eventos por minuto</strong> (40 × 60).</p>
+
+<p>O segundo erro é o lote com tráfego baixo. Com <code>linger.ms = 200</code> e quase nenhum evento chegando, o <code>PedidoPago</code> espera os 200 ms completos sem que nenhum outro evento chegue para fazer lote. O produtor atrasou o pagamento da Lena por nada. O valor do <code>linger.ms</code> é uma troca entre vazão e atraso.</p>
+
+<WhyItMatters>
+  <li><strong>Ordem tem preço.</strong> Um consumidor lento segura todos os de trás, e vários consumidores perdem a ordem global.</li>
+  <li><strong>LIFO é o desfazer.</strong> Cancelar remessa, devolver estoque, estornar pagamento: a ordem inversa é o jeito certo de desfazer.</li>
+  <li><strong>A DLQ protege a fila.</strong> Uma mensagem ruim vai para o lado depois de 3 tentativas, e as outras seguem.</li>
+  <li><strong>Lote no envio troca atraso por vazão.</strong> 8 eventos por envio dão 8× menos requisições e até 200 ms a mais.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <h4 class="deep-h">O código dos laboratórios, sem alteração</h4>
+  <p>Este é o <code>queue/main.go</code> do repositório público de exemplos do autor (os números à esquerda foram acrescentados para a leitura). O <code>Enqueue</code> faz <code>append</code> no fim e o <code>Dequeue</code> devolve o primeiro item e corta a fatia.</p>
+  <pre><code>{" 1  package main\n 2  \n 3  import (\n 4  \t\"fmt\"\n 5  )\n 6  \n 7  // Interface genérica para implementar os métodos de enfileiramento\n 8  type Queue []interface{}\n 9  \n10  // Adiciona um item ao fim da fila\n11  func (q *Queue) Enqueue(item interface{}) {\n12  \t*q = append(*q, item)\n13  }\n14  \n15  // Remove o primeiro item da fila e o retorna\n16  func (q *Queue) Dequeue() interface{} {\n17  \tif len(*q) == 0 {\n18  \t\treturn nil\n19  \t}\n20  \titem := (*q)[0]\n21  \t*q = (*q)[1:]\n22  \treturn item\n23  }\n24  \n25  func main() {\n26  \tqueue := Queue{}\n27  \n28  \t// Itens a serem adicionados na Queue\n29  \titems := []string{\n30  \t\t\"Pizza\",\n31  \t\t\"Hamburger\",\n32  \t\t\"Churrasco\",\n33  \t}\n34  \n35  \t// Adicionando os itens na ordem da lista\n36  \tfor _, item := range items {\n37  \t\tfmt.Println(\"Input:\", item)\n38  \t\tqueue.Enqueue(item)\n39  \t}\n40  \n41  \tfmt.Println()\n42  \n43  \t// Removendo os itens em ordem de chegada na lista\n44  \tfmt.Println(\"Output:\", queue.Dequeue())\n45  \tfmt.Println(\"Output:\", queue.Dequeue())\n46  \tfmt.Println(\"Output:\", queue.Dequeue())\n47  }"}</code></pre>
+  <p>E o trecho do <code>stack/main.go</code> que muda: a pilha tira do <strong>topo</strong>, o último índice. No resto do arquivo, o <code>main</code> empilha os mesmos três itens e a saída é Churrasco, Hamburger, Pizza.</p>
+  <pre><code>{" 7  type Stack []interface{}\n 8  \n 9  // Push adiciona um item ao topo da pilha\n10  func (s *Stack) Push(item interface{}) {\n11  \t*s = append(*s, item)\n12  }\n13  \n14  // Pop remove o item do topo da pilha e o retorna\n15  func (s *Stack) Pop() interface{} {\n16  \tif len(*s) == 0 {\n17  \t\treturn nil\n18  \t}\n19  \tindex := len(*s) - 1\n20  \titem := (*s)[index]\n21  \t*s = (*s)[:index]\n22  \treturn item\n23  }"}</code></pre>
+  <h4 class="deep-h">Uma pilha de verdade para a loja</h4>
+  <p>Trocando os itens do laboratório pelas ações do 1051, o <code>Pop</code> devolve <code>criar remessa</code>, <code>reservar estoque</code> e <code>pagar</code>, e cada uma vira a ação inversa. O programa do laboratório não faz isso: ele só mostra a ordem de saída.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>LIFO "em mensageria".</strong> O artigo diz que o LIFO é empregado "também em queues no conceito de mensageria". Brokers de mensagem são FIFO ou não garantem ordem; a pilha é estrutura de dados. A ordem do Kafka só vale <strong>dentro da partição</strong>; a do RabbitMQ se perde com vários consumidores e com reenfileiramento; a do SQS padrão não existe (a FIFO tem <em>message group</em>).</li>
+    <li><strong><code>batch.size</code> e <code>linger.ms</code>.</strong> O artigo trata o lote como "1 item por vez" e "batch de 1000 eventos". No Kafka, <code>batch.size</code> é em <strong>bytes</strong> (padrão 16384, 16 KiB, no cliente Java), e o <code>linger.ms</code> é o tempo de espera para juntar o lote (padrão 0 até o Kafka 3.x e 5 ms a partir do 4.0). Para "1 evento por envio" o certo é <code>linger.ms = 0</code>, e mesmo assim o cliente agrupa o que já estiver na fila de envio.</li>
+    <li><strong>DLQ no Kafka.</strong> O artigo trata a DLQ como um recurso geral. No RabbitMQ ela existe como <em>dead letter exchange</em> (aula 9). No Kafka <strong>não há DLQ nativa</strong> para consumidores: o time cria um tópico como <code>pedidos.dlq</code> e a lógica de mandar para lá (aula 5).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre mensageria, eventos e streaming (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Enterprise Integration Patterns: Dead Letter Channel", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/DeadLetterChannel.html" },
+    { label: "RabbitMQ: Dead Letter Exchanges", href: "https://www.rabbitmq.com/docs/dlx" },
+    { label: "Apache Kafka: configurações do produtor (linger.ms e batch.size)", href: "https://kafka.apache.org/40/generated/producer_config.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Em todas essas estruturas a mensagem some quando alguém a confirma: a fila é um corredor por onde as mensagens passam uma vez. Mas o <code>antifraude</code>, que acabou de chegar, quer ler os eventos do dia que já passaram. Falta saber o que muda quando a mensagem <em>fica</em> depois de lida: é o streaming de dados.</p>
+
+<Flashcards cards={[
+  { q: "Em que ordem saem os e-mails 1049, 1050 e 1051 de uma fila FIFO?",
+    a: "1049, 1050, 1051: Enqueue põe no fim, Dequeue tira do começo." },
+  { q: "Para que serve uma pilha (LIFO) na loja?",
+    a: "O desfazer: cancelar remessa, devolver estoque, estornar pagamento, na ordem inversa de pagar, reservar e criar remessa." },
+  { q: "Como a DLQ trata o e-mail inválido do pedido 1051?",
+    a: "3 tentativas (1 s, 5 s, 30 s), depois vai para emails.dlq com o motivo. A fila principal segue, e a DLQ tem alerta se passar de 0." },
+  { q: "O que é uma poison message sem DLQ?",
+    a: "Uma mensagem que falha sempre e volta ao começo: trava a partição. A 40 eventos/s a fila cresce 2.400 por minuto." },
+  { q: "Quanto o linger.ms = 200 economiza a 40 eventos/s por partição?",
+    a: "Lotes de 8 eventos: 5 envios/s por partição em vez de 40 (15 contra 120 no total), 8× menos requisições, ao custo de até 200 ms." },
+]} />
