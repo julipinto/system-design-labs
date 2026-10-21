@@ -47,7 +47,7 @@ Ponto = (réplicas X, funções Y, partições Z).
 | a busca de 900 ms por requisição | módulo 7 | **nenhum eixo**: índice (módulo 4) ou cache (módulo 5). Escala não conserta código lento |
 
 ### O pedido-estrela: 1053 (Caio, Rio)
-**1 caneca azul** (19,90) + frete Rio **12,00** (constante nova) = **31,90**; estoque da caneca **38 → 37** (o 1051 do módulo 13 deixou 38). Caio é o cliente que perdeu o último gato no 1049 (módulo 11). O 1053 atravessa os três eixos e a figura o segue: **X** (o `lb-loja` escolhe uma das 3 réplicas de `pedidos`), **Y** (passa por `carrinho → pedidos → pagamentos → estoque → entregas`, cinco serviços, quatro saltos de 5 ms = +20 ms, módulo 6) e **Z** (`caio-58` → shard 2, ver módulo 16; **mostrar como "o que vai existir"**, porque o Z só nasce no módulo 16).
+Às **20:05** da Black Friday: **1 caneca azul** (19,90) + frete Rio **12,00** (constante nova) = **31,90**; estoque da caneca **38 → 37** (o 1051 do módulo 13 deixou 38). Caio é o cliente que perdeu o último gato no 1049 (módulo 11). O 1053 atravessa os três eixos e a figura o segue: **X** (o `lb-loja` escolhe uma das 3 réplicas de `pedidos`), **Y** (passa por `carrinho → pedidos → pagamentos → estoque → entregas`, cinco serviços, quatro saltos de 5 ms = +20 ms, módulo 6) e **Z** (`caio-58` → shard 2, ver módulo 16; **mostrar como "o que vai existir"**, porque o Z só nasce no módulo 16).
 
 ### Conta por eixo (aula 1 e aula 6): `pedidos` com a demanda de 200 pedidos/s (a Black Friday do ano que vem, hook do módulo 23)
 Cada réplica de `pedidos` dá **30 pedidos/s** (33 ms de CPU por pedido, a conta do módulo 14); o banco de **um** primário dá **150/s**.

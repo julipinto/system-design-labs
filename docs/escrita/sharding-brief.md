@@ -34,7 +34,7 @@ O módulo 15 ensinou o cubo e deixou o eixo **Z** como o único que a loja nunca
 | `mkt-01` | `0x9ebaf255` | **2** | 1 | 597 → 0 | 2 → 2 | 1 |
 
 - **Com `mod 3`** (aulas 1–6): `shard-0` = `davi-12` (3 linhas); `shard-1` = `lena-77` + `bia-31` (**9** linhas); `shard-2` = `caio-58` (2 linhas) e o `mkt-01`. Na amostra de 14 linhas a distribuição é **3 / 9 / 2**; é a "lei dos pequenos números" e a aula 6 diz isso (a tabela de 50 milhões tem os 1,5 milhão de clientes normais espalhados por igual).
-- **Pedido-estrela: 1054 (Lena, Recife):** **1 camiseta preta** (49,00, o preço do módulo 4) + frete Recife **15,00** = **64,00**. O roteador calcula `murmur3('lena-77') mod 3 = 1` e grava no `shard-1`.
+- **Pedido-estrela: 1054 (Lena, Recife), às 20:08 da Black Friday:** **1 camiseta preta** (49,00, o preço do módulo 4) + frete Recife **15,00** = **64,00**. O roteador calcula `murmur3('lena-77') mod 3 = 1` e grava no `shard-1`.
 - **Ao passar de 3 para 4 shards:** com `mod 4`, **4 de 5** clientes mudam de shard (`lena-77` 1 → 0, `bia-31` 1 → 3, `caio-58` 2 → 1, `mkt-01` 2 → 1; só `davi-12` fica) e vários vão **entre shards antigos**; com o **anel** só `caio-58` e `davi-12` mudam, e **ambos para o shard novo**; com os **slots** só a `bia-31` muda (regra: o `shard-3` fica com os **últimos** 86, 85 e 85 slots, em ordem de número, dos shards 0, 1 e 2: slots ≥ 768, 769 e 770).
 
 ### O que muda quando N muda (100.000 chaves sintéticas `c-0` … `c-99999`, murmur3; as contas de verdade)
