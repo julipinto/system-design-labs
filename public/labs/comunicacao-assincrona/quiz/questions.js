@@ -225,19 +225,19 @@
     "p0 nos dois.",
     "p0 no sarama e p2 no Java.",
     "p1 nos dois."
-  ], 0, "O sarama usa FNV-1a e o Java usa murmur2. Misturar clientes quebra a ordem de um pedido sem erro nenhum.");
+  ], 0, "O sarama usa FNV-1a e o Java usa murmur2 (conferido rodando os dois). Misturar clientes quebra a ordem de um pedido sem erro nenhum.");
   choice("t6", 4, 3, "O faturamento processa 100 ms por evento e cai antes do auto-commit de 1 s. Quantos eventos aproximadamente são reprocessados?", [
     "Cerca de 10.",
     "Cerca de 1.000.",
     "Nenhum.",
     "Cerca de 100."
-  ], 0, "1 s ÷ 100 ms = 10 eventos. Conserto: idempotência pelo evento_id ou commit manual depois de gravar.");
+  ], 0, "1 s ÷ 100 ms = 10 eventos no pior caso (no teste com SIGKILL, foram 6). Conserto: idempotência pelo evento_id ou commit manual depois de gravar.");
   choice("t6", 5, 2, "Por que o tópico pedidos do laboratório tem 1 partição?", [
     "O setup.sh o cria com 1 partição.",
     "O Kafka limita a 1 partição por tópico.",
     "Ele é criado automaticamente e o num.partitions padrão é 1.",
     "O produtor usa 1 partição."
-  ], 2, "Para ver partições, o laboratório usa o pedidos-particionados, criado com 3 pelo setup.sh.");
+  ], 2, "Para ver partições, o laboratório usa o pedidos-particionados, que o setup.sh deveria criar com 3 (rodado, ele falha: chama docker exec kafka e o container é kafka-kraft).");
   tf("t6", 6, 2, "O laço do partition_key para em 50 mensagens, como diz o comentário.", false, "O comentário diz 50, mas o laço só para em 15.000.");
 
   /* ---------- 7. MQTT ---------- */
@@ -297,7 +297,7 @@
     "Nenhuma é guardada.",
     "Só as 600 primeiras são guardadas.",
     "Ficam 1.000 e as 200 excedentes são descartadas."
-  ], 3, "20 min × 60 s = 1.200 mensagens, para uma fila de 1.000 por cliente. Sessão persistente é uma fila curta, e não um log.");
+  ], 3, "20 min × 60 s = 1.200 mensagens, para uma fila de 1.000 por cliente. Testado no Mosquitto 2.0: voltaram 1.000, as da 1 à 1000, e as 200 mais novas foram descartadas. Sessão persistente é uma fila curta, e não um log.");
   choice("t8", 4, 2, "Por que o laboratório não dá para retomar uma sessão persistente?", [
     "O Mosquitto não suporta.",
     "O clientID usa time.Now().Unix() e muda a cada execução.",

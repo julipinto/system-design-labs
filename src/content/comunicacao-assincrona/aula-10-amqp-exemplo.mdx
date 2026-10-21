@@ -11,6 +11,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
 
 <p class="ponte">Na aula passada a topologia dos e-mails estava no papel: uma topic exchange <code>emails</code>, três filas, uma DLX. O repositório público do autor tem três laboratórios em Go com RabbitMQ que montam exatamente os três jeitos de rotear: <code>default/</code> (direct), <code>topic/</code> e <code>fanout/</code>. Vamos lê-los contra a aula, porque cada um deixa de fora algo que a garantia da aula 9 pedia.</p>
 
@@ -38,9 +39,9 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <ol class="flow steps">
   <li><strong>O cliente está arquivado.</strong> O <code>streadway/amqp</code> não recebe mais mudanças; o substituto é o <code>rabbitmq/amqp091-go</code>.</li>
-  <li><strong>O <code>default/producer.go</code> declara a topologia e publica em um laço de 3 bilhões de iterações</strong>, sem <em>publisher confirms</em>. Ele enche a fila e a memória do broker, porque o produtor nunca sabe se o broker acompanha.</li>
-  <li><strong>As mensagens não são persistentes.</strong> São <code>text/plain</code> sem <code>DeliveryMode: Persistent</code>. A fila é durável, a mensagem é transitória: ela sobrevive a um reinício do broker? <strong>Não.</strong></li>
-  <li><strong>Nenhum consumidor chama <code>ch.Qos(...)</code>.</strong> Sem <code>prefetch</code>, o broker empurra <strong>tudo</strong> para o primeiro consumidor que conectar.</li>
+  <li><strong>O <code>default/producer.go</code> declara a topologia e publica em um laço de 3 bilhões de iterações</strong>, sem <em>publisher confirms</em>. Ele enche a fila e a memória do broker, porque o produtor nunca sabe se o broker acompanha. Em 4 s, o produtor imprimiu 212.188 linhas de "enviada", e a fila tinha 208.902 mensagens: sem confirmação, ele não tem como saber quantas chegaram.</li>
+  <li><strong>As mensagens não são persistentes.</strong> São <code>text/plain</code> sem <code>DeliveryMode: Persistent</code>. A fila é durável, a mensagem é transitória: ela sobrevive a um reinício do broker? <strong>Não.</strong> Testei: com 119.161 mensagens na fila <code>cobrar</code>, um <code>docker restart</code> do broker devolveu a fila e a exchange, e <strong>0</strong> mensagens.</li>
+  <li><strong>Nenhum consumidor chama <code>ch.Qos(...)</code>.</strong> Sem <code>prefetch</code>, o broker empurra <strong>tudo</strong> para o primeiro consumidor que conectar. O <code>rabbitmqctl list_channels</code> mostrou <code>prefetch_count = 0</code> (sem limite) e 467 mensagens entregues e ainda sem <code>ack</code> num instante da leitura.</li>
   <li><strong><code>d.Ack(true)</code> usa <code>multiple = true</code>.</strong> Isso confirma <strong>todas</strong> as mensagens pendentes até aquela. Se o processamento for concorrente, mensagens ainda em andamento são confirmadas e podem se perder.</li>
 </ol>
 
@@ -49,7 +50,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <ol class="flow steps">
   <li><strong>A imagem é <code>rabbitmq:3-management</code>.</strong> A série 3.13 teve o fim do suporte da comunidade em 30 de setembro de 2024, e a série atual é a 4.x.</li>
   <li><strong>O comentário <code>routing key (binding key)</code> mistura os dois nomes</strong> que a aula 9 separou.</li>
-  <li><strong>Dois laboratórios usam o mesmo nome de exchange com tipos diferentes.</strong> O <code>default/</code> declara <code>ecommerce.nova.venda</code> como direct, e o <code>fanout/</code>, como fanout. Rodar os dois no mesmo broker faz o segundo falhar na declaração, porque o tipo não bate.</li>
+  <li><strong>Dois laboratórios usam o mesmo nome de exchange com tipos diferentes.</strong> O <code>default/</code> declara <code>ecommerce.nova.venda</code> como direct, e o <code>fanout/</code>, como fanout. Rodar os dois no mesmo broker faz o segundo falhar na declaração, porque o tipo não bate. Rodado: com o <code>default/</code> já declarado, o <code>fanout/producer.go</code> imprime <code>Falha ao construir a exchange Exception (406) Reason: "PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'ecommerce.nova.venda' in vhost '/': received 'fanout' but current is 'direct'"</code>.</li>
   <li><strong>O fanout publica 1.000 mensagens,</strong> e não um punhado: cada uma das 3 filas acumula as 1.000 se ninguém consumir.</li>
 </ol>
 
@@ -67,6 +68,25 @@ import Flashcards from '../../components/Flashcards.astro';
 </WhyItMatters>
 
 <Deep min={8}>
+  <h4 class="deep-h">O que saiu quando rodei</h4>
+  <p>Executei os três laboratórios em 21/10/2026 (Docker 29.9.1, <code>rabbitmq:3-management</code>, que veio na versão 3.13.7). Compilei os programas com a imagem <code>golang</code> e os rodei numa imagem <code>alpine</code> na rede do compose, com o broker em <code>rabbitmq:5672</code> no lugar de <code>localhost</code>, só na minha cópia. A saída completa está em <a href={withBase('labs/comunicacao-assincrona/lab/amqp-saida.txt')}>amqp-saida.txt</a>.</p>
+  <pre><code>{String.raw`# default/ (direct): produtor por 4 s
+$ rabbitmqctl list_queues name durable messages
+cobrar  true  208902
+
+# fanout/producer.go contra o mesmo broker (ecommerce.nova.venda já é direct)
+Falha ao construir a exchange Exception (406) Reason: "PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'ecommerce.nova.venda' in vhost '/': received 'fanout' but current is 'direct'"
+
+# broker novo, fanout/: produtor publica 1000
+informar_logistica 1000 | cobrar_pedido 1000 | reservar_estoque 1000
+
+# broker novo, topic/: 3 rodadas do produtor (60 mensagens)
+queue.faturamento.prioritario 4 | queue.faturamento 56 | queue.faturamento.datalake 60`}</code></pre>
+  <ul>
+    <li><strong>Confirmado:</strong> o direct entrega na fila <code>cobrar</code>; o fanout copia as 1.000 mensagens para cada uma das 3 filas (com um consumidor lendo a <code>cobrar_pedido</code>, as outras duas seguiram com 1.000); no topic, o <code>datalake</code> recebeu as 60 (<code>faturamento.prioridade.*</code>), 4 foram para a prioritária (a ~7%, perto dos 10% do sorteio, e numa rodada de 20 saíram 0), e as outras 56 para a fila padrão.</li>
+    <li><strong>Confirmado:</strong> o conflito de tipo na exchange <code>ecommerce.nova.venda</code> (erro 406, acima), a mensagem que não sobrevive a um reinício, o <code>prefetch_count = 0</code> e a falta de confirmação do produtor.</li>
+    <li><strong>O compose não subiu de primeira.</strong> O <code>docker-compose.yml</code> monta <code>./tmp:/var/lib/rabbitmq</code>, e o RabbitMQ caiu com <code>Error when reading /var/lib/rabbitmq/.erlang.cookie: eacces</code>. Repeti três vezes, com o <code>./tmp</code> novo e com um volume nomeado: o container sai com código 1. Um <code>docker start</code> no mesmo container, a segunda partida, sobe sem erro. Não investiguei a causa; não deve ser comum em Linux puro, e aparece no Docker sobre WSL.</li>
+  </ul>
   <h4 class="deep-h">O produtor e o consumidor direct, sem alteração</h4>
   <p>Trechos do repositório público de exemplos do autor (os números à esquerda são os das linhas dos arquivos). No <code>default/producer.go</code>, o laço de 3 bilhões está na linha 66; no <code>default/consumer.go</code>, o <code>auto-ack = false</code> está na linha 42 e o <code>Ack(true)</code>, na 54.</p>
   <pre><code>{"56  \t// Associando a Queue até a Exchange\n57  \t// e informando a binding key para roteamento\n58  \terr = ch.QueueBind(\n59  \t\tq.Name,                 // Nome da fila\n60  \t\t\"cobrar\",               // Binding key de roteamento\n61  \t\t\"ecommerce.nova.venda\", // Nome da exchange\n62  \t\tfalse,                  // no-wait\n63  \t\tnil,                    // arguments\n64  \t)\n65  \n66  \tfor i := 0; i < 3000000000; i++ {\n67  \n68  \t\tid := uuid.New()\n69  \n70  \t\t// Mensagem simples\n71  \t\tbody := fmt.Sprintf(\"id:%v\", id)\n72  \n73  \t\t// Publicando a mensagem na exchange\n74  \t\terr = ch.Publish(\n75  \t\t\t\"ecommerce.nova.venda\", // exchange\n76  \t\t\t\"cobrar\",               // routing key (binding key)\n77  \t\t\tfalse,                  // mandatory\n78  \t\t\tfalse,                  // immediate\n79  \t\t\tamqp.Publishing{\n80  \t\t\t\tContentType: \"text/plain\",\n81  \t\t\t\tBody:        []byte(body),\n82  \t\t\t})\n83  \t\tif err != nil {\n84  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n85  \t\t}\n86  \n87  \t\tfmt.Printf(\"Mensagem de venda enviada para a exchange ecommerce.nova.venda: %v\\n\", body)\n88  \t}"}</code></pre>
@@ -99,7 +119,7 @@ import Flashcards from '../../components/Flashcards.astro';
   { q: "O que cada laboratório RabbitMQ roteia?",
     a: "default: direct, exchange ecommerce.nova.venda e fila cobrar. topic: 3 filas, e o datalake recebe todas as 20 pelo faturamento.prioridade.*. fanout: 3 filas, cada uma recebe todas as mensagens." },
   { q: "A mensagem do laboratório sobrevive a um reinício do broker?",
-    a: "Não. A fila é durável, mas a mensagem não tem DeliveryMode: Persistent." },
+    a: "Não. A fila é durável, mas a mensagem não tem DeliveryMode: Persistent. Testado: 119.161 mensagens na fila, docker restart, 0 mensagens ao voltar (a fila e a exchange voltaram)." },
   { q: "O que o Ack(true) faz de errado com processamento concorrente?",
     a: "multiple = true confirma todas as pendentes até aquela, inclusive as que ainda estão em andamento, e elas podem se perder." },
   { q: "O que acontece se o consumidor cair depois de enviar o e-mail e antes do ack?",

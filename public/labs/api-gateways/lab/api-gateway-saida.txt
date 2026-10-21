@@ -1,0 +1,52 @@
+# Lab api-gateway (Kong 3.4, DB-less), executado em 2026-10-21 (docker 29.9.1). Sem ajustes no compose.
+
+$ curl -si localhost:8000/api/v1/users      -> 200  {"app":"App 1 - Users Service","message":"Users Service V1","port":"8081"}
+$ curl -si localhost:8000/api/v1/products   -> 200  {"app":"App 2 - Products Service","message":"Products Service V1","port":"8082"}
+$ curl -si localhost:8000/api/v1/orders     -> 200  {"app":"App 3 - Orders Service","message":"Orders Service V1","port":"8083"}
+$ curl -si localhost:8000/api/v2/orders     -> 200  {"app":"App 3 - Orders Service","message":"Orders Service V2","port":"8084"}
+$ curl -si localhost:8000/api/v1/products/42 -> 404 "404 page not found" (text/plain; quem recusou foi o app Go)
+
+$ curl -s localhost:8001/routes   (name paths strip_path path_handling)
+orders-route-v2 ['/api/v2/orders'] True v0
+products-route ['/api/v1/products'] True v1
+orders-route ['/api/v1/orders'] True v1
+users-route ['/api/v1/users'] True v1
+
+$ docker compose ps -> kong, orders, orders-v2, products: healthy; users-service: (unhealthy)
+  healthcheck: "wget: server returned error: HTTP/1.1 404 Not Found" (o app expõe /users/health, não /health)
+
+# plugin acrescentado ao fim do kong.yml e `docker compose restart kong`
+plugins:
+  - name: rate-limiting
+    service: products-service
+    config: {second: 10, limit_by: ip, policy: local}
+
+# 15 pedidos seguidos (curl em laço, ~2 ms cada, dentro do mesmo segundo):
+200 x10, 429 x5
+--- pedido 1
+HTTP/1.1 200 OK
+X-RateLimit-Remaining-Second: 9
+X-RateLimit-Limit-Second: 10
+RateLimit-Limit: 10
+RateLimit-Remaining: 9
+RateLimit-Reset: 1
+--- pedido 10
+HTTP/1.1 200 OK   (Remaining-Second: 0, RateLimit-Remaining: 0)
+--- pedido 11
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1
+X-RateLimit-Remaining-Second: 0
+X-RateLimit-Limit-Second: 10
+RateLimit-Limit: 10
+RateLimit-Remaining: 0
+RateLimit-Reset: 1
+Content-Type: application/json; charset=utf-8
+{
+  "message":"API rate limit exceeded"
+}
+
+# 15 pedidos em paralelo (xargs -P 15), 4 rodadas: 10/5, 11/4, 11/4, 11/4 (200 / 429).
+#   Quando a rajada atravessa a virada do segundo (alguns pedidos demoraram 2 a 4 s, ver abaixo), passa 1 a mais.
+# Observação: pedidos isolados às vezes levam 2 a 4 s (um em ~10; time_starttransfer=4.0 em /api/v1/users); o normal é 1 a 2 ms.
+# O limite só vale para a rota do products-service: /users e /orders não trazem cabeçalhos RateLimit-*.
+$ docker compose down -v ; docker ps -> só os 3 containers de outros projetos

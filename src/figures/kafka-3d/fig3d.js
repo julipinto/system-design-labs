@@ -593,8 +593,8 @@ FIGS3D.push({ id: 'kafka', name: 'Kafka', mod: (() => {
           o.res = again ? [`${at} eventos processados de novo`, 'conserto: idempotência pelo evento_id'] : down ? ['caiu antes do commit de 1 s'] : [];
           if (again) T(o, SPOT.r(0), 'mesmos eventos, de novo', 'bad'); } },
       { id: 'fnv', dur: 8, title: 'E se der errado: FNV no Go, murmur2 no Java', yk: 'A CONTA · mesma chave, dois clientes',
-        code: ['chave  Java murmur2  sarama FNV-1a', '1049   p0           p2', '1050   p2           p0', '1051   p0           p2', '// sarama: NewHashPartitioner usa FNV-1a', '// para bater com o Java: NewMurmur2Partitioner'],
-        story: 'O NewHashPartitioner do sarama, o cliente Go do lab, não usa o murmur2 do cliente Java: usa FNV-1a. A mesma chave cai em partições diferentes. Com 3 partições, o 1051 vai para a p0 no Java e para a p2 no Go. Se o pedidos publica em Java e o estoque, em Go, os eventos do 1051 ficam em duas partições e perdem a ordem. O sarama tem o NewMurmur2Partitioner para ficar igual ao Java.',
+        code: ['chave  Java murmur2  sarama FNV-1a', '1049   p0           p2', '1050   p2           p0', '1051   p0           p2', '// sarama: NewHashPartitioner usa FNV-1a', '// para bater com o Java: um hasher murmur2 próprio'],
+        story: 'O NewHashPartitioner do sarama, o cliente Go do lab, não usa o murmur2 do cliente Java: usa FNV-1a. A mesma chave cai em partições diferentes. Com 3 partições, o 1051 vai para a p0 no Java e para a p2 no Go. Se o pedidos publica em Java e o estoque, em Go, os eventos do 1051 ficam em duas partições e perdem a ordem. O sarama não traz um particionador murmur2 pronto (conferi o pacote: v1.42.1 e v1.46.3); para ficar igual ao Java é preciso passar um hasher murmur2 próprio.',
         look: 'Duas fichas com a chave 1051: a do Java cai na p0, a do Go cai na p2, em vermelho.',
         key: 'A partição depende do hash do cliente: misture clientes só com o mesmo particionador.',
         f(o, t) { for (let i = 1; i < 3; i++) o.show['r' + i] = 1;
@@ -604,7 +604,7 @@ FIGS3D.push({ id: 'kafka', name: 'Kafka', mod: (() => {
           send(o, t, 0.4, 'r0', c0, 0); send(o, t, 1.8, 'r2', c2, 0, 'bad');
           if (t > 1.5) { o.rows.r0.cells = c0; o.on.r0 = 1; } if (t > 2.9) { o.rows.r2.cells = c2; o.on.r2 = 'bad'; }
           o.rows.prod = grp('chave 1051', '2 clientes', ['Java: murmur2 → p0', 'acc'], ['Go: FNV-1a → p2', t > 1.8 ? 'bad' : 'dim'], ['mesma chave, 2 trilhos', t > 2.9 ? 'bad' : 'dim']); o.on.prod = t > 2.9 ? 'bad' : 1;
-          o.on.side = 2; o.rows.side = grp('sarama', 'partitioner.go', ['NewHashPartitioner: FNV', 'bad'], ['NewMurmur2Partitioner', 'acc']);
+          o.on.side = 2; o.rows.side = grp('sarama', 'partitioner.go', ['NewHashPartitioner: FNV', 'bad'], ['murmur2: hasher próprio', 'acc']);
           o.cnt = C3(['CHAVE', '1051'], ['JAVA', 'p0'], ['GO (sarama)', t > 1.8 ? 'p2' : '…', 'bad']);
           o.res = t > 2.9 ? ['1051 em p0 e em p2', 'ordem do pedido partida'] : [];
           if (t > 3) T(o, SPOT.r(2), 'Go: 1051 → p2', 'bad'); } },

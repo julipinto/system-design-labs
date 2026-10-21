@@ -12,6 +12,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
+import { withBase } from '../../lib/url.js';
 
 <p class="ponte">Na aula passada o <code>gw-loja</code> ficou com as quatro peças do módulo: rota, login, limite e versão. Tudo isso foi desenhado com a loja, e falta ver como fica num gateway de verdade. O laboratório público do autor usa o Kong, e a parte que interessa cabe em 39 linhas de YAML. Vamos ler esse arquivo do começo ao fim, mapear cada nome para a loja e depois acrescentar o que o laboratório deixou de fora: o limite de pedidos.</p>
 
@@ -83,6 +84,23 @@ import Figure3D from '../../components/Figure3D.astro';
 curl localhost:8000/api/v2/orders
 { "app": "App 3 - Orders Service", "message": "Orders Service V2", "timestamp": "…", "port": "8084" }`}</code></pre>
 
+<p>Rodei o laboratório em 21/10/2026 (Kong 3.4, Docker 29.9.1, o compose sem nenhuma alteração) e chamei as quatro rotas. Todas voltaram <code>200</code>, cada uma no app certo:</p>
+
+<pre class="lab-code"><code>{String.raw`/api/v1/users     -> 200  "Users Service V1"     port 8081
+/api/v1/products  -> 200  "Products Service V1"  port 8082
+/api/v1/orders    -> 200  "Orders Service V1"    port 8083
+/api/v2/orders    -> 200  "Orders Service V2"    port 8084
+
+/api/v1/products/42  -> 404 "404 page not found"   (text/plain: quem recusou foi o app Go)
+
+curl -s localhost:8001/routes   (nome, caminho, strip_path, path_handling)
+users-route      /api/v1/users     true  v1
+products-route   /api/v1/products  true  v1
+orders-route     /api/v1/orders    true  v1
+orders-route-v2  /api/v2/orders    true  v0`}</code></pre>
+
+<p>O <code>strip_path</code> e o <code>path_handling</code> aparecem na Admin API como estão no arquivo, e a v2, sem <code>path_handling</code>, ficou no <code>v0</code>, como as linhas 33 a 39 descrevem. A saída completa está em <a href={withBase('labs/api-gateways/lab/api-gateway-saida.txt')}>api-gateway-saida.txt</a>.</p>
+
 <p>Nenhuma dessas rotas tem login ou limite. Para ligar o limite, a loja acrescentaria um plugin ao mesmo arquivo. Este trecho é um <strong>exemplo meu</strong>, e não faz parte do repositório.</p>
 
 <pre class="lab-code"><code>{String.raw`# trecho de EXEMPLO (não está no repositório): vai no mesmo kong.yml, no fim
@@ -100,17 +118,22 @@ plugins:
 #     redis_host: redis
 #     redis_port: 6379`}</code></pre>
 
-<p>Do 11º pedido do mesmo IP dentro do mesmo segundo em diante, o Kong responde sozinho, sem chamar o <code>products-service</code>. O corpo é o texto <code>API rate limit exceeded</code>, e os cabeçalhos seguem a documentação do plugin (os valores abaixo são de exemplo).</p>
+<p>Do 11º pedido do mesmo IP dentro do mesmo segundo em diante, o Kong responde sozinho, sem chamar o <code>products-service</code>. O corpo é um JSON com a mensagem <code>API rate limit exceeded</code>. Liguei o plugin com este trecho (<code>docker compose restart kong</code>) e mandei 15 pedidos seguidos, de 2 ms cada, dentro do mesmo segundo: os 10 primeiros voltaram <code>200</code> e os 5 últimos, <code>429</code>. Este é o 11º, como o Kong respondeu de verdade.</p>
 
 <pre class="lab-code"><code>{String.raw`HTTP/1.1 429 Too Many Requests
+Content-Type: application/json; charset=utf-8
+Retry-After: 1
+X-RateLimit-Remaining-Second: 0
+X-RateLimit-Limit-Second: 10
 RateLimit-Limit: 10
 RateLimit-Remaining: 0
 RateLimit-Reset: 1
-X-RateLimit-Limit-Second: 10
-X-RateLimit-Remaining-Second: 0
-Retry-After: 1
 
-{ "message": "API rate limit exceeded" }`}</code></pre>
+{
+  "message":"API rate limit exceeded"
+}`}</code></pre>
+
+<p>Os pedidos <code>200</code> também trazem os cabeçalhos: o 1º veio com <code>RateLimit-Remaining: 9</code> e o 10º com <code>0</code>. Só a rota do <code>products-service</code> tem esses cabeçalhos: <code>/users</code> e <code>/orders</code> não têm plugin. Com 15 pedidos <em>em paralelo</em> (<code>xargs -P 15</code>), a divisão ficou entre 10 e 11 passando e 5 e 4 recusados: o limite vale por segundo de relógio, e quando a rajada atravessa a virada do segundo o contador zera e entra um pedido a mais. Ainda sobre o tempo: um pedido isolado levava 1 a 2 ms, mas de vez em quando um deles demorou 2 a 4 s (medido num <code>/api/v1/users</code>: 4,0 s até o primeiro byte), sem erro. Não achei a causa, e não mexe na conta do limite.</p>
 
 <Widget name="replicas" title="Calculadora: quantos nós do gateway, onde mora o contador" hint="Escolha quantos nós do Kong estão atrás do balanceador, e se a policy é local ou redis. A conta mostra quantos pedidos por segundo o robô de 500 consegue passar." />
 
@@ -137,11 +160,11 @@ Retry-After: 1
     <li><strong>Balanceamento:</strong> cada service aponta para um contêiner só, então não há réplicas atrás do gateway.</li>
     <li><strong>Aviso de descontinuação:</strong> nada acrescenta os cabeçalhos <code>Deprecation</code> e <code>Sunset</code> às respostas da v1.</li>
   </ul>
-  <h4 class="deep-h">Pontas soltas do repositório (conferidas lendo o código)</h4>
+  <h4 class="deep-h">Pontas soltas do repositório (conferidas lendo o código e rodando o laboratório)</h4>
   <ul>
     <li>O <code>setup-kong.sh</code> e o <code>test-kong.sh</code> ainda chamam <code>/api/users</code>, <code>/api/products</code> e <code>/api/orders</code>, e o <code>kong.yml</code> usa <code>/api/v1/...</code>. Os <code>curl</code> deste texto, que são os do README, seguem o <code>kong.yml</code>.</li>
     <li>Os apps só respondem a <code>/users</code>, <code>/products</code> e <code>/orders</code> exatos. Um <code>curl localhost:8000/api/v1/products/42</code> chega ao app como <code>/products/42</code>, e esse caminho não existe lá (404). O <code>strip_path</code> funcionou, e quem recusou foi o app.</li>
-    <li>O <code>healthcheck</code> do compose pede <code>/health</code> ao <code>users-service</code>, mas esse app expõe <code>/users/health</code>. O contêiner tende a ficar marcado como <em>unhealthy</em>.</li>
+    <li>O <code>healthcheck</code> do compose pede <code>/health</code> ao <code>users-service</code>, mas esse app expõe <code>/users/health</code>. Rodado, o <code>docker compose ps</code> mostrou o <code>users-service</code> como <em>unhealthy</em> (o log do healthcheck: <code>wget: server returned error: HTTP/1.1 404 Not Found</code>), e os outros quatro como <em>healthy</em>. O serviço atende normalmente.</li>
     <li>O README manda rodar <code>make kong-run</code>, e a pasta não tem Makefile. O jeito que funciona é o <code>docker-compose up -d --build</code>.</li>
     <li>O compose publica a Admin API (porta 8001) em <code>0.0.0.0</code>, sem autenticação. É conveniente num laboratório e perigoso em qualquer rede aberta. No modo DB-less ela só aceita leitura.</li>
   </ul>

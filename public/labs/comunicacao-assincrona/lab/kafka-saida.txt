@@ -1,0 +1,50 @@
+# Lab protocolos-assincronos/kafka, executado em 2026-10-21 (docker 29.9.1). Só o serviço `kafka` do compose (o kafka-ui disputa a porta 8080 com outro container).
+# Go não está instalado no WSL: os programas do repositório foram compilados com a imagem golang (1.21-alpine; 1.25-alpine para o partition_key, cujo go.mod pede go 1.25.1)
+# e rodados numa imagem alpine na rede do compose, com o broker trocado de localhost:9092 para kafka:29092 (só no clone).
+
+$ docker compose up -d kafka    -> kafka-kraft healthy em ~10 s (cp-kafka:7.5.0, KRaft, 1 nó)
+
+$ bash partition_key/setup.sh
+Error response from daemon: No such container: kafka      <- o script faz `docker exec kafka`, mas o container se chama kafka-kraft
+(o script imprime "Setup completo!" mesmo assim; o tópico não foi criado por ele)
+
+$ docker exec kafka-kraft kafka-topics --create --topic pedidos-particionados --partitions 3 --replication-factor 1 ...
+$ docker exec kafka-kraft kafka-topics --describe --topic pedidos-particionados ...
+Topic: pedidos-particionados  PartitionCount: 3  ReplicationFactor: 1
+  Partition: 0  Leader: 1  Replicas: 1  Isr: 1
+  Partition: 1  Leader: 1  Replicas: 1  Isr: 1
+  Partition: 2  Leader: 1  Replicas: 1  Isr: 1
+
+# producer (tópico pedidos, auto-criado) por 8 s
+Mensagem enviada | Pedido: PEDIDO-00001 | Partition: 0 | Offset: 0 | Cliente: Cliente-2 | Produto: Mouse Logitech
+Mensagem enviada | Pedido: PEDIDO-06917 | Partition: 0 | Offset: 6916 | ...      -> 6.917 eventos em 8 s (~860/s, não 1.000/s)
+$ kafka-topics --describe --topic pedidos
+Topic: pedidos  PartitionCount: 1  ReplicationFactor: 1
+  Partition: 0  Leader: 1  Replicas: 1  Isr: 1
+
+# produtor + estoque + faturamento juntos, kafka-consumer-groups --describe a ~16 s
+GROUP                       TOPIC    PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+estoque-consumer-group      pedidos  0          15768           16617           849
+faturamento-consumer-group  pedidos  0          97              17770           17673
+# depois que tudo parou: faturamento 122 / 17949 (lag 17827); estoque 17949 / 17949 (lag 0)
+# faturamento: ~10 eventos por segundo (100 ms de Sleep); estoque acompanha o produtor
+
+# partition_key por 6 s (4 clientes, ~5.480 mensagens): cada cliente em uma partição só, sem salto de sequência
+1370 Renan Martins            -> p0
+1399 Tarsila Bianca           -> p1
+1375 Pedro Oliveira           -> p2
+1335 Matheus Scarpato Fidelis -> p2
+offsets finais: p0 1370, p1 1399, p2 2710
+
+# chaves 1048..1052 em 3 partições
+Java (kafka-console-producer, murmur2):      1048 p2 | 1049 p0 | 1050 p2 | 1051 p0 | 1052 p2
+sarama v1.42.1 NewHashPartitioner (FNV-1a):  1048 p1 | 1049 p2 | 1050 p0 | 1051 p2 | 1052 p1
+sarama NewReferenceHashPartitioner:          1048 p1 | 1049 p0 | 1050 p2 | 1051 p0 | 1052 p1   (também FNV-1a, com abs; casou com o Java por acaso em 3 de 5)
+# o pacote sarama (v1.42.1 e v1.46.3) NÃO tem NewMurmur2Partitioner: `go run` -> "undefined: sarama.NewMurmur2Partitioner".
+# Funções: NewManual/Random/RoundRobin/Hash/ReferenceHash/ConsistentCRCHash/Custom/CustomHashPartitioner.
+
+# consumidor faturamento morto com docker kill (SIGKILL) a ~6,4 s e reiniciado
+último processado: Offset 135 | offset confirmado (CURRENT-OFFSET): 130 | primeiro ao voltar (8 s depois, quando o grupo reatribuiu): Offset 130
+-> 6 eventos reprocessados (130 a 135)
+
+$ docker compose down -v ; docker ps -> só os 3 containers de outros projetos

@@ -1,0 +1,27 @@
+# Lab protocolos-assincronos/messages/mqtt/default, executado em 2026-10-21 (docker 29.9.1, eclipse-mosquitto:2.0, paho.mqtt.golang v1.4.3)
+# Go compilado com a imagem golang:1.21-alpine; produtor e consumidor rodados numa imagem alpine na rede do compose (broker tcp://mqtt-broker:1883 no lugar de localhost, só no clone).
+
+$ docker compose up -d      -> mqtt-broker no ar (portas 1883 e 9001 publicadas)
+$ docker logs mqtt-broker | grep -i listen
+Opening ipv4 listen socket on port 1883.
+Opening ipv6 listen socket on port 1883.        (nada na 9001)
+$ curl 127.0.0.1:9001       -> curl: (56) conexão encerrada (a porta é publicada pelo Docker, mas não há listener)
+
+# A: consumidor primeiro, produtor depois: 5 publicadas, 5 recebidas
+[PRODUCER] Mensagem publicada: Mensagem #1 - 2026-10-21T11:53:54Z
+[CONSUMER] Inscrito no tópico: linuxtips/iot
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #1 - 2026-10-21T11:53:54Z
+...
+
+# B: produtor rodando 14 s (11 publicadas); consumidor (CleanSession true) entra aos ~8 s
+[CONSUMER] Inscrito no tópico: linuxtips/iot
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #7 - 2026-10-21T11:54:10Z
+...
+-> as mensagens #1 a #6 se perderam; ele recebeu a partir da #7 (5 mensagens)
+
+# fila da sessão persistente (mosquitto_sub -c -i <id fixo> -q 1; assinante sai; mosquitto_pub -q 1 de N mensagens; assinante volta), sem mexer em max_queued_messages
+N = 600   -> 600 entregues
+N = 1200  -> 1000 entregues (primeira = 1, última = 1000: as 200 mais novas, 1001 a 1200, foram descartadas)
+sessão limpa (sem -c), 10 publicadas com o assinante fora -> 0 entregues
+
+$ docker compose down -v ; docker ps -> só os 3 containers de outros projetos

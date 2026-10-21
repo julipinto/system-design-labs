@@ -11,6 +11,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
 
 <p class="ponte">Na aula passada o tópico <code>pedidos</code> tinha 3 brokers, 3 partições e 3 grupos de consumo, tudo no papel. O repositório público do autor tem um laboratório que sobe um Kafka de verdade com um produtor e dois consumidores em Go. Ele prova metade da aula 5 (a chave, os grupos, o lag) e deixa a outra metade de fora, e vale saber qual é qual antes de rodar.</p>
 
@@ -37,16 +38,25 @@ import Flashcards from '../../components/Flashcards.astro';
 <ol class="flow steps">
   <li><strong>O tópico <code>pedidos</code> tem 1 partição.</strong> Ele nasce sozinho (<code>KAFKA_AUTO_CREATE_TOPICS_ENABLE</code>) e o padrão <code>num.partitions</code> é 1. Para ver partições, use o <code>pedidos-particionados</code>.</li>
   <li><strong>O cluster tem 1 broker e fator de replicação 1.</strong> A replicação <strong>não é demonstrada</strong>: o líder, os seguidores e a ISR da aula 5 só existem na história.</li>
-  <li><strong>Dois deslizes no próprio código.</strong> O <code>setup.sh</code> manda rodar <code>go run consumer.go</code>, que não existe na pasta; e o comentário do produtor diz "50 mensagens", mas o laço só para em 15.000.</li>
-  <li><strong>O particionador do Go não é o do Java.</strong> O <code>NewHashPartitioner</code> do sarama usa <strong>FNV-1a</strong>; o cliente Java usa <strong>murmur2</strong>. O sarama tem o <code>NewMurmur2Partitioner</code> para ficar compatível, e o laboratório não o usa.</li>
+  <li><strong>Três deslizes no próprio código.</strong> O <code>setup.sh</code> chama <code>docker exec kafka ...</code>, mas o container do compose se chama <code>kafka-kraft</code>: rodado, os dois comandos (criar e descrever o tópico) falham com <code>No such container: kafka</code> e o script ainda assim imprime "Setup completo!". Ele também manda rodar <code>go run consumer.go</code>, que não existe na pasta. E o comentário do produtor diz "50 mensagens", mas o laço só para em 15.000.</li>
+  <li><strong>O particionador do Go não é o do Java.</strong> O <code>NewHashPartitioner</code> do sarama usa <strong>FNV-1a</strong>; o cliente Java usa <strong>murmur2</strong>. Conferi o pacote (v1.42.1, a do produtor, e v1.46.3, a do <code>partition_key</code>) e <strong>não existe</strong> um <code>NewMurmur2Partitioner</code>: o compilador responde <code>undefined: sarama.NewMurmur2Partitioner</code>. Para ficar igual ao Java, é preciso passar um hasher murmur2 próprio ao <code>NewCustomPartitioner</code>. O <code>NewReferenceHashPartitioner</code>, que tem nome de quem imita o Java, também usa FNV-1a.</li>
   <li><strong>O produtor e o consumidor lento têm ritmos diferentes.</strong> O produtor tenta 1 evento por milissegundo; o <code>faturamento</code> processa 10 por segundo. O lag cresce, e é isso que o <code>kafka-ui</code> mostra.</li>
 </ol>
 
-<p>O quinto ponto merece números. Com 3 partições, o mesmo <code>pedido_id</code> cai em lugares diferentes dependendo de quem produz: <strong>1051</strong> vai para a <strong>p2</strong> no sarama e para a <strong>p0</strong> no Java; o <strong>1049</strong> vai para p2 e p0; o <strong>1050</strong> vai para p0 e p2. Quem mistura clientes de linguagens diferentes no mesmo tópico quebra a ordem de um pedido sem erro nenhum.</p>
+<p>O quinto ponto merece números. Com 3 partições, o mesmo <code>pedido_id</code> cai em lugares diferentes dependendo de quem produz: <strong>1051</strong> vai para a <strong>p2</strong> no sarama e para a <strong>p0</strong> no Java; o <strong>1049</strong> vai para p2 e p0; o <strong>1050</strong> vai para p0 e p2. Quem mistura clientes de linguagens diferentes no mesmo tópico quebra a ordem de um pedido sem erro nenhum. Rodei os dois lados e os números do parágrafo se confirmaram. Num tópico de 3 partições, o produtor de console do Kafka (Java) mandou o 1049 para a p0, o 1050 para a p2 e o 1051 para a p0; o <code>NewHashPartitioner</code> do sarama calculou p2, p0 e p2.</p>
+
+<pre><code>{String.raw`chave   Java (murmur2)   sarama NewHashPartitioner (FNV-1a)
+1048    p2               p1
+1049    p0               p2
+1050    p2               p0
+1051    p0               p2
+1052    p2               p1`}</code></pre>
+
+<p>Das cinco chaves, nenhuma caiu na mesma partição nos dois clientes.</p>
 
 <h3 class="sec">E se der errado: o consumidor cai entre processar e confirmar</h3>
 
-<p>O <code>faturamento</code> processa um evento e <strong>cai antes do próximo auto-commit</strong>, que sai a cada 1 s. Ao voltar, ele relê desde o último offset confirmado: até <strong>1 s de eventos</strong>. A 100 ms por evento, são <strong>cerca de 10 eventos duplicados</strong>. É o at-least-once da aula 5 mostrando a cara.</p>
+<p>O <code>faturamento</code> processa um evento e <strong>cai antes do próximo auto-commit</strong>, que sai a cada 1 s. Ao voltar, ele relê desde o último offset confirmado: até <strong>1 s de eventos</strong>. A 100 ms por evento, são <strong>cerca de 10 eventos duplicados</strong>. É o at-least-once da aula 5 mostrando a cara. Testei com <code>docker kill</code> (SIGKILL) no consumidor <code>faturamento</code>: o último evento processado foi o offset 135, e o offset confirmado no Kafka era 130. Ao voltar, ele recomeçou no 130, e <strong>6 eventos</strong> (130 a 135) foram processados duas vezes. A janela de 1 s é o teto de cerca de 10; o número de cada queda depende de quando ela cai em relação ao commit. O consumidor só voltou a receber eventos 8 s depois da queda, até o grupo reatribuir a partição.</p>
 
 <p>Há dois consertos. O primeiro é a <strong>idempotência</strong> pelo <code>evento_id</code>: o consumidor guarda os ids já vistos (o <code>e-502</code> repetido do módulo 6) e ignora o repetido. O segundo é o <strong>commit manual</strong> depois de gravar o resultado. E o outro defeito do laboratório, o produtor muito mais rápido que o consumidor, é o lag da aula 5 ao vivo: a coluna LAG do <code>kafka-ui</code> só cresce.</p>
 
@@ -58,6 +68,27 @@ import Flashcards from '../../components/Flashcards.astro';
 </WhyItMatters>
 
 <Deep min={9}>
+  <h4 class="deep-h">O que saiu quando rodei</h4>
+  <p>Executei o laboratório em 21/10/2026 (Docker 29.9.1), subindo só o serviço <code>kafka</code> do compose (o <code>kafka-ui</code> disputa a porta 8080 com outro container da minha máquina). Como não tenho Go instalado, compilei os programas do repositório com a imagem <code>golang</code> e os rodei numa imagem <code>alpine</code> na rede do compose, trocando o endereço do broker de <code>localhost:9092</code> para <code>kafka:29092</code>, só na minha cópia. O <code>partition_key</code> pede Go 1.25.1 no <code>go.mod</code>; o produtor e os consumidores, 1.21. A saída está em <a href={withBase('labs/comunicacao-assincrona/lab/kafka-saida.txt')}>kafka-saida.txt</a>.</p>
+<pre><code>{String.raw`$ kafka-topics --describe --topic pedidos-particionados
+Topic: pedidos-particionados  PartitionCount: 3  ReplicationFactor: 1
+  Partition: 0  Leader: 1  Replicas: 1  Isr: 1
+  Partition: 1  Leader: 1  Replicas: 1  Isr: 1
+  Partition: 2  Leader: 1  Replicas: 1  Isr: 1
+
+$ kafka-topics --describe --topic pedidos        (criado sozinho pelo produtor)
+Topic: pedidos  PartitionCount: 1  ReplicationFactor: 1
+  Partition: 0  Leader: 1  Replicas: 1  Isr: 1
+
+# produtor + estoque + faturamento, a ~16 s de execução
+GROUP                       TOPIC    PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+estoque-consumer-group      pedidos  0          15768           16617           849
+faturamento-consumer-group  pedidos  0          97              17770           17673`}</code></pre>
+  <ul>
+    <li><strong>Confirmado:</strong> 1 broker, fator 1 e ISR com um nó só; o <code>pedidos</code> nasce com 1 partição; o <code>faturamento</code> avança uns 10 eventos por segundo e o lag dele só cresce (17.673 em 16 s), enquanto o <code>estoque</code> acompanha o produtor (lag 849 com o produtor ligado, 0 depois que ele parou). Cada grupo tem o seu offset.</li>
+    <li><strong>A chave segura a ordem:</strong> no <code>partition_key</code>, em 6 s (cerca de 5.500 mensagens), cada cliente foi para uma partição só (Renan na p0, Tarsila na p1, Pedro e Matheus na p2), e a sequência de cada um saiu sem nenhum salto.</li>
+    <li><strong>Medido e não só lido:</strong> o produtor tenta 1 evento por milissegundo, e o envio síncrono limitou a vazão a 6.917 eventos em 8 s, uns 860 por segundo. E o <code>setup.sh</code> não cria o tópico, pelo nome do container (ver acima).</li>
+  </ul>
   <h4 class="deep-h">O produtor, sem alteração</h4>
   <p>Este é o <code>main</code> do <code>producer/main.go</code> do repositório público de exemplos do autor (os números à esquerda foram acrescentados para a leitura). A chave sai do <code>pedido.ID</code> na linha 74 e o tópico é <code>pedidos</code>.</p>
   <pre><code>{" 23  func main() {\n 24  \t// Configuração do Kafka\n 25  \tconfig := sarama.NewConfig()\n 26  \tconfig.Producer.Return.Successes = true\n 27  \tconfig.Producer.Return.Errors = true\n 28  \tconfig.Producer.RequiredAcks = sarama.WaitForAll // Espera confirmação de todas as réplicas\n 29  \tconfig.Producer.Retry.Max = 5\n 30  \tconfig.Producer.Compression = sarama.CompressionSnappy\n 31  \tconfig.Version = sarama.V3_5_0_0\n 32  \n 33  \tbrokers := []string{\"localhost:9092\"}\n 34  \n 35  \t// Cria o produtor\n 36  \tproducer, err := sarama.NewSyncProducer(brokers, config)\n 37  \tif err != nil {\n 38  \t\tlog.Fatalf(\"Erro ao criar produtor: %v\", err)\n 39  \t}\n 40  \tdefer producer.Close()\n 41  \n 42  \tlog.Println(\"Producer iniciado com sucesso!\")\n 43  \tlog.Println(\"Enviando mensagens para o tópico 'pedidos'...\")\n 44  \n 45  \t// Simula envio de mensagens periodicamente\n 46  \tticker := time.NewTicker(1 * time.Millisecond)\n 47  \tdefer ticker.Stop()\n 48  \n 49  \tcontador := 1\n 50  \n 51  \tfor {\n 52  \t\tselect {\n 53  \t\tcase <-ticker.C:\n 54  \t\t\t// Cria um pedido de exemplo\n 55  \t\t\tpedido := Pedido{\n 56  \t\t\t\tID:         fmt.Sprintf(\"PEDIDO-%05d\", contador),\n 57  \t\t\t\tCliente:    fmt.Sprintf(\"Cliente-%d\", contador%10+1),\n 58  \t\t\t\tProduto:    getProdutoAleatorio(contador),\n 59  \t\t\t\tQuantidade: (contador % 5) + 1,\n 60  \t\t\t\tValor:      float64((contador%10)+1) * 29.90,\n 61  \t\t\t\tTimestamp:  time.Now(),\n 62  \t\t\t}\n 63  \n 64  \t\t\t// Serializa para JSON\n 65  \t\t\tmensagemJSON, err := json.Marshal(pedido)\n 66  \t\t\tif err != nil {\n 67  \t\t\t\tlog.Printf(\"Erro ao serializar mensagem: %v\", err)\n 68  \t\t\t\tcontinue\n 69  \t\t\t}\n 70  \n 71  \t\t\t// Cria a mensagem Kafka\n 72  \t\t\tmsg := &sarama.ProducerMessage{\n 73  \t\t\t\tTopic: \"pedidos\",\n 74  \t\t\t\tKey:   sarama.StringEncoder(pedido.ID),\n 75  \t\t\t\tValue: sarama.ByteEncoder(mensagemJSON),\n 76  \t\t\t\tHeaders: []sarama.RecordHeader{\n 77  \t\t\t\t\t{\n 78  \t\t\t\t\t\tKey:   []byte(\"producer\"),\n 79  \t\t\t\t\t\tValue: []byte(\"go-producer-exemplo\"),\n 80  \t\t\t\t\t},\n 81  \t\t\t\t\t{\n 82  \t\t\t\t\t\tKey:   []byte(\"version\"),\n 83  \t\t\t\t\t\tValue: []byte(\"1.0\"),\n 84  \t\t\t\t\t},\n 85  \t\t\t\t},\n 86  \t\t\t}\n 87  \n 88  \t\t\t// Envia a mensagem\n 89  \t\t\tpartition, offset, err := producer.SendMessage(msg)\n 90  \t\t\tif err != nil {\n 91  \t\t\t\tlog.Printf(\"Erro ao enviar mensagem: %v\", err)\n 92  \t\t\t} else {\n 93  \t\t\t\tlog.Printf(\"Mensagem enviada | Pedido: %s | Partition: %d | Offset: %d | Cliente: %s | Produto: %s\",\n 94  \t\t\t\t\tpedido.ID, partition, offset, pedido.Cliente, pedido.Produto)\n 95  \t\t\t}\n 96  \n 97  \t\t\tcontador++\n 98  \n 99  \t\tcase <-context.Background().Done():\n100  \t\t\tlog.Println(\"Producer encerrado\")\n101  \t\t\treturn\n102  \t\t}\n103  \t}\n104  }"}</code></pre>
@@ -89,9 +120,9 @@ import Flashcards from '../../components/Flashcards.astro';
   { q: "Qual é a chave do produtor do laboratório e no partition_key?",
     a: "No producer, o pedido.ID (PEDIDO-00001…). No partition_key, o cliente_id, para provar a ordem da sequência de cada cliente." },
   { q: "Para onde vai a chave 1051 com 3 partições no sarama e no Java?",
-    a: "p2 no sarama (FNV-1a) e p0 no Java (murmur2). Misturar clientes quebra a ordem." },
+    a: "p2 no sarama (FNV-1a) e p0 no Java (murmur2), conferido rodando os dois. Misturar clientes quebra a ordem. O sarama não tem um particionador murmur2 pronto." },
   { q: "O que acontece se o faturamento cair entre processar e o auto-commit de 1 s?",
-    a: "Ao voltar, reprocessa até 1 s de eventos: cerca de 10 duplicados a 100 ms por evento. Conserto: idempotência pelo evento_id ou commit manual depois de gravar." },
+    a: "Ao voltar, reprocessa até 1 s de eventos: até cerca de 10 duplicados a 100 ms por evento (no teste com SIGKILL, foram 6). Conserto: idempotência pelo evento_id ou commit manual depois de gravar." },
   { q: "Por que o lag cresce no kafka-ui?",
     a: "O produtor tenta 1 evento por ms e o faturamento processa 10 por segundo." },
 ]} />

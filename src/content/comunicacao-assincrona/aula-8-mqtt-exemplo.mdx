@@ -11,6 +11,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
 
 <p class="ponte">Na aula passada o caminhão <code>caminhao-17</code> publicava a posição num tópico e o <code>rastreio</code> assinava um filtro, com QoS, retida e Last Will. Agora o código: o repositório público do autor tem um produtor e um consumidor em Go que conversam por um Mosquitto. Ele é pequeno e mostra a base, e esconde algumas coisas que a aula 7 prometeu e o laboratório não entrega.</p>
 
@@ -47,6 +48,8 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p>Esse guardar tem limite. Em 10 minutos, a 1 mensagem por segundo, são <strong>600</strong> mensagens. O limite padrão da fila por cliente no Mosquitto é <strong>1.000</strong> (<code>max_queued_messages</code>, conferido na documentação). Com 20 minutos, são <strong>1.200</strong>, e as 200 excedentes são descartadas. Sessão persistente não é um log: é uma fila curta por assinante.</p>
 
+<p>Esses números foram testados. Com o Mosquitto 2.0 do compose, sem mexer na configuração, um assinante com <code>clientID</code> fixo, sessão persistente e QoS 1 saiu do ar, e eu publiquei mensagens com o <code>mosquitto_pub</code>: das 600 voltaram <strong>600</strong>; das 1.200 voltaram <strong>1.000</strong>. As que ficaram foram as 1.000 primeiras (da 1 à 1000), e as <strong>200 mais novas</strong> (1001 a 1200) é que foram descartadas. Com sessão limpa, 10 publicadas e nenhuma entregue ao voltar. Isso pesa para o rastreio: quando a fila enche, o que se perde é a posição mais recente do caminhão, justamente a que ele quer.</p>
+
 <WhyItMatters>
   <li><strong>Sessão limpa esquece.</strong> O que passa com o consumidor fora some.</li>
   <li><strong>Sessão persistente pede <code>clientID</code> fixo.</strong> O laboratório gera um novo a cada execução.</li>
@@ -55,6 +58,25 @@ import Flashcards from '../../components/Flashcards.astro';
 </WhyItMatters>
 
 <Deep min={6}>
+  <h4 class="deep-h">O que saiu quando rodei</h4>
+  <p>Executei o laboratório em 21/10/2026 (Docker 29.9.1, <code>eclipse-mosquitto:2.0</code>, <code>paho.mqtt.golang v1.4.3</code>). Não tenho Go instalado: compilei o produtor e o consumidor com a imagem <code>golang</code> e os rodei numa imagem <code>alpine</code> na rede do compose, com o broker em <code>tcp://mqtt-broker:1883</code> no lugar de <code>localhost</code>, só na minha cópia. A saída completa está em <a href={withBase('labs/comunicacao-assincrona/lab/mqtt-saida.txt')}>mqtt-saida.txt</a>.</p>
+<pre><code>{String.raw`# consumidor já no ar, produtor depois: 5 publicadas, 5 recebidas
+[PRODUCER] Mensagem publicada: Mensagem #1 - 2026-10-21T11:53:54Z
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #1 - 2026-10-21T11:53:54Z
+
+# produtor com 11 mensagens publicadas; consumidor (CleanSession true) entra no meio
+[CONSUMER] Inscrito no tópico: linuxtips/iot
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #7 - 2026-10-21T11:54:10Z
+# as mensagens 1 a 6 se perderam
+
+$ docker logs mqtt-broker | grep -i listen
+Opening ipv4 listen socket on port 1883.
+Opening ipv6 listen socket on port 1883.`}</code></pre>
+  <ul>
+    <li><strong>Confirmado:</strong> o produtor publica a 1 por segundo e espera o <code>PUBACK</code> a cada uma; o consumidor que sobe depois, com sessão limpa, perde tudo que passou antes (no teste, as mensagens 1 a 6) e recebe só a partir da entrada. O broker de fato só abre a <strong>1883</strong>: um <code>curl</code> à porta 9001, que o compose publica, termina em <code>curl: (56)</code>, sem listener por trás.</li>
+    <li><strong>Confirmado:</strong> o teto da fila da sessão persistente é 1.000 (600 voltam 600; 1.200 voltam 1.000, e os descartados são os mais novos).</li>
+    <li><strong>Mesmo código, com o produtor na frente:</strong> o consumidor <em>não</em> perdeu nada quando já estava no ar antes de o produtor começar.</li>
+  </ul>
   <h4 class="deep-h">O produtor, sem alteração</h4>
   <p>Este é o <code>producer.go</code> do repositório público de exemplos do autor (os números à esquerda são os das linhas do arquivo). O <code>Publish</code> com QoS 1 está na linha 46, e o <code>Sleep</code> de 1 s, na linha 56.</p>
   <pre><code>{"19  func main() {\n20  \tbroker := \"tcp://localhost:1883\"\n21  \n22  \ttopic := \"linuxtips/iot\"\n23  \n24  \tclientID := fmt.Sprintf(\"producer-%d\", time.Now().Unix())\n25  \n26  \topts := mqtt.NewClientOptions()\n27  \topts.AddBroker(broker)\n28  \topts.SetClientID(clientID)\n29  \topts.OnConnect = connectHandler\n30  \topts.OnConnectionLost = connectLostHandler\n31  \topts.SetAutoReconnect(true)\n32  \n33  \tclient := mqtt.NewClient(opts)\n34  \tif token := client.Connect(); token.Wait() && token.Error() != nil {\n35  \t\tlog.Fatal(token.Error())\n36  \t}\n37  \n38  \t// Aguarda um pouco para garantir que o consumer está pronto\n39  \ttime.Sleep(3 * time.Second)\n40  \n41  \t// Publica mensagens a cada 5 segundos\n42  \tcounter := 1\n43  \tfor {\n44  \t\tmessage := fmt.Sprintf(\"Mensagem #%d - %s\", counter, time.Now().Format(time.RFC3339))\n45  \n46  \t\ttoken := client.Publish(topic, 1, false, message)\n47  \t\ttoken.Wait()\n48  \n49  \t\tif token.Error() != nil {\n50  \t\t\tfmt.Printf(\"[PRODUCER] Erro ao publicar: %v\\n\", token.Error())\n51  \t\t} else {\n52  \t\t\tfmt.Printf(\"[PRODUCER] Mensagem publicada: %s\\n\", message)\n53  \t\t}\n54  \n55  \t\tcounter++\n56  \t\ttime.Sleep(1 * time.Second)\n57  \t}\n58  }"}</code></pre>
@@ -84,7 +106,7 @@ import Flashcards from '../../components/Flashcards.astro';
   { q: "O que é preciso para o broker guardar as mensagens do assinante?",
     a: "CleanSession(false), clientID fixo e QoS 1. O laboratório gera um clientID novo a cada execução, então não dá." },
   { q: "Quantas mensagens ficam guardadas em 10 e em 20 minutos a 1 msg/s?",
-    a: "600 (cabem nas 1.000 do max_queued_messages) e 1.200 (200 descartadas)." },
+    a: "600 (cabem nas 1.000 do max_queued_messages) e 1.200 (200 descartadas). Testado: voltaram 600 e 1.000, e as descartadas foram as mais novas, de 1001 a 1200." },
   { q: "Por que não dá para usar $share com o paho.mqtt.golang v1.4.3?",
     a: "Ele fala MQTT 3.1.1; a assinatura compartilhada é do MQTT 5.0 e pede o cliente eclipse/paho.golang." },
 ]} />

@@ -337,22 +337,22 @@
   ], 1, "São os dois padrões da aula 2 rodando com a mesma ferramenta. Os sete containers são 3 apps, 3 proxies e 1 balanceador.");
   choice("t10", 2, 2, "Seis curls em http://localhost/, com os três pesos iguais a 1. Como se dividem pelos proxies?", [
     "Todos no reverse-proxy-1.",
-    "2 / 2 / 2, por igual.",
-    "4 / 1 / 1.",
-    "Aleatoriamente, sem relação com o peso."
-  ], 1, "lb_policy: ROUND_ROBIN com load_balancing_weight: 1 nos três. A ordem pode começar em outro proxy, mas a divisão fica por igual.");
+    "Passam pelos três proxies, sem garantia de 2 / 2 / 2: cada worker gira a sua vez (rodado, saiu 3 / 3 / 0).",
+    "Sempre 2 / 2 / 2, na ordem 1, 2, 3, 1, 2, 3.",
+    "Só pelo proxy que tem a aplicação mais rápida."
+  ], 1, "lb_policy: ROUND_ROBIN com load_balancing_weight: 1 nos três. Cada worker do Envoy gira a sua própria vez (e há o slow start), então a divisão só se equilibra com muitos pedidos. No laboratório, 12 curls deram 3 / 6 / 3.");
   choice("t10", 3, 3, "Você roda docker compose stop reverse-proxy-2. Antes de o healthcheck perceber, o que acontece?", [
     "Nenhum pedido falha.",
-    "1 de cada 3 pedidos cai no proxy parado e volta com 503.",
+    "Os pedidos que caem no proxy parado ficam pendurados (ou voltam 503 depois de alguns segundos); os demais passam.",
     "Todos os pedidos falham.",
     "O balanceador para de responder."
-  ], 1, "O balanceador ainda considera o host do pool e segue a vez, então 1 em cada 3 cai nele.");
+  ], 1, "O balanceador ainda considera o host do pool e segue a vez. Rodado, o container parado não responde nem recusa: o pedido espera, e o cliente desiste (8 de 200 pedidos penduraram) até o Envoy tirar o host.");
   choice("t10", 4, 2, "O health_checks do load-balancer.yaml tem interval: 10s, timeout: 1s e unhealthy_threshold: 3. Em quanto tempo o proxy parado sai do pool?", [
-    "Em até 30 s.",
+    "Na conta, em até 30 s; medido, levou de uns 30 a uns 47 s.",
     "Em 1 s.",
     "Só quando alguém reinicia o balanceador.",
     "Em 5 minutos."
-  ], 0, "3 falhas seguidas, uma a cada 10 s. Na loja, com 5 s, eram 15 s.");
+  ], 0, "3 falhas seguidas, uma a cada 10 s, dão até 30 s na conta. No laboratório, o último pedido a falhar chegou em 47 s, porque o host também passa por uma remoção pelo DNS. Na loja, com 5 s, eram 15 s.");
   choice("t10", 5, 3, "Para que serve o slow_start_window: 60s no cluster?", [
     "Para o balanceador começar devagar quando é ligado.",
     "Para um host recém-adicionado ao pool receber uma parte crescente dos pedidos durante 60 s, em vez de tudo de uma vez.",

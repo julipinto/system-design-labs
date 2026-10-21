@@ -186,9 +186,9 @@ FIGS3D.push({ id: 'camadas', name: 'Camadas', mod: (() => {
   const SEES7 = [['IP 177.38.20.5 → .10', 'vê', 'acc'], ['TCP 51514 → 443', 'vê', 'acc'], ['TLS', 'termina aqui', 'acc'], ['GET /produtos/42', 'vê', 'acc']];
   const cntMs = (o, ms, n) => { o.count = [`${fmt(ms)} ms`, 'gastos no balanceador', `· ${n} ${n === 1 ? 'pedido' : 'pedidos'}`]; };
   const cntOk = (o, ok, err) => { o.count = [String(ok), ok === 1 ? 'pedido atendido' : 'pedidos atendidos', `· ${err} com erro`]; };
-  const cntLab = (o, c, e) => { const n = c[0] + c[1] + c[2] + e; o.count = [String(n), n === 1 ? 'curl' : 'curls', `· proxy-1 ${c[0]} / proxy-2 ${c[1]} / proxy-3 ${c[2]} / erros ${e}`]; };
+  const cntLab = (o, c, e) => { const n = c[0] + c[1] + c[2] + e; o.count = [String(n), n === 1 ? 'curl' : 'curls', `· proxy-1 ${c[0]} / proxy-2 ${c[1]} / proxy-3 ${c[2]} / pendurados ${e}`]; };
   const labScr = (o, c, e, foot) => { o.scr = { head: 'LOAD-BALANCER · ROUND_ROBIN', rows: [0, 1, 2].map(k => [`reverse-proxy-${k + 1}`, `${c[k]} ${c[k] === 1 ? 'curl' : 'curls'}`, c[k] ? 'acc' : 'dim'])
-    .concat([['erros (503)', String(e), e ? 'bad' : 'dim']]), foot: foot || '' }; cntLab(o, c, e); };
+    .concat([['pendurados', String(e), e ? 'bad' : 'dim']]), foot: foot || '' }; cntLab(o, c, e); };
   const lbScr = (o, c, foot, bad = -1) => { o.scr = { head: 'LB-LOJA · 203.0.113.10', rows: [0, 1, 2].map(k => [`catalogo-${k + 1}`, k === bad ? c[k] : `${c[k]} ${c[k] === 1 ? 'pedido' : 'pedidos'}`, k === bad ? 'bad' : c[k] ? 'acc' : 'dim']), foot: foot || '' }; };
 
   const STEPS = {
@@ -387,55 +387,56 @@ FIGS3D.push({ id: 'camadas', name: 'Camadas', mod: (() => {
         f(o, t) { o.cmd = ['docker compose up -d']; const order = ['a1', 'a2', 'a3', 'r1', 'r2', 'r3', 'dev'], n = clamp(Math.floor((t - 0.3) / 0.45) + 1, 0, 7);
           order.slice(0, n).forEach((nm, i) => o.on[nm] = i === n - 1 && t < 3.6 ? 1 : 2); o.res = n ? [`${n} de 7 containers no ar`] : []; labScr(o, [0, 0, 0], 0, n === 7 ? 'pronto para o curl' : '');
           if (t > 3.6) { T(o, 'ldev', 'LB 1:N · porta 80'); T(o, 'a2', 'proxy 1:1\nna frente de cada app', 'hi'); } } },
-      { id: 'rr', dur: 9, title: 'curl 1, 2 e 3: um proxy de cada vez',
-        story: 'Do terminal, curl -si http://localhost/ três vezes. O load-balancer manda o 1º para o reverse-proxy-1, o 2º para o 2 e o 3º para o 3. Cada resposta volta com o cabeçalho x-proxy-server, dizendo por qual proxy passou, e com o JSON da aplicação trazendo o nome do backend.',
-        look: 'A luz percorre load-balancer → proxy → app, uma linha de cada vez, de cima para baixo.',
-        key: 'Round robin: cada pedido vai para o próximo da lista.',
+      { id: 'rr', dur: 9, title: 'curl 1, 2 e 3: os três no proxy-1',
+        story: 'Do terminal, curl -si http://localhost/ três vezes, logo depois do up. Pelo desenho, cada um iria para um proxy. Medido no lab, os três saíram pelo reverse-proxy-1. Cada resposta volta com o cabeçalho x-proxy-server, dizendo por qual proxy passou, e com o JSON da aplicação trazendo o nome do backend.',
+        look: 'A luz desce load-balancer → reverse-proxy-1 → backend-app-1 três vezes; o 2 e o 3 ficam apagados.',
+        key: 'Round robin por worker: cada worker do Envoy gira a sua própria vez.',
         f(o, t) { o.cmd = ['curl -si http://localhost/']; const c = [0, 0, 0]; o.res = [];
-          [0, 1, 2].forEach(k => labCurl(o, t, 0.3 + k * 2.8, k, c, `curl ${k + 1}`));
-          labScr(o, c, 0, c[2] ? '1 / 1 / 1' : '');
-          if (t > 8.4) T(o, 'ldev', '3 curls · 3 proxies'); } },
-      { id: 'volta', dur: 9, title: 'curl 4, 5 e 6: a volta recomeça',
-        story: 'Mais 3 curls e a lista recomeça: reverse-proxy-1, 2, 3 de novo. Com 6 pedidos, 2 para cada um. A ordem exata pode começar em outro proxy, porque cada worker do Envoy gira a própria vez, mas a divisão fica por igual.',
-        look: 'A mesma descida de cima para baixo; o mostrador chega a 2 / 2 / 2.',
-        key: 'Com pesos iguais (load_balancing_weight: 1), cada proxy recebe a mesma parte.',
-        f(o, t) { o.cmd = ['curl -si http://localhost/']; const c = [1, 1, 1]; o.res = [];
-          [0, 1, 2].forEach(k => { o.rows['r' + (k + 1)][2] = ['1 curl', 8, 'hi']; labCurl(o, t, 0.3 + k * 2.8, k, c, `curl ${k + 4}`); });
-          labScr(o, c, 0, c[2] === 2 ? '2 / 2 / 2 · por igual' : '');
-          if (t > 8.4) T(o, 'ldev', '6 curls · 2 para cada'); } },
-      { id: 'para', dur: 8.5, title: 'E se der errado: docker compose stop reverse-proxy-2',
-        story: 'Agora derrube um: docker compose stop reverse-proxy-2. O load-balancer ainda acha que ele está no pool e segue a vez. O curl 7 passa pelo proxy-1, o curl 8 cai no proxy-2 parado e volta 503, o curl 9 passa pelo proxy-3. Um em cada três pedidos falha.',
-        look: 'O reverse-proxy-2 fica vermelho; o 8º curl bate nele e volta 503.',
-        key: 'Entre a queda e o health check perceber, 1 de cada 3 pedidos falha.',
-        f(o, t) { o.cmd = t < 0.9 ? ['docker compose stop reverse-proxy-2'] : ['curl -si http://localhost/']; const c = [2, 2, 2], e = [0];
-          if (t > 0.5) { o.rows.r2 = [['Envoy · proxy reverso', 6.8, 'dim'], ['PARADO', 11, 'bad'], ['2 curls antes', 8, 'dim']]; o.on.r2 = 'bad'; }
-          [0, 2].forEach(k => o.rows['r' + (k + 1)][2] = ['2 curls', 8, 'hi']); o.res = t < 0.9 ? ['Container reverse-proxy-2  Stopped'] : [];
+          [0, 1, 2].forEach(i => labCurl(o, t, 0.3 + i * 2.8, 0, c, `curl ${i + 1}`));
+          labScr(o, c, 0, c[0] === 3 ? '1, 1, 1 · medido no lab' : '');
+          if (t > 8.4) T(o, 'ldev', '3 curls · todos no proxy-1'); } },
+      { id: 'volta', dur: 9, title: 'curl 4, 5 e 6: os três no proxy-2',
+        story: 'Mais 3 curls, e os três saíram pelo reverse-proxy-2: 1, 1, 1, 2, 2, 2, não 1, 2, 3, 1, 2, 3. Cada worker do Envoy gira a sua própria vez e o slow_start ainda pesa nos primeiros 60 s. Um minuto depois, outros 6 deram 2, 1, 3, 1, 3, 3; em 12 curls, 3 / 6 / 3. O round robin só se equilibra no longo prazo.',
+        look: 'Agora a luz desce só pelo reverse-proxy-2; o mostrador para em 3 / 3 / 0.',
+        key: 'Pesos iguais (load_balancing_weight: 1) dividem por igual só com muitos pedidos.',
+        f(o, t) { o.cmd = ['curl -si http://localhost/']; const c = [3, 0, 0]; o.res = []; o.rows.r1[2] = ['3 curls', 8, 'hi'];
+          [0, 1, 2].forEach(i => labCurl(o, t, 0.3 + i * 2.8, 1, c, `curl ${i + 4}`));
+          labScr(o, c, 0, c[1] === 3 ? '1,1,1,2,2,2 · em 12: 3 / 6 / 3' : '');
+          if (t > 8.4) T(o, 'ldev', 'medido no lab\n12 curls: 3 / 6 / 3'); } },
+      { id: 'para', dur: 9, title: 'E se der errado: docker compose stop reverse-proxy-2',
+        story: 'Agora derrube um: docker compose stop reverse-proxy-2. O load-balancer ainda acha que ele está no pool. O pedido que cai nele não volta logo com 503: o endereço do container parado não responde, e o pedido fica pendurado até o cliente desistir (no teste, curl --max-time 5) ou o Envoy devolver um 503 com a marca UF. Medido no lab: em 200 pedidos, 8 ficaram pendurados e 1 voltou 503 (UF).',
+        look: 'O reverse-proxy-2 fica vermelho; o curl 8 chega nele e fica parado ali, sem resposta.',
+        key: 'Entre a queda e o Envoy tirar o host, quem cai no parado fica pendurado.',
+        f(o, t) { o.cmd = t < 0.9 ? ['docker compose stop reverse-proxy-2'] : ['curl -si --max-time 5 http://localhost/']; const c = [3, 3, 0], e = [0];
+          if (t > 0.5) { o.rows.r2 = [['Envoy · proxy reverso', 6.8, 'dim'], ['PARADO', 11, 'bad'], ['3 curls antes', 8, 'dim']]; o.on.r2 = 'bad'; }
+          [0, 1].forEach(k => o.rows['r' + (k + 1)][2] = ['3 curls', 8, 'hi']); o.res = t < 0.9 ? ['Container reverse-proxy-2  Stopped'] : [];
           [0, 1, 2].forEach(k => labCurl(o, t, 1.0 + k * 2.4, k, c, `curl ${k + 7}`, k === 1 ? e : null));
-          labScr(o, c, e[0], e[0] ? '1 de cada 3 falha' : ''); o.scr.rows[1][1] = 'parado'; o.scr.rows[1][2] = 'bad';
-          if (t > 7.6) T(o, 'lr2', 'curl 8 · 503\nproxy-2 ainda no pool', 'bad'); } },
-      { id: 'fora', dur: 10, title: 'O health check tira o proxy-2 do pool',
-        story: 'O load-balancer.yaml tem health check: GET /health a cada 10 s, timeout de 1 s, e 3 falhas seguidas tiram o host. Em até 30 s o proxy-2 sai do pool, e nos curls 10 a 13 nenhum falha: vão para o proxy-1 e o proxy-3, alternando. Quando ele voltar, 2 checks bons o devolvem.',
-        look: 'Três checks vermelhos no proxy-2, ele sai do pool e a luz passa a alternar entre o 1 e o 3.',
-        key: 'Health check ativo troca "1 em 3 falha" por "nenhum falha", depois de alguns segundos.',
-        f(o, t) { const c = [3, 2, 3], e = [1]; o.on.r2 = 'bad'; const nck = clamp(Math.floor((t - 0.3) / 0.9) + 1, 0, 3), out = t > 3.2;
-          o.rows.r2 = [['Envoy · proxy reverso', 6.8, 'dim'], [out ? 'FORA DO POOL' : 'PARADO', 10.5, 'bad'], [`/health: ${nck} ✕`, 8.6, 'bad']];
-          [0, 2].forEach(k => o.rows['r' + (k + 1)][2] = ['3 curls', 8, 'hi']); o.cmd = t < 3.2 ? ['GET /health (a cada 10 s, timeout 1 s)'] : ['curl -si http://localhost/'];
-          o.res = t < 3.2 ? [['', '10 s ✕', '10 s ✕  20 s ✕', '10 s ✕  20 s ✕  30 s ✕'][nck]] : [];
+          labScr(o, c, e[0], e[0] ? '200 pedidos: 8 pendurados + 1 503 UF' : ''); o.scr.rows[1][1] = 'parado'; o.scr.rows[1][2] = 'bad';
+          if (t > 7.6) T(o, 'lr2', 'curl 8 · pendurado\nproxy-2 ainda no pool', 'bad'); } },
+      { id: 'fora', dur: 10, title: 'O Envoy tira o proxy-2 do pool',
+        story: 'O load-balancer.yaml verifica GET /health a cada 10 s, com timeout de 1 s, e 3 falhas seguidas tiram o host: na conta, até 30 s. Medido no lab, o proxy-2 ganhou a marca pending_dynamic_removal em 6 a 12 s (o nome do container sumiu do DNS do Docker), failed_active_hc perto de 27 s, e saiu de /clusters aos 34 s; numa execução, o último 503 (UF) chegou em 46,9 s. Depois disso, nenhum curl novo falha: vão para o proxy-1 e o proxy-3. Com docker compose start, ele voltou healthy em 4,6 s.',
+        look: 'As marcas aparecem no proxy-2, ele sai do pool e a luz passa a alternar entre o 1 e o 3.',
+        key: 'O host sai do pool em ~27–47 s, não nos 30 s da conta; depois, nenhum falha.',
+        f(o, t) { const c = [4, 3, 1], e = [1]; o.on.r2 = 'bad'; const nck = clamp(Math.floor((t - 0.3) / 0.9) + 1, 0, 3), out = t > 3.2;
+          const FL = ['', 'pending_dynamic_removal', 'failed_active_hc', 'fora de /clusters'];
+          o.rows.r2 = [['Envoy · proxy reverso', 6.8, 'dim'], [out ? 'FORA DO POOL' : 'PARADO', 10.5, 'bad'], [FL[nck] || 'parado', 7.4, 'bad']];
+          o.rows.r1[2] = ['4 curls', 8, 'hi']; o.rows.r3[2] = ['1 curl', 8, 'hi']; o.cmd = t < 3.2 ? ['curl -s localhost:9900/clusters | grep health_flags'] : ['curl -si http://localhost/'];
+          o.res = t < 3.2 ? [['', '~6–12 s  /pending_dynamic_removal', '~6–12 s  /pending_dynamic_removal\n~27 s    /failed_active_hc', '~6–12 s  /pending_dynamic_removal\n~27 s    /failed_active_hc\n~34 s    fora de /clusters'][nck]] : [];
           for (let i = 0; i < Math.min(nck, 3); i++) if (t < 0.3 + i * 0.9 + 0.7) o.beams.push({ pts: LOUT(1), on: true, tone: 'bad', cut: clamp((t - 0.3 - i * 0.9) / 0.6) * 0.8 });
-          if (out) { o.rows.dev = [['pool (health_checks)', 6.8, 'dim'], ['reverse-proxy-1 ✓', 8.6, 'acc'], ['reverse-proxy-2 fora', 8.6, 'bad'], ['reverse-proxy-3 ✓', 8.6, 'acc']]; o.on.dev = 1; }
+          if (out) { o.rows.dev = [['pool (medido no lab)', 6.8, 'dim'], ['reverse-proxy-1 ✓', 8.6, 'acc'], ['reverse-proxy-2 fora', 8.6, 'bad'], ['reverse-proxy-3 ✓', 8.6, 'acc']]; o.on.dev = 1; }
           [0, 2, 0, 2].forEach((k, i) => labCurl(o, t, 3.6 + i * 1.5, k, c, `curl ${i + 10}`, null, true));
-          labScr(o, c, e[0], out ? 'proxy-2 fora do pool · 0 erros novos' : 'checando /health…'); o.scr.rows[1][1] = out ? 'fora do pool' : 'parado'; o.scr.rows[1][2] = 'bad';
-          if (t > 2.4 && t < 4.4) T(o, 'lr2', '3 falhas seguidas\nfora do pool', 'bad');
-          if (t > 9.4) T(o, 'ldev', 'curls 10–13: 0 erros'); } },
+          labScr(o, c, e[0], out ? 'fora do pool em ~27–47 s · 0 erros novos' : 'medido no lab · /clusters'); o.scr.rows[1][1] = out ? 'fora do pool' : 'parado'; o.scr.rows[1][2] = 'bad';
+          if (t > 2.4 && t < 4.4) T(o, 'lr2', 'fora do pool\nem ~27–47 s', 'bad');
+          if (t > 9.4) T(o, 'ldev', 'curls 10–13: 0 erros\nvolta healthy em 4,6 s'); } },
     ],
   };
-  // um curl do laboratório: terminal → load-balancer → proxy k → app k e volta (ou 503 se o proxy estiver parado)
+  // um curl do laboratório: terminal → load-balancer → proxy k → app k e volta (ou fica pendurado se o proxy estiver parado)
   function labCurl(o, t, a, k, c, nm, err, fast) {
     const sp = fast ? 0.55 : 1, dIn = 0.5 * sp, d = 0.45 * sp, pIn = R.in(120), p1 = LOUT(k), p2 = R.app(k);
     if (!send(o, t, a, a + dIn, pIn, nm, 'hi', 0.05)) return; if (t < a + dIn + d * 4 + 0.6) o.on.dev = 1;
-    if (err) { if (t < a + 1.6) o.beams.push({ pts: p1, on: true, tone: 'bad', cut: 0.7 });
-      if (send(o, t, a + dIn + 0.6, a + dIn + 1.1, rev(pIn), '503 · proxy-2 parado', 'bad', 0.6)) { err[0] = 1; o.res = ['HTTP/1.1 503 Service Unavailable', 'upstream connect error or disconnect/reset'];
-        o.rows.dev = [['lb_policy', 6.8, 'dim'], ['ROUND_ROBIN', 10.5, 'acc'], ['vez do proxy-2', 8.4, 'bad'], ['conexão recusada', 8.4, 'bad']]; } return; }
+    if (err) { if (send(o, t, a + dIn, a + dIn + d, p1, 'GET /', 'bad', 1.6)) { err[0] = 1; o.res = ['(sem resposta: o curl desiste em 5 s)'];
+        o.rows.dev = [['lb_policy', 6.8, 'dim'], ['ROUND_ROBIN', 10.5, 'acc'], ['vez do proxy-2', 8.4, 'bad'], ['pedido pendurado', 8.4, 'bad']]; }
+      if (t > a + dIn + d && t < a + dIn + d + 2.4) T(o, 'lr2', `${nm} · pendurado…`, 'bad'); return; }
     const r = 'r' + (k + 1), ap = 'a' + (k + 1);
     send(o, t, a + dIn, a + dIn + d, p1, 'GET /', 'hi', 0.05); if (t > a + dIn + d) o.on[r] = t < a + dIn + d * 4 ? 1 : 2;
     if (send(o, t, a + dIn + d, a + dIn + 2 * d, p2, '', 'hi', 0.05)) o.on[ap] = t < a + dIn + d * 4 ? 1 : 2;
@@ -563,9 +564,9 @@ FIGS3D.push({ id: 'camadas', name: 'Camadas', mod: (() => {
     healthy_threshold: 2
     http_health_check:
       path: "/health"`)}
-      <table class="h3-sum"><tr><th>curl</th><th>x-proxy-server</th></tr><tr><td>1 a 6</td><td>proxy-1, 2, 3, 1, 2, 3</td></tr><tr class="on"><td>7 a 9 (proxy-2 parado)</td><td>proxy-1 · 503 · proxy-3</td></tr><tr><td>10 a 13 (fora do pool)</td><td>proxy-1, 3, 1, 3</td></tr></table>
+      <table class="h3-sum"><tr><th>medido no lab</th><th>saiu</th></tr><tr><td>curls 1 a 6 (logo após o up)</td><td>proxy-1, 1, 1, 2, 2, 2</td></tr><tr><td>6 curls um minuto depois</td><td>2, 1, 3, 1, 3, 3</td></tr><tr><td>12 curls</td><td>3 / 6 / 3</td></tr><tr class="on"><td>proxy-2 parado, 200 pedidos</td><td>8 pendurados + 1 503 (UF) em 46,9 s</td></tr><tr><td>saída do pool</td><td>pending_dynamic_removal ~6–12 s · failed_active_hc ~27 s · fora de /clusters ~34 s</td></tr><tr><td>docker compose start</td><td>healthy em 4,6 s</td></tr></table>
       <li>Portas no seu computador: 80 (load-balancer), 8081 a 8083 (proxies), 9900 a 9903 (admin do Envoy)</li>
-      <li class="h3-dim">Com type: STRICT_DNS o Envoy também refaz o DNS dos nomes; se o nome do container parado some, o host pode sair antes do health check. A ordem exata do round robin pode variar entre workers.</li>`,
+      <li class="h3-dim">Com type: STRICT_DNS o Envoy também refaz o DNS dos nomes; o nome do container parado some do DNS do Docker e o host ganha pending_dynamic_removal antes do health check. Cada worker do Envoy gira a sua própria vez. Rodado com Docker 29.9.1 e envoyproxy/envoy:v1.27-latest, porta 8088 no lugar da 80.</li>`,
   };
   function countHtml() { const o = SP || spec(), [b, l, r] = o.count; return `<b>${b}</b><span>${l}</span><i>${r}</i>`; }
   const boxHtml = o => '<b>Pedido real</b>' + o.cmd.join('\n').replace(/</g, '&lt;') + (o.res.length ? '<b class="k3-res">Resposta</b>' + o.res.join('\n').replace(/</g, '&lt;') : '');

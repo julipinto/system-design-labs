@@ -1,0 +1,47 @@
+# Lab envoy-patterns, executado em 2026-10-21 (docker 29.9.1, imagem envoyproxy/envoy:v1.27-latest)
+# Ajustes só no clone local: porta 80 -> 8088 (a 80 estava ocupada por outro container) e sub-rede 172.20.0.0/16 -> 172.29.77.0/24 (conflito com outra rede do Docker).
+
+$ for i in 1 2 3 4 5 6; do curl -si http://localhost:8088/ | grep -iE '^(HTTP|x-proxy-server)'; done   # logo depois do up
+curl 1: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-1
+curl 2: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-1
+curl 3: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-1
+curl 4: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-2
+curl 5: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-2
+curl 6: HTTP/1.1 200 OK x-proxy-server: reverse-proxy-2
+
+# mais 6 curls, um minuto depois: 2, 1, 3, 1, 3, 3
+# 12 curls com stack de pé há 95 s: proxy-1 = 3, proxy-2 = 6, proxy-3 = 3
+
+$ curl -s http://localhost:9900/clusters | grep reverse_proxy_cluster | grep health_flags
+reverse_proxy_cluster::172.29.77.6:8080::health_flags::healthy
+reverse_proxy_cluster::172.29.77.4:8080::health_flags::healthy
+reverse_proxy_cluster::172.29.77.7:8080::health_flags::healthy
+
+$ docker compose ps    # 7 de 7 como (unhealthy): o healthcheck do compose chama curl e as imagens não têm curl
+OCI runtime exec failed: exec: "curl": executable file not found in $PATH
+
+# test-patterns.sh (opção 7)
+✅ Load Balancer: Online
+✅ Reverse Proxy 1: Online
+❌ Reverse Proxy 2: Offline          <- confere a porta 9902 x 9901
+✅ Reverse Proxy 3: Online
+Requisição 1..12: Erro ao obter proxy   <- procura x-proxy-server no corpo, não nos cabeçalhos
+Testando Reverse Proxy 1 (porta 8081):  Proxy Server: null   Backend: a759461ceab0
+cluster.reverse_proxy_cluster.health_check.attempt: 24 / failure: 0 / healthy: 3
+
+# local_ratelimit (10 por minuto por proxy): 45 curls seguidos, bucket cheio
+200 x16, 429 429, 200 200 200, 429, 200 200, 429 x21 -> 21 passaram, 24 recusados; o primeiro 429 foi o 17º pedido
+
+# docker compose stop reverse-proxy-2, com um curl a cada ~0,2 s (limite de pedidos elevado só neste teste, para o 429 não atrapalhar)
+# execução limpa (stack recém-criada, 95 s de espera), 200 pedidos:
+#   t=0,5 s   stop concluído
+#   t=1,2 s   1º pedido que cai no proxy-2: pendura; o curl desiste em 5 s (sem resposta)
+#   ...       8 pedidos presos assim (cada um 5 s), e 1 resposta 503 (UF) em t=46,9 s
+#   t=12,8 s  /clusters passa a mostrar flag diferente de healthy no proxy-2
+#   depois de t=47 s  nenhum pedido novo falha
+# segunda execução, 170 pedidos: 1 pedido preso, o resto 200. Flags no proxy-2:
+#   t=11,8 s  /pending_dynamic_removal            (o nome do container sumiu do DNS do Docker)
+#   t=26,8 s  /failed_active_hc/pending_dynamic_removal/active_hc_timeout
+#   t=33,8 s  o proxy-2 não aparece mais em /clusters (2 hosts)
+$ docker compose start reverse-proxy-2  -> volta a healthy em 4,6 s
+$ docker compose down -v ; docker ps  -> só os 3 containers de outros projetos
