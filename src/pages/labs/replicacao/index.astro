@@ -1,0 +1,36 @@
+---
+// Módulo Replicação de Dados: as 6 aulas de src/content/replicacao/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/replicacao.css';
+
+const entries = (await getCollection('replicacao')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/replicacao/quiz/');
+---
+<ModuleLayout
+  title="Replicação de Dados · SDLabs"
+  description="Copiar o mesmo dado para SP, Rio e Recife: modelos Primary/Replica e Primary/Primary, replicação síncrona, assíncrona e semi-síncrona, Event-Carried State Transfer, CDC com Debezium e CRDTs, com os números da Black Friday da loja, widgets e quiz."
+  module="replicacao"
+  heading="Replicação de Dados"
+  lead="Cada shard da loja é um servidor só. Como ter o mesmo dado em SP, no Rio e em Recife sem a Lena ver o passado, sem perder pedido quando o primário cai e sem dois donos brigando pelo mesmo dado."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/replicacao/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

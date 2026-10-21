@@ -1,0 +1,95 @@
+---
+title: "CRDTs"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja copiou dado lendo o log, e tudo isso supunha <strong>um</strong> dono por dado. Mas na aula 2 dois primários escreveram o mesmo endereço, e o <em>last write wins</em> jogou fora a escrita certa por causa de um relógio 120 ms atrasado. Falta um jeito de dois sites escreverem ao mesmo tempo e as cópias <strong>se juntarem sem conflito</strong>, sem ninguém decidir quem ganha.</p>
+
+<OneLiner>Um <strong>CRDT</strong> é uma estrutura de dados cujas cópias <strong>sempre podem ser juntadas</strong> sem conflito, porque a junção (<em>merge</em>) é <strong>comutativa, associativa e idempotente</strong>: a ordem e as repetições não mudam o resultado. Ele garante que as cópias <strong>convergem</strong>, e não que o resultado <strong>faz sentido para o negócio</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Contador</strong>, avance: as visualizações do gato 42 são contadas nos três sites, a rede entre SP e Recife parte e depois volta: <strong>135 + 80 + 58 = 273</strong>, enquanto o <em>last write wins</em> sobre o total perderia 8 ou 15. Depois aperte <strong>Limite</strong>: os dois sites vendem a última caneca: a junção dá <strong>−1</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/fluxo-3d/?mode=crdt-contador" poster="labs/replicacao/fluxo-3d-previa.webp" title="Figura interativa: CRDT: o G-Counter" alt="Prévia da figura 3D: CRDT: o G-Counter" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>G-Counter</strong> (só cresce). As <code>visualizacoes</code> do gato 42 guardam <strong>um contador por site</strong>: <code>{"{SP: 120, Rio: 80, Recife: 50}"}</code>, total <strong>250</strong>. Na partição entre SP e Recife, SP conta +15 (<code>SP: 135</code>, total 265) e Recife conta +8 (<code>Recife: 58</code>, total 258). A <strong>junção é o máximo por site</strong>: <code>{"{SP: 135, Rio: 80, Recife: 58}"}</code>, total <strong>273</strong>, igual nos dois sentidos e igual se aplicada duas vezes. Com <em>last write wins</em> sobre o total, ficaria 265 ou 258, e a loja perderia 8 ou 15 visualizações.</li>
+  <li><strong>OR-Set</strong> (conjunto, <em>observed-remove</em>). O carrinho da Lena começa com <code>{"{caneca}"}</code>. Na partição, o <strong>celular</strong> (Recife) adiciona o <code>gato</code> e o <strong>notebook</strong> (SP) remove a <code>caneca</code>. A junção dá <code>{"{gato}"}</code>: as duas intenções valem. Se um lado <strong>remove</strong> a caneca e o outro a <strong>adiciona de novo</strong> ao mesmo tempo, a caneca <strong>fica</strong>: "add vence", porque cada adição tem uma etiqueta própria e a remoção só apaga as etiquetas que viu.</li>
+  <li><strong>LWW-Register</strong> (o último carimbo vence). É o caso do endereço da aula 2: a escrita de SP (carimbo 20:20:00.100) vence a de Recife (carimbo .030, relógio 120 ms atrasado) embora a de Recife seja a mais recente de verdade. O LWW é um CRDT simples e <strong>depende de relógio</strong>. O <strong>vetor de versão</strong> (<code>{"{SP:2, Rec:0}"}</code> contra <code>{"{SP:1, Rec:1}"}</code>) não escolhe: ele <strong>detecta</strong> que as escritas são concorrentes e devolve a decisão à aplicação.</li>
+  <li><strong>PN-Counter</strong> (sobe e desce): dois G-Counters, um de incrementos e um de decrementos, e o valor é a diferença. O <strong>estoque</strong> da caneca tem 1 unidade. Na partição, SP vende 1 e Recife vende 1, e cada um vê <strong>0</strong>. A junção dá <strong>−1</strong>: o CRDT <strong>convergiu</strong> (os dois sites concordam) e <strong>violou</strong> a regra "estoque ≥ 0".</li>
+  <li><strong>Convergência.</strong> Juntar o mesmo conjunto de estados em qualquer ordem, com mensagens duplicadas, dá o mesmo resultado: o teste com 5 mensagens em <strong>120 permutações</strong> (5!) deu um único estado final. É a comutatividade, a associatividade e a idempotência do artigo, e no paper de Shapiro a junção é o <em>join</em> de um semirreticulado.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="crdt" title="Playground de CRDT" hint='Três sites (SP, Rio e Recife). Some +1 ao G-Counter de cada um, parta a rede, junte (273) e teste o OR-Set do carrinho (adicionar num site e remover em outro) e o PN-Counter do estoque (−1). O botão "ordem aleatória, com duplicatas" junta as mensagens de outro jeito e sempre converge.' />
+
+<h3 class="sec">Estado ou operações, onde vivem e o custo</h3>
+
+<p>Há duas famílias (Shapiro): os <strong>CvRDT</strong>, que trocam o <strong>estado</strong> e o juntam, como nos exemplos acima, e os <strong>CmRDT</strong>, que trocam as <strong>operações</strong> e exigem entrega causal. Os CRDTs vivem em editores colaborativos (o exemplo do artigo; <a href="https://github.com/automerge/automerge">Automerge</a> e <a href="https://yjs.dev/">Yjs</a>), no Redis Active-Active e no Riak. O custo é <strong>metadado que cresce</strong>: etiquetas e <em>tombstones</em> (marcas de remoção) não podem ser descartados à vontade, o assunto de "CRDTs: The Hard Parts", de Kleppmann.</p>
+
+<h3 class="sec">E se der errado: o último item vendido duas vezes</h3>
+
+<p>O PN-Counter do estoque <strong>vende o último item duas vezes</strong>. Os dois sites aceitaram a venda porque cada um via 1 em estoque, e a junção, correta e igual nos dois lados, mostra <strong>−1</strong>. A convergência não protege invariante. Para o último item continua valendo o módulo 11 (a baixa com <code>UPDATE … AND quantidade &gt; 0</code> e um <strong>único dono</strong> do estoque) ou o módulo 19 (compensar a venda a mais com o estorno).</p>
+
+<WhyItMatters>
+  <li><strong>A junção é uma conta, não uma escolha.</strong> 135 + 80 + 58 = 273, sem ninguém decidir, e sem perder as 8 visualizações de Recife.</li>
+  <li><strong>Cada tipo resolve um caso.</strong> Contador para visualizações, conjunto para o carrinho, registrador com versão para o endereço.</li>
+  <li><strong>O LWW depende de relógio.</strong> O vetor de versão ao menos avisa que houve concorrência.</li>
+  <li><strong>Convergir não é acertar.</strong> O estoque a −1 é a prova: regra de negócio exige um dono ou uma compensação.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas dos CRDTs, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Estrutura</th><th>Cenário</th><th>Junção</th></tr></thead>
+    <tbody>
+      <tr><th>G-Counter</th><td>SP 135, Rio 80, Recife 58</td><td>máximo por site: 273</td></tr>
+      <tr><th>G-Counter com LWW sobre o total</th><td>265 ou 258</td><td>perde 8 ou 15</td></tr>
+      <tr><th>OR-Set</th><td>{"{caneca}"}: celular +gato, notebook −caneca</td><td>{"{gato}"}</td></tr>
+      <tr><th>OR-Set</th><td>um lado remove e o outro adiciona a caneca</td><td>a caneca fica (add vence)</td></tr>
+      <tr><th>PN-Counter</th><td>estoque 1, cada site vende 1</td><td>−1</td></tr>
+      <tr><th>Convergência</th><td>5 mensagens, 120 permutações, com duplicatas</td><td>1 estado final</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o que os CRDTs garantem</h4>
+  <ul>
+    <li><strong>"Garantem que conflitos sejam resolvidos automaticamente".</strong> Garantem <strong>convergência</strong>, e não que o resultado faça sentido para o negócio (o estoque −1). O exemplo de <strong>editar a mesma linha de um texto</strong> só funciona com CRDTs específicos para texto (sequências), e não com um LWW. As propriedades certas: a junção é comutativa, associativa e idempotente. O artigo diz "operações associativas, comutativas e idempotentes", o que vale para o estado; as operações dos CmRDT têm outras exigências, como a entrega causal.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Shapiro et al.: Conflict-free Replicated Data Types (CRDTs), arXiv 2018", href: "https://arxiv.org/abs/1805.06358" },
+    { label: "crdt.tech: o que são CRDTs e onde são usados", href: "https://crdt.tech/" },
+    { label: "Martin Kleppmann: CRDTs, The Hard Parts", href: "https://martin.kleppmann.com/2020/07/06/crdt-hard-parts-hydra.html" },
+    { label: "Riak: tipos de dados CRDT", href: "https://docs.riak.com/riak/kv/latest/learn/concepts/crdts/index.html" },
+    { label: "Redis: bancos Active-Active", href: "https://redis.io/docs/latest/operate/rs/databases/active-active/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora copia dado de todos os jeitos: entre bancos, entre serviços, lendo o log e juntando escritas concorrentes. E a tela "meus pedidos" da Lena ainda lê da <strong>mesma tabela</strong> em que o checkout escreve. Falta saber o que muda se ela ler de uma <strong>cópia montada só para leitura</strong>, alimentada por CDC: como separar o modelo de escrita do de leitura. É o módulo 18, CQRS.</p>
+
+<Flashcards cards={[
+  { q: "O que é um CRDT e por que converge?",
+    a: "Uma estrutura cujas cópias sempre podem ser juntadas: a junção é comutativa, associativa e idempotente. Em qualquer ordem, com duplicatas, o resultado é o mesmo (120 permutações de 5 mensagens)." },
+  { q: "Como o G-Counter chega a 273?",
+    a: "Junção = máximo por site: {SP: 135, Rio: 80, Recife: 58} = 273. Com LWW sobre o total ficaria 265 ou 258 e perderia 8 ou 15 visualizações." },
+  { q: "O que o OR-Set do carrinho da Lena dá?",
+    a: "{gato}: o celular adicionou o gato e o notebook removeu a caneca, e as duas intenções valem. Se um remove e o outro adiciona a caneca ao mesmo tempo, ela fica (add vence)." },
+  { q: "Por que o LWW perde para o vetor de versão no endereço da Lena?",
+    a: "O LWW depende de relógio: o de Recife estava 120 ms atrasado e a escrita certa perdeu. O vetor {SP:2, Rec:0} × {SP:1, Rec:1} detecta que as escritas são concorrentes e deixa a aplicação decidir." },
+  { q: "Por que o PN-Counter do estoque dá −1, e o que fazer?",
+    a: "SP e Recife vendem a última caneca na partição e cada um vê 0; a junção dá −1: converge e viola estoque ≥ 0. CRDT não garante invariante: um único dono (módulo 11) ou compensação (módulo 19)." },
+]} />

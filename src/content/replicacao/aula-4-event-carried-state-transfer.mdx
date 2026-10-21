@@ -1,0 +1,93 @@
+---
+title: "Event-Carried State Transfer"
+order: 4
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o commit ganhou três momentos, e todos copiam o banco <strong>inteiro</strong>. Mas o <code>entregas</code> não quer o banco do <code>clientes</code>: quer o <strong>endereço da Lena</strong>, e hoje o busca com uma chamada a cada pedido. Se o <code>clientes</code> cair, o <code>entregas</code> para junto. Falta um jeito de o <code>entregas</code> ter o endereço sem perguntar toda vez.</p>
+
+<OneLiner>No <em>Event-Carried State Transfer</em> (ECST) o evento leva o <strong>estado inteiro</strong> do cliente, e cada serviço guarda <strong>a sua cópia</strong> em vez de chamar o dono. O <code>clientes</code> publica <code>ClienteAtualizado</code> (202 bytes), e <code>entregas</code>, <code>pedidos</code> e <code>notificacoes</code> seguem funcionando se o <code>clientes</code> cair.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>ECST</strong>, avance: o endereço da Lena muda e o evento de 202 bytes sair do <code>clientes</code> e as <strong>3 cópias</strong> se atualizarem. Avance até o passo em que o <code>clientes</code> cai: os outros três continuam entregando. No último passo, o evento chega fora de ordem.</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/fluxo-3d/?mode=ecst" poster="labs/replicacao/fluxo-3d-previa.webp" title="Figura interativa: Event-Carried State Transfer" alt="Prévia da figura 3D: Event-Carried State Transfer" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Sem eventos.</strong> O <code>clientes</code> (módulo 6) é dono do cadastro, e o gateway do módulo 8 já tem a rota <code>/api/v1/clientes</code>. Cada pedido faz um <code>GET /clientes/lena-77</code>: um salto de uns <strong>5 ms</strong> mais a consulta de <strong>2 ms</strong>, cerca de <strong>7 ms</strong>. E se o <code>clientes</code> cai, o <code>entregas</code> <strong>para</strong>.</li>
+  <li><strong>Com eventos.</strong> Toda vez que o cadastro muda, o <code>clientes</code> publica um evento <code>ClienteAtualizado</code> com o <strong>estado inteiro</strong> num tópico do Kafka (módulo 13). O tópico é <strong>compactado</strong> (<code>cleanup.policy=compact</code>): o Kafka guarda o <strong>último valor de cada chave</strong>, e a chave é o <code>cliente_id</code>. Cada serviço que precisa do cliente consome o tópico e mantém <strong>sua cópia</strong> numa tabela local.</li>
+  <li><strong>O evento de verdade</strong> tem <strong>202 bytes</strong>. O campo <code>versao</code> vai servir adiante (o JSON está logo abaixo da lista).A versão <em>notification</em> (<code>{String.raw`{"evento_id":"e-1701","cliente_id":"lena-77","versao":8}`}</code>) tem <strong>56 bytes</strong> e obriga <strong>mais uma chamada</strong> de volta ao <code>clientes</code>. É a distinção do módulo 13: estado completo são 202 B sem chamada, e notificação são 56 B <strong>mais</strong> um <code>GET</code>.</li>
+  <li><strong>O custo.</strong> O artigo chama o padrão de "custosa, porém poderosa", e a conta mostra onde: 1,5 milhão de clientes × 500 B = <strong>750 MB</strong> por cópia. Com 3 consumidores são <strong>4 cópias, 3,0 GB</strong>, em vez de 750 MB. O tópico compactado guarda 1,5 milhão de chaves (cerca de 300 B cada, uns <strong>450 MB</strong>). Um <strong>consumidor novo</strong> lê o tópico do início para montar a sua cópia: a 20.000 eventos por segundo (exemplo), são <strong>75 s</strong>.</li>
+  <li><strong>Consistência eventual.</strong> Entre o <code>clientes</code> publicar a versão 8 e o <code>entregas</code> aplicá-la, o <code>entregas</code> tem o endereço <strong>velho</strong>: segundos. É o BASE do módulo 3, escolhido de propósito: o endereço pode ficar alguns segundos atrás, e em troca o <code>entregas</code> não depende de ninguém para ler.</li>
+</ol>
+
+<pre><code>{String.raw`{"evento_id":"e-1701","cliente_id":"lena-77","versao":8,"nome":"Lena","endereco":{"rua":"Rua da Aurora","numero":100,"cidade":"Recife","cep":"50050-000"},"atualizado_em":"2026-11-27T20:20:00.150-03:00"}`}</code></pre>
+
+</HowItWorks>
+
+<Widget name="ecst" title="ECST: ordem e versão" hint='Uma fila de eventos ClienteAtualizado com a v8 (Rua da Aurora, 100) e a v9 (Rua do Sol, 200). Troque a ordem, repita um evento e ligue a regra "aplica só se a versão for maior". O widget mostra o endereço final com e sem a regra.' />
+
+<h3 class="sec">E se der errado: a ordem trocada</h3>
+
+<p>Mais tarde a Lena muda o endereço duas vezes: "Rua da Aurora, 100" (<strong>v8</strong>) e logo depois "Rua do Sol, 200" (<strong>v9</strong>). Por causa de um reparticionamento do tópico (de 3 para 6 partições, módulo 13), o <code>entregas</code> recebe a <strong>v9 e depois a v8</strong>. Se aplicar às cegas o que chegou por último, termina com a <strong>v8</strong>, o endereço <strong>velho</strong>, e a caneca vai para a casa errada. Se aplicar só quando a <code>versao</code> do evento for <strong>maior</strong> que a da cópia, descarta a v8 e fica com a v9. O mesmo vale para o evento que chega <strong>duplicado</strong>: a regra o ignora.</p>
+
+<p>Há ainda um buraco do outro lado: e se o <code>clientes</code> grava o novo endereço e <strong>cai antes de publicar</strong> o evento? A cópia do <code>entregas</code> nunca fica sabendo. Esse é o problema da <strong>escrita dupla</strong> (dual write), que a aula 5 resolve.</p>
+
+<WhyItMatters>
+  <li><strong>O serviço de entregas deixa de depender do clientes.</strong> Cai o dono, e a cópia local continua respondendo.</li>
+  <li><strong>O estado inteiro evita a chamada de volta.</strong> 202 bytes sem chamada contra 56 bytes mais um <code>GET</code>.</li>
+  <li><strong>O preço é espaço e atraso.</strong> 4 cópias custam 3,0 GB, e a cópia fica segundos atrás.</li>
+  <li><strong>A versão é a defesa contra a ordem trocada.</strong> Sem ela, a v8 vence a v9 e o endereço volta ao velho.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas do ECST, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Conta</th><th>Valores</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>Evento com o estado inteiro</th><td>JSON compacto</td><td>202 B</td></tr>
+      <tr><th>Evento notification</th><td>evento_id, cliente_id, versao</td><td>56 B + um GET</td></tr>
+      <tr><th>Uma cópia</th><td>1,5 milhão × 500 B</td><td>750 MB</td></tr>
+      <tr><th>Quatro cópias</th><td>1 dono + 3 consumidores</td><td>3,0 GB</td></tr>
+      <tr><th>Tópico compactado</th><td>1,5 milhão de chaves × ~300 B</td><td>~450 MB</td></tr>
+      <tr><th>Consumidor novo</th><td>1.500.000 ÷ 20.000 eventos/s</td><td>75 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o que o ECST é</h4>
+  <ul>
+    <li><strong>"Combina cache, eventos e replicação".</strong> Em Fowler, <em>event-carried state transfer</em> é <strong>um</strong> dos quatro padrões de "event-driven" (os outros: <em>event notification</em>, <em>event sourcing</em> e CQRS). O artigo diz que é "custosa": o custo é <strong>armazenamento</strong> (N cópias), <strong>consistência eventual</strong> e <strong>ordem</strong>. Falta o campo <code>versao</code> no evento e o tópico <strong>compactado</strong>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Kafka: configuração de tópico (cleanup.policy=compact)", href: "https://kafka.apache.org/40/generated/topic_config.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora copia o cadastro entre serviços com eventos, desde que alguém os publique. Só que quem publica é o próprio serviço, à mão, e esse trabalho pode falhar no meio. Falta saber o que fazer quando o dono do dado <strong>não quer, nem sabe</strong>, publicar eventos: ler o <strong>log do banco</strong> e transformá-lo em eventos sem mexer na aplicação.</p>
+
+<Flashcards cards={[
+  { q: "O que é o Event-Carried State Transfer?",
+    a: "Publicar o estado inteiro no evento, para cada serviço manter a sua cópia e deixar de chamar o dono. O clientes publica ClienteAtualizado (202 B) e entregas, pedidos e notificacoes guardam cópia." },
+  { q: "Por que o tópico é compactado e por que o evento tem versao?",
+    a: "cleanup.policy=compact guarda o último valor de cada chave (cliente_id); um consumidor novo monta a cópia lendo do início. A versao deixa descartar eventos antigos ou repetidos." },
+  { q: "Quanto custa o ECST?",
+    a: "1,5 milhão × 500 B = 750 MB por cópia; 4 cópias = 3,0 GB. Um consumidor novo lê o tópico em 75 s a 20.000 eventos/s. E há consistência eventual: segundos com o endereço velho." },
+  { q: "Evento com estado inteiro ou notification?",
+    a: "Estado inteiro: 202 B e nenhuma chamada. Notification: 56 B mais um GET de volta ao clientes (a escolha do módulo 13)." },
+  { q: "O que acontece se o entregas receber v9 e depois v8?",
+    a: "Aplicando às cegas termina com a v8 (Rua da Aurora, 100), o endereço velho. Aplicando só se a versao for maior, descarta a v8 e fica com a v9 (Rua do Sol, 200)." },
+]} />
