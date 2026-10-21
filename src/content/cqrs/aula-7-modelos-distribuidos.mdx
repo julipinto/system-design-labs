@@ -1,0 +1,97 @@
+---
+title: "Modelos distribuídos"
+order: 7
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o documento da Lena virou uma leitura por chave, mas só com dados de <code>pedidos</code>. A tela "meus pedidos" de verdade mostra também o pagamento, o rastreio e o nome dos produtos, que pertencem a <code>pagamentos</code>, <code>entregas</code> e <code>catalogo</code>, cada um com o seu banco (módulo 6). Hoje o <code>bff-app</code> (módulo 9) chama os <strong>quatro</strong> e junta. Falta comparar esse jeito com montar o documento <strong>por eventos</strong>.</p>
+
+<OneLiner>Quando os dados estão em serviços diferentes, o modelo de leitura é <strong>montado por eventos</strong> de vários donos, em vez de a tela chamar os quatro. A tela passa a depender de <strong>um</strong> lugar (99,9%) e não de <strong>quatro ao mesmo tempo</strong> (99,60%), ao custo de uma consistência eventual multiplicada.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Distribuído</strong>, derrube o serviço <code>pagamentos</code> e compare a tela <strong>composta</strong> (que falha) com a tela do <strong>modelo de leitura</strong> (que continua, com o último status). Depois avance até o "e se der errado" e veja o pedido fantasma sem itens.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=distribuido" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: Vários serviços, um documento" alt="Prévia da figura 3D: Vários serviços, um documento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>(a) Composição.</strong> É o <em>API Composition</em> do módulo 9: o <code>bff-app</code> chama <code>pedidos</code>, <code>pagamentos</code>, <code>entregas</code> e <code>catalogo</code> e monta a tela. A tela só funciona se <strong>os quatro</strong> responderem: com 99,9% cada, 0,999⁴ = <strong>99,6006%</strong>, ou <strong>172,5 min/mês</strong> fora do ar (a conta em série do módulo 12). O mais lento decide a latência, e cada serviço entra no raio de explosão da tela.</li>
+  <li><strong>(b) Modelo de leitura por eventos.</strong> É o padrão "CQRS" de microservices.io: <code>PedidoCriado</code> (de <code>pedidos</code>), <code>PedidoPago</code> (de <code>pagamentos</code>) e <code>PedidoEnviado</code> (de <code>entregas</code>) alimentam <strong>um</strong> documento. O <code>catalogo</code> não precisa entrar: o evento já leva nome e preço da época.</li>
+  <li><strong>O que a tela ganha.</strong> Lê um lugar só: <strong>99,9%</strong>, ou <strong>43,2 min/mês</strong> fora. E <strong>continua</strong> se <code>pagamentos</code> cair: mostra o <strong>último</strong> status que conhece, em vez de "indisponível".</li>
+  <li><strong>O que ela paga.</strong> Três tópicos, um projetor e um armazenamento, mais a consistência eventual <strong>multiplicada</strong>: cada fonte tem o seu atraso, e o documento do 1056 pode estar completo em uma parte e velho em outra.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="composicao" title="Composição × modelo de leitura" hint="Escolha quantos serviços a tela chama (1 a 8) e a disponibilidade de cada um (99 a 99,99%). Veja a disponibilidade em série, os minutos fora por mês (172,5 contra 43,2) e o efeito de derrubar uma das fontes." />
+
+<h3 class="sec">O que o artigo chama de controverso</h3>
+
+<p>O artigo diz que "puristas" restringem o CQRS a um domínio só. A versão que <strong>junta domínios</strong> é exatamente o padrão <em>CQRS</em> de microservices.io (uma <em>view</em> com dados de vários serviços, alimentada por eventos) e a alternativa à <em>API Composition</em>. Vale o custo desta aula quando a tela tem de sobreviver à queda de uma fonte.</p>
+
+<h3 class="sec">E se der errado (a): o PedidoCriado se perde</h3>
+
+<p>A aula 8 mostra como isso acontece. Suponha que o <code>PedidoCriado</code> do 1056 nunca chegue ao modelo de leitura, mas o <code>PedidoPago</code> e o <code>PedidoEnviado</code> cheguem. O documento do 1056 fica com pagamento e rastreio e <strong>sem itens</strong>: um <strong>pedido fantasma</strong> que nunca completa. A defesa é um <strong>verificador</strong> (reconciliação): para documentos sem <code>itens</code> há mais de 5 minutos, ele chama <code>GET /pedidos/1056</code> e completa o que falta.</p>
+
+<h3 class="sec">E se der errado (b): eventos de tópicos diferentes não têm ordem entre si</h3>
+
+<p>O Kafka garante ordem <strong>dentro de uma partição</strong>, e cada fonte publica no seu tópico. Então o <code>PedidoPago</code> (de <code>pagamentos</code>) pode chegar <strong>antes</strong> do <code>PedidoCriado</code> (de <code>pedidos</code>). O projetor faz <strong>upsert parcial</strong> por <code>pedido_id</code> e guarda a <code>versao</code> <strong>por fonte</strong>, para saber, em cada parte do documento, qual evento já aplicou.</p>
+
+<WhyItMatters>
+  <li><strong>Composição soma o risco.</strong> Quatro serviços a 99,9% dão 99,60%: 172,5 min/mês fora.</li>
+  <li><strong>O modelo por eventos isola a tela.</strong> Um armazenamento a 99,9% dá 43,2 min/mês, e a tela segue de pé quando um serviço cai.</li>
+  <li><strong>O preço é mais peças e mais atraso.</strong> Três tópicos, um projetor, e cada fonte com a sua defasagem.</li>
+  <li><strong>Documento incompleto é um estado real.</strong> A reconciliação e a <code>versao</code> por fonte existem para isso.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Composição × modelo de leitura, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>(a) composição no <code>bff-app</code></th><th>(b) modelo de leitura por eventos</th></tr></thead>
+    <tbody>
+      <tr><th>disponibilidade</th><td>0,999⁴ = 99,6006%</td><td>99,9%</td></tr>
+      <tr><th>fora por mês</th><td>172,5 min</td><td>43,2 min</td></tr>
+      <tr><th>latência</th><td>a do mais lento dos 4</td><td>uma leitura por chave</td></tr>
+      <tr><th><code>pagamentos</code> cai</th><td>a tela falha (ou "status indisponível")</td><td>mostra o último status</td></tr>
+      <tr><th>consistência</th><td>forte, no momento da chamada</td><td>eventual, e por fonte</td></tr>
+      <tr><th>peças</th><td>nenhuma nova</td><td>3 tópicos, 1 projetor, 1 armazenamento</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: CQRS "em sistemas distribuídos"</h4>
+  <ul>
+    <li><strong>"Controverso".</strong> O desenho que junta dados de vários serviços é o padrão <strong>CQRS de microservices.io</strong>, a alternativa à <em>API Composition</em>. Não é um desvio do CQRS: é o caso em que ele mais se paga, e o custo (consistência eventual multiplicada e mais peças) tem de caber na aula, como aqui.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "microservices.io: padrão CQRS", href: "https://microservices.io/patterns/data/cqrs.html" },
+    { label: "microservices.io: API Composition", href: "https://microservices.io/patterns/data/api-composition.html" },
+    { label: "Microsoft Azure Architecture Center: padrão CQRS", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "Repositório público do autor: exemplos/cqrs", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs" },
+  ]} />
+</Deep>
+
+<p class="gancho">O modelo de leitura por eventos só vale se cada <code>PedidoCriado</code> <strong>sair</strong> quando o pedido <strong>entra</strong>, e o verificador desta aula existe porque às vezes ele não sai. Falta saber como o <code>pedidos</code> garante que o evento <strong>sai</strong> quando o pedido entra.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a disponibilidade da tela composta por 4 serviços a 99,9% cada?",
+    a: "0,999⁴ = 99,6006%, ou 172,5 min/mês fora. Um armazenamento só a 99,9% dá 43,2 min/mês." },
+  { q: "O que a tela do modelo de leitura faz quando pagamentos cai?",
+    a: "Continua e mostra o último status que conhece. A tela composta falha ou mostra 'status indisponível'." },
+  { q: "Quais eventos alimentam o documento do pedido 1056?",
+    a: "PedidoCriado (de pedidos), PedidoPago (de pagamentos) e PedidoEnviado (de entregas), num único documento." },
+  { q: "O que é o pedido fantasma e qual é a defesa?",
+    a: "O documento tem pagamento e rastreio mas não tem itens, porque o PedidoCriado se perdeu. Defesa: um verificador que, para documentos sem itens há mais de 5 min, chama GET /pedidos/1056 e completa." },
+  { q: "Como o projetor lida com eventos de tópicos diferentes fora de ordem?",
+    a: "Faz upsert parcial por pedido_id e guarda a versao por fonte, para saber o que já aplicou de cada uma." },
+]} />

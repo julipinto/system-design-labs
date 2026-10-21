@@ -1,0 +1,142 @@
+---
+title: "Transactional Outbox"
+order: 10
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import outboxInit from '../../lab-code/cqrs/outbox-init.sql?raw';
+import outboxRelay from '../../lab-code/cqrs/outbox-relay.go?raw';
+
+<p class="ponte">Na aula passada o CDC tirou a escrita dupla do código, mas o evento saiu como uma <strong>linha</strong> mudada, e a loja quer o <code>PedidoCriado</code> inteiro, com itens e preço da época. A saída é gravar o <strong>evento como dado</strong>, numa tabela do mesmo banco, na <strong>mesma transação</strong> do pedido. Se o pedido entra, o evento entra; se a transação desfaz, os dois somem.</p>
+
+<OneLiner>A <strong>outbox transacional</strong> grava o evento numa <strong>tabela do mesmo banco, na mesma transação</strong> do pedido: ou os dois entram, ou nenhum. Um segundo processo (o <strong>relay</strong>) leva a tabela ao broker, com entrega <strong>pelo menos uma vez</strong>, e por isso o consumidor tem de ser <strong>idempotente</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Outbox</strong>, faça a transação do 1056 (<code>INSERT pedidos</code> + <code>INSERT outbox</code> + <code>COMMIT</code>) e depois o <code>ROLLBACK</code>, que leva os dois. Para o "e se der errado" do relay (publicar, cair antes de marcar e o evento sair duas vezes), troque para o cenário <strong>Relay duplicado</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/escrita-3d/?mode=outbox" poster="labs/cqrs/escrita-3d-previa.webp" title="Figura interativa: Transactional outbox" alt="Prévia da figura 3D: Transactional outbox" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A transação.</strong> <code>BEGIN; INSERT INTO pedidos …1056…; INSERT INTO outbox …PedidoCriado e-1801…; COMMIT;</code>. Lida com o <code>test_decoding</code> do PostgreSQL, saiu <strong>uma só transação</strong>, <code>BEGIN 832 … COMMIT 832</code>, com as duas linhas dentro (bloco abaixo). Uma segunda tentativa, de um pedido de teste, terminou em <code>ROLLBACK</code> e <strong>não deixou nada</strong>: nem nas tabelas, nem no fluxo decodificado.</li>
+  <li><strong>A tabela.</strong> A <code>Outbox_Events</code> do laboratório tem <code>aggregate_type</code>, <code>aggregate_id</code>, <code>event_type</code>, <code>payload</code> (JSON), <code>created_at</code>, <code>processed_at</code>, <code>published_at</code>, <code>error_message</code> e <code>retry_count</code>. O <code>payload</code> é o evento de negócio inteiro.</li>
+  <li><strong>O relay.</strong> O <code>outbox_relay.go</code> do laboratório olha a tabela a cada <strong>2 s</strong>, em lotes de <strong>100</strong>, com até <strong>5</strong> tentativas por evento. Soma <strong>1 s em média</strong> e <strong>2 s no pior caso</strong> ao atraso do modelo de leitura.</li>
+  <li><strong>O CDC lendo a própria <code>outbox</code>.</strong> O <em>Outbox Event Router</em> do Debezium espera as colunas <code>id</code>, <code>aggregatetype</code>, <code>aggregateid</code>, <code>type</code> e <code>payload</code> e roteia pelo <code>aggregatetype</code>. Tira o <em>poll</em>: a latência cai de até 2 s para <strong>milissegundos</strong>, e o evento continua sendo o de negócio.</li>
+  <li><strong>Vários relays.</strong> Com <code>SELECT … WHERE publicado_em IS NULL ORDER BY id LIMIT 4 FOR UPDATE SKIP LOCKED</code>, o relay A pegou os ids <strong>1, 2, 3 e 4</strong> e o B, ao mesmo tempo, <strong>5, 6, 7 e 8</strong>: nada em comum.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`BEGIN 832
+table public.pedidos: INSERT: id[bigint]:1056 cliente_id[text]:'lena-77' …
+table public.outbox: INSERT: id[bigint]:1 aggregate_type[text]:'pedido' aggregate_id[text]:'1056' event_type[text]:'PedidoCriado' payload[jsonb]:'{…"evento_id": "e-1801"…}' …
+COMMIT 832`}</code></pre>
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>A tabela abaixo é o trecho de <code>database/init.sql</code> do <code>hospital-cqrs-outbox</code>, sem alteração, com os números de linha do original.</p>
+
+<CodeLab code={outboxInit} from={72} to={83} />
+
+<p>E o centro do relay, <code>processarEvento</code>, do <code>internal/events/outbox_relay.go</code>, também sem alteração:</p>
+
+<CodeLab code={outboxRelay} from={132} to={159} />
+
+<ol class="flow steps">
+  <li>A linha 138 <strong>publica</strong> no Kafka com a chave <code>aggregate_type-aggregate_id</code> (na loja, <code>pedido-1056</code>).</li>
+  <li>As linhas 148 a 151 atualizam as <em>views</em> localmente, só para o laboratório funcionar sem um consumidor separado; se falhar, só loga.</li>
+  <li>A linha 154 só <strong>depois</strong> chama <code>marcarProcessado</code>, um <code>UPDATE</code> que grava <code>processed_at</code> e <code>published_at</code>. Entre a 138 e a 154 existe uma janela: é a do "e se der errado (a)", abaixo.</li>
+</ol>
+
+<Widget name="outbox" title="Custo da outbox em WAL" hint="Pedidos por segundo, eventos por pedido (1 a 4) e a política da outbox: marcar com UPDATE ou apagar com DELETE. Veja os bytes de WAL por pedido e os MB por hora (38,8 sem outbox; 207 com DELETE; 295,5 com UPDATE)." />
+
+<h3 class="sec">O custo: a outbox escreve mais</h3>
+
+<p>O artigo avisa que a outbox pode virar um gargalo, e agora há número. Em 20.000 pedidos (cada um com um <code>INSERT</code> e um <code>UPDATE</code> do status, numa tabela simples com chave primária; o <code>PedidoCriado</code> pesa 326 B em <code>jsonb</code> e o <code>PedidoPago</code>, 63 B), o WAL por pedido foi:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cenário</th><th>WAL por pedido</th><th>Fator</th><th>A 30 pedidos/s</th></tr></thead>
+  <tbody>
+    <tr><th>sem outbox</th><td>359,6 B</td><td>1×</td><td>10,8 KB/s (38,8 MB/h)</td></tr>
+    <tr><th>com 2 <code>INSERT</code> na outbox</th><td>1.232,7 B (+873 B)</td><td>3,4×</td><td>37,0 KB/s</td></tr>
+    <tr><th>+ relay marca com <code>UPDATE</code></th><td>2.735,8 B (+1.503,1 B)</td><td>7,6×</td><td>82,1 KB/s (295,5 MB/h)</td></tr>
+    <tr><th>+ relay apaga com <code>DELETE</code></th><td>1.916,8 B (+684,1 B)</td><td>5,3×</td><td>57,5 KB/s (207 MB/h)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>É o "custo computacional adicional" do artigo, com número: de <strong>5,3× a 7,6×</strong> o WAL. Apagar custa menos que marcar, e a tabela não cresce (próximo item). Medido em PostgreSQL 14.24, em 20/10/2026.</p>
+
+<h3 class="sec">E se der errado (a): o relay cai entre publicar e marcar</h3>
+
+<p>O relay publica o <code>PedidoCriado</code> do 1056 (linha 138) e cai <strong>antes</strong> de marcar (linha 154). Ao voltar, o evento ainda está sem <code>processed_at</code>, e o relay o <strong>publica de novo</strong>. A entrega é <strong>pelo menos uma vez</strong>: o evento nunca se perde, mas pode sair duas vezes. O consumidor tem de ser <strong>idempotente</strong> (por <code>evento_id</code>, <code>e-1801</code>); o <code>handler</code> do laboratório não é (aula 5).</p>
+
+<h3 class="sec">E se der errado (b): dois relays, ordem trocada</h3>
+
+<p>O <code>PedidoCriado</code> do 1056 é o id 3 e o <code>PedidoPago</code> é o id 5. Com <code>SKIP LOCKED</code> e dois relays, o id 3 e o id 5 podem ser publicados por relays <strong>diferentes</strong>, e o 5 pode chegar primeiro. Duas defesas: a <strong>chave do tópico</strong> deve ser o <code>pedido_id</code> (mesma partição, mesma ordem de publicação) e o consumidor confere a <code>versao</code> (módulo 17, aula 4). Lido no código: o <code>SELECT</code> do relay do laboratório (linhas 99 a 107) <strong>não</strong> tem <code>FOR UPDATE SKIP LOCKED</code>, então dois relays pegariam os <strong>mesmos</strong> eventos e publicariam em dobro.</p>
+
+<h3 class="sec">E se der errado (c): a tabela cresce</h3>
+
+<p>Cada pedido deixa linhas na <code>outbox</code>, e o <code>UPDATE</code> do relay as mantém lá. O laboratório tem uma função de limpeza (<code>LimparEventosProcessados</code>, que apaga o que passou do prazo), mas nada garante que ela rode. A defesa é <strong>apagar</strong> ou <strong>particionar</strong> por dia o que já foi publicado.</p>
+
+<WhyItMatters>
+  <li><strong>Uma transação, dois dados.</strong> Pedido e evento entram juntos ou nenhum entra, e o <code>ROLLBACK</code> leva os dois.</li>
+  <li><strong>O evento é o de negócio.</strong> O <code>payload</code> é o <code>PedidoCriado</code> inteiro, com itens e preço da época.</li>
+  <li><strong>Entrega pelo menos uma vez.</strong> Nada se perde, mas pode duplicar: o consumidor idempotente é parte do padrão.</li>
+  <li><strong>Tem custo.</strong> De 5,3× a 7,6× o WAL por pedido, 82 KB/s a 30 pedidos/s com <code>UPDATE</code>.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Relay × CDC lendo a outbox, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>relay (laboratório)</th><th>CDC lendo a <code>outbox</code></th></tr></thead>
+    <tbody>
+      <tr><th>como lê</th><td><code>SELECT</code> a cada 2 s</td><td>o log do banco (WAL)</td></tr>
+      <tr><th>latência</th><td>1 s em média, 2 s no pior caso</td><td>milissegundos</td></tr>
+      <tr><th>peças</th><td>um processo seu</td><td>Debezium, slot, Kafka Connect</td></tr>
+      <tr><th>marca o que enviou</th><td>sim (<code>UPDATE</code>)</td><td>não precisa</td></tr>
+      <tr><th>risco</th><td>duplicata se cair antes de marcar</td><td>slot esquecido enche o disco</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Fechando o módulo</h4>
+  <p>A loja agora tem <strong>um modelo para escrever e outro para ler</strong>, ligados por eventos que não se perdem: o <code>pedidos</code> grava o 1056 e o <code>PedidoCriado</code> numa transação, o relay (ou o CDC) o leva ao Kafka, o projetor monta o documento da Lena em ~74 ms, e a tela chama uma rota só.</p>
+  <h4 class="deep-h">Correção ao artigo-base: a outbox sem os custos</h4>
+  <ul>
+    <li><strong>Outbox apresentada sem custos.</strong> Faltam a <strong>entrega pelo menos uma vez</strong> (duplicata se o relay cai entre publicar e marcar), a <strong>ordem</strong> com mais de um relay, a <strong>latência do <em>poll</em></strong> (2 s no laboratório) e o <strong>WAL</strong> (5,3× a 7,6×, medido). O artigo também não diz que o CDC pode ler a própria <code>outbox</code> (Debezium <em>Outbox Event Router</em>), o que tira o <em>poll</em>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "microservices.io: Transactional outbox", href: "https://microservices.io/patterns/data/transactional-outbox.html" },
+    { label: "Debezium: Outbox Event Router", href: "https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html" },
+    { label: "Debezium: Reliable Microservices Data Exchange With the Outbox Pattern", href: "https://debezium.io/blog/2019/02/19/reliable-microservices-data-exchange-with-the-outbox-pattern/" },
+    { label: "PostgreSQL: SELECT (FOR UPDATE … SKIP LOCKED)", href: "https://www.postgresql.org/docs/current/sql-select.html" },
+    { label: "Repositório público do autor: hospital-cqrs-outbox", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-outbox" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora tem um modelo para escrever e outro para ler, ligados por eventos que não se perdem. E quando <strong>um pedido atravessa vários serviços</strong> e um deles <strong>falha no meio</strong>: o pagamento passou e o estoque não? É a compensação deixada em aberto no módulo 6. Falta saber como desfazer o que já foi feito, passo a passo. É o módulo 19, Saga.</p>
+
+<Flashcards cards={[
+  { q: "O que a outbox garante e como?",
+    a: "Grava o evento numa tabela do mesmo banco, na mesma transação do pedido: ou os dois entram, ou nenhum. Provado com test_decoding: BEGIN 832 … COMMIT 832, e o ROLLBACK não deixou nada." },
+  { q: "Quais são os dois jeitos de levar a outbox ao broker?",
+    a: "O relay (o do laboratório: poll de 2 s, lote de 100, 5 tentativas) ou o CDC lendo a própria tabela outbox (Debezium Outbox Event Router), com latência de ms." },
+  { q: "Quanto a outbox custa em WAL?",
+    a: "De 359,6 B para 1.916,8 B por pedido (relay apaga, 5,3×) ou 2.735,8 B (relay marca com UPDATE, 7,6×): 82 KB/s a 30 pedidos/s." },
+  { q: "O que acontece se o relay cai entre publicar e marcar?",
+    a: "Ao voltar, publica o evento de novo: entrega pelo menos uma vez. O consumidor tem de ser idempotente (por evento_id); o handler do laboratório não é." },
+  { q: "Como evitar a ordem trocada com dois relays?",
+    a: "Usar o pedido_id como chave do tópico e conferir a versao no consumidor. O SKIP LOCKED divide os lotes (1–4 e 5–8), mas o PedidoCriado (id 3) e o PedidoPago (id 5) podem sair por relays diferentes." },
+]} />

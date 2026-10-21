@@ -1,0 +1,95 @@
+---
+title: "Modelos de domínio no contexto do CQRS"
+order: 2
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja separou o comando <code>CriarPedido</code> da consulta "meus pedidos", e ficou a pergunta de como cada lado é feito. O comando mexe em dinheiro e estoque, então precisa ser <strong>rico em regras</strong>. A consulta só mostra uma tela, então não precisa de regra nenhuma. O artigo do autor mostra isso com um hospital (médico, paciente, prescrição); aqui é o mesmo desenho com a loja.</p>
+
+<OneLiner>O modelo de <strong>comando</strong> é <strong>rico em regras e normalizado</strong>; o de <strong>consulta</strong> é "burro", <strong>desnormalizado</strong> e do formato da resposta. Como as regras já foram aplicadas antes de o dado entrar, o modelo de leitura <strong>não precisa</strong> delas, e a regra mora <strong>só</strong> no comando.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Dois modelos</strong>, abra o lado do <strong>comando</strong> e conte as validações que o <code>CriarPedido</code> faz <strong>antes</strong> do <code>INSERT</code>. Depois olhe o lado da consulta e veja que ali não há nenhuma.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=dois-modelos" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: Comando e consulta" alt="Prévia da figura 3D: Comando e consulta" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>As validações do comando.</strong> O <code>CriarPedido</code> do 1056 confere o cliente (<code>lena-77</code> existe), o produto 42 (ativo), o <strong>preço vigente</strong> (79,90, o valor do módulo 5), o estoque (20 gatos e 36 canecas) e o frete de Recife (15,00). Só então grava <code>pedidos</code> e <code>itens_pedido</code> numa transação, e o estoque passa a 19 e 35.</li>
+  <li><strong>O agregado.</strong> Quem decide é o <code>Pedido</code> (módulo 6, aula 5): ele <strong>recusa</strong> <code>cancelar()</code> se o pedido já foi enviado. O modelo de comando é <em>rich domain</em>: a regra está dentro da entidade, e a transação (ACID) garante que as duas tabelas entram juntas ou nenhuma.</li>
+  <li><strong>A consulta.</strong> <code>MeusPedidos(cliente)</code> não valida nada: devolve o documento da Lena, de 1.787 bytes, com os pedidos, os itens e o status. O formato é o da tela, sem <code>JOIN</code>.</li>
+  <li><strong>Lado a lado.</strong> Normalizado, o dado mora <strong>uma vez</strong> em cada tabela e as chaves ligam tudo. Desnormalizado, o dado se <strong>repete</strong> onde a tela precisa dele (o nome do gato em cada pedido que o contém). Repetir é barato na leitura e perigoso na escrita, e por isso só o modelo de leitura repete.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Modelo</th><th>Forma</th><th>Regras</th><th>O 1056 fica assim</th></tr></thead>
+  <tbody>
+    <tr><th>escrita</th><td>normalizado</td><td>todas (cliente, produto, preço, estoque, frete)</td><td>1 linha em <code>pedidos</code> + 2 em <code>itens_pedido</code></td></tr>
+    <tr><th>leitura</th><td>desnormalizado</td><td>nenhuma</td><td>1 pedido de 253 B dentro do documento de 1.787 B</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">Por que a leitura não precisa de regra</h3>
+
+<p>Quando o dado chega ao modelo de leitura, o comando <strong>já o aprovou</strong>. Repetir a regra ali não deixa nada mais seguro, só cria uma segunda cópia da regra para manter. A tabela que o artigo chama de "view" aparece na próxima aula, com o nome certo.</p>
+
+<h3 class="sec">E se der errado: a regra duplicada</h3>
+
+<p>Alguém põe "pedido cancelado não aparece" também no modelo de leitura, para a tela ficar limpa. Meses depois o comando muda a regra (um pedido recusado por falta de estoque passa a ficar "aguardando reposição", por exemplo) e ninguém lembra do outro lado. Os dois divergem, e a Lena vê um pedido que o checkout já recusou. A regra mora <strong>só</strong> no comando; a consulta mostra o que lhe chegou.</p>
+
+<WhyItMatters>
+  <li><strong>O comando protege o dinheiro.</strong> Validação, preço vigente, estoque e transação ficam num lugar só.</li>
+  <li><strong>A consulta é do tamanho da tela.</strong> Sem <code>JOIN</code> e sem regra, ela só lê e responde.</li>
+  <li><strong>Repetir dado é decisão do lado da leitura.</strong> É ali que repetir compensa, porque ninguém escreve nele.</li>
+  <li><strong>Regra duplicada é bug esperando.</strong> Se mora nos dois lados, um dia os dois divergem.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O hospital do artigo e a loja, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>No artigo (hospital)</th><th>Na loja</th></tr></thead>
+    <tbody>
+      <tr><th>comando <code>CriarPrescricao</code></th><td><code>CriarPedido</code></td></tr>
+      <tr><th>médico, paciente, medicamentos</th><td>cliente, produto, frete</td></tr>
+      <tr><th><code>Prescricoes</code> + <code>Prescricao_Medicamentos</code></th><td><code>pedidos</code> + <code>itens_pedido</code></td></tr>
+      <tr><th>modelo desnormalizado das prescrições</th><td>documento <code>meus_pedidos:lena-77</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">O que fica de fora do modelo de leitura</h4>
+  <ul>
+    <li>Estoque, preço de hoje e regras de cancelamento são dados do <strong>comando</strong>. O documento guarda o que foi pago (nome e preço <strong>da época</strong>), e é por isso que ele não precisa escutar o <code>catalogo</code>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Microsoft Azure Architecture Center: padrão CQRS", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "microservices.io: Database per Service", href: "https://microservices.io/patterns/data/database-per-service.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O comando valida e grava; a consulta só devolve. Mas o modelo de leitura precisa existir em algum lugar, e mudar de banco é um passo grande. Falta saber como montá-lo <strong>sem ainda mudar de banco</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que o CriarPedido valida antes de gravar o 1056?",
+    a: "Cliente, produto 42 ativo, preço vigente (79,90), estoque (20 gatos, 36 canecas) e frete de Recife (15,00). Só então grava pedidos e itens_pedido numa transação." },
+  { q: "Por que o modelo de leitura não precisa de regras?",
+    a: "Porque elas já foram aplicadas pelo comando antes de o dado entrar. Repetir a regra ali só cria uma segunda cópia para manter." },
+  { q: "Normalizado ou desnormalizado: qual é o de comando e qual é o de consulta?",
+    a: "O de comando é normalizado (o dado mora uma vez). O de consulta é desnormalizado (o dado se repete onde a tela precisa)." },
+  { q: "O que é a regra duplicada e por que dá errado?",
+    a: "É a mesma regra nos dois modelos. Quando o comando muda, o outro lado fica velho, e a Lena vê um pedido que o checkout já recusou. A regra mora só no comando." },
+]} />

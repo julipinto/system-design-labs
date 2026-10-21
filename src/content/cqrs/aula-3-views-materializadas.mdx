@@ -1,0 +1,113 @@
+---
+title: "Views materializadas"
+order: 3
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o modelo de leitura ficou sem endereço: precisa ser outra forma do dado, mas ainda não se quer outro banco. O caso concreto é o <strong>relatório das 23:00</strong> do módulo 6, o faturamento por cidade e produto. Ele varre <code>pedidos</code>, <code>itens_pedido</code> e <code>produtos</code> inteiros e disputa banco e CPU com quem está pagando. O jeito mais simples de tirá-lo do caminho é guardar o <strong>resultado pronto</strong>, no mesmo SQL.</p>
+
+<OneLiner>Uma <strong>view materializada</strong> é o <strong>resultado de uma consulta guardado numa tabela</strong>, no mesmo banco: lê-se em <strong>0,021 ms</strong> o que o relatório calcula em <strong>~235 ms</strong>, e se paga em <strong>atraso</strong>, porque ela só sabe o que sabia no último <code>REFRESH</code>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>View</strong>, rode o relatório, depois leia a <em>view</em> e dê o <code>REFRESH</code> <strong>com um leitor esperando</strong>. Compare o tempo de espera do leitor com o <code>REFRESH</code> simples (2.285 ms) e com o <code>CONCURRENTLY</code> (12 ms). Depois avance até o "e se der errado" e veja a <em>view</em> mostrando <code>100003</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=view" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: A view materializada" alt="Prévia da figura 3D: A view materializada" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O relatório.</strong> Faturamento por cidade e produto (<code>pedidos</code> × <code>itens_pedido</code> × <code>produtos</code>, com <code>GROUP BY</code>). No banco de teste (PostgreSQL 14, 300.008 pedidos), três execuções deram <strong>238,8 · 240,7 · 227,6 ms</strong>, em torno de <strong>235 ms</strong>. Nas 50 milhões de linhas do módulo 16, a estimativa <strong>linear</strong> (não medida) é 235 ms × 166,7 = <strong>~40 s</strong>.</li>
+  <li><strong>A <em>view</em>.</strong> <code>CREATE MATERIALIZED VIEW faturamento_cidade_produto AS …</code> guarda as 5 linhas do resultado. Criar custou <strong>406 ms</strong>. Ler, com <code>WHERE cidade = 'Recife'</code>, custou <strong>0,021 ms</strong>: cerca de <strong>11.000×</strong> mais rápido que o relatório, porque lê 5 linhas prontas em vez de varrer 300 mil.</li>
+  <li><strong>O <code>REFRESH</code>.</strong> Para a <em>view</em> saber dos pedidos novos, alguém precisa refazê-la. <code>REFRESH MATERIALIZED VIEW</code> levou <strong>401 ms</strong> (estimativa linear de <strong>~67 s</strong> nas 50 milhões). O <code>REFRESH … CONCURRENTLY</code> levou <strong>340 ms</strong> e exige um <code>CREATE UNIQUE INDEX</code> na <em>view</em>.</li>
+  <li><strong>Quem espera.</strong> Numa sessão: <code>BEGIN; REFRESH MATERIALIZED VIEW …; SELECT pg_sleep(3); COMMIT;</code>. Um segundo depois, outra sessão fez <code>SELECT count(*)</code> na <em>view</em>. O <code>pg_stat_activity</code> mostrou o leitor em <code>wait_event_type = Lock</code>, <code>wait_event = relation</code>, e ele <strong>esperou 2.285 ms</strong>. Com o <code>CONCURRENTLY</code>, esperou <strong>12 ms</strong>.</li>
+  <li><strong>O outro jeito.</strong> O artigo cria uma <strong>tabela desnormalizada</strong> (<code>vw_prescricoes_medicamentos_detalhadas</code>) e a carrega com <code>INSERT … SELECT</code>. Essa tabela é <strong>sua</strong>: você decide quando e como cada linha entra, e pode atualizá-la linha a linha (a <em>view</em> do PostgreSQL, não). O próprio artigo avisa que a carga inicial inteira não serve em tabela grande.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`-- EXEMPLO do relatório (a forma; o texto exato não está no repositório)
+SELECT p.cidade, pr.nome AS produto,
+       count(DISTINCT p.id) AS pedidos, sum(i.qtd) AS unidades
+FROM pedidos p
+JOIN itens_pedido i ON i.pedido_id = p.id
+JOIN produtos pr ON pr.id = i.produto_id
+GROUP BY p.cidade, pr.nome;                     -- ~235 ms (300 mil linhas)
+
+CREATE MATERIALIZED VIEW faturamento_cidade_produto AS
+  SELECT … ;                                    -- 406 ms para criar, 5 linhas
+CREATE UNIQUE INDEX ON faturamento_cidade_produto (cidade, produto);
+
+SELECT * FROM faturamento_cidade_produto
+ WHERE cidade = 'Recife';                       -- 0,021 ms
+
+REFRESH MATERIALIZED VIEW faturamento_cidade_produto;                 -- 401 ms, bloqueia leitores
+REFRESH MATERIALIZED VIEW CONCURRENTLY faturamento_cidade_produto;    -- 340 ms, leitor espera 12 ms`}</code></pre>
+
+<Widget name="relatorio" title="Relatório × view materializada" hint="Escolha quantas linhas tem a tabela pedidos (de 10 mil a 50 milhões). O tempo do relatório escala linear a partir dos 235 ms medidos em 300 mil; a view lê 5 linhas e fica em 0,021 ms. Veja o leitor esperando o REFRESH simples e o CONCURRENTLY." />
+
+<h3 class="sec">E se der errado: a view envelhece, bloqueia e refaz tudo</h3>
+
+<p><strong>(a) Ela envelhece.</strong> Depois de inserir um pedido de caneca em Recife, <code>SELECT … FROM faturamento_cidade_produto WHERE produto = 'caneca azul'</code> continuou dando <code>pedidos = 100003</code> e <code>unidades = 150004</code>. Depois do <code>REFRESH</code>, deu <code>100004</code> e <code>150005</code>. A <em>view</em> só sabe o que sabia no último <code>REFRESH</code>: se ele roda às 23:00, o pedido das 20:12 só entra <strong>2 h 48 min</strong> depois.</p>
+
+<p><strong>(b) O <code>REFRESH</code> simples bloqueia a leitura.</strong> Foram os 2.285 ms medidos; nas 50 milhões, a espera pode chegar perto dos ~67 s da estimativa. <strong>(c) Ele refaz tudo.</strong> O PostgreSQL não atualiza a <em>view</em> de forma incremental: cada <code>REFRESH</code> recalcula o resultado inteiro. Por isso a <em>view</em> serve para o relatório (que aceita atraso de horas), e não para a tela da Lena, que quer ver o pedido de segundos atrás.</p>
+
+<WhyItMatters>
+  <li><strong>Pré-calcular é o modelo de leitura mais simples.</strong> Mesmo banco, mesma equipe, uma linha de SQL.</li>
+  <li><strong>O ganho é enorme e o preço é o atraso.</strong> 11.000× mais rápido, mas velho até o próximo <code>REFRESH</code>.</li>
+  <li><strong><code>CONCURRENTLY</code> existe por causa do leitor.</strong> Custa um índice único e um pouco mais de trabalho, e o leitor não espera.</li>
+  <li><strong>A conta cresce linear.</strong> O que é 401 ms hoje é ~67 s nas 50 milhões, e o <code>REFRESH</code> inteiro ocupa o banco.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas da aula, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Medida</th><th>300 mil linhas (medido)</th><th>50 milhões (estimado, linear)</th></tr></thead>
+    <tbody>
+      <tr><th>relatório</th><td>~235 ms</td><td>~40 s</td></tr>
+      <tr><th>ler a <em>view</em></th><td>0,021 ms</td><td>~0,021 ms (5 linhas)</td></tr>
+      <tr><th><code>REFRESH</code></th><td>401 ms</td><td>~67 s</td></tr>
+      <tr><th><code>REFRESH CONCURRENTLY</code></th><td>340 ms</td><td>~57 s</td></tr>
+      <tr><th>leitor esperando, simples</th><td>2.285 ms</td><td>até ~67 s</td></tr>
+      <tr><th>leitor esperando, concorrente</th><td>12 ms</td><td>pouco</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>As medidas são de um PostgreSQL 14.24 local, rodado em 20/10/2026. Os milissegundos mudam com a máquina; a forma e as razões não. O laboratório do autor para este assunto (<code>hospital-cqrs-views</code>) tem só um <code>docker-compose.yml</code> com <code>postgres:16-alpine</code>: a aula é para você rodar as consultas.</p>
+  <h4 class="deep-h">Correção ao artigo-base: tabela desnormalizada não é view materializada</h4>
+  <ul>
+    <li><strong>"Views materializadas".</strong> A <code>vw_prescricoes_medicamentos_detalhadas</code> do artigo é uma <strong>tabela desnormalizada</strong> carregada com <code>INSERT … SELECT</code> (e com chaves estrangeiras para o modelo de escrita, o que acopla os dois). A <em>view</em> do PostgreSQL (<code>CREATE MATERIALIZED VIEW</code>) guarda o resultado da consulta e é refeita <strong>por inteiro</strong> com <code>REFRESH</code>; o simples bloqueia leitores, e o <code>CONCURRENTLY</code> exige um índice único. As duas coisas valem; o artigo só usa o nome de uma para a outra.</li>
+    <li><strong>Detalhes do exemplo.</strong> A saída da consulta repete "Aspirina 08:00 100mg", e a terceira linha inserida (<code>20:00</code>, <code>500mg</code>) não bate com a saída.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "PostgreSQL: CREATE MATERIALIZED VIEW", href: "https://www.postgresql.org/docs/current/sql-creatematerializedview.html" },
+    { label: "PostgreSQL: REFRESH MATERIALIZED VIEW", href: "https://www.postgresql.org/docs/current/sql-refreshmaterializedview.html" },
+    { label: "PostgreSQL: Materialized Views", href: "https://www.postgresql.org/docs/current/rules-materializedviews.html" },
+    { label: "Microsoft Azure Architecture Center: padrão Materialized View", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/materialized-view" },
+    { label: "Repositório público do autor: hospital-cqrs-views", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-views" },
+  ]} />
+</Deep>
+
+<p class="gancho">A <em>view</em> tira o relatório do caminho, mas mora no mesmo servidor e o <code>REFRESH</code> ainda o ocupa. E se a leitura precisar de <strong>mais capacidade</strong>, e não de mais velocidade? Falta saber o que muda quando o modelo de leitura vai para <strong>outro servidor</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que é uma view materializada e quanto ela ganha?",
+    a: "O resultado de uma consulta guardado numa tabela do mesmo banco. Lê 5 linhas em 0,021 ms em vez de varrer 300 mil em ~235 ms: ~11.000× mais rápido." },
+  { q: "Por que o REFRESH simples é um problema?",
+    a: "Ele bloqueia os leitores: um SELECT esperou 2.285 ms (wait_event_type = Lock). Com REFRESH CONCURRENTLY esperou 12 ms." },
+  { q: "O que o CONCURRENTLY exige?",
+    a: "Um CREATE UNIQUE INDEX na view. Em troca, o leitor continua lendo a versão antiga enquanto a nova é montada." },
+  { q: "Como a view envelhece?",
+    a: "Só sabe o que sabia no último REFRESH: a caneca do pedido novo não aparece (100003 até o REFRESH, 100004 depois). Com REFRESH às 23:00, o pedido das 20:12 entra 2 h 48 min depois." },
+  { q: "A tabela do artigo é uma view materializada?",
+    a: "Não. É uma tabela desnormalizada carregada com INSERT … SELECT. A view do PostgreSQL é refeita por inteiro com REFRESH." },
+]} />

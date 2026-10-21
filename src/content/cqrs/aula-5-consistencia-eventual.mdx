@@ -1,0 +1,103 @@
+---
+title: "Consistência eventual"
+order: 5
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import eventsHandler from '../../lab-code/cqrs/sql-events-handler.go?raw';
+
+<p class="ponte">Na aula passada a réplica de Recife mostrou o problema: o modelo de leitura <strong>está atrás</strong> do de escrita, e a Lena não viu o 1056 (o mesmo do 1055 no módulo 17). Com eventos alimentando o modelo, esse atraso é o <strong>desenho</strong>, e não um defeito: é a <em>consistência eventual</em> do módulo 3 (BASE). O trabalho agora é <strong>prever</strong> o intervalo, dar à Lena um jeito de ver o próprio pedido e saber medi-lo.</p>
+
+<OneLiner>Separar os modelos troca "leio o que acabei de escrever" por "leio <strong>em breve</strong>". A <strong>consistência eventual</strong> é aceitável se o desenho prevê o intervalo: a Lena vê o próprio pedido por um dos três jeitos abaixo, e o <strong>atraso</strong> do projetor é a métrica que se vigia.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Eventual</strong>, abra "meus pedidos" <strong>50 ms</strong> depois do 1056 e veja que ele não aparece. Depois use o <strong>token de versão</strong> e veja a tela esperar o projetor. Para o "e se der errado" (o projetor que aplica o evento duas vezes), avance até o último passo.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=eventual" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: Consistência eventual" alt="Prévia da figura 3D: Consistência eventual" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A linha do tempo do 1056.</strong> O <code>COMMIT</code> acontece às <strong>20:12:00.004</strong>. O CDC lê o WAL (+30 ms), o Kafka com <code>acks=all</code> confirma (+10 ms), o consumidor pega (+20 ms) e o upsert no armazenamento de leitura leva +10 ms: o modelo de leitura sabe do 1056 por volta das <strong>20:12:00.074</strong>, <strong>~74 ms</strong> depois do commit. Esses tempos são um exemplo de dia comum.</li>
+  <li><strong>O buraco.</strong> A Lena abre "meus pedidos" às <strong>20:12:00.050</strong>, 24 ms antes de o modelo saber, e <strong>não vê</strong> o 1056. É o problema de <em>read-your-writes</em> (quem escreve deve ler o que escreveu) do módulo 17.</li>
+  <li><strong>Jeito (a): a resposta do comando traz o pedido.</strong> O <code>CriarPedido</code> responde <code>201</code> com o documento do 1056, e o app o põe na lista na hora, sem perguntar ao modelo de leitura.</li>
+  <li><strong>Jeito (b): token de versão.</strong> A <code>versao</code> do documento é o análogo do LSN do módulo 17. O app pede <code>GET /meus-pedidos?min_versao=8</code>: o <code>meus-pedidos</code> espera (até <strong>1 s</strong>) o projetor chegar à versão 8 e, se não chegar, lê do lado do comando.</li>
+  <li><strong>Jeito (c): "processando".</strong> A tela mostra o 1056 como "processando" até o modelo alcançar. Não mente e não consulta ninguém, mas a Lena vê o pedido sem o rastreio e sem o pagamento por alguns instantes.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="lena" title="A Lena vê o 1056?" hint="Atraso do projetor (0 a 3.000 ms), instante em que ela abre a tela (0 a 3.000 ms depois do commit) e a estratégia. O widget diz se o pedido aparece e o que a estratégia custa." />
+
+<h3 class="sec">O atraso na Black Friday: a conta que fecha e a que não fecha</h3>
+
+<p>Na Black Friday a loja faz 30 pedidos/s e cada um gera 4 eventos (no 1056: <code>e-1801</code> <code>PedidoCriado</code>, <code>e-1802</code> <code>PedidoPago</code> às 20:12:01.100, e <code>e-1803</code> e <code>e-1804</code>, os dois <code>EstoqueReservado</code>, gato 20 → 19 e caneca 36 → 35): <strong>120 eventos/s</strong>. O projetor faz 1 upsert de 10 ms por evento, ou seja, <strong>100 eventos/s por instância</strong>. Com <strong>1 instância</strong>, o déficit é de <strong>20/s</strong>: em 10 minutos o atraso acumulado é 20 × 600 = <strong>12.000 eventos</strong> (<strong>120 s</strong>) e só cresce. Com <strong>3 instâncias</strong> (as 3 partições do tópico <code>pedidos</code>, módulo 13) a capacidade é <strong>300/s</strong> e cada uma recebe 40/s: <strong>40% de uso</strong>. E a conta que não fecha: uma das 3 cai por 10 min e acumula 40 × 600 = <strong>24.000 eventos</strong>; ao voltar, drena a 100 − 40 = <strong>60/s</strong>, e leva <strong>400 s (6 min 40 s)</strong>. Nesse tempo só os clientes <strong>daquela partição</strong> veem a tela atrasada.</p>
+
+<Widget name="atraso" title="Atraso do modelo de leitura" hint="Pedidos por segundo, eventos por pedido, ms por evento, instâncias do projetor e minutos de parada de uma instância. Veja a capacidade, o uso, o atraso em 10 minutos e o tempo para drenar (120 s e 400 s no cenário da Black Friday)." />
+
+<p>A métrica que vigia tudo isso é o <strong>atraso do consumidor</strong> (<em>consumer lag</em>, módulo 13) e a <strong>idade do último evento aplicado</strong>: se a idade passa de alguns segundos, a tela está mostrando o passado.</p>
+
+<h3 class="sec">E se der errado: o projetor aplica o mesmo evento duas vezes</h3>
+
+<p>O projetor do laboratório do autor (<code>hospital-cqrs-sql/internal/events/handler.go</code>) faz um <code>INSERT</code> direto na <em>view</em>, sem <code>ON CONFLICT</code>. O trecho abaixo é desse arquivo, sem alteração, com os números de linha do original; leia <code>View_Farmacia</code> como o "documento" da loja.</p>
+
+<CodeLab code={eventsHandler} from={84} to={98} />
+
+<p>Lido no código (o laboratório não foi executado): se o consumidor reler a mensagem, o <code>INSERT</code> roda de novo e <strong>duplica a linha</strong>. Na loja, o 1056 apareceria duas vezes em "meus pedidos". O conserto é aplicar o evento <strong>só se a <code>versao</code> for maior</strong> que a guardada, ou guardar o <code>evento_id</code> dos já aplicados: <strong>idempotência</strong>, o assunto dos módulos 20 e 21.</p>
+
+<WhyItMatters>
+  <li><strong>O atraso é o preço do desenho.</strong> ~74 ms num dia comum; só vira problema se ninguém o previu.</li>
+  <li><strong>A Lena precisa ver o próprio pedido.</strong> Resposta do comando, token de versão ou "processando": cada um custa algo diferente.</li>
+  <li><strong>A capacidade do projetor decide o atraso.</strong> 120 eventos/s contra 100/s por instância dá 120 s e crescendo; três instâncias dão 40% de uso.</li>
+  <li><strong>Reentrega acontece.</strong> Um projetor que não é idempotente duplica o pedido.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas da aula, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Cenário</th><th>Conta</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>atraso num dia comum</th><td>4 + 30 + 10 + 20 + 10 ms</td><td>~74 ms</td></tr>
+      <tr><th>1 instância, Black Friday</th><td>120/s entram, 100/s saem</td><td>12.000 eventos em 10 min = 120 s, crescendo</td></tr>
+      <tr><th>3 instâncias</th><td>300/s de capacidade, 40/s cada</td><td>40% de uso</td></tr>
+      <tr><th>1 de 3 parada por 10 min</th><td>40 × 600 acumulados, drena a 60/s</td><td>24.000 eventos, 400 s para drenar</td></tr>
+      <tr><th>relay do laboratório</th><td>poll de 2 s</td><td>1 s em média, 2 s no pior caso</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: como a Lena vê o próprio pedido</h4>
+  <ul>
+    <li><strong>Consistência eventual "aceita no desenho".</strong> O artigo aceita o atraso, mas não diz <strong>como a Lena vê o próprio pedido</strong> (resposta do comando, token de versão, "processando"), nem como <strong>medir</strong> o atraso (consumer lag e idade do último evento), nem como <strong>reconstruir</strong> o modelo: 50 milhões de pedidos × 4 eventos = 200 milhões de eventos, a 20.000 eventos/s (o ritmo do "consumidor novo" do módulo 17) levam <strong>10.000 s = 2 h 47 min</strong>. E o tópico <code>pedidos</code> guarda só <strong>7 dias</strong> (módulo 13): reconstruir exige reler a tabela <code>pedidos</code> ou um log completo (módulo 20).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Werner Vogels: Eventually Consistent", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+    { label: "Martin Fowler: CQRS", href: "https://martinfowler.com/bliki/CQRS.html" },
+    { label: "Confluent: CQRS", href: "https://developer.confluent.io/courses/event-sourcing/cqrs/" },
+    { label: "Repositório público do autor: hospital-cqrs-sql", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-sql" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja sabe quanto o modelo de leitura fica atrás e como a Lena vê o próprio pedido. Até aqui o modelo de leitura era outra tabela do SQL, mas a leitura não precisa de transação nem de <code>JOIN</code>. Falta saber o que muda se o modelo de leitura for <strong>outro banco, de outro tipo</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Quanto tempo leva do commit do 1056 ao modelo de leitura?",
+    a: "~74 ms num dia comum: commit às 20:12:00.004, CDC +30 ms, Kafka +10 ms, consumidor +20 ms, upsert +10 ms. A Lena abriu às 20:12:00.050 e não viu." },
+  { q: "Quais são os três jeitos de a Lena ver o próprio pedido?",
+    a: "(a) A resposta do comando traz o pedido (201 com o documento). (b) Token de versão: GET /meus-pedidos?min_versao=8 espera até 1 s e, se não chegar, lê do lado do comando. (c) A tela mostra 'processando'." },
+  { q: "Por que 1 instância do projetor não aguenta a Black Friday?",
+    a: "30 pedidos/s × 4 eventos = 120/s contra 100/s por instância: déficit de 20/s, 12.000 eventos (120 s) em 10 min, e só cresce. Com 3 instâncias são 300/s e 40% de uso." },
+  { q: "E se uma das 3 instâncias cair por 10 minutos?",
+    a: "Acumula 40 × 600 = 24.000 eventos; ao voltar drena a 100 − 40 = 60/s, em 400 s (6 min 40 s). Só os clientes daquela partição veem a tela atrasada." },
+  { q: "Qual é o defeito do projetor do laboratório e o conserto?",
+    a: "O INSERT na view não tem ON CONFLICT: a reentrega duplica a linha. Conserto: aplicar só se a versao for maior ou guardar o evento_id (idempotência)." },
+]} />

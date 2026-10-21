@@ -1,0 +1,104 @@
+---
+title: "Dual-write pattern"
+order: 8
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import commandHandler from '../../lab-code/cqrs/sql-commands-handler.go?raw';
+
+<p class="ponte">Na aula passada o modelo de leitura dependia de que cada <code>PedidoCriado</code> <strong>saísse</strong> quando o pedido <strong>entrasse</strong>, e a pergunta ficou em aberto. O jeito mais óbvio é o comando fazer as duas coisas em sequência: gravar no banco e publicar no broker. É a <strong>escrita dupla</strong> (<em>dual write</em>), e é o jeito errado, porque são <strong>duas escritas em dois lugares</strong> e nada as torna atômicas.</p>
+
+<OneLiner>Gravar no banco <strong>e</strong> publicar no broker são <strong>duas escritas</strong> que não são atômicas: uma das duas pode falhar, e o modelo de leitura fica com um <strong>pedido sem evento</strong> ou com um <strong>evento sem pedido</strong>. A transação do banco <strong>não cobre</strong> o broker.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Dual-write</strong>, derrube o <strong>broker depois do commit</strong> e conte os pedidos sem evento. Para o "e se der errado" do laboratório (o <code>log AVISO</code> que engole o erro e o <code>COMMIT</code> que falha depois do publish), troque para o cenário <strong>Falha do dual-write</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/escrita-3d/?mode=dual-write" poster="labs/cqrs/escrita-3d-previa.webp" title="Figura interativa: Escrita dupla" alt="Prévia da figura 3D: Escrita dupla" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O comando do 1056.</strong> O <code>pedidos</code> faz o <code>INSERT</code> às <strong>20:12:00.004</strong> (o commit) e, logo depois, o <code>publish PedidoCriado</code> no Kafka. São dois passos, em dois sistemas, sem nada que os amarre.</li>
+  <li><strong>Falha 1: banco ok, broker fora.</strong> O pedido existe, mas o evento nunca sai. O 1056 <strong>não aparece</strong> em "meus pedidos", e o <code>estoque</code> não reserva (o módulo 17 já mostrou o estoque ficando em 36 em vez de 35).</li>
+  <li><strong>Falha 2: evento publicado, banco falha.</strong> O <code>COMMIT</code> é recusado depois do <code>publish</code>. A tela mostra um <strong>1056 que não existe</strong>, e o <code>pagamentos</code> pode cobrar um pedido que o banco não tem.</li>
+  <li><strong>A conta.</strong> Se a publicação falha em <strong>0,1%</strong> das vezes (um soluço do broker), 30 pedidos/s × 3.600 × 0,001 = <strong>108 pedidos por hora</strong> existem no banco sem evento, e <strong>nunca</strong> chegam ao modelo de leitura.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="dualwrite" title="Escrita dupla: pedidos sem evento" hint="Taxa de falha da publicação no broker (0 a 5%), pedidos por segundo e a ordem das duas escritas. Veja quantos pedidos por hora ficam sem evento ou como fantasma, e como a outbox zera os dois (a aula 10 explica o custo)." />
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O trecho abaixo é do <code>commands/handler.go</code> do <code>hospital-cqrs-sql</code>, sem alteração, com os números de linha do original. Leia "prescrição" como "pedido".</p>
+
+<CodeLab code={commandHandler} from={50} to={86} />
+
+<ol class="flow steps">
+  <li>A linha 51 <strong>grava</strong> no banco. Se falhar, o comando devolve erro (linhas 52 e 53) e nada é publicado: aqui não há problema.</li>
+  <li>A linha 78 <strong>publica no Kafka depois</strong> de gravar. Se falhar, o código só faz <code>log.Printf("AVISO: Erro ao publicar evento, mas prescrição foi criada")</code> (linha 79) e <strong>segue</strong>.</li>
+  <li>A linha 85 <strong>devolve sucesso</strong> mesmo assim. Nada republica: o comentário da linha 81 diz que "o evento poderá ser republicado posteriormente", mas não há código que o faça. É a Falha 1, escrita à mão. Isso foi lido no código; o laboratório inteiro exige Docker e Kafka e não foi executado.</li>
+</ol>
+
+<p>O próprio <code>ARCHITECTURE_COMPARISON.md</code> do laboratório do CDC marca "Publica evento no Kafka (fora da transação!)" como o problema desta versão.</p>
+
+<h3 class="sec">E se der errado: o "padrão Dual-Write" com rollback do artigo</h3>
+
+<p>O artigo apresenta o "padrão Dual-Write" como um <code>BEGIN</code>, a publicação e um <code>COMMIT</code>, com <em>rollback</em> se algo falhar, e diz que assim "um ou outro não ocorre isoladamente". <strong>Isso não é atômico.</strong> A transação do banco não cobre o broker: se o evento sai e o <code>COMMIT</code> falha, o evento <strong>já foi</strong> e o <em>rollback</em> não o recolhe; se o <code>COMMIT</code> passa e o processo cai antes de publicar, o evento <strong>nunca</strong> sai. E segurar a transação aberta enquanto fala com a rede <strong>segura locks</strong>: um broker lento trava o banco inteiro.</p>
+
+<p>Atômico de verdade entre PostgreSQL e Kafka exigiria <em>two-phase commit</em>, que bloqueia se o coordenador cai (Fowler) e que o Kafka não oferece. Por isso a solução não é "fazer as duas escritas com mais cuidado": é ter <strong>uma só</strong> escrita, e derivar a outra do que o banco já gravou. As aulas 9 e 10 mostram as duas formas: CDC e outbox.</p>
+
+<WhyItMatters>
+  <li><strong>São duas escritas, em dois lugares.</strong> Nenhuma transação cobre as duas.</li>
+  <li><strong>As duas falhas existem.</strong> Pedido sem evento (o modelo de leitura nunca sabe) e evento sem pedido (a tela mostra um fantasma).</li>
+  <li><strong>O número é grande.</strong> 0,1% de falha a 30 pedidos/s são 108 pedidos por hora.</li>
+  <li><strong>Engolir o erro piora.</strong> O laboratório loga um aviso, devolve sucesso e ninguém republica.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As duas ordens, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Ordem</th><th>Se a segunda escrita falha</th><th>Efeito</th></tr></thead>
+    <tbody>
+      <tr><th>commit e depois publish</th><td>broker fora</td><td>pedido sem evento: 108/h a 0,1%</td></tr>
+      <tr><th>publish e depois commit</th><td><code>COMMIT</code> recusado</td><td>evento sem pedido: fantasma na tela e cobrança indevida</td></tr>
+      <tr><th>publish dentro da transação</th><td>broker lento</td><td>locks presos; ainda não é atômico</td></tr>
+      <tr><th>outbox (aula 10)</th><td>relay fora</td><td>evento espera na tabela; nada se perde</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: dual write com rollback é o problema, não a solução</h4>
+  <ul>
+    <li><strong>"Um ou outro não ocorra isoladamente".</strong> O <em>dual write</em> com <em>rollback</em> do artigo usa a transação do banco para tentar proteger o broker, e ela não o cobre. É o <strong>problema</strong> descrito pela Confluent em "The Dual-Write Problem", e o <code>ARCHITECTURE_COMPARISON</code> do laboratório o marca como tal. A solução é a outbox (aula 10) ou o CDC (aula 9).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Confluent: The Dual-Write Problem", href: "https://www.confluent.io/blog/dual-write-problem/" },
+    { label: "Martin Fowler: Two-Phase Commit", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html" },
+    { label: "Repositório público do autor: hospital-cqrs-sql", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-sql" },
+  ]} />
+</Deep>
+
+<p class="gancho">A escrita dupla falha porque o evento nasce na aplicação, <strong>fora</strong> da transação. Mas o banco já guarda, no seu log, <strong>tudo o que ele confirmou</strong> e só isso. Falta saber como ler o que o banco já gravou e transformar <strong>só isso</strong> em evento.</p>
+
+<Flashcards cards={[
+  { q: "Por que gravar no banco e publicar no broker não é atômico?",
+    a: "São duas escritas em dois sistemas: a transação do banco não cobre o Kafka. Uma das duas pode falhar sem a outra." },
+  { q: "Quais são as duas falhas da escrita dupla?",
+    a: "(1) Banco ok e broker fora: o pedido existe e o evento nunca sai. (2) Evento publicado e COMMIT recusado: a tela mostra um 1056 que não existe e o pagamentos pode cobrar." },
+  { q: "Quantos pedidos por hora ficam sem evento com 0,1% de falha a 30 pedidos/s?",
+    a: "30 × 3.600 × 0,001 = 108 por hora, e nunca chegam ao modelo de leitura." },
+  { q: "O que o handler.go do laboratório faz se a publicação falha?",
+    a: "Só loga 'AVISO: Erro ao publicar evento, mas prescrição foi criada' e devolve sucesso. Não há nada que republique (lido no código)." },
+  { q: "Por que o 'padrão Dual-Write' com rollback do artigo não funciona?",
+    a: "O rollback do banco não recolhe o evento já publicado, e se o commit passa e o processo cai o evento nunca sai. E a transação aberta segura locks." },
+]} />

@@ -1,0 +1,93 @@
+---
+title: "Read replicas"
+order: 4
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a <em>view</em> tirou o relatório do caminho, mas ela mora no mesmo servidor em que o checkout escreve, e cada <code>REFRESH</code> o ocupa de novo. Falta mais <strong>capacidade de leitura</strong>, e isso o módulo 17 já construiu: o primário em SP e as réplicas no Rio e em Recife. A réplica é o modelo de leitura <strong>mais barato</strong>, porque é o mesmo esquema em outro servidor, sem projetor e sem evento.</p>
+
+<OneLiner>A <strong>réplica de leitura</strong> é uma <strong>cópia física do mesmo esquema</strong> em outro servidor: dá <strong>capacidade</strong> de leitura e <strong>proximidade</strong>, mas <strong>não muda o modelo</strong>: o <code>JOIN</code> continua, e a consulta longa pode ser <strong>cancelada</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Réplica</strong>, mande o <strong>relatório</strong> para a réplica de Recife e veja o cancelamento com <code>conflict with recovery</code>. Depois avance até o "e se der errado" e veja o 1056 sumir por 800 ms.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=replica" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: A réplica de leitura" alt="Prévia da figura 3D: A réplica de leitura" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O desenho do módulo 17.</strong> O primário (<code>pg-sp</code>) fica em SP e as réplicas, no Rio e em Recife. A Lena lê de Recife: <strong>~2 ms</strong> em vez dos <strong>80 ms</strong> de RTT até SP. As três máquinas atendem leitura, então a capacidade de leitura é de <strong>3 servidores</strong>.</li>
+  <li><strong>O que a réplica dá.</strong> Capacidade (mais servidores lendo), proximidade (perto de quem lê) e uma cópia a mais, útil se o primário cair. Tudo isso sem mexer no modelo e sem mudar uma linha do código de leitura, só a conexão.</li>
+  <li><strong>O que ela não dá.</strong> <strong>Formato de tela</strong>: a consulta "meus pedidos" continua sendo um <code>JOIN</code> de 5 tabelas, só que em outra máquina. E <strong>isolamento de consulta pesada</strong>: o relatório de ~40 s, rodando na réplica, compete com a replicação que chega do primário (próximo passo).</li>
+  <li><strong>O conflito.</strong> A réplica aplica o WAL que vem do primário. Se o primário apaga linhas velhas (<code>VACUUM</code>) que uma consulta longa da réplica ainda precisa ver, o PostgreSQL espera até <code>max_standby_streaming_delay</code> e, se a consulta não terminar, a <strong>cancela</strong>. O padrão é <strong>30 s</strong>. O relatório da loja (~40 s estimados nas 50 milhões) seria cancelado.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`-- réplica em hot standby, max_standby_streaming_delay = 1s
+-- t = 0 s    na réplica: consulta de 6 s
+-- t = 2 s    no primário: DELETE + VACUUM
+-- t = 3,16 s a consulta morre:
+ERROR:  canceling statement due to conflict with recovery
+DETAIL:  User query might have needed to see row versions that must be removed.`}</code></pre>
+
+<h3 class="sec">E se der errado (a): a consulta longa é cancelada</h3>
+
+<p>É o resultado medido: com <code>max_standby_streaming_delay = 1s</code>, a consulta de 6 s sofreu um <code>DELETE</code> mais <code>VACUUM</code> no primário 2 s depois e morreu aos <strong>3,16 s</strong>, com o erro acima. Os dois consertos têm custo. O <code>hot_standby_feedback</code> faz a réplica avisar o primário do que ainda lê, e o primário <strong>não limpa</strong> essas linhas: a tabela <strong>incha</strong>. Subir o <code>max_standby_streaming_delay</code> deixa a consulta viver mais, mas a réplica fica <strong>mais atrás</strong> do primário enquanto espera.</p>
+
+<h3 class="sec">E se der errado (b): o atraso do módulo 17 volta</h3>
+
+<p>A réplica de Recife estava 800 ms atrás do primário. A Lena faz o 1056 no checkout e, logo depois, abre "meus pedidos" lendo de Recife: o pedido <strong>não está lá</strong>, como o 1055. A réplica não resolve a leitura do que se acabou de escrever; só a aproxima.</p>
+
+<WhyItMatters>
+  <li><strong>É o modelo de leitura mais barato.</strong> O mesmo esquema, outro servidor, e mais capacidade de leitura sem código novo.</li>
+  <li><strong>"Trocar o problema de lugar" é verdade quando o problema é o formato.</strong> Se a consulta é cara por causa do <code>JOIN</code>, ela continua cara na réplica.</li>
+  <li><strong>Consulta longa e réplica brigam.</strong> O relatório de ~40 s passa dos 30 s do padrão e é cancelado.</li>
+  <li><strong>O atraso volta.</strong> A réplica ainda mostra o passado por centenas de milissegundos.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">O que cada modelo de leitura entrega até aqui</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Modelo de leitura</th><th>Formato novo</th><th>Capacidade</th><th>Isola consulta pesada</th><th>Atraso</th></tr></thead>
+    <tbody>
+      <tr><th>mesma tabela</th><td>não</td><td>1 servidor</td><td>não</td><td>nenhum</td></tr>
+      <tr><th><em>view</em> materializada</th><td>sim</td><td>1 servidor</td><td>em parte</td><td>até o <code>REFRESH</code></td></tr>
+      <tr><th>réplica de leitura</th><td>não</td><td>3 servidores</td><td>não (cancelamento)</td><td>800 ms (Black Friday)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: a réplica não é outro modelo</h4>
+  <ul>
+    <li><strong>"Banco principal para o modelo de consulta" e sincronização "mediante a escrita nas duas bases".</strong> Uma réplica <strong>física</strong> copia o <strong>mesmo esquema</strong>; não é outro modelo, e quem a alimenta é o log do banco, não uma segunda escrita da aplicação. Ela dá capacidade e proximidade, não formato. E a consulta longa é cancelada por conflito de recuperação (<code>max_standby_streaming_delay</code>, 30 s por padrão), o que foi reproduzido aqui com 1 s. Medido em PostgreSQL 14.24, em 20/10/2026.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "PostgreSQL: Hot Standby (consultas em conflito e hot_standby_feedback)", href: "https://www.postgresql.org/docs/current/hot-standby.html" },
+    { label: "PostgreSQL: configuração de replicação (max_standby_streaming_delay)", href: "https://www.postgresql.org/docs/current/runtime-config-replication.html" },
+    { label: "Módulo 17 do SDLabs: Replicação de Dados (primário em SP, réplicas no Rio e em Recife)" },
+  ]} />
+</Deep>
+
+<p class="gancho">A réplica dá capacidade e proximidade, mas não o formato da tela, e ainda mostra o passado. A solução é um modelo de leitura que se atualiza <strong>por eventos</strong>, e que por isso assume o atraso desde o desenho. Falta saber como <strong>aceitar esse atraso de propósito</strong>, e como a Lena ainda vê o próprio pedido.</p>
+
+<Flashcards cards={[
+  { q: "O que a réplica de leitura dá e o que ela não dá?",
+    a: "Dá capacidade (3 servidores), proximidade (~2 ms em vez de 80 ms) e mais uma cópia. Não dá formato de tela (o JOIN continua) nem isolamento de consulta pesada." },
+  { q: "Por que a consulta longa é cancelada na réplica?",
+    a: "O primário faz DELETE e VACUUM de linhas que a consulta ainda precisa ver; depois do max_standby_streaming_delay (30 s por padrão) a réplica a cancela com 'conflict with recovery'. Medido com 1 s: morreu aos 3,16 s." },
+  { q: "O relatório de ~40 s sobreviveria na réplica?",
+    a: "Não com o padrão de 30 s: seria cancelado." },
+  { q: "Quais são os consertos do cancelamento e o custo de cada um?",
+    a: "hot_standby_feedback: o primário não limpa as linhas velhas e a tabela incha. Subir o max_standby_streaming_delay: a réplica fica mais atrás do primário." },
+  { q: "Por que a Lena não vê o 1056 na réplica de Recife?",
+    a: "O atraso do módulo 17 (800 ms) volta: a réplica ainda não aplicou o pedido." },
+]} />
