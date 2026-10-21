@@ -1,0 +1,113 @@
+---
+title: "Combinação de SQL e NoSQL"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o modelo de leitura passou a viver de eventos e a ficar atrás por ~74 ms, e ainda era uma tabela do SQL. Mas a tela "meus pedidos" não faz transação nem <code>JOIN</code>: ela busca <strong>um documento por cliente</strong>. Falta ver o que acontece quando o modelo de leitura vive num armazenamento <strong>de outro tipo</strong>, com o formato exato da resposta.</p>
+
+<OneLiner>A leitura pode viver num armazenamento <strong>de outro tipo</strong> porque não precisa de transação nem de <code>JOIN</code>: um <strong>documento</strong> por cliente, no formato da tela, é <strong>uma leitura por chave</strong>. A topologia é a mesma do SQL para SQL, só que o projetor <strong>fala dois dialetos</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Documento</strong>, monte o documento da Lena e confira os bytes: <strong>1.787 B</strong> para os 8 pedidos, e <strong>253 B</strong> só o 1056. Depois avance até o "e se der errado" e veja o <code>PedidoEnviado</code> chegar antes do <code>PedidoCriado</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=documento" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: O documento da Lena" alt="Prévia da figura 3D: O documento da Lena" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O documento.</strong> Um por cliente, <code>meus_pedidos:lena-77</code>, com os 10 últimos pedidos, o mais novo primeiro. Os <strong>8 pedidos</strong> da Lena (1042, 1044, 1047, 1048, 1051, 1054, 1055 e 1056) ocupam <strong>1.787 bytes</strong>, em média <strong>223 B</strong> por pedido; só o 1056, com status <code>criado</code> e <code>pagamento</code> e <code>rastreio</code> ainda nulos, tem <strong>253 B</strong>.</li>
+  <li><strong>A busca por chave.</strong> A tela pede o documento de <code>lena-77</code> e recebe tudo numa <strong>leitura</strong>: sem <code>JOIN</code>, sem esperar quatro serviços. O <code>bff-app</code> repassa o documento como está.</li>
+  <li><strong>O tamanho.</strong> 1,5 milhão de clientes × 10 pedidos × 223 B = <strong>3,35 GB</strong> no armazenamento de leitura. A tabela <code>pedidos</code> de 50 milhões de linhas do módulo 16 pesa 100 GB mais 40% de índices. O modelo de leitura é <strong>muito menor</strong>, porque guarda só o que a tela mostra.</li>
+  <li><strong>O Elasticsearch do artigo.</strong> O artigo guarda o documento num índice com um <em>mapping</em>, e os itens como <code>nested</code> (para cada item ser um objeto próprio, e não campos achatados). No <code>GET</code>, o Elasticsearch devolve <code>_version</code>, <code>_seq_no</code> e <code>_primary_term</code>, que servem de controle de concorrência. Servem também uma coluna JSON, um <em>document store</em> ou o Redis; a escolha é do que a leitura precisa.</li>
+  <li><strong>A busca.</strong> A busca da Vitrine (módulo 6: texto livre, "pelúcia") é a leitura que o SQL faz mal e o <strong>índice invertido</strong> (módulo 4) faz bem. Por isso o NoSQL de busca aparece tanto como modelo de leitura.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`// EXEMPLO (a forma; não está no repositório do autor): mapping do modelo de leitura
+{ "mappings": { "properties": {
+    "cliente_id": { "type": "keyword" },
+    "versao":     { "type": "long" },
+    "pedidos": { "type": "nested", "properties": {
+        "pedido_id":       { "type": "long" },
+        "criado_em":       { "type": "date" },
+        "status":          { "type": "keyword" },
+        "itens": { "type": "nested", "properties": {
+            "nome": { "type": "text" }, "qtd": { "type": "integer" },
+            "preco_centavos": { "type": "integer" } } },
+        "total_centavos":  { "type": "integer" },
+        "pagamento":       { "type": "keyword" },
+        "rastreio":        { "type": "keyword" } } } } } }`}</code></pre>
+
+<Widget name="documento" title="O documento do modelo de leitura" hint="Monte o JSON da Lena: de 1 a 10 pedidos e de 1 a 3 itens por pedido, ou use os 8 pedidos reais da história (1.787 B). O widget conta os bytes do JSON e o tamanho para N clientes (3,35 GB para 1,5 milhão)." />
+
+<h3 class="sec">E se der errado (a): o evento chega fora de ordem</h3>
+
+<p>O rastreio do 1056 só existe no dia seguinte (<code>e-1805</code> <code>PedidoEnviado</code>, 09:10, <code>LA123456791BR</code>), mas imagine que a mensagem chegue <strong>antes</strong> do <code>PedidoCriado</code>, por um atraso entre partições. O projetor tenta atualizar um documento <strong>que não existe</strong>. A defesa é o <strong>upsert parcial</strong>: criar o documento só com o que o evento sabe e completar depois, mais o controle de concorrência (<code>if_seq_no</code> e <code>if_primary_term</code>) para que duas atualizações simultâneas não se atropelem.</p>
+
+<h3 class="sec">E se der errado (b): mudar o mapeamento</h3>
+
+<p>Um campo do <em>mapping</em> já criado <strong>não muda de tipo</strong>. Se a loja decide que <code>pagamento</code> passa de <code>keyword</code> a um objeto, é preciso criar um <strong>índice novo</strong> e <strong>reindexar tudo</strong> a partir da fonte (a tabela <code>pedidos</code> ou um log completo). É a mesma conta de reconstruir o modelo da aula 5: horas, e só dá se a fonte ainda existir.</p>
+
+<h3 class="sec">E se der errado (c): o mapeamento do artigo não vale para o outro índice</h3>
+
+<p>O artigo cria o <em>mapping</em> em <code>PUT /prontuarios</code> e grava o documento em <code>POST /prescricoes/_doc/1</code>. São <strong>dois índices diferentes</strong>: o mapeamento criado não vale para o outro. É uma inconsistência de nomes do artigo, e na prática o documento fica sem o <code>nested</code>.</p>
+
+<WhyItMatters>
+  <li><strong>A leitura não precisa de transação.</strong> Por isso ela pode viver num armazenamento mais simples ou mais rápido.</li>
+  <li><strong>Um documento é uma leitura por chave.</strong> 1.787 B respondem a tela inteira, em vez de 5 tabelas e 4 serviços.</li>
+  <li><strong>Pequeno por desenho.</strong> 3,35 GB para 1,5 milhão de clientes, contra 140 GB da tabela de escrita.</li>
+  <li><strong>O projetor ganha um dialeto.</strong> Ele precisa saber fazer upsert parcial e controlar concorrência no armazenamento novo.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Os números do documento, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Item</th><th>Valor</th></tr></thead>
+    <tbody>
+      <tr><th>documento da Lena (8 pedidos)</th><td>1.787 B</td></tr>
+      <tr><th>média por pedido</th><td>223 B</td></tr>
+      <tr><th>pedido 1056 (2 itens, status <code>criado</code>)</th><td>253 B</td></tr>
+      <tr><th>1,5 M clientes × 10 pedidos × 223 B</th><td>3,35 GB</td></tr>
+      <tr><th>tabela <code>pedidos</code> (50 M linhas)</th><td>100 GB + 40% de índices = 140 GB</td></tr>
+      <tr><th>evento <code>PedidoCriado</code> (e-1801)</th><td>336 B (a versão <em>notification</em>: 72 B)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Os tamanhos de JSON foram contados em Python, em 20/10/2026, com JSON compacto e UTF-8 (o "ú" de "pelúcia" pesa 2 bytes). O evento leva nome e preço <strong>da época</strong> dos itens: o pedido guarda o que foi pago, e por isso o modelo de leitura não precisa escutar o <code>catalogo</code>. Dinheiro em <strong>centavos inteiros</strong>, como no módulo 12.</p>
+  <h4 class="deep-h">Correção ao artigo-base: Elasticsearch</h4>
+  <ul>
+    <li><strong><code>PUT /prontuarios</code> e <code>POST /prescricoes/_doc/1</code>.</strong> O <code>mapping</code> é criado num índice e o documento gravado em outro; o mapeamento não vale para o segundo. Além disso, o <code>_type</code> que aparece no <code>GET</code> do artigo foi removido nas versões atuais. O artigo também escreve <code>crm_medico VARCHAR(8)</code>, que não comporta o <code>CRM123123</code> (9 caracteres) do exemplo do Elasticsearch.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Elasticsearch: campo nested", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/nested.html" },
+    { label: "Elasticsearch: controle de concorrência otimista (_seq_no e _primary_term)", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/optimistic-concurrency-control.html" },
+    { label: "AWS Prescriptive Guidance: padrão CQRS", href: "https://docs.aws.amazon.com/pt_br/prescriptive-guidance/latest/modernization-data-persistence/cqrs-pattern.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com um documento por cliente, a tela lê um lugar só, mas nesta aula todos os dados vinham de <code>pedidos</code>. Na loja de verdade, pagamento e rastreio moram em outros <strong>serviços</strong>, cada um com o seu banco. Falta saber como montar o modelo de leitura quando os dados estão em <strong>vários serviços</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Por que a leitura pode usar um armazenamento de outro tipo?",
+    a: "Porque não precisa de transação nem de JOIN: um documento por cliente, no formato da tela, é uma leitura por chave." },
+  { q: "Quanto pesa o documento da Lena e o pedido 1056?",
+    a: "1.787 B para os 8 pedidos (média de 223 B por pedido); o 1056, com pagamento e rastreio nulos, pesa 253 B." },
+  { q: "Quanto espaço o modelo de leitura ocupa para 1,5 milhão de clientes?",
+    a: "1,5 M × 10 pedidos × 223 B = 3,35 GB, contra 100 GB + 40% de índices da tabela pedidos de 50 milhões de linhas." },
+  { q: "O que fazer quando o PedidoEnviado chega antes do PedidoCriado?",
+    a: "Upsert parcial (cria o documento só com o que o evento sabe) e controle de concorrência com if_seq_no e if_primary_term." },
+  { q: "O que acontece se for preciso mudar o mapeamento de um campo já criado?",
+    a: "É preciso criar um índice novo e reindexar tudo a partir da fonte (a tabela pedidos ou um log completo)." },
+]} />

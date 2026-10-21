@@ -1,0 +1,101 @@
+---
+title: "Change Data Capture (CDC)"
+order: 9
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import cdcHandler from '../../lab-code/cqrs/cdc-handler.go?raw';
+
+<p class="ponte">Na aula passada a escrita dupla falhou porque o evento nascia na aplicação, <strong>fora</strong> da transação. Mas o banco já tem uma lista de tudo o que <strong>confirmou</strong>, na ordem: o log. É o CDC do módulo 17, aula 5 (<code>wal_level=logical</code>, slot de replicação, <code>pgoutput</code>, Debezium). Aqui o foco é outro: usar esse log para <strong>alimentar o modelo de leitura</strong>, sem a aplicação publicar nada.</p>
+
+<OneLiner>O <strong>CDC</strong> lê o log do banco, que só contém o que foi <strong>confirmado</strong>, e o transforma em eventos <strong>sem a aplicação publicar nada</strong>. Mas o evento sai <strong>técnico</strong> (uma linha mudou), e não de negócio ("o pedido foi criado").</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>CDC</strong>, faça o 1056 e veja as <strong>duas linhas</strong> (<code>pedidos</code> e <code>itens_pedido</code>) saírem em <strong>tópicos diferentes</strong>, com o <code>op</code> de cada uma. Depois avance até o "e se der errado" e veja o que o <code>handler</code> do laboratório faz com um <code>u</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/escrita-3d/?mode=cdc" poster="labs/cqrs/escrita-3d-previa.webp" title="Figura interativa: Change Data Capture" alt="Prévia da figura 3D: Change Data Capture" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O 1056 vira linhas no log.</strong> A transação do <code>CriarPedido</code> grava 1 linha em <code>pedidos</code> e 2 em <code>itens_pedido</code>. O Debezium lê o log e publica nos tópicos <code>loja.public.pedidos</code> e <code>loja.public.itens_pedido</code>: cada tabela vai para o seu tópico.</li>
+  <li><strong>O formato.</strong> O <em>transform</em> <code>ExtractNewRecordState</code> deixa só o <strong>novo valor</strong> da linha, e o campo <code>op</code> diz o que aconteceu: <code>c</code> (criou), <code>u</code> (atualizou), <code>d</code> (apagou) ou <code>r</code> (leitura do <em>snapshot</em> inicial).</li>
+  <li><strong>O comando fica simples.</strong> O <code>command-service</code> do laboratório (<code>hospital-cqrs-cdc</code>) <strong>não tem produtor Kafka</strong>: só grava. O README do laboratório diz: "Se Kafka cair, aplicação continua funcionando. Debezium replica quando volta." E, como o evento sai do log, <strong>só existe o que foi confirmado</strong>: não há mais pedido sem evento nem evento sem pedido.</li>
+  <li><strong>O que o CDC custa, pelo próprio README.</strong> O evento é <strong>técnico</strong> (a linha mudou, não "o pedido foi criado"); <strong>acopla ao esquema</strong> do banco (mudar uma coluna muda o evento); exige <strong>mais peças</strong> (Debezium, slot, WAL); e tem latência de milissegundos a segundos.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Como o laboratório consome esse log</h3>
+
+<p>O trecho abaixo é do <code>cdc_handler.go</code> do <code>hospital-cqrs-cdc</code>, sem alteração, com os números de linha do original. Ele consome os tópicos <code>hospital_db.public.prescricoes</code> e <code>hospital_db.public.prescricao_medicamentos</code>; leia "prescrição" como "pedido".</p>
+
+<CodeLab code={cdcHandler} from={59} to={123} />
+
+<ol class="flow steps">
+  <li>As linhas 66 a 72 leem o <code>op</code> e <strong>só continuam</strong> para <code>c</code> e <code>r</code>; para qualquer outro, o código só loga "Ignorando operação" e volta.</li>
+  <li>Em seguida, as linhas 109 a 123 completam a linha chamando <code>getMedico</code>, <code>getPaciente</code> e <code>getMedicamentosPrescricao</code>: três <strong>consultas ao banco de escrita</strong>.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o que o handler do laboratório erra</h3>
+
+<p>Lido no código; o laboratório inteiro exige Docker e Kafka e não foi executado. <strong>(a) O handler ignora <code>u</code> e <code>d</code>.</strong> Na loja, o 1056 entra como <code>criado</code> e vira <code>pago</code> às 20:12:01.100 com um <code>UPDATE</code>: o evento tem <code>op = u</code>, é descartado, e a tela fica mostrando <code>criado</code> <strong>para sempre</strong>. <strong>(b) Ele consulta o banco de escrita</strong> para completar a linha: o lado da leitura volta a <strong>depender do lado da escrita</strong>, justamente o que o CQRS queria separar, e cada evento custa mais três consultas.</p>
+
+<p><strong>(c)</strong> O conector usa <code>decimal.handling.mode: double</code>, que guarda dinheiro em <strong>ponto flutuante</strong>; por isso a loja guarda centavos inteiros. <strong>(d)</strong> O <strong>slot esquecido</strong> enche o disco: sem consumidor, o PostgreSQL retém o WAL inteiro, a conta de ~23 dias a 108 MB/h do módulo 17.</p>
+
+<WhyItMatters>
+  <li><strong>O log só tem o que foi confirmado.</strong> A escrita dupla desaparece: nenhum pedido sem evento, nenhum fantasma.</li>
+  <li><strong>O comando não conhece o Kafka.</strong> Se o broker cai, o checkout continua.</li>
+  <li><strong>O evento é técnico.</strong> "Linha de <code>pedidos</code> com <code>status = pago</code>" não é "<code>PedidoPago</code>", e muda se o esquema mudar.</li>
+  <li><strong>O handler tem de tratar <code>u</code> e <code>d</code> e não voltar ao banco.</strong> Senão a tela fica velha ou a leitura volta a depender da escrita.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Evento técnico × evento de negócio</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>evento técnico (CDC)</th><th>evento de negócio</th></tr></thead>
+    <tbody>
+      <tr><th>exemplo</th><td>linha de <code>pedidos</code> com <code>op = c</code></td><td><code>PedidoCriado</code> (e-1801, 336 B)</td></tr>
+      <tr><th>quem define o formato</th><td>o esquema do banco</td><td>o domínio, num contrato</td></tr>
+      <tr><th>se a coluna muda</th><td>o evento muda</td><td>o evento não muda</td></tr>
+      <tr><th>itens do pedido</th><td>outra mensagem, outro tópico</td><td>dentro do mesmo evento</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>O CDC lê o <strong>log</strong>; o que vai dentro do evento, e se ele é técnico ou de negócio, depende de <strong>quem escreveu o que o log registra</strong>. Na aula 10, a <code>outbox</code> grava o evento de negócio como uma linha, e o CDC passa a levar um evento de negócio.</p>
+  <h4 class="deep-h">Correção ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>CDC como "pronto".</strong> O artigo não mostra os dois limites que o laboratório tem: o <code>handler</code> processa só <code>c</code> e <code>r</code>, e consulta o banco de escrita. Os READMEs do laboratório chamam de "event sourcing" o que é CQRS com eventos: <em>event sourcing</em> é o módulo 20.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "PostgreSQL: Logical Decoding", href: "https://www.postgresql.org/docs/current/logicaldecoding-explanation.html" },
+    { label: "PostgreSQL: test_decoding", href: "https://www.postgresql.org/docs/current/test-decoding.html" },
+    { label: "Debezium: conector do PostgreSQL", href: "https://debezium.io/documentation/reference/stable/connectors/postgresql.html" },
+    { label: "microservices.io: Transaction log tailing", href: "https://microservices.io/patterns/data/transaction-log-tailing.html" },
+    { label: "Repositório público do autor: hospital-cqrs-cdc", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-cdc" },
+  ]} />
+</Deep>
+
+<p class="gancho">O CDC resolve a escrita dupla, mas o evento que sai é o de uma <strong>linha</strong>, e a loja quer o <code>PedidoCriado</code> inteiro, com itens e preço da época. Falta saber o que acontece se o evento tiver de ser um <strong>fato de negócio</strong>, gravado junto com o pedido, na mesma transação.</p>
+
+<Flashcards cards={[
+  { q: "Como o CDC resolve a escrita dupla?",
+    a: "O evento sai do log do banco, que só tem o que foi confirmado. A aplicação não publica nada: sem pedido sem evento, sem evento sem pedido." },
+  { q: "O que o campo op diz?",
+    a: "c = criou, u = atualizou, d = apagou, r = leitura do snapshot inicial. O transform ExtractNewRecordState deixa só o novo valor da linha." },
+  { q: "Quais são os custos do CDC pelo README do laboratório?",
+    a: "Evento técnico (linha mudou), acoplamento ao esquema do banco, mais peças (Debezium, slot, WAL) e latência de ms a segundos." },
+  { q: "O que o handler do laboratório erra?",
+    a: "Processa só c e r (ignora u e d, então pago nunca atualiza a tela) e consulta o banco de escrita para completar a linha, voltando a depender do lado da escrita." },
+  { q: "Por que a loja guarda dinheiro em centavos, e não em decimal?",
+    a: "O conector do laboratório usa decimal.handling.mode: double, que guarda dinheiro em ponto flutuante. Centavos inteiros evitam arredondar." },
+]} />

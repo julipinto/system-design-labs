@@ -1,0 +1,12 @@
+/* SDLabs · CQRS: o que só este módulo usa (tabelas e JSON dos widgets de relatório, atraso, "a Lena vê o 1056?", documento, composição, escrita dupla e outbox). Peças comuns em widgets.css */
+.sdl-content table.sr-table.cq-table{min-width:0}
+.sdl-content table.cq-table th,.sdl-content table.cq-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.cq-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.sr-table.cq-wide{min-width:520px}
+.sdl-content table.cq-table td.cq-bad{color:var(--bad);font-weight:700}
+.sdl-content tr.cq-cur th,.sdl-content tr.cq-cur td{background:var(--accent-wash)}
+.sdl-content tr.cq-badrow td:nth-child(n+2){font-family:var(--mono)}
+.sdl-content .cq-out{margin-top:var(--s-3)}
+.sdl-content .cq-json{margin:var(--s-3) 0 0;max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12.5px/1.5 var(--mono)}
+.sdl-content .cq-json code{font:inherit;background:none;padding:0;border:0}
+.sdl-content .sr-ctl input:disabled{opacity:.45}

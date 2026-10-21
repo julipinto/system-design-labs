@@ -1,0 +1,87 @@
+---
+title: "Introdução ao CQRS"
+order: 1
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No fim do módulo 17 a loja copiava dado de todos os jeitos: entre bancos, entre serviços, lendo o log, juntando escritas concorrentes. E a tela <strong>"meus pedidos"</strong> da Lena continuava lendo da <strong>mesma tabela</strong> em que o checkout escreve (o 1055 sumiu por 800 ms na réplica de Recife). Essa tela custa duas coisas. O <code>bff-app</code> junta <strong>quatro serviços</strong> para montá-la, e o relatório das 23:00 disputa banco, CPU e conexões com quem está pagando. Falta separar quem <strong>escreve</strong> de quem <strong>lê</strong>.</p>
+
+<OneLiner>O <strong>CQRS</strong> separa quem <strong>muda</strong> o estado (os <strong>comandos</strong>) de quem <strong>lê</strong> (as <strong>consultas</strong>) em <strong>modelos diferentes</strong>, cada um do tamanho do seu trabalho. O preço é ter <strong>duas coisas para manter em sincronia</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Dois modelos</strong>, avance: o pedido <strong>1056</strong> da Lena entra pelo lado do <strong>comando</strong> e, depois, a tela "meus pedidos" é lida pelo lado da <strong>consulta</strong>. Repare que são dois caminhos, cada um com o seu armazenamento, e leia o aviso no fim: "para a maioria dos sistemas basta um modelo".</p>
+</DoIt>
+
+<Figure3D path="labs/cqrs/cqrs-3d/?mode=dois-modelos" poster="labs/cqrs/cqrs-3d-previa.webp" title="Figura interativa: Comando e consulta" alt="Prévia da figura 3D: Comando e consulta" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Comando.</strong> É uma ordem no imperativo que <strong>muda estado</strong> e pode falhar por regra. O 1056 nasce de <code>CriarPedido</code>: gato de pelúcia (79,90) + caneca azul (19,90) + frete de Recife (15,00) = <strong>114,80</strong>, às 20:12:00.000. Se o produto estiver sem estoque, o comando é recusado.</li>
+  <li><strong>Consulta.</strong> Só <strong>devolve dado</strong> e não muda nada. A pergunta da tela é "os últimos 10 pedidos de <code>lena-77</code>, com itens, pagamento e rastreio". Quem responde não precisa saber como o pedido foi validado, só o que mostrar.</li>
+  <li><strong>Dois modelos.</strong> O modelo de <strong>escrita</strong> (ou de comando) é o do serviço <code>pedidos</code>: tabelas normalizadas <code>pedidos</code> e <code>itens_pedido</code> no PostgreSQL <code>loja</code>, com regras e transação. O modelo de <strong>leitura</strong> (ou de consulta) é o do serviço novo <code>meus-pedidos</code>, no formato exato da tela. Do lado do <code>bff-app</code>, a tela chama <strong>uma</strong> rota em vez de quatro.</li>
+  <li><strong>Os níveis.</strong> (a) <strong>Classes separadas</strong> no mesmo programa e no mesmo banco; (b) uma <em>view</em> pré-calculada <strong>no mesmo banco</strong> (aula 3); (c) um <strong>banco separado</strong> alimentado por eventos (aulas 5 a 10). A loja começa em (a) ou (b) e só sobe quando a leitura pede.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O aviso de Fowler e o que o CQRS não é</h3>
+
+<p>Martin Fowler avisa que "para a maioria dos sistemas o CQRS acrescenta complexidade arriscada". A loja só o adota porque as leituras e as escritas têm <strong>formas e escalas diferentes</strong>: escreve 30 pedidos/s na Black Friday (teto de 150/s no banco), e a tela e o relatório leem muito mais, em outro formato. Duas confusões são comuns. O CQRS <strong>não é <em>event sourcing</em></strong> (guardar os eventos como a verdade; é o módulo 20), e <strong>não exige dois bancos</strong>: pode ser dois modelos no mesmo banco.</p>
+
+<h3 class="sec">E se der errado: CQRS onde um SELECT basta</h3>
+
+<p>Esta é a falha mais cara, porque é de projeto. Nesta loja a consulta da tela, num modelo normalizado de 5 tabelas, custa <strong>0,23 a 0,31 ms</strong> (medido em PostgreSQL 14, com índice, 8 pedidos da Lena, ~100 páginas lidas em memória). O <code>JOIN</code> por cliente <strong>não é o problema</strong>. Separar os modelos só por causa dele troca 0,3 ms por duas peças para manter em sincronia, sem ganho. O que dói são outras duas coisas, que as próximas aulas atacam: os serviços separados (aula 7) e o que varre muito (o relatório, aula 3).</p>
+
+<WhyItMatters>
+  <li><strong>Comando e consulta têm trabalhos diferentes.</strong> Um precisa de regra e transação; o outro, de forma e velocidade.</li>
+  <li><strong>Separar é uma escolha de custo.</strong> Cada modelo fica do tamanho do seu trabalho e se escala sozinho, mas agora são dois para manter iguais.</li>
+  <li><strong>CQRS não é event sourcing nem dois bancos.</strong> É a separação dos modelos; o resto são níveis de quanto se separa.</li>
+  <li><strong>Meça antes.</strong> Com 0,3 ms por consulta, a loja não precisa do CQRS para a tela, só para o relatório e para juntar serviços.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Os três níveis, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Nível</th><th>Onde mora o modelo de leitura</th><th>O que paga</th></tr></thead>
+    <tbody>
+      <tr><th>(a) classes separadas</th><td>mesmo programa, mesmas tabelas</td><td>quase nada; ainda não isola carga</td></tr>
+      <tr><th>(b) view no mesmo banco</th><td>tabela pré-calculada (aula 3)</td><td>atraso até o <code>REFRESH</code></td></tr>
+      <tr><th>(c) banco separado</th><td>outro armazenamento, alimentado por eventos</td><td>consistência eventual e mais peças</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: dois modelos, não necessariamente dois bancos</h4>
+  <ul>
+    <li><strong>"O CQRS envolve o uso de dois ou mais bancos de dados".</strong> O artigo cita a mesma instância no meio do texto, mas o resumo diz o contrário. O padrão pede dois <strong>modelos</strong>; quantos bancos eles usam é decisão de quanto se quer isolar. Faltam também o aviso de Fowler (complexidade arriscada) e a distinção do <em>event sourcing</em>: os READMEs do laboratório do autor usam "event sourcing" para o que é CQRS com eventos.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre CQRS (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Martin Fowler: CQRS", href: "https://martinfowler.com/bliki/CQRS.html" },
+    { label: "Microsoft Azure Architecture Center: padrão CQRS", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "microservices.io: padrão CQRS", href: "https://microservices.io/patterns/data/cqrs.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe o que é comando e o que é consulta, e que separar custa uma segunda coisa para manter. Falta saber como é cada um dos dois modelos <strong>por dentro</strong>: o que o comando valida antes de gravar, e o que a consulta guarda para só responder.</p>
+
+<Flashcards cards={[
+  { q: "O que é CQRS?",
+    a: "Separar os comandos (que mudam estado e podem falhar por regra) das consultas (que só devolvem dado) em modelos diferentes. O preço é manter os dois em sincronia." },
+  { q: "Qual é o comando e qual é a consulta do pedido 1056?",
+    a: "O comando é CriarPedido (gato 79,90 + caneca 19,90 + frete 15,00 = 114,80). A consulta é 'os últimos 10 pedidos de lena-77, com itens, pagamento e rastreio'." },
+  { q: "CQRS exige dois bancos?",
+    a: "Não. Exige dois modelos. Podem ser classes separadas, uma view no mesmo banco ou um banco separado alimentado por eventos." },
+  { q: "CQRS é a mesma coisa que event sourcing?",
+    a: "Não. Event sourcing guarda os eventos como a verdade (módulo 20). CQRS só separa os modelos de escrita e de leitura." },
+  { q: "Por que não separar só para a consulta da tela?",
+    a: "Porque ela custa 0,23 a 0,31 ms no modelo normalizado, com índice. Separar só por isso é complexidade sem ganho: os problemas reais são juntar serviços e o relatório pesado." },
+]} />
