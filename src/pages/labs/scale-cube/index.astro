@@ -1,0 +1,36 @@
+---
+// Módulo Scale Cube: as 6 aulas de src/content/scale-cube/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/scale-cube.css';
+
+const entries = (await getCollection('scale-cube')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/scale-cube/quiz/');
+---
+<ModuleLayout
+  title="Scale Cube · SDLabs"
+  description="O mapa de três eixos para crescer: X (clonar), Y (separar por função) e Z (separar por dados), com a loja em coordenadas, diagnóstico por sintoma, cálculo de pods e o roteador do Z, com widgets e quiz."
+  module="scale-cube"
+  heading="Scale Cube"
+  lead="Cada gargalo resolvido da Black Friday andou para outro lugar, e o banco do pedidos parou em 150 pedidos por segundo. Qual eixo atacar para cada sintoma, em que ordem e o que cada um custa: clonar, separar por função ou separar por dados."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/scale-cube/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

@@ -1,0 +1,15 @@
+/* SDLabs · Scale Cube: o que só este módulo usa (diagnóstico, cubo e pods, roteador do Z, scatter-gather). Peças comuns em widgets.css */
+.sdl-content table.sr-table.sc-table{min-width:0}
+.sdl-content table.sc-table th,.sdl-content table.sc-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.sc-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content tr.sc-cur th,.sdl-content tr.sc-cur td{background:var(--accent-wash)}
+.sdl-content td.sc-bad{color:var(--bad);font-weight:700}
+.sdl-content .sc-out{margin-top:var(--s-3)}
+.sdl-content .sc-sym{display:grid;gap:var(--s-2);margin:0 0 var(--s-3)}
+.sdl-content .sc-sym .chip{min-height:44px;text-align:left;justify-content:flex-start;height:auto;padding-block:var(--s-2);white-space:normal}
+.sdl-content .sc-sym .chip[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--accent-wash)}
+.sdl-content .sc-shards{display:grid;gap:var(--s-2);grid-template-columns:repeat(auto-fit,minmax(min(100%,96px),1fr));margin:var(--s-3) 0}
+.sdl-content .sc-shard{border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:var(--s-2);font:700 13px var(--mono);text-align:center;background:var(--sunken);color:var(--ink)}
+.sdl-content .sc-shard small{display:block;font:600 12px var(--mono);color:var(--muted);margin-top:2px}
+.sdl-content .sc-shard.on{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--accent-wash);box-shadow:var(--ring)}
+.sdl-content .sc-sym .chip{border-radius:var(--r-3)}

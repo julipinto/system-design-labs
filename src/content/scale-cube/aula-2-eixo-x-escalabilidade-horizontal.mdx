@@ -1,0 +1,85 @@
+---
+title: "Eixo X: escalabilidade horizontal"
+order: 2
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o cubo ficou com três perguntas, e a mais barata de responder é copiar. O X é o eixo que a loja mais usou: o catálogo tem 10 cópias desde o módulo 7. Vale entender por que ele funciona e onde ele para, porque o <code>pedidos</code> mostrou que ele para.</p>
+
+<OneLiner>O X é <strong>copiar o serviço e dividir o tráfego</strong>: com N cópias idênticas, cada uma atende 1/N da carga. Funciona enquanto cada cópia <strong>não depender de nada que não seja cópia</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, veja o <code>catalogo</code> virar 10 cópias atrás do <code>lb-loja</code> e anote quantos req/s cada cópia recebe. Depois aperte <strong>Teto do X</strong>, avance enquanto o <code>pedidos</code> sobe de 3 para 7 réplicas e anote em que número a saída para de crescer.</p>
+</DoIt>
+
+<Figure3D path="labs/scale-cube/cubo-3d/?mode=x" poster="labs/scale-cube/cubo-3d-previa.webp" title="Figura interativa: Eixo X: clonar" alt="Prévia da figura 3D: Eixo X: clonar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A conta é uma divisão. No pico, o catálogo recebe <strong>640 req/s</strong> e tem <strong>10 réplicas</strong>: 640 ÷ 10 = <strong>64 req/s</strong> por réplica, a fração 1/N da conta de Richardson. Cada réplica aguenta 100 (módulo 14), então há folga.</li>
+  <li>Para a divisão valer, as cópias precisam ser <strong>intercambiáveis</strong>. Isso pede um serviço <strong>sem estado</strong> (a sessão fica fora do processo, no Redis do módulo 5), um balanceador na frente (módulo 7) e alguém que ajuste o número de cópias (o HPA do módulo 14).</li>
+  <li>O primeiro custo é de <strong>dados</strong>. Cada cópia acessa <strong>todos</strong> os dados, então o cache por cópia (o modo <code>local</code> do módulo 5) guarda os mesmos itens dez vezes, e na camada de dados o X vira a <strong>réplica</strong>: o conjunto inteiro, duplicado (módulo 17).</li>
+  <li>O segundo custo é o <strong>estado de sessão</strong>. Quanto mais memória de usuário vive dentro do processo, menos intercambiável cada cópia é, e o balanceador passa a ter de lembrar quem foi para onde.</li>
+  <li>O terceiro é o que o X <strong>não faz</strong>: não resolve a complexidade do código e não resolve a organizacional. Dez cópias de um programa grande continuam sendo um programa grande, mantido por três times que esperam um ao outro.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o carrinho na memória</h3>
+
+<p>O <code>carrinho</code> guarda o carrinho <strong>na memória</strong> de cada réplica. A Lena põe o gato no carrinho e a requisição cai na réplica 1. Ao abrir a página do carrinho, o balanceador a manda para a réplica 2, e o carrinho aparece <strong>vazio</strong>: a réplica 2 nunca ouviu falar do gato.</p>
+
+<p>Há dois consertos. O primeiro é tirar o estado do processo e guardá-lo no <strong>Redis</strong> (módulo 5): qualquer réplica lê o mesmo carrinho. O segundo é o <em>sticky</em> por IP, que prende a Lena à réplica 1, mas o módulo 7 mostrou onde ele quebra: com NAT, 500 pessoas de um escritório chegam com o mesmo IP e caem todas na mesma réplica.</p>
+
+<h3 class="sec">E se der errado, de novo: a sexta réplica do pedidos</h3>
+
+<p>O <code>pedidos</code> faz 30 pedidos/s por réplica, e o banco dele, 150/s. Com 3 réplicas são 90/s; com 5, 150/s, o teto do banco. A <strong>sexta réplica</strong> (6 × 30 = 180/s) <strong>não acrescenta nada</strong>: o banco para em 150. O X moveu o gargalo do serviço para o banco, e ele fica lá. O widget abaixo mostra o elo que limita a cada mudança.</p>
+
+<Widget name="cubo-pods" title="Cubo e pods: o elo que limita" hint="Mexa nos deslizadores X (réplicas de pedidos), Y (monolito ou 9 serviços) e Z (partições) e na demanda (1 a 400 pedidos/s). O widget calcula pods, capacidade do serviço (30/s por pod) e do banco (150/s por shard), e marca o elo que limita." />
+
+<WhyItMatters>
+  <li><strong>O X é a divisão 1/N.</strong> 640 ÷ 10 = 64 req/s por réplica, e é a conta que o balanceador faz.</li>
+  <li><strong>Funciona com cópias intercambiáveis.</strong> Sem estado na memória, com balanceador e com HPA.</li>
+  <li><strong>Tem custo.</strong> Cache por cópia, dados replicados inteiros, sessão pesada e nenhum ganho organizacional.</li>
+  <li><strong>Tem teto.</strong> A sexta réplica do <code>pedidos</code> não acrescenta nada: o banco para em 150/s.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O eixo e a elasticidade são duas coisas</h4>
+  <p>O X é a <strong>forma</strong> de crescer: copiar. A <strong>elasticidade</strong> é a política de quantas cópias ter a cada momento, e é o que o HPA do módulo 14 faz. Dá para ter o eixo sem a elasticidade (10 réplicas fixas) e a elasticidade sem uma boa divisão de carga. As duas costumam andar juntas, e por isso se confundem.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"A parte mais simples do modelo".</strong> O X é a mais <strong>fácil de fazer</strong> (a AKF diz "intelectualmente fácil"), mas tem custos que o artigo omite: dados replicados inteiros, caches que degradam, estado de sessão e <strong>nenhum</strong> ganho organizacional. O X do artigo ("adicionar e remover réplicas conforme necessário") mistura o eixo, que é clonar, com a elasticidade, que é ajustar o número de clones.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o Scale Cube (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "Chris Richardson: The Scale Cube (eixo X)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "AKF Partners: The Scale Cube (eixo X e o custo de dados e cache)", href: "https://akfpartners.com/growth-blog/scale-cube" },
+    { label: "The Twelve-Factor App: processos sem estado", href: "https://12factor.net/processes" },
+    { label: "The Twelve-Factor App: concorrência por processos", href: "https://12factor.net/concurrency" },
+    { label: "Kubernetes: Deployment", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A conta do X cabe numa divisão, mas ela só vale se a loja de fato fizer cópias idênticas. Falta saber <strong>ver o X acontecendo de verdade</strong>, com um comando e cem requisições, para conferir que cada cópia responde com o seu nome.</p>
+
+<Flashcards cards={[
+  { q: "Quanto cada réplica do catálogo recebe com 640 req/s e 10 réplicas?",
+    a: "640 ÷ 10 = 64 req/s, a fração 1/N. Cada réplica aguenta 100, então há folga." },
+  { q: "Quais condições deixam o X funcionar?",
+    a: "Serviço sem estado (sessão no Redis), balanceador na frente (módulo 7) e alguém que ajuste o número de cópias (HPA, módulo 14)." },
+  { q: "Quais custos do X a AKF aponta?",
+    a: "Cada cópia acessa todos os dados (cache por cópia, dados replicados inteiros), o estado de sessão atrapalha e o X não resolve a complexidade do código nem a organizacional." },
+  { q: "O que acontece com o carrinho guardado na memória de cada réplica?",
+    a: "A Lena põe o gato na réplica 1, a página do carrinho cai na réplica 2 e aparece vazia. Conserto: estado no Redis; o sticky por IP quebra com NAT." },
+  { q: "Por que a sexta réplica do pedidos não acrescenta nada?",
+    a: "6 × 30 = 180/s de serviço, mas o banco para em 150/s. O gargalo saiu do serviço e ficou no banco." },
+]} />

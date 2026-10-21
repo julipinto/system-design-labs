@@ -1,0 +1,127 @@
+---
+title: "Introdução ao modelo conceitual"
+order: 1
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No fim do módulo 14, cada gargalo resolvido andou para outro lugar. A página do catálogo (CPU a 99% numa réplica, p99 de 2.000 ms) se resolveu clonando, de 10 para 14 réplicas. O <code>pagamentos</code> (40 pedidos/s) também, de 2 para 4. Depois dos dois, o teto virou o banco do <code>pedidos</code>, a <strong>150 pedidos/s</strong>, e clonar serviço não o move. Falta um mapa para decidir por onde crescer, e o mapa cabe em três perguntas.</p>
+
+<OneLiner>O Scale Cube é um <strong>vocabulário de três perguntas</strong>: copio o serviço (eixo X)? separo o que é diferente (eixo Y)? separo o que é igual, mas grande demais (eixo Z)? A loja já respondeu duas delas sem ter o nome.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Cubo</strong>, avance com a seta → e acompanhe o ponto da loja de <strong>(1, 1, 1)</strong> até onde ela está hoje, <strong>(10, 9, 1)</strong>. Anote quais eixos andaram, em que valor cada um parou e qual ficou em 1.</p>
+</DoIt>
+
+<Figure3D path="labs/scale-cube/cubo-3d/?mode=cubo" poster="labs/scale-cube/cubo-3d-previa.webp" title="Figura interativa: O cubo e o ponto da loja" alt="Prévia da figura 3D: O cubo e o ponto da loja" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O modelo tem dono e data. A <strong>AKF Partners</strong> criou o cubo em <strong>2007</strong>, publicou primeiro no blog e depois nos livros de Abbott e Fisher (<em>The Art of Scalability</em>, 2ª edição de 2015, e <em>Scalability Rules</em>). Ela mesma o chama de linguagem comum para discutir escala.</li>
+  <li>O <strong>eixo X</strong> é clonar. São N cópias <strong>idênticas</strong> do serviço atrás de um balanceador, e cada cópia atende <strong>1/N</strong> da carga (a conta de Richardson). É o eixo mais fácil e o que escala transações.</li>
+  <li>O <strong>eixo Y</strong> é separar por função. Divide-se <strong>o que é diferente</strong>: por <strong>verbo</strong> (um caso de uso, como <code>checkout</code>) ou por <strong>substantivo</strong> (uma entidade, como <code>clientes</code>), cada serviço com os seus dados. É a decomposição em microsserviços.</li>
+  <li>O <strong>eixo Z</strong> é separar por dados. Divide-se <strong>o que é igual, mas grande demais</strong>: todos rodam o mesmo código, cada um atende só um subconjunto dos dados (pelo <code>cliente_id</code>, pela região, pelo SKU, pelo tipo de cliente) e um <strong>roteador</strong> olha o atributo e escolhe o destino.</li>
+  <li>Com os três eixos, a loja ganha <strong>coordenadas</strong>: (réplicas X, funções Y, partições Z). No fim do módulo 5 era um monolito de 8 vCPU com um banco, <strong>(1, 1, 1)</strong>. O módulo 6 partiu o programa em 7 serviços, os módulos 8 e 9 puseram o gateway e 2 BFFs (<strong>9 deployments</strong>, 30 pods no módulo 10) e o módulo 7 clonou o catálogo em 10. Hoje a loja está em <strong>(10, 9, 1)</strong>. O Z é o eixo que ela ainda não usou.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A tabela de diagnóstico</h3>
+
+<p>As coordenadas dizem onde a loja está. Para decidir aonde ir, é preciso o caminho inverso: dado um sintoma, qual eixo atacar. Estes oito vêm da própria loja, e o último é um aviso de que nem todo sintoma é de escala.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Sintoma da loja</th><th>De onde veio</th><th>Eixo</th></tr></thead>
+  <tbody>
+    <tr><th>Catálogo com CPU a 99%, p99 de 2.000 ms; no pico de 950 req/s a CPU chega a 95%</th><td>módulo 14</td><td><strong>X</strong> (clonar: 10 → 14)</td></tr>
+    <tr><th>Fechamento das 23:00 derruba o checkout (página de 120 ms para 2,4 s)</th><td>módulo 6</td><td><strong>Y</strong> (<code>relatorios</code> num serviço só dele)</td></tr>
+    <tr><th>Deploy de 40 min, três times esperando um ao outro</th><td>módulo 8</td><td><strong>Y</strong></td></tr>
+    <tr><th><code>pagamentos</code> com 40/s e <code>estoque</code> com 1.000/s parado</th><td>módulo 14</td><td><strong>X no elo certo</strong>, e só nele</td></tr>
+    <tr><th>Banco do <code>pedidos</code> no teto de 150 pedidos/s, 50 milhões de linhas</th><td>módulos 14 e 16</td><td><strong>Z</strong></td></tr>
+    <tr><th>Um cliente (<code>mkt-01</code>, o marketplace do módulo 8) com 40% dos pedidos</th><td>módulo 16</td><td><strong>Z por tipo de cliente</strong> (shard dedicado)</td></tr>
+    <tr><th>A região de SP cai e leva tudo</th><td>módulo 27</td><td><strong>Z por região</strong> (pods) e X dentro de cada pod</td></tr>
+    <tr><th>A busca de 900 ms por requisição</th><td>módulo 7</td><td><strong>nenhum eixo</strong>: índice (módulo 4) ou cache (módulo 5)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Tente a tabela de olhos fechados no widget. Ele esconde o eixo e pede o seu palpite.</p>
+
+<Widget name="diagnostico" title="Diagnóstico: qual eixo?" hint="Escolha um sintoma da loja e depois X, Y, Z ou nenhum. O widget diz se o eixo serve e mostra a conta que justifica." />
+
+<h3 class="sec">E se der errado: o eixo certo para o sintoma errado</h3>
+
+<p>A busca leva 900 ms por requisição, e a reação óbvia é clonar: de 10 para 20 réplicas. A fila cai, porque há mais atendentes. Mas <strong>cada busca continua levando 900 ms</strong>, porque o tempo de uma requisição vem do código dela, e o X não toca no código. O custo é real: se o mesmo gesto fosse feito no catálogo, 10 para 20 réplicas de 1 vCPU dobram a conta de CPU de 10 para 20 vCPU. Escala não conserta código lento. A saída da busca é um índice (módulo 4) ou um cache (módulo 5).</p>
+
+<WhyItMatters>
+  <li><strong>O cubo é o mapa, não o território.</strong> Ele nomeia três formas de crescer e deixa a decisão com o sintoma.</li>
+  <li><strong>A loja já andou em dois eixos.</strong> Y no módulo 6 e X no módulo 7, sem o nome. O Z é o que falta.</li>
+  <li><strong>Sintoma antes do eixo.</strong> A tabela de diagnóstico começa na medição, e a busca de 900 ms mostra que às vezes a resposta é nenhum eixo.</li>
+  <li><strong>Vocabulário comum.</strong> Dizer "o problema é Z" encurta uma reunião de arquitetura.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Onde cada serviço está no cubo</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Serviço</th><th>Y (separado no módulo)</th><th>X (réplicas na Black Friday)</th><th>Z (partições)</th></tr></thead>
+    <tbody>
+      <tr><th><code>catalogo</code></th><td>6</td><td>10</td><td>1</td></tr>
+      <tr><th><code>carrinho</code></th><td>6</td><td>3</td><td>1</td></tr>
+      <tr><th><code>pedidos</code></th><td>6</td><td>3</td><td>1, e <strong>3</strong> no módulo 16</td></tr>
+      <tr><th><code>pagamentos</code></th><td>6</td><td>2</td><td>1</td></tr>
+      <tr><th><code>estoque</code></th><td>6</td><td>2</td><td>1</td></tr>
+      <tr><th><code>entregas</code></th><td>6</td><td>1</td><td>1</td></tr>
+      <tr><th><code>relatorios</code></th><td>6</td><td>1 (de 4 vCPU)</td><td>1</td></tr>
+      <tr><th><code>bff-app</code> e <code>bff-web</code></th><td>9</td><td>4 e 4</td><td>1</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">A conta que as aulas 5 e 6 fecham</h4>
+  <p>O <code>pedidos</code> com a demanda do ano que vem, <strong>200 pedidos/s</strong> (o gancho do módulo 23). Cada réplica dá 30 pedidos/s (33 ms de CPU por pedido, a conta do módulo 14) e o banco de um primário dá 150/s.</p>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Estado (X, Y, Z)</th><th>Pods</th><th>Serviço</th><th>Banco</th><th>Sai de 200/s</th></tr></thead>
+    <tbody>
+      <tr><th>Hoje (3, 1, 1)</th><td>3</td><td>90/s</td><td>150/s</td><td><strong>90/s</strong> (45%)</td></tr>
+      <tr><th>Só X (7, 1, 1)</th><td>7</td><td>210/s</td><td>150/s</td><td><strong>150/s</strong> (75%)</td></tr>
+      <tr><th>X + Z (3, 1, 3)</th><td>9</td><td>270/s</td><td>3 × 150 = 450/s</td><td><strong>200/s</strong> (100%)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Modelagem de microsserviços".</strong> O artigo apresenta o cubo como modelagem de microsserviços. Para a AKF e para Richardson, o cubo é um modelo para escalar e segmentar serviços <strong>e dados</strong>, e só o eixo Y é microsserviços. X e Z valem também para um monolito, e a AKF o aplica a "produtos", não só a serviços.</li>
+    <li><strong>"Largura, altura e profundidade".</strong> Esses nomes não aparecem nas fontes primárias. A AKF diz X = duplicação e clonagem, Y = decomposição e segmentação funcional, Z = partição por fronteira de cliente ou de dados, e Richardson usa os mesmos. Este módulo diz "clonar, separar por função, separar por dados".</li>
+    <li><strong>Referências.</strong> O link do Medium ("Achieving Scalability with Scale Cube") não entra. Entram a AKF (o artigo "The Scale Cube" e os posts de 2007 sobre dividir aplicações e bancos), Richardson (microservices.io) e a Wikipédia.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o Scale Cube (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "AKF Partners: The Scale Cube", href: "https://akfpartners.com/growth-blog/scale-cube" },
+    { label: "Chris Richardson: The Scale Cube (microservices.io)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "Wikipédia: Scale cube", href: "https://en.wikipedia.org/wiki/Scale_cube" },
+  ]} />
+</Deep>
+
+<p class="gancho">O cubo ficou com três perguntas, e a mais barata de responder é a primeira: copiar. A loja fez isso com o catálogo e a conta fechou. Falta saber <strong>onde o X, o eixo mais fácil, para</strong>: o <code>pedidos</code> ganhou réplicas e continuou preso em 150 pedidos/s.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as três perguntas do Scale Cube?",
+    a: "Copio o serviço (X, clonar)? Separo o que é diferente (Y, por função)? Separo o que é igual, mas grande demais (Z, por dados)?" },
+  { q: "Quem criou o cubo e quando?",
+    a: "A AKF Partners, em 2007, publicado primeiro no blog e depois nos livros de Abbott e Fisher." },
+  { q: "Qual é a coordenada da loja hoje e qual eixo ela ainda não usou?",
+    a: "(10, 9, 1): até 10 réplicas (catálogo), 9 deployments e 1 partição. O eixo Z." },
+  { q: "Que eixo resolve o banco do pedidos no teto de 150/s?",
+    a: "O Z: partir o banco por uma chave, como o cliente_id. Clonar o serviço (X) não move o teto do banco." },
+  { q: "Por que clonar a busca de 900 ms de 10 para 20 réplicas não ajuda?",
+    a: "Cada busca continua levando 900 ms; só a fila cai. O tempo de uma requisição vem do código, e a saída é um índice ou um cache." },
+]} />
