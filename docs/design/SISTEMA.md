@@ -94,6 +94,8 @@ Regras fixadas no refinamento mobile. Valem para tudo até 480px, salvo quando d
     **Piso de 12px** para qualquer texto (dados de widget, cabeçalhos de tabela, bits, selos do glossário, rótulo da rodada do quiz). Contraste: `--muted` 6,4:1 e `--faint` 5,1:1 no escuro; 6,0:1 e 5,4:1 no claro (4,9:1 sobre `--sunken`). **Controles de formulário herdam a fonte** (`button,input,select,textarea{font:inherit}` na base), senão o navegador usa Arial 13,3px.
 11. **Fim da aula:** depois dos flashcards não há segunda régua; a mensagem vazia do "Entendi" não reserva espaço.
 
+- **Alvo de toque ≥ 44 × 44 px em tudo que se toca.** Termo do glossário no meio do texto ganha uma área invisível centrada (`.gl-term::after`), sem mudar a altura da linha; slider tem `min-height: 44px` em `widgets.css`. Exceções: link no meio da frase (WCAG 2.5.8) e o rótulo acima de um controle. Conferir com `.maestri/tarefas/toque.mjs`.
+
 ## Como verificar
 
 - `npm run build` sem erro.

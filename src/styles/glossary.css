@@ -3,6 +3,9 @@
   text-decoration:underline dotted;text-decoration-color:var(--line-strong);text-decoration-thickness:1.5px;text-underline-offset:.24em;
   border-radius:2px;-webkit-tap-highlight-color:transparent;transition:color var(--dur-1),text-decoration-color var(--dur-1)}
 .lesson .gl-glue{white-space:nowrap}
+/* alvo de toque de pelo menos 44 × 44 px sem mexer na linha: uma área invisível centrada no termo */
+.lesson .gl-term{position:relative}
+.lesson .gl-term::after{content:"";position:absolute;top:50%;left:50%;height:max(calc(100% + 20px),44px);width:max(calc(100% + 6px),44px);transform:translate(-50%,-50%)}
 .lesson .gl-term:hover,.lesson .gl-term[aria-expanded="true"]{color:var(--accent-ink);text-decoration-color:var(--accent-fill);text-decoration-style:solid}
 .lesson .gl-term:focus-visible{color:var(--accent-ink);outline:2px solid var(--accent-fill);outline-offset:2px}
 
