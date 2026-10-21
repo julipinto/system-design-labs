@@ -1,0 +1,36 @@
+---
+// Módulo Cell-Based Architecture: as 4 aulas de src/content/cell-based/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/cell-based.css';
+
+const entries = (await getCollection('cell-based')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/cell-based/quiz/');
+---
+<ModuleLayout
+  title="Cell-Based Architecture · SDLabs"
+  description="Um pedido envenenado derruba a loja inteira? A pilha dividida em quatro células: o raio desigual, a estrutura e o custo do piso, o roteador e o mapa, a célula passiva, o 2PC e o shuffle sharding, com os números da loja, widgets e quiz."
+  module="cell-based"
+  heading="Cell-Based Architecture"
+  lead={'Às 20:25 da Black Friday um pedido com quantidade 2147483648 derruba os 3 pods do pedidos, e a loja inteira fica 4 minutos fora. Como dividir a pilha em células que não compartilham nada: o que cada uma tem dentro, quanto custa, como o pedido da Lena acha a dela e o que fazer quando uma cai.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/cell-based/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

@@ -1,0 +1,33 @@
+// Glossário do módulo Cell-Based Architecture. Mesmo formato do módulo 1 (veja glossary.js).
+const [L1, L2, L3, L4] = ['aula-1-introducao-ao-cell-based', 'aula-2-estrutura-celular', 'aula-3-roteamento-celular', 'aula-4-replicacao-celular'];
+
+export const cellBased = [
+  { term: 'Célula', aliases: ['célula', 'células', 'celula-sp', 'celula-rio', 'celula-recife', 'celula-mkt'], short: 'A pilha inteira da loja (lb, gateway, serviços, banco, Redis e tópico) atendendo uma parcela fixa dos clientes. São 4: sp 33%, rio 15%, recife 12% e mkt 40%.', lesson: L1 },
+  { term: 'Poison pill', aliases: ['poison pill', 'requisição envenenada', 'veneno'], short: 'Uma requisição que derruba quem a processa. A quantidade 2147483648 estoura o int32 e derruba os 3 pods do pedidos em ~150 ms.', lesson: L1 },
+  { term: 'Raio de explosão', aliases: ['raio de explosão', 'raio'], short: 'A fração do tráfego que uma falha atinge. Nas células é a fração de cada uma (40 · 33 · 15 · 12%), não 1 ÷ N.', lesson: L1 },
+  { term: 'Pior caso', aliases: ['pior caso'], short: 'O raio da maior célula: 40% (a celula-mkt). A média é 25% e a eficiência, 1 ÷ (4 × 0,40) = 62,5%.', lesson: L1 },
+  { term: 'Shard', aliases: ['shard', 'shards'], short: 'Divide os dados (módulo 16). A célula divide a pilha inteira, e o banco dela é o shard daquela fração.', lesson: L1 },
+  { term: 'Bulkhead', aliases: ['bulkhead', 'bulkheads'], short: 'Divide recursos (módulo 25): pools, lanes, tetos. Continua uma pilha só, com estoque e Redis compartilhados.', lesson: L1 },
+  { term: 'Canal oculto', aliases: ['canal oculto'], short: 'O que continua compartilhado e faz o raio voltar a 100%: um estoque global, um Redis único, um mapa publicado em todas as bordas.', lesson: L1 },
+  { term: 'Piso', aliases: ['piso'], short: 'O mínimo de réplicas por serviço (2) para sobreviver a um pod. Nas 4 células o plano de 2027 vai de 41 a 53 vCPU.', lesson: L2 },
+  { term: 'Gateway da célula', aliases: ['gateway da célula'], short: 'A única porta da célula: toda comunicação externa passa por ele, e ninguém dentro conhece ninguém de fora.', lesson: L2 },
+  { term: 'Estoque por célula', aliases: ['estoque por célula', 'alocação'], short: 'Os 19 gatos divididos pela demanda: sp 6 · rio 3 · recife 2 · mkt 8. O 1060 zera a celula-recife com 17 na rede.', lesson: L2 },
+  { term: 'Célula zero', aliases: ['célula zero'], short: 'A célula sintética do deploy, com os clientes de teste sint-01…03 (CEPs de SP, Rio e Recife) e 0% dos clientes reais. Acha o defeito antes do 1º anel.', lesson: L2 },
+  { term: 'Anéis de deploy', aliases: ['anéis'], short: 'A ordem de exposição de uma versão: célula zero 0%, celula-recife 12%, celula-rio 27%, celula-sp 60% e celula-mkt 100%.', lesson: L2 },
+  { term: 'Roteador', aliases: ['roteador'], short: 'A parte compartilhada que sobra: lê a chave, consulta o mapa e repassa. Precisa ser fino, determinístico e mais disponível que as células.', lesson: L3 },
+  { term: 'Edge cell', aliases: ['edge cell', 'edge cells', 'célula de borda', 'células de borda'], short: 'Onde o roteador roda: o edge-loja, com 3 instâncias regionais e o mapa em memória. Sem lógica de negócio.', lesson: L3 },
+  { term: 'Mapa', aliases: ['mapa'], short: 'A tabela cliente_id → célula: 1,5 milhão × ~100 B = 150 MB, em memória na borda. O mapa-v42 vale; o mapa-v43 é o ruim.', lesson: L3 },
+  { term: 'Plano de controle', aliases: ['plano de controle'], short: 'Decide colocação, migração e publica o mapa. Fica fora do caminho do pedido: se cair, as bordas seguem com o último mapa.', lesson: L3 },
+  { term: 'Chave de partição', aliases: ['chave de partição', 'chave estável'], short: 'O campo que decide a célula, estável e ligada ao negócio: o cliente_id lido no JWT.', lesson: L3 },
+  { term: 'Rehash storm', aliases: ['rehash storm', 'rehash'], short: 'Mudar N embaralha as chaves. De 4 para 5 células: 80,1% no hash mod N, ~20% no anel e 0 na tabela cadastral.', lesson: L3 },
+  { term: 'Estabilidade estática', aliases: ['estabilidade estática'], short: 'A borda continua roteando com o último mapa quando o plano de controle morre, sem precisar pedir nada a ninguém.', lesson: L3 },
+  { term: 'Consumidor de borda', aliases: ['consumidor de borda'], short: 'Lê o tópico de domínio e republica cada mensagem no tópico da célula (pedidos.mkt). O webhook do PSP entra por ele, com celula=… na referência da cobrança.', lesson: L3 },
+  { term: 'Backlog por célula', aliases: ['backlog'], short: 'Com tópicos por célula o veneno prende 9.600 eventos, todos do parceiro, em vez de 24.000 (14.400 de pessoa física).', lesson: L3 },
+  { term: 'Célula passiva', aliases: ['célula passiva', 'passiva', 'passivas'], short: 'A cópia do banco de uma célula noutra região: sp → rio (300 ms), rio → sp, recife → sp (800 ms), mkt → sp. Assume se a ativa cair.', lesson: L4 },
+  { term: 'Lag', aliases: ['lag'], short: 'O atraso da passiva: 300 ms (RTT 10 ms) ou 800 ms (RTT 80 ms). A perda esperada é taxa × lag.', lesson: L4 },
+  { term: 'Perda esperada', aliases: ['perda esperada', 'RPO'], short: 'Taxa × lag: celula-sp 2,97 · celula-rio 1,35 · celula-recife 2,88 · celula-mkt 9,6 pedidos. A célula reduz a taxa por primário.', lesson: L4 },
+  { term: '2PC', aliases: ['2PC', 'Two-Phase Commit'], short: 'Duas rodadas (prepare e commit) que esperam o participante mais lento: 24 ms com SP + Rio, 164 ms com Recife. Bloqueia e soma a disponibilidade.', lesson: L4 },
+  { term: 'Folga', aliases: ['folga'], short: 'A capacidade que sobra para o failover: com N células iguais cada sobrevivente recebe 1 ÷ (N − 1) a mais; a ocupação normal máxima vai de 35% (N = 2) a 66,5% (N = 20).', lesson: L4 },
+  { term: 'Shuffle sharding', aliases: ['shuffle sharding', 'shuffle'], short: 'Cada cliente em k células sorteadas de N. A chance de perder todas é 1 ÷ C(N,k): 0,526% (N = 20, k = 2), 2,22% (N = 10), 16,7% (N = 4).', lesson: L4 },
+  { term: 'Veneno de dados', aliases: ['veneno de dados'], short: 'Uma linha corrompida no banco da ativa. É replicada para a passiva e a derruba também; o veneno de requisição fica na célula.', lesson: L4 },
+];

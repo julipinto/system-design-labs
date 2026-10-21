@@ -1,0 +1,16 @@
+/* SDLabs · Cell-Based Architecture: o que só este módulo usa (tabelas, campos numéricos, caixa de marcar, registro do estoque). Peças comuns em widgets.css */
+.sdl-content table.sr-table.cb-table{min-width:0}
+.sdl-content table.cb-table th,.sdl-content table.cb-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.cb-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.cb-table td.cb-bad{color:var(--bad);font-weight:700}
+.sdl-content tr.cb-cur th,.sdl-content tr.cb-cur td{background:var(--accent-wash)}
+.sdl-content .cb-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.cb-badfact b{color:var(--bad)}
+.sdl-content .cb-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .cb-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.sdl-content .cb-check{display:flex;align-items:center;gap:var(--s-2);min-height:44px;margin:var(--s-2) 0;font:600 13.5px var(--mono);color:var(--ink);cursor:pointer}
+.sdl-content .cb-check input{width:20px;height:20px;accent-color:var(--accent-ink)}
+.sdl-content .cb-log{list-style:none;margin:var(--s-3) 0 0;padding:0;display:grid;gap:4px;font:600 13px/1.5 var(--mono);color:var(--muted)}
+.sdl-content .cb-log li:last-child{color:var(--ink-hi)}
+/* λ, ρ e k em maiúsculas viram outras letras: rótulos e cabeçalhos deste módulo ficam como escritos */
+.sdl-content .sr-fact small,.sdl-content table.sr-table thead th,.sdl-content p.sr-sub{text-transform:none;letter-spacing:.02em}

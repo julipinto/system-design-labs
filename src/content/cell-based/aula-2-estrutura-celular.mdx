@@ -1,0 +1,161 @@
+---
+title: "Estrutura celular"
+order: 2
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a <code>celula-mkt</code> caiu sozinha e a Lena fechou o 1060 na <code>celula-recife</code>. Falta abrir a caixa: o que tem <strong>dentro</strong> de uma célula, quanto ela custa e o que acontece com um gato que só existe numa prateleira.</p>
+
+<OneLiner>Uma célula isola em <strong>cinco dimensões ao mesmo tempo</strong> (execução, persistência, observabilidade, deploy e falha), e <strong>toda comunicação externa passa pelo gateway dela</strong>. Isolar só o banco é um <em>shard</em>, e só a CPU é um <em>bulkhead</em>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Célula</strong>, abra a <code>celula-recife</code> e siga o pedido <strong>1060</strong> do gateway até o banco sem sair da parede. Depois aperte o botão <strong>Último gato</strong> e veja o estoque da célula ir de 2 a 0.</p>
+</DoIt>
+
+<Figure3D path="labs/cell-based/celulas-3d/?mode=celula" poster="labs/cell-based/celulas-3d-previa.webp" title="Figura interativa: Dentro da célula" alt="Prévia da figura 3D: Dentro da célula" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A porta.</strong> O pedido da Lena entra na <code>celula-recife@2.6.0</code> pelo <code>gw</code> <strong>da célula</strong>, depois do <code>lb</code> dela. Não há outra porta: quem está fora só fala com o gateway.</li>
+  <li><strong>O serviço.</strong> O <code>pedidos</code> (2 pods, o piso) valida os 2 gatos e chama o <code>estoque</code> <strong>da mesma célula</strong>. Ele nem sabe que existe uma <code>celula-sp</code>.</li>
+  <li><strong>O estoque.</strong> A célula tinha <strong>2</strong> gatos alocados (<code>REC-1</code>) e a Lena leva os dois: <strong>2 → 0</strong>. Na loja inteira o gato foi de 19 para 17.</li>
+  <li><strong>O banco.</strong> O PostgreSQL da célula grava o 1060 com <strong>commit local de 2 ms</strong>. Na pilha única o primário ficava em SP e a escrita da Lena atravessava o país (RTT de 80 ms, módulo 17).</li>
+  <li><strong>O tópico.</strong> O evento sai no tópico <code>pedidos</code> <strong>da célula</strong> (<code>pedidos.recife</code>) e o <code>entregas</code> dela o consome. Total: <strong>174,80</strong>, frete de Recife incluso.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As cinco dimensões</h3>
+
+<p>O trajeto acima mostra a <strong>execução</strong> e a <strong>persistência</strong> dentro da parede. As outras três só aparecem quando algo sai errado, e uma célula só é célula se as cinco valem:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Dimensão</th><th>O que se isola</th><th>Na <code>celula-recife</code></th></tr></thead>
+  <tbody>
+    <tr><th>Execução</th><td>CPU, memória, réplicas, autoescala</td><td>os pods dela, com o piso de 2 por serviço</td></tr>
+    <tr><th>Persistência</th><td>banco, cache, fila</td><td>o PostgreSQL, o Redis e o tópico <code>pedidos.recife</code></td></tr>
+    <tr><th>Observabilidade</th><td>métricas, logs e traces</td><td>o rótulo <code>celula=recife</code> em tudo (módulo 28)</td></tr>
+    <tr><th>Deploy</th><td>versão e pipeline</td><td><code>celula-recife@2.6.0</code>, publicada à parte</td></tr>
+    <tr><th>Falha</th><td>o raio mensurável</td><td>12% do tráfego, 3,6 pedidos/s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Dois componentes <strong>globais</strong> invalidam o desenho: uma fila compartilhada ou um cache único. Se algum precisa existir, ele entra intermediado por um componente celular de borda (aula 3). Por dentro, a regra inversa vale: cada serviço da célula só conhece os da própria célula.</p>
+
+<h3 class="sec">Estado: só a replicação passiva</h3>
+
+<p>A célula <strong>não compartilha estado</strong> com as outras, exceto por uma cópia <strong>passiva</strong> do banco dela noutra célula, que só assume se a ativa cair (aula 4). Daí vem a liberdade que o artigo cita: cada célula pode ter <em>tuning</em>, versão de <em>runtime</em> ou experimento próprios sem risco para as outras.</p>
+
+<h3 class="sec">Quanto tem a célula: o tamanho</h3>
+
+<p>A AWS pede três coisas ao tamanho. A célula precisa <strong>caber a maior carga</strong> que um cliente pode trazer, ser <strong>testável em escala real</strong> e ainda ter <strong>ganho de escala</strong> (se for pequena demais, o piso consome tudo). A AWS também recomenda um <strong>limite máximo</strong> por célula e células do <strong>mesmo tamanho</strong>.</p>
+
+<p>A loja <strong>não segue</strong> a última recomendação: a <code>celula-mkt</code> tem 40% e a <code>celula-recife</code>, 12%. O mapa cadastral escolhe quem vai para onde, e o <code>mkt-01</code> ganhou uma célula própria porque era o vizinho barulhento. O preço aparece na aula 4: células desiguais tornam a folga do <em>failover</em> desigual.</p>
+
+<h3 class="sec">O custo do piso</h3>
+
+<p>Uma célula <strong>não encolhe até zero</strong>: cada serviço precisa de, no mínimo, <strong>2 réplicas</strong> para sobreviver a um pod. Com o plano de 2027 do módulo 23 (200 pedidos/s e 950 req/s no catálogo; 1 réplica = 1 vCPU; ρ alvo de 70%) e os quatro serviços da conta, o total muda assim:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Célula</th><th>Pedidos/s</th><th>Catálogo req/s</th><th><code>catalogo</code></th><th><code>pedidos</code></th><th><code>pagamentos</code></th><th><code>estoque</code></th><th>vCPU</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-mkt</code></th><td>80</td><td>100 (teto)</td><td>2</td><td>4</td><td>6</td><td>2</td><td><strong>14</strong></td></tr>
+    <tr><th><code>celula-sp</code></th><td>66</td><td>522,5</td><td>8</td><td>4</td><td>5</td><td>2</td><td><strong>19</strong></td></tr>
+    <tr><th><code>celula-rio</code></th><td>30</td><td>237,5</td><td>4</td><td>2</td><td>3</td><td>2</td><td><strong>11</strong></td></tr>
+    <tr><th><code>celula-recife</code></th><td>24</td><td>190</td><td>3</td><td>2</td><td>2</td><td>2</td><td><strong>9</strong></td></tr>
+    <tr><th>Total das células</th><td>200</td><td>1.050</td><td>17</td><td>12</td><td>16</td><td>8</td><td><strong>53</strong></td></tr>
+    <tr><th>Pilha única (módulo 23)</th><td>200</td><td>950</td><td>14</td><td>10</td><td>15</td><td>2</td><td><strong>41</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>São <strong>+12 vCPU (+29,3%)</strong>. O <code>estoque</code> vai de 2 para <strong>8</strong> (o piso, quatro vezes), o <code>pedidos</code> e o <code>pagamentos</code> pagam o arredondamento <strong>por célula</strong>, e o catálogo sobe porque o teto do <code>mkt-01</code> (100 req/s, módulo 25) reserva 2 réplicas.</p>
+
+<p>No <strong>dia comum</strong> (5 pedidos/s) a pilha única usa <strong>9 vCPU</strong> (2 + 3 + 2 + 2) e as quatro células, no piso, <strong>4 × 8 = 32 vCPU</strong>: <strong>3,6×</strong>. É o preço do isolamento, e é a perda de <strong>multiplexação estatística</strong> do módulo 25 (Erlang C): uma frota maior atende melhor a mesma carga do que quatro menores.</p>
+
+<Widget name="piso" title="Custo do piso" hint="Pedidos/s totais (5 a 300), catálogo (req/s), ρ alvo e piso (1 a 3 réplicas) por serviço. Compara a pilha única com as células (9 × 32 no dia comum; 41 × 53 em 2027) e mostra qual serviço mais pesa." />
+
+<h3 class="sec">O estoque por célula: o último gato</h3>
+
+<p>O <code>estoque</code> <strong>também é da célula</strong>, e um gato é um objeto físico numa prateleira (módulo 6: <code>GATO-042</code>). As 19 unidades que o 1056 deixou se dividem <strong>na proporção da demanda</strong>: 33 · 15 · 12 · 40% de 19 dão 6,3 · 2,9 · 2,3 · 7,6. Arredondado, <code>celula-sp</code> <strong>6</strong>, <code>celula-rio</code> <strong>3</strong>, <code>celula-recife</code> <strong>2</strong> e <code>celula-mkt</code> <strong>8</strong> (soma 19). As três células de pessoa física têm um depósito cada: <code>SP-1</code>, <code>RIO-1</code> e <code>REC-1</code>.</p>
+
+<p>O 1060 leva os 2 gatos da <code>celula-recife</code>, que fica com <strong>0</strong>. As outras três somam <strong>17</strong>. O próximo cliente de Recife vê “esgotado” <strong>com 17 gatos na rede</strong>.</p>
+
+<Widget name="estoque" title="Alocação do estoque" hint="Unidades (1 a 50) e a divisão proporcional (6 · 3 · 2 · 8 para 19). O 1060 zera a celula-recife; depois, rebalancear ou ligar o estoque global (oversell × raio de 100%)." />
+
+<h3 class="sec">O deploy por célula</h3>
+
+<p>O módulo 22 repartia a versão por anéis de <em>shard</em> (20 · 20 · 60%). Agora os anéis são <strong>células</strong>, e cada uma tem nome e versão (<code>celula-recife@2.6.0</code>). A exposição acumulada vai assim:</p>
+
+<ol class="flow steps">
+  <li><strong>Célula zero</strong> (sintética): clientes de teste <code>sint-01…03</code> com CEPs de SP, Rio e Recife. <strong>0%</strong> dos clientes reais.</li>
+  <li><strong><code>celula-recife</code>:</strong> <strong>12%</strong> do tráfego.</li>
+  <li><strong><code>celula-rio</code>:</strong> acumulado <strong>27%</strong>.</li>
+  <li><strong><code>celula-sp</code>:</strong> acumulado <strong>60%</strong>.</li>
+  <li><strong><code>celula-mkt</code>:</strong> <strong>100%</strong>.</li>
+</ol>
+
+<p>Há uma armadilha. A célula regional <strong>não é representativa</strong> do defeito regional. A 2.5.0 do módulo 22 (frete 0,00 em Recife) estragaria <strong>100% dos clientes de Recife</strong> logo no primeiro anel real, mesmo sendo 12% do tráfego. Quem protege é a <strong>célula zero com CEP de Recife</strong>: acha o defeito com <code>frete_zero</code> = 1 pedido sintético e perda de <strong>R$ 0</strong>.</p>
+
+<h3 class="sec">E se der errado: o último gato</h3>
+
+<p>A <code>celula-recife</code> zerou o estoque dela e a rede tem 17 gatos. As três saídas custam coisas diferentes:</p>
+
+<ol class="flow steps">
+  <li><strong>Aceitar o “esgotado local”.</strong> Perde a venda e continua consistente. Para um gato de 79,90, é caro.</li>
+  <li><strong>Rebalancear.</strong> O plano de controle move 2 unidades de SP para Recife, de forma <strong>assíncrona</strong>, em segundos, quando a alocação cai abaixo de 20%. É o caminho adotado.</li>
+  <li><strong>Reservar entre células</strong> por <em>saga</em> (módulo 19). Vende, mas <strong>acopla</strong> duas células no caminho crítico, o que a célula existe para evitar.</li>
+</ol>
+
+<p>A tentação é um <code>estoque</code> <strong>global</strong>. O <em>oversell</em> some, mas o raio volta a <strong>100%</strong>, o mesmo canal oculto da aula 1.</p>
+
+<WhyItMatters>
+  <li><strong>Cinco dimensões juntas.</strong> Execução, persistência, observabilidade, deploy e falha: faltando uma, o desenho vira <em>shard</em> ou <em>bulkhead</em>.</li>
+  <li><strong>O piso cobra caro.</strong> 41 → 53 vCPU no plano de 2027 e 9 → 32 no dia comum.</li>
+  <li><strong>Um recurso físico não segue a chave.</strong> O gato é alocado por célula, e o último deixa uma célula esgotada com 17 na rede.</li>
+  <li><strong>O deploy é o risco principal.</strong> A célula zero acha o defeito antes de qualquer cliente real.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base e o que falta nele</h4>
+  <ul>
+    <li><strong>Tamanho, colocação e migração.</strong> O artigo diz que a segmentação é determinística e que “amanhã o cliente continua na célula X”. Isso vale para a <strong>leitura</strong> do mapa. O <strong>plano de controle</strong> muda o mapa (colocação e migração de clientes quando uma célula enche, aula 3). Faltam no artigo o tamanho da célula (limite máximo e células do mesmo tamanho, na AWS), a colocação e a migração.</li>
+    <li><strong>Custo.</strong> O artigo não fala do piso. A conta (41 → 53 vCPU; 9 → 32) é feita aqui com o plano do módulo 23.</li>
+    <li><strong>Estoque.</strong> Um recurso físico <strong>global</strong> não segue a chave “cliente”. A AWS trata isso como o <strong>grão</strong> do serviço: alocar por célula é uma decisão, não um detalhe.</li>
+    <li><strong>Dependências globais.</strong> DNS, identidade (o JWT), o PSP, os certificados e o próprio mapa seguem compartilhados. O artigo não os lista.</li>
+    <li><strong>Deploy.</strong> O artigo cita “pipelines complexos” e experimentação em células. Os anéis 0 → 12 → 27 → 60 → 100% e a célula zero são o desenho que o módulo 22 pede.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cell-Based Architecture (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: Cell sizing", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-sizing.html" },
+    { label: "AWS Well-Architected: Cell placement", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-placement.html" },
+    { label: "Microsoft: padrão Deployment Stamps", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp" },
+    { label: "WSO2: referência de arquitetura baseada em células (recomendações de granularidade, só para o contraste)", href: "https://github.com/wso2/reference-architecture/blob/master/reference-architecture-cell-based.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">A Lena entrou na <code>celula-recife</code> porque alguém, antes da porta, sabia que <code>lena-77</code> mora lá. Falta saber como o pedido <strong>chega</strong> à célula certa: quem decide, onde isso roda, o que acontece quando o mapa muda e como o evento assíncrono acha o caminho.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as cinco dimensões de isolamento da célula?",
+    a: "Execução, persistência, observabilidade, deploy e falha. Só o banco é shard; só a CPU é bulkhead." },
+  { q: "Quanto custa o piso no plano de 2027?",
+    a: "41 vCPU na pilha única contra 53 nas 4 células (+12, +29,3%). No dia comum, 9 contra 32 (3,6×)." },
+  { q: "Como os 19 gatos se dividem entre as células?",
+    a: "6 (sp) · 3 (rio) · 2 (recife) · 8 (mkt), na proporção da demanda. O 1060 zera a celula-recife com 17 gatos na rede." },
+  { q: "Quais as três saídas para o último gato?",
+    a: "Aceitar o esgotado local, rebalancear a alocação pelo plano de controle (o adotado) ou reservar entre células por saga, que acopla duas células." },
+  { q: "Qual é a ordem dos anéis de deploy por célula?",
+    a: "Célula zero (0%), celula-recife (12%), celula-rio (27%), celula-sp (60%) e celula-mkt (100%). A célula zero com CEP de Recife acha o frete 0,00 antes de qualquer cliente real." },
+]} />
