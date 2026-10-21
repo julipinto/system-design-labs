@@ -49,7 +49,7 @@ const modules: Mod[] = [
     text: 'Guardar o que aconteceu como a fonte da verdade e derivar o estado: o pedido 1047 como eventos, agregados, Event Store com versão esperada, bus, projeções, rehidratação, snapshot, ordem por versão e idempotência, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'resiliencia', title: 'Patterns de Resiliência', lessons: 13, poster: 'labs/resiliencia/chamadas-3d-previa.webp', alt: 'Prévia da figura 3D da chamada que atravessa a loja até o PSP',
     text: 'Continuar vendendo quando o PSP responde em 8 s: disponibilidade e orçamento de erro, blast radius, healthchecks, idempotência, timeouts, retry com backoff e jitter, circuit breaker, fallback, degradação, backpressure, camada de dados e bulkheads, com calculadoras e quiz de 72 perguntas.' },
-  { n: 23, slug: 'capacity-planning', title: 'Capacity Planning', lessons: 9, poster: 'labs/capacity-planning/ponto-3d-previa.webp', alt: 'Prévia da figura 3D da fila do pagamentos',
+  { slug: 'capacity-planning', title: 'Capacity Planning', lessons: 9, poster: 'labs/capacity-planning/ponto-3d-previa.webp', alt: 'Prévia da figura 3D da fila do pagamentos',
     text: 'A Black Friday de 2027 aguenta? Teoria das filas, Lei de Little e o ponto saudável, curva do joelho, modelagem de carga, perfis de tráfego, projeção, capacidade end to end e a ficha de limites, com calculadoras e quiz de 45 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
