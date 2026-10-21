@@ -1,0 +1,36 @@
+---
+// Módulo Provas Finais: as 7 aulas de src/content/provas-finais/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/provas-finais.css';
+
+const entries = (await getCollection('provas-finais')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/provas-finais/quiz/');
+---
+<ModuleLayout
+  title="Provas Finais · SDLabs"
+  description="A revisão final do estudo: refazer a loja da Lena do zero, na ordem, passando pelos 28 capítulos em 7 blocos, com o pedido 1060, os 28 números, o tire uma peça e a prova final de 80 perguntas."
+  module="provas-finais"
+  heading="Provas Finais"
+  lead={'Se alguém apagasse o desenho, você refaria a loja do zero, na ordem, sabendo o porquê de cada peça? Sete blocos para reconstruir a história dos 28 capítulos, o que quebra quando se tira uma peça e uma prova final de 80 perguntas para se autoavaliar.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/provas-finais/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Prova final: 80 perguntas →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>
