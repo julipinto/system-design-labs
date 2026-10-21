@@ -25,6 +25,7 @@ import { bulkhead } from './glossary-bulkhead.js';
 import { cellBased } from './glossary-cell-based.js';
 import { disasterRecovery } from './glossary-disaster-recovery.js';
 import { observabilidade } from './glossary-observabilidade.js';
+import { provasFinais } from './glossary-provas-finais.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -112,5 +113,6 @@ export const glossaries = {
   bulkhead,
   'cell-based': cellBased,
   'disaster-recovery': disasterRecovery,
-  observabilidade
+  observabilidade,
+  'provas-finais': provasFinais
 };

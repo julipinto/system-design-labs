@@ -1,0 +1,85 @@
+---
+title: "Mudar, planejar, testar, isolar"
+order: 6
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">A loja do bloco 5 aguenta uma falha por vez, mas <strong>muda sem rede</strong>: cada versão nova vai direto para os clientes. A causa mais comum de incidente é a mudança, e as quatro peças deste bloco <strong>antecipam</strong> o incidente em vez de reagir a ele.</p>
+
+<OneLiner>As quatro peças deste bloco <strong>antecipam o incidente</strong>: publicar com raio pequeno, planejar o pico, <strong>testar o plano</strong> e dividir o que é compartilhado.</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Operar</strong>, avance: a 2.5.0 sai por <em>canary</em> e, no último passo, por <em>rolling</em>, e compare as perdas.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=operar" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 6 · mudar, planejar, testar, isolar" alt="Prévia da figura 3D: Bloco 6 · mudar, planejar, testar, isolar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 6</h3>
+
+<p>Uma loja que aguenta, mas muda sem rede, tem três ameaças: a versão com defeito, a Black Friday de 2027 e o relatório das 23:00. Cada peça abaixo responde a uma, e a última une as anteriores.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Mudar com raio pequeno (módulo 22).</strong> O <code>pedidos</code> sai da 2.4.0 para a 2.5.0, que devolve <code>201</code> com <strong>frete 0,00</strong> em Recife: saudável, sem erro, errada. O <em>recreate</em> derruba tudo por <strong>40 s</strong>, o <em>rolling</em> leva <strong>90 s</strong>, o <em>blue/green</em> troca de uma vez e o <em>canary</em> vai de 10 a 50 e a 100%. O raio é fração × tempo × custo: <strong>R$ 54.000</strong> no <em>rolling</em> contra <strong>R$ 450</strong> no <em>canary</em> de 10%. <em>Shadow</em>, a <em>flag</em> <code>frete_v2</code> e os anéis por <em>shard</em> completam o conjunto. O pedido é o <strong>1059</strong>. <a href={L('deployment')}>Modelos de Deployment</a>.</li>
+  <li><strong>Planejar o pico (23).</strong> Mudar bem não diz se a loja aguenta a <strong>Black Friday de 26/11/2027</strong>. A Lei de Little (L = λ × W) e o ρ alvo de <strong>70%</strong> (perto do joelho a espera explode) dão o plano de <code>catalogo</code>, <code>pedidos</code>, <code>pagamentos</code> e <code>estoque</code>: <strong>14 · 10 · 15 · 2 = 41 vCPU</strong>, para 950 req/s e 200 pedidos/s. <a href={L('capacity-planning')}>Capacity Planning</a>.</li>
+  <li><strong>Testar o plano (24).</strong> Um plano sem teste é hipótese. O k6 mostra que a loja "hoje" quebra em <strong>36/s</strong> e o "plano" chega a <strong>~250/s</strong>, com metas de p95 ≤ <strong>800 ms</strong> e erros ≤ <strong>0,1%</strong>. O cenário misto acha o que a conta não achou: o <strong>relatório das 23:00</strong> disputando o pool. <a href={L('testes-de-carga')}>Testes de Carga</a>.</li>
+  <li><strong>Dividir o compartilhado (25).</strong> O achado do teste tem remédio: o pool de <strong>20 conexões</strong> vira <strong>16 + 4</strong>. Sem a divisão, o relatório deixa <strong>33%</strong> do checkout e <strong>10%</strong> do status com <code>503</code>. Com ela, o raio do shard quente cai de <strong>60% para 40%</strong>. As <em>lanes</em> são <strong>12 · 6 · 2</strong> e o <code>mkt-01</code> tem teto de 100 req/s no catálogo. <a href={L('bulkhead')}>Bulkhead Pattern</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Tire uma peça: o teste misto</h3>
+
+<p>Sem o teste de carga misto, o relatório das 23:00 só aparece em produção, com <strong>33%</strong> do checkout e <strong>10%</strong> do status em <code>503</code>. Sem o <em>canary</em> e a métrica de negócio, o frete 0,00 dura 60 min e custa <strong>R$ 54.000</strong> (ou <strong>R$ 486.000</strong>, se só o relatório das 23:00 achar). Quem avisou foram os módulos 22, 24 e 25.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Dizer o raio de um deploy (fração × tempo × custo).</li>
+  <li>Calcular réplicas com Little e o ρ alvo.</li>
+  <li>Desenhar um teste de carga e dizer o que ele <strong>não</strong> prova.</li>
+  <li>Dividir um pool e dizer o que o batch perde.</li>
+  <li>Dizer por que a tabela 1 ÷ N engana.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o estudo corrigiu nos módulos 22 e 25</h4>
+  <ul>
+    <li><strong>Módulo 22:</strong> o <em>Recreate</em> deixou de ser "a única saída" para consumidores Kafka, por causa do <em>rebalance</em> cooperativo (KIP-429).</li>
+    <li><strong>Módulo 25:</strong> a tabela de <em>blast radius</em> (1 ÷ N) vale só com tráfego <strong>uniforme</strong>; com o <code>mkt-01</code> o raio é a <strong>maior fração</strong> (60% para 40%).</li>
+  </ul>
+  <Sources items={[
+    { label: "Google SRE Workbook: sumário (rollouts, capacidade e testes)", href: "https://sre.google/workbook/table-of-contents/" },
+    { label: "AWS Well-Architected: os pilares de confiabilidade e eficiência", href: "https://aws.amazon.com/architecture/well-architected/" },
+  ]} />
+  <div class="sources">
+<h4>Neste estudo</h4>
+<ul>
+    <li><a href={L('deployment')}><span>Módulo 22: Modelos de Deployment</span></a></li>
+    <li><a href={L('capacity-planning')}><span>Módulo 23: Capacity Planning</span></a></li>
+    <li><a href={L('testes-de-carga')}><span>Módulo 24: Testes de Carga</span></a></li>
+    <li><a href={L('bulkhead')}><span>Módulo 25: Bulkhead Pattern</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">Um bulkhead separa recursos <strong>dentro</strong> de uma pilha. Falta saber o que acontece se a <strong>pilha inteira</strong> for dividida. É a aula 7.</p>
+
+<Flashcards cards={[
+  { q: "Qual é o raio do rolling e o do canary de 10% para o frete 0,00?",
+    a: "R$ 54.000 contra R$ 450. O raio é fração × tempo × custo (módulo 22)." },
+  { q: "Quanto custa o plano da Black Friday de 2027?",
+    a: "14 · 10 · 15 · 2 = 41 vCPU para 200 pedidos/s e 950 req/s (módulo 23)." },
+  { q: "Onde a loja quebra no k6, hoje e no plano?",
+    a: "36/s hoje e ~250/s no plano, com p95 ≤ 800 ms e erros ≤ 0,1% (módulo 24)." },
+  { q: "O que a divisão 16 + 4 faz com o checkout e o relatório?",
+    a: "O checkout fica sem 503 e o batch é quem espera. O raio do shard quente vai de 60% a 40% (módulo 25)." },
+]} />

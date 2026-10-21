@@ -1,0 +1,11 @@
+/* Provas Finais: o que só este quiz usa (botões de início, nota por bloco). O resto vem de ../../../shared/quiz.css */
+.pf-start{display:grid;gap:12px;margin:24px 0 8px}
+.pf-links a{display:inline-block;padding:10px 2px;min-height:44px;box-sizing:border-box;color:var(--accent-ink)}
+.pf-bars{display:grid;gap:12px;margin:12px 0 24px}
+.pf-brow{display:grid;grid-template-columns:1fr auto;grid-template-areas:"l v" "t t";gap:4px 12px;align-items:end}
+.pf-bl{grid-area:l;font-size:15px;color:var(--ink)}
+.pf-bv{grid-area:v;font:700 13px var(--mono);color:var(--ink-hi);font-variant-numeric:tabular-nums}
+.pf-bv.bad{color:var(--bad)}
+.pf-bt{grid-area:t;display:block;height:10px;background:var(--sunken);border-radius:var(--r-1);overflow:hidden}
+.pf-bt i{display:block;height:100%;background:var(--accent-ink)}
+.pf-bt i.bad{background:var(--bad)}

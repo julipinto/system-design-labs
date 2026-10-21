@@ -1,0 +1,84 @@
+---
+title: "A loja de um servidor"
+order: 1
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">O módulo 28 terminou com uma pergunta: a loja tem agora <strong>28 capítulos</strong> de problema e peça, e <strong>se alguém apagasse o desenho, você refaria a loja do zero, na ordem, sabendo o porquê de cada peça?</strong> Este módulo é essa prova, e ninguém precisa decorar nada: o que importa é <strong>reconstruir a ordem</strong> em que cada peça se tornou necessária. Começa onde a história começou, com um servidor, um programa e um disco.</p>
+
+<OneLiner>Uma loja de um servidor só precisa de <strong>cinco coisas</strong> antes de pensar em escala: o dado <strong>chegar</strong>, o dado <strong>ficar</strong>, os bancos <strong>concordarem</strong>, o dado ser <strong>achado</strong> e a página ser <strong>rápida</strong>.</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Fundações</strong>, avance até o último passo, em que o <strong>cache</strong> é desligado. Leia o tempo médio da página do gato: ele sai de 5 ms e vai a 41 ms.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=fundacoes" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 1 · a loja de um servidor" alt="Prévia da figura 3D: Bloco 1 · a loja de um servidor" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 1</h3>
+
+<p>A loja de um servidor é um programa e um disco. Funciona até o primeiro incidente de cada tipo: o dado viaja e demora, o disco queima, os bancos discordam e a página do gato de pelúcia fica lenta. São cinco problemas, e cada peça abaixo entrou para resolver um deles.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O dado chega (módulo 1).</strong> A Lena abre o app em Recife: o DNS acha <code>loja.com.br</code>, o TCP abre a conexão, o TLS cifra e o HTTP pede a página. A foto de 313 KB vira <strong>215 fatias</strong> de até 1.460 B, e cada ida e volta até SP custa <strong>80 ms</strong>. <a href={L('protocolos-de-rede')}>Protocolos de Rede</a>.</li>
+  <li><strong>O dado fica (2).</strong> Com o dado chegando, ele precisa sobreviver a um disco queimado. O <code>pedidos.db</code> vai para um <strong>RAID 10</strong>, cuja escrita pequena custa <strong>2 I/Os</strong>, e as fotos vão para um <em>object storage</em>. No RAID 0 a escrita custa 1 I/O e o primeiro disco que queima leva tudo. <a href={L('storage-raid-io')}>Storage, RAID e I/O</a>.</li>
+  <li><strong>Os bancos concordam (3).</strong> Quando o dado fica em três sites (SP, Rio e Recife), eles podem perder a rede entre si. O CAP obriga a escolher, <strong>durante a partição</strong>, entre recusar (consistência) e aceitar (disponibilidade). A maioria é o <strong>quórum de 2 em 3</strong>, e a escrita síncrona até Recife leva ~80 ms. <a href={L('cap-acid-base')}>CAP, ACID e BASE</a>.</li>
+  <li><strong>O dado é achado (4).</strong> Com os sites de acordo, falta encontrar uma linha: a tabela <code>pedidos</code> guarda o <strong>1042</strong> (Lena, gato, 89,90). O <strong>índice B-Tree</strong> acha a linha em poucas leituras de página. Em 1 milhão de linhas ele ganha da varredura; em 6 linhas empata, porque tudo cabe numa página. <a href={L('databases')}>Databases e Indexação</a>.</li>
+  <li><strong>A página é rápida (5).</strong> Achar rápido ainda não basta para a página que todo mundo abre. O <strong>Redis</strong> guarda a resposta, e com hit rate de 90% o tempo médio é 0,9 × 1 + 0,1 × 41 = <strong>5 ms</strong>. A <strong>CDN</strong> em Recife aproxima a foto, e a promoção baixa o preço de <strong>89,90 para 79,90</strong>. <a href={L('cache')}>Estratégias de Cache</a>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="cola" title="Cola dos 28 números" hint="Cartões com o módulo e o problema na frente e o número no verso. Marque 'sabia' ou 'não sabia' e acompanhe o contador de cada bloco." />
+
+<h3 class="sec">Tire uma peça: o cache</h3>
+
+<p>Sem o cache, o tempo médio vai de <strong>5 ms</strong> a <strong>41 ms</strong>, 8,2 vezes mais, e o catálogo a 640 req/s manda tudo à origem em vez dos 128 req/s que chegam com 80% de acerto. Quem avisou foram os módulos 5 e 21.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Desenhar a viagem da foto em 5 protocolos e dizer o que cada ida e volta custa.</li>
+  <li>Escolher o RAID e justificar com os I/Os da escrita pequena.</li>
+  <li>Dizer o que o CAP obriga <strong>na partição</strong>.</li>
+  <li>Dizer por que o índice ganha de 1 milhão de linhas e empata com 6.</li>
+  <li>Calcular o tempo médio a partir do hit rate.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o estudo corrigiu no módulo 5</h4>
+  <ul>
+    <li>O exemplo de <em>cache-aside</em> do artigo compara com <code>err == rdb.Nil</code>, que não compila (o certo é <code>redis.Nil</code>), e grava com TTL <code>0</code>, que guarda para sempre: o oposto do que o próprio artigo defende sobre TTL.</li>
+  </ul>
+  <div class="sources">
+<h4>Fontes</h4>
+<ul>
+    <li><a href={L('protocolos-de-rede')}><span>Módulo 1: Protocolos de Rede</span></a></li>
+    <li><a href={L('storage-raid-io')}><span>Módulo 2: Storage, RAID e I/O</span></a></li>
+    <li><a href={L('cap-acid-base')}><span>Módulo 3: CAP, ACID e BASE</span></a></li>
+    <li><a href={L('databases')}><span>Módulo 4: Databases e Indexação</span></a></li>
+    <li><a href={L('cache')}><span>Módulo 5: Estratégias de Cache</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">A loja agora roda bem num programa só, de 8 vCPU. Falta saber o que acontece às 23:00, quando o relatório <strong>derruba tudo</strong>: como partir o programa sem quebrar a loja? É a aula 2.</p>
+
+<Flashcards cards={[
+  { q: "Em quantas fatias a foto de 313 KB viaja, e quanto custa cada ida e volta?",
+    a: "215 fatias de até 1.460 B; cada ida e volta Recife–SP custa 80 ms (módulo 1)." },
+  { q: "Quantos I/Os custa uma escrita pequena no RAID 0, 1, 5, 6 e 10?",
+    a: "1 · 2 · 4 · 6 · 2. O pedidos.db ficou num RAID 10 (módulo 2)." },
+  { q: "O que o CAP obriga na partição, e qual é o quórum de 3 sites?",
+    a: "Escolher entre recusar (C) e aceitar (A). A maioria é 2 em 3 (módulo 3)." },
+  { q: "Qual é o tempo médio com hit rate de 90%, cache de 1 ms e banco de 41 ms?",
+    a: "0,9 × 1 + 0,1 × 41 = 5 ms. Sem o cache, 41 ms (módulo 5)." },
+]} />

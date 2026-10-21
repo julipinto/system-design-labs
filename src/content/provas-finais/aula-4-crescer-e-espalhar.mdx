@@ -1,0 +1,86 @@
+---
+title: "Crescer e espalhar"
+order: 4
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">A loja do bloco 3 funciona em dia comum, com 5 pedidos por segundo. Às <strong>20:03</strong> da Black Friday o pico chega a 30 por segundo e quase tudo o que ela construiu começa a ser medido de verdade. Crescer não é comprar máquina: é saber <strong>o que</strong> está lento e <strong>onde</strong> cortar.</p>
+
+<OneLiner>Crescer é <strong>medir</strong> (percentil, joelho, o elo mais fraco), <strong>escolher o eixo</strong> (X, Y ou Z), <strong>partir por uma chave</strong> (e ver onde esquenta) e <strong>copiar</strong> (e pagar latência ou dado).</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Crescer</strong>, avance até o passo em que o <code>mkt-01</code> liga, e leia a eficiência do cluster.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=crescer" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 4 · crescer e espalhar" alt="Prévia da figura 3D: Bloco 4 · crescer e espalhar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 4</h3>
+
+<p>Às 20:03 a loja continua de pé e mesmo assim falha para alguns clientes. O painel de média diz que está tudo bem. As quatro peças abaixo respondem, em ordem, a: o que medir, em que direção crescer, como partir o dado e como copiá-lo.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Medir (módulo 14).</strong> A média é <strong>135 ms</strong> e o p50, <strong>32 ms</strong>, mas o p95 é <strong>800 ms</strong> e o p99, <strong>2.000 ms</strong>. A <code>catalogo-3</code> está a 99% e a frota inteira marca <strong>67,5%</strong>: (9 × 64 + 99) ÷ 10. O elo mais fraco manda: o <code>pagamentos</code> faz <strong>40/s</strong> e o banco do <code>pedidos</code>, <strong>150/s</strong>. O pedido do Davi é o <strong>1052</strong>. <a href={L('performance')}>Performance</a>.</li>
+  <li><strong>Escolher o eixo (15).</strong> Com o gargalo medido, resta saber como crescer. No cubo, <strong>X</strong> clona (réplicas), <strong>Y</strong> parte por função (serviços) e <strong>Z</strong> parte por dado (clientes). A loja vai de <strong>(10, 9, 1)</strong> a <strong>(10, 9, 3)</strong>, e a saída sobe de <strong>90 a 150 e a 200</strong> pedidos por segundo. O pedido do Caio é o <strong>1053</strong>. <a href={L('scale-cube')}>Scale Cube</a>.</li>
+  <li><strong>Partir por uma chave (16).</strong> O eixo Z pede uma chave. São <strong>3 <em>shards</em></strong> por <code>cliente_id</code> com <code>murmur3</code> sobre <strong>50 milhões</strong> de linhas. O <code>mkt-01</code> tem 40% das linhas e deixa o <code>shard-2</code> com 60%, e a eficiência cai a <strong>55,6%</strong>. Passar de 3 para 4 shards move <strong>75,2%</strong> dos dados com <code>mod</code> e <strong>25,7%</strong> com o anel. O <em>shuffle</em> forma <strong>45</strong> pares. O 1054 da Lena cai no <code>shard-1</code>. <a href={L('sharding')}>Sharding</a>.</li>
+  <li><strong>Copiar (17).</strong> Partir não protege contra o disco queimado: cada shard precisa de réplica. Com o primário em SP e réplicas no Rio e em Recife, o commit custa <strong>2 ms</strong> (assíncrono), <strong>12 ms</strong> (semi) ou <strong>82 ms</strong> (síncrono). O lag é de <strong>300 ms</strong> no Rio e <strong>800 ms</strong> em Recife; o RPO é de <strong>9 a 24</strong> pedidos e o RTO, de <strong>35 s</strong>. A Lena não vê o <strong>1055</strong>: lê a réplica de Recife, 800 ms atrás. <a href={L('replicacao')}>Replicação de Dados</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Tire uma peça: as réplicas</h3>
+
+<p>Sem réplicas, o <code>shard-1</code> cai e a Lena e a Bia <strong>ficam sem pedidos</strong>, e um disco queimado leva o dado. Quem avisou foram os módulos 16 e 17.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Dizer por que o painel de média engana e o que olhar no lugar.</li>
+  <li>Ler o cubo e dizer em que eixo a loja está.</li>
+  <li>Escolher a chave do <em>shard</em> e dizer onde ela esquenta.</li>
+  <li>Dizer o que o <code>mod 3 → 4</code> move.</li>
+  <li>Escolher entre 2, 12 e 82 ms e dizer o que se paga em dado.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o estudo corrigiu no módulo 16</h4>
+  <ul>
+    <li>O trecho de <em>MurmurHash</em> impresso no artigo lista 12 nomes e <strong>não conta</strong>; o resultado (7, 8, 9, 8 e 7, somando 39) é do repositório.</li>
+  </ul>
+  <Sources items={[
+    { label: "Google SRE book: sumário (monitoramento, sinais de ouro, escalabilidade)", href: "https://sre.google/sre-book/table-of-contents/" },
+    { label: "AWS Builders' Library: artigos de engenharia sobre escala e disponibilidade", href: "https://aws.amazon.com/builders-library/" },
+  ]} />
+  <div class="sources">
+<h4>Neste estudo</h4>
+<ul>
+    <li><a href={L('performance')}><span>Módulo 14: Performance</span></a></li>
+    <li><a href={L('scale-cube')}><span>Módulo 15: Scale Cube</span></a></li>
+    <li><a href={L('sharding')}><span>Módulo 16: Sharding</span></a></li>
+    <li><a href={L('replicacao')}><span>Módulo 17: Replicação de Dados</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">A loja agora cresce e aguenta o pico. Falta saber o que a espalhou demais: a tela lê o <strong>passado</strong>, o pagamento aprovado não achou estoque e o PSP responde em 8 s. Como o dado fica <strong>certo</strong> sem uma transação só? É a aula 5.</p>
+
+<Flashcards cards={[
+  { q: "Qual número engana no painel: a média de 135 ms ou o p95 de 800 ms?",
+    a: "A média. A frota a 67,5% esconde a réplica a 99%: (9 × 64 + 99) ÷ 10 (módulo 14)." },
+  { q: "Qual é o elo mais fraco do checkout?",
+    a: "O pagamentos (40/s) e o banco do pedidos (150/s) (módulo 14)." },
+  { q: "O que são X, Y e Z no cubo?",
+    a: "Clonar, partir por função e partir por dado (módulo 15)." },
+  { q: "O que o mkt-01 faz com a eficiência dos shards?",
+    a: "Com 40% das linhas deixa o shard quente em 60% e a eficiência em 55,6% (módulo 16)." },
+  { q: "Quanto custa o commit assíncrono, semi e síncrono?",
+    a: "2, 12 e 82 ms. O lag de Recife é de 800 ms (módulo 17)." },
+]} />

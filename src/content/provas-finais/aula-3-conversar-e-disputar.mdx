@@ -1,0 +1,80 @@
+---
+title: "Conversar e disputar"
+order: 3
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">Na aula passada a loja ficou com 7 serviços ligados por porta, tela e malha, e a pergunta que sobrou foi <strong>quem leva o último gato</strong>. Quando os serviços conversam aparecem dois problemas diferentes: <strong>disputar</strong> o mesmo recurso e <strong>esperar</strong> (ou não esperar) a resposta.</p>
+
+<OneLiner>Quando os serviços conversam, há dois problemas: <strong>disputar</strong> o mesmo recurso (concorrência) e <strong>esperar</strong> a resposta (síncrono) ou <strong>não esperar</strong> (assíncrono). Cada escolha troca latência por acoplamento.</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Conversar</strong>, avance e veja a Bia e o Caio irem ao mesmo tempo atrás do último gato, primeiro sem o lock e depois com ele.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=conversar" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 3 · conversar e disputar" alt="Prévia da figura 3D: Bloco 3 · conversar e disputar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 3</h3>
+
+<p>Sete serviços que se chamam e mexem na mesma linha criam três perguntas, uma para cada peça: quem leva o gato, quanto custa esperar o outro lado e o que fazer com o evento que não precisa de resposta.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Disputar (módulo 11).</strong> A Bia e o Caio querem o <strong>último gato</strong> ao mesmo tempo: sem proteção, o estoque vai a <strong>−1</strong>. Um <em>mutex</em> no processo não basta com 2 réplicas do <code>estoque</code> (são 2 memórias), então entra um <strong>lock distribuído</strong> no Redis. Quem pegar primeiro leva (a Bia, o <strong>1049</strong>) e o outro recebe <code>409</code>. A conta: 2 ms de CPU + 18 ms de espera dão 50 pedidos/s por vez e um teto de <strong>500/s</strong>. O estudo ainda cobre <em>deadlock</em> e <em>starvation</em>. <a href={L('concorrencia')}>Concorrência e Paralelismo</a>.</li>
+  <li><strong>Esperar (12).</strong> Com o lock resolvido, falta o custo de cada chamada. REST com JSON × gRPC com Protobuf: o 1050 em Protobuf tem <strong>11 bytes</strong> (sem o cabeçalho gRPC), e o PSP responde em <strong>210 ms</strong>. Quando o PSP avisa que o Pix do Davi caiu sem a loja perguntar, é o <strong>webhook</strong> do <strong>1050</strong>; <em>short</em> e <em>long polling</em> perguntam, o WebSocket deixa a conexão aberta, e o GraphQL deixa o cliente escolher os campos. <a href={L('comunicacao-sincrona')}>Comunicação Síncrona</a>.</li>
+  <li><strong>Não esperar (13).</strong> Nem tudo precisa de resposta na hora. No <strong>Kafka</strong>, o tópico <code>pedidos</code> tem 3 partições e a chave <code>pedido_id</code> decide a partição (o 1049 cai em <code>p0</code>). Cada pedido gera <strong>4 eventos</strong>; na Black Friday são <strong>120/s</strong> no tópico e <strong>40/s por partição</strong>. Os grupos <code>estoque</code>, <code>entregas</code> e <code>notificacoes</code> consomem, e a <strong>DLQ</strong> guarda a mensagem que não se consegue processar. O MQTT fala com o caminhão e o AMQP, com os e-mails. <a href={L('comunicacao-assincrona')}>Comunicação Assíncrona</a>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="calculos" title="Cálculos de relance" hint="Seis contas curtas dos módulos (cache, vazão do estoque, timeout crítico, perda por RPO, orçamento de erro e shuffle), cada uma com os números da história já preenchidos." />
+
+<h3 class="sec">Tire uma peça: o lock distribuído</h3>
+
+<p>Sem o lock distribuído, duas réplicas do <code>estoque</code> vendem o último gato duas vezes e o estoque fica em <strong>−1</strong>. Quem avisou foi o módulo 11.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Dizer por que o mutex local não basta com 2 réplicas.</li>
+  <li>Escolher entre REST e gRPC e dizer o que cada um custa.</li>
+  <li>Dizer quando o webhook vence o <em>polling</em>.</li>
+  <li>Dizer o que decide a partição e por que a ordem só vale dentro dela.</li>
+  <li>Dizer para que serve a DLQ.</li>
+</ol>
+
+<Deep min={2}>
+  <h4 class="deep-h">O que o estudo corrigiu no módulo 12</h4>
+  <ul>
+    <li>Os bytes por chamada (REST × gRPC) deixaram de ser conta de biblioteca (204 e 95 B) e passaram a ser <strong>medidos</strong> num proxy que lê os quadros HTTP/2.</li>
+  </ul>
+  <div class="sources">
+<h4>Fontes</h4>
+<ul>
+    <li><a href={L('concorrencia')}><span>Módulo 11: Concorrência e Paralelismo</span></a></li>
+    <li><a href={L('comunicacao-sincrona')}><span>Módulo 12: Comunicação Síncrona</span></a></li>
+    <li><a href={L('comunicacao-assincrona')}><span>Módulo 13: Comunicação Assíncrona</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">A loja funciona num dia comum. Falta saber o que a <strong>Black Friday</strong> faz com ela. É a aula 4.</p>
+
+<Flashcards cards={[
+  { q: "Quem leva o último gato, e o que o outro recebe?",
+    a: "Quem pegar o lock primeiro (a Bia, o 1049); o Caio recebe 409 (módulo 11)." },
+  { q: "Qual é a vazão do estoque com 2 ms de CPU e 18 ms de espera?",
+    a: "50 pedidos/s por vez, com teto de 500/s (módulo 11)." },
+  { q: "Quantos bytes tem o 1050 em Protobuf, e quanto responde o PSP?",
+    a: "11 bytes (sem o cabeçalho gRPC) e 210 ms (módulo 12)." },
+  { q: "Em que partição cai o 1049, e quantos eventos por segundo na Black Friday?",
+    a: "Em p0. 120/s no tópico e 40/s por partição (módulo 13)." },
+]} />

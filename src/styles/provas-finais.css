@@ -1,0 +1,47 @@
+/* SDLabs · Provas Finais: o que só este módulo usa (ordem dos 28 módulos, saltos do 1060, cartões da cola, botões de ação). Peças comuns em widgets.css */
+.sdl-content .pf-btn{font:600 14px/1.2 var(--mono);color:var(--on-accent);background:var(--accent-fill);border:var(--hair) solid var(--accent-fill);border-radius:var(--r-2);padding:10px 16px;min-height:44px;min-width:44px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.sdl-content .pf-btn.ghost{color:var(--ink);background:var(--bg);border-color:var(--line-strong)}
+.sdl-content .pf-btn:hover{border-color:var(--accent-ink)}
+.sdl-content .pf-btn:disabled{opacity:.5;cursor:default}
+.sdl-content .pf-actions{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:var(--s-3) 0}
+.sdl-content .pf-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.pf-badfact b{color:var(--bad)}
+.sdl-content .sr-fact b{overflow-wrap:anywhere}
+.sdl-content .pf-avisou{margin:var(--s-2) 0;font-size:15px;color:var(--muted)}
+.sdl-content .pf-modlink{font:600 13.5px var(--mono);color:var(--accent-ink);display:inline-block;padding:10px 2px;overflow-wrap:anywhere}
+.sdl-content ul.pf-rever{margin:var(--s-2) 0;padding-left:var(--s-4)}
+.sdl-content ul.pf-rever li{margin:var(--s-1) 0}
+/* monte a loja */
+.sdl-content ol.pf-order{list-style:none;margin:var(--s-3) 0 0;padding:0;display:grid;gap:var(--s-1)}
+.sdl-content .pf-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--s-2);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:4px var(--s-2);background:var(--bg);min-height:52px;touch-action:pan-y}
+.sdl-content .pf-card.ok{border-color:var(--ok)}
+.sdl-content .pf-card.no{border-color:var(--bad)}
+.sdl-content .pf-card.drag{box-shadow:var(--ring);opacity:.85}
+.sdl-content .pf-card.drop{border-top:3px solid var(--accent-ink)}
+.sdl-content .pf-grip{font:700 16px var(--mono);color:var(--muted);cursor:grab;touch-action:none;padding:12px 4px;min-width:28px;text-align:center;user-select:none}
+.sdl-content .pf-name{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.sdl-content .pf-name b{font-family:var(--mono)}
+.sdl-content .pf-m{font:600 12px var(--mono);color:var(--muted)}
+.sdl-content .pf-btns{display:flex;gap:2px}
+.sdl-content .pf-mv{font:700 16px var(--mono);color:var(--ink);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);width:44px;height:44px;cursor:pointer}
+.sdl-content .pf-mv:disabled{opacity:.35;cursor:default}
+.sdl-content .pf-why{grid-column:1 / -1;margin:0 0 var(--s-1);font-size:14px;color:var(--muted)}
+.sdl-content .pf-why b{font-family:var(--mono);color:var(--ink-hi)}
+/* os 14 saltos */
+.sdl-content ol.pf-saltos{margin:var(--s-3) 0 0;padding-left:var(--s-5)}
+.sdl-content .pf-salto{margin:0 0 var(--s-3);padding-left:var(--s-1)}
+.sdl-content .pf-salto.ok::marker{color:var(--ok)}
+.sdl-content .pf-salto.no::marker{color:var(--bad)}
+.sdl-content .pf-stxt{margin:0 0 var(--s-1);font-size:15.5px}
+.sdl-content .pf-smods{margin:0;font-size:14px;color:var(--muted)}
+.sdl-content .pf-pick{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}
+.sdl-content .pf-lbl{font:600 12.5px var(--mono);color:var(--muted)}
+.sdl-content .pf-pick select{font:inherit;font-size:14px;min-height:44px;max-width:100%;flex:1 1 220px;color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:0 var(--s-2)}
+/* cola */
+.sdl-content .pf-flash{border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:var(--s-3);margin:var(--s-2) 0 var(--s-3);background:var(--surface)}
+.sdl-content .pf-count{margin:0 0 var(--s-2);font:600 12.5px var(--mono);color:var(--muted)}
+.sdl-content .pf-front,.sdl-content .pf-back{display:flex;flex-direction:column;gap:var(--s-1);margin:0 0 var(--s-3)}
+.sdl-content .pf-front b{font-size:18px;color:var(--ink-hi);overflow-wrap:anywhere}
+.sdl-content .pf-back b{font:700 17px var(--mono);color:var(--accent-ink);overflow-wrap:anywhere}
+.sdl-content .pf-fim{margin:0 0 var(--s-3)}
+.sdl-content .pf-prog{margin-top:var(--s-2)}

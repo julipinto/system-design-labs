@@ -1,0 +1,89 @@
+---
+title: "Consistência e resiliência"
+order: 5
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">Na aula passada o dado ficou espalhado em shards e réplicas, e três sintomas apareceram: a tela da Lena lê o <strong>passado</strong>, o pagamento foi aprovado e o estoque já tinha zerado, e o PSP respondeu em 8 s. Não existe mais uma transação que cubra tudo, então a consistência e a resiliência vêm de outro lugar.</p>
+
+<OneLiner>Sem uma transação global, a consistência vem de <strong>três jeitos</strong> (ler de outro modelo, compensar, guardar os fatos) e a loja continua de pé por <strong>camadas</strong> (idempotência, timeout, retry, <em>breaker</em>, <em>fallback</em>, degradação e <em>bulkhead</em> de saída).</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Consistência</strong>, avance até o PSP-A a 8 s, primeiro com o <em>breaker</em> e, no último passo, sem ele, e compare o que acontece com o pool.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=consistencia" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 5 · consistência e resiliência" alt="Prévia da figura 3D: Bloco 5 · consistência e resiliência" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 5</h3>
+
+<p>Dados espalhados e dependências lentas pedem duas famílias de resposta. Uma cuida de o dado ficar <strong>certo</strong> (módulos 18 a 20). A outra cuida de a loja <strong>continuar vendendo</strong> quando um vizinho falha (21). A ordem importa: a resiliência usa as três primeiras.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Ler de outro modelo (módulo 18).</strong> A tela "meus pedidos" passa a ler de <code>meus-pedidos</code>, um modelo feito para ler. O <strong>outbox</strong> grava o evento na mesma transação do pedido, e o projetor atualiza o modelo a 100 ev/s. O documento da Lena tem <strong>1.787 B</strong>, e o relatório cai de <strong>235 ms para 0,021 ms</strong>. O pedido é o <strong>1056</strong>. <a href={L('cqrs')}>CQRS</a>.</li>
+  <li><strong>Compensar (19).</strong> O pagamento do Davi foi aprovado e o estoque zerou (<code>s-1057</code>): sem <code>ROLLBACK</code> global, a saga <strong>compensa</strong> com o <code>estorno-c-7732</code>. Orquestrada, um maestro decide; coreografada, cada serviço reage a eventos. Com 10% de falha no estoque e 5% no pagamento, o sucesso é <strong>85,5%</strong>, e o <em>backoff</em> espera <strong>1 · 2 · 4 · 8 · 16 s</strong>. O pedido é o <strong>1057</strong>. <a href={L('saga')}>Saga Pattern</a>.</li>
+  <li><strong>Guardar os fatos (20).</strong> Em <em>event sourcing</em>, o estado do <code>pedido-1047</code> é o resultado de reaplicar os eventos do stream. Sem <em>snapshot</em> a rehidratação leva ~<strong>1.800 ms</strong>; com ele, ~<strong>13 ms</strong>. Um <em>replay</em> completo leva <strong>2 h 47 min</strong>. <a href={L('event-sourcing')}>Event Sourcing</a>.</li>
+  <li><strong>Falhar pequeno e rápido (21).</strong> Com o dado certo, falta sobreviver ao PSP-A a 8 s. O <em>timeout</em> do PSP cai para <strong>1 s</strong> (o crítico é 50 ÷ 30 = <strong>1,67 s</strong>), o retry usa <em>full jitter</em> (sem regra, 3 camadas de 3 tentativas somam <strong>27</strong> chamadas), o <em>breaker</em> abre em <strong>1,3 s</strong> e o PSP-B assume. Os <em>bulkheads</em> de saída dividem o pool em <strong>50/30/20</strong>, e a <code>Idempotency-Key</code> impede o retry de duplicar. O pedido é o <strong>1058</strong>. <a href={L('resiliencia')}>Patterns de Resiliência</a>.</li>
+</ol>
+</HowItWorks>
+
+<p>A cadeia de prazos fecha o raciocínio: <strong>5 → 3 → 2,8 → 2,5 → 2,0 → 1,0 s</strong>. Cada camada espera menos que a de cima, e o último salto, o PSP, tem o prazo mais curto.</p>
+
+<h3 class="sec">Tire uma peça: a idempotência</h3>
+
+<p>Sem a idempotência, o retry do <code>POST</code> cria <strong>dois pedidos</strong> e duas cobranças. Quem avisou foi o módulo 21.</p>
+
+<Widget name="peca" title="Tire uma peça" hint="Escolha uma das 13 peças da loja e veja o que quebra, o número e o módulo que avisou." />
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Explicar o outbox em uma frase.</li>
+  <li>Dizer o que a saga faz quando o estoque falha depois do pagamento.</li>
+  <li>Dizer a diferença entre o estado e o fato.</li>
+  <li>Montar a cadeia de prazos (5 → 3 → 2,8 → 2,5 → 2,0 → 1,0 s) e dizer por quê.</li>
+  <li>Dizer por que o retry <strong>sem</strong> jitter piora.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o estudo corrigiu no módulo 21</h4>
+  <ul>
+    <li>O "jitter incremental" do artigo não é nenhum dos três algoritmos da AWS (<em>full</em>, <em>equal</em> e <em>decorrelated</em>), e o retry imediato é a <strong>causa</strong> da tempestade: 45.500 chamadas para 1.000 clientes.</li>
+  </ul>
+  <Sources items={[
+    { label: "Azure Architecture Center: catálogo de padrões (CQRS, Saga, Event Sourcing, Circuit Breaker, Retry)", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/" },
+    { label: "Martin Fowler: Patterns of Distributed Systems", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/" },
+  ]} />
+  <div class="sources">
+<h4>Neste estudo</h4>
+<ul>
+    <li><a href={L('cqrs')}><span>Módulo 18: CQRS</span></a></li>
+    <li><a href={L('saga')}><span>Módulo 19: Saga Pattern</span></a></li>
+    <li><a href={L('event-sourcing')}><span>Módulo 20: Event Sourcing</span></a></li>
+    <li><a href={L('resiliencia')}><span>Módulo 21: Patterns de Resiliência</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">A loja aguenta o dia a dia. Falta saber o que ainda a derruba: <strong>publicar</strong> uma versão nova é o maior risco que ela corre. É a aula 6.</p>
+
+<Flashcards cards={[
+  { q: "Para que serve o outbox?",
+    a: "Gravar o evento na mesma transação do pedido, para ele não se perder (módulo 18)." },
+  { q: "O que a saga faz com o pagamento aprovado e o estoque zerado?",
+    a: "Compensa: estorno-c-7732. Com 10% e 5% de falha, o sucesso é 85,5% (módulo 19)." },
+  { q: "Com snapshot, quanto leva a rehidratação?",
+    a: "~13 ms, contra ~1.800 ms sem snapshot (módulo 20)." },
+  { q: "Qual é o timeout crítico do pool de 50 a 30 req/s, e quando abre o breaker?",
+    a: "50 ÷ 30 = 1,67 s. O breaker do PSP-A abre em 1,3 s (módulo 21)." },
+]} />

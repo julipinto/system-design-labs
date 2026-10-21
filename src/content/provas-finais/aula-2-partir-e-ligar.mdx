@@ -1,0 +1,79 @@
+---
+title: "Partir e ligar"
+order: 2
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Deep from '../../components/Deep.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">A loja do bloco 1 cabe num programa só de 8 vCPU, e às 23:00 o relatório <strong>derruba o programa inteiro</strong>, checkout junto. É o vizinho barulhento, e o raio de explosão é a loja toda. Partir o programa resolve isso, mas cada peça que entra cria o problema da próxima.</p>
+
+<OneLiner>Partir o programa <strong>isola e escala só o que pesa</strong>, e <strong>cada peça nova resolve o problema que a anterior criou</strong>: a rede, o endereço, a porta, a tela e o padrão.</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Partir</strong>, avance pelos passos em que o <code>relatorios</code> e depois o <code>entregas</code> caem, e veja o que continua vendendo.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=partir" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 2 · partir e ligar" alt="Prévia da figura 3D: Bloco 2 · partir e ligar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 2</h3>
+
+<p>O programa único tem um defeito de fábrica: tudo compartilha CPU, memória e destino. Um relatório pesado e o pedido da Lena disputam a mesma máquina. As cinco peças abaixo entram na ordem em que o corte cria uma necessidade nova.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Cortar (módulo 6).</strong> O programa vira <strong>7 serviços</strong>: <code>catalogo</code>, <code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code>, <code>entregas</code> e <code>relatorios</code>, cada um com o <strong>seu banco</strong>. O relatório cai sozinho. O preço é a rede: o checkout de 180 ms passa a <strong>200 ms</strong>, com 4 saltos de 5 ms. Na Black Friday, em vez de 10 cópias do monolito (<strong>80 vCPU</strong>) escalam só os serviços que pesam (<strong>25 vCPU</strong>). O pedido da Lena é o <strong>1047</strong>, com um <code>trace_id</code>. <a href={L('microsservicos')}>Microsserviços</a>.</li>
+  <li><strong>Repartir (7).</strong> Com vários serviços e várias réplicas, alguém precisa escolher a réplica. O <code>lb-loja</code> (203.0.113.10) usa algoritmos, e o round robin "justo" no número de pedidos não é justo no trabalho: 3 buscas de 900 ms podem cair na mesma réplica e somar <strong>2,7 s</strong>. O <em>healthcheck</em> de 5 s com 3 falhas tira a réplica em <strong>15 s</strong>. <a href={L('load-balancers')}>Load Balancers</a>.</li>
+  <li><strong>Uma porta (8).</strong> Atrás do balanceador o app ainda conhece cada serviço. O <code>gw-loja</code> junta a porta: valida o <strong>JWT</strong> (sem token, <code>401</code>; token sem o escopo, <code>403</code>), aplica o <em>rate limit</em>, separa <code>/v1</code> de <code>/v2</code> e repassa <code>X-Cliente-Id: lena-77</code>. O pedido é o <strong>1048</strong>. <a href={L('api-gateways')}>API Gateways</a>.</li>
+  <li><strong>Uma tela (9).</strong> A porta é única, mas a tela inicial do app ainda faz 4 chamadas de 120 ms: <strong>480 ms e 180 KB</strong>. O <code>bff-app</code> faz as chamadas em paralelo e entrega <strong>150 ms e 12 KB</strong>. Se o <code>recomendacoes</code> cair, ele espera 100 ms e responde sem a seção (<code>"recomendado": []</code>). <a href={L('bff')}>BFF</a>.</li>
+  <li><strong>Um padrão (10).</strong> Com tudo ligado, cada serviço repete retry, timeout e mTLS do seu jeito. A <strong>malha</strong> tira isso do código: um <em>sidecar</em> por pod (30 sidecars somam <strong>3 vCPU e 1,5 GB</strong>), mTLS e retry com regra. Sem regra, 3 camadas de 3 tentativas fazem <strong>27</strong> chamadas ao <code>pagamentos</code> por clique. <a href={L('service-mesh')}>Service Mesh</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Tire uma peça: o gateway</h3>
+
+<p>Sem o gateway, o app conhece <strong>6 endereços</strong>, cada serviço faz login e <em>rate limit</em> do seu jeito, e o robô de 500 req/s chega direto ao serviço. Quem avisou foi o módulo 8.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Dizer onde cortar o programa e quem decide.</li>
+  <li>Explicar por que o round robin "justo" cai em 2,7 s.</li>
+  <li>Dizer a diferença entre <code>401</code> e <code>403</code>.</li>
+  <li>Dizer por que a tela do app precisa de um BFF e o que ele faz quando o <code>recomendacoes</code> cai.</li>
+  <li>Dizer o que a malha resolve e o que ela não resolve.</li>
+</ol>
+
+<Deep min={2}>
+  <div class="sources">
+<h4>Fontes</h4>
+<ul>
+    <li><a href={L('microsservicos')}><span>Módulo 6: Microsserviços</span></a></li>
+    <li><a href={L('load-balancers')}><span>Módulo 7: Load Balancers</span></a></li>
+    <li><a href={L('api-gateways')}><span>Módulo 8: API Gateways</span></a></li>
+    <li><a href={L('bff')}><span>Módulo 9: BFF</span></a></li>
+    <li><a href={L('service-mesh')}><span>Módulo 10: Service Mesh</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">Sete serviços ligados se chamam e mexem na <strong>mesma linha</strong>. Falta saber quem leva o último gato. É a aula 3.</p>
+
+<Flashcards cards={[
+  { q: "Quanto custou partir o checkout, e quanto poupou na Black Friday?",
+    a: "180 ms viram 200 ms (4 saltos de 5 ms). 10 cópias do monolito são 80 vCPU; os serviços que pesam, 25 vCPU (módulo 6)." },
+  { q: "Quanto leva o healthcheck para tirar uma réplica doente?",
+    a: "5 s × 3 falhas = 15 s. E 3 buscas de 900 ms na mesma réplica somam 2,7 s (módulo 7)." },
+  { q: "Que status o gateway devolve sem token e com token sem escopo?",
+    a: "401 e 403. Depois do JWT ele repassa X-Cliente-Id: lena-77 (módulo 8)." },
+  { q: "O que o BFF muda na tela inicial do app?",
+    a: "4 chamadas de 120 ms (480 ms, 180 KB) viram 150 ms e 12 KB (módulo 9)." },
+  { q: "Quantas chamadas o retry em 3 camadas gera?",
+    a: "3 × 3 × 3 = 27 por clique (módulo 10)." },
+]} />

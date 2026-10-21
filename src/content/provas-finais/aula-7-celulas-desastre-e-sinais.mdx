@@ -1,0 +1,116 @@
+---
+title: "Células, desastre e sinais"
+order: 7
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import { withBase } from '../../lib/url.js';
+export const L = (slug) => withBase('labs/' + slug + '/');
+
+<p class="ponte">Um bulkhead separa recursos <strong>dentro</strong> de uma pilha, e o veneno do <code>mkt-01</code> mostrou que isso não basta quando a pilha inteira cai junto. O último bloco <strong>não adiciona uma funcionalidade</strong> à loja. Ele diz <strong>onde a falha pode chegar</strong>, <strong>como se volta</strong> quando uma região cai e <strong>como se sabe</strong> o que aconteceu.</p>
+
+<OneLiner>O último bloco diz <strong>onde a falha pode chegar</strong> (células), <strong>como se volta</strong> quando uma região cai (DR) e <strong>como se sabe</strong> (observabilidade).</OneLiner>
+
+<DoIt>
+  <p>No mapa da loja, no cenário <strong>Tudo</strong>, siga o pedido 1060 pelos 14 saltos. Depois aperte <strong>Falha</strong> e clique numa peça do mapa para derrubá-la e ver o que ela leva junto.</p>
+</DoIt>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=celulas" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Bloco 7 · células, desastre e sinais" alt="Prévia da figura 3D: Bloco 7 · células, desastre e sinais" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O problema do bloco 7</h3>
+
+<p>A loja é agora uma pilha com compartimentos, e três perguntas ficaram sem resposta: o que fazer com um veneno que derruba tudo, o que fazer quando SP inteira cai e como saber, antes da Lena reclamar, que algo está lento.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Dividir a pilha (módulo 26).</strong> A pilha inteira vira <strong>4 células</strong>: <code>celula-sp</code> (33%), <code>celula-rio</code> (15%), <code>celula-recife</code> (12%) e <code>celula-mkt</code> (40%). O <code>edge-loja</code> lê o <code>cliente_id</code> no mapa e roteia. O veneno do <code>mkt-01</code> em 4 min faz <strong>7.200 × 2.880</strong> tentativas perdidas, pilha única contra células. Cada célula tem uma <strong>passiva</strong>, o <em>shuffle</em> de 2 em 10 limita o par caído a 1 ÷ 45 = 2,2% dos clientes, e o plano de 2027 passa de <strong>41 para 53 vCPU</strong>. O pedido é o <strong>1060</strong>. <a href={L('cell-based')}>Cell-Based Architecture</a>.</li>
+  <li><strong>Voltar do desastre (27).</strong> Células ajudam, mas uma região ainda pode cair. A auditoria acha <strong>12 elos e 5 SPoFs</strong>. Na queda de SP, MTTD de 30 s + MTTR de 35 s dão <strong>RTO de 65 s</strong>, e o RPO esperado da <code>celula-sp</code> é <strong>2,97</strong> pedidos. A estratégia escolhe-se pelo custo da falha: ativo-ativo, ativo-passivo, <em>pilot light</em> ou backup, com perdas de R$ 2,28 mi (só backup) a R$ 28 mil (ativo-ativo). O pedido <strong>1061</strong> apareceu em dois pedidos: a sequência do banco promovido reusou o último valor replicado. <a href={L('disaster-recovery')}>SPoF e Disaster Recovery</a>.</li>
+  <li><strong>Saber (28).</strong> Voltar rápido só vale se alguém percebe a queda. Os <strong>três sinais</strong> (logs, métricas e traces) ligados pelo <code>traceparent</code> mostram o <strong>1063</strong> de 1,9 s, onde o normal são 275 ms. O alerta acorda por sintoma, o SLI vira <strong>SLO de 99,9%</strong> (e SLA de 99,5%), o orçamento é de <strong>43,2 min</strong> e o <em>burn rate</em> de <strong>14,4×</strong> consome 2% em 1 h. USE olha o recurso, RED o serviço e os quatro sinais, o que o usuário sente. <a href={L('observabilidade')}>Observabilidade</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Tire uma peça: a observabilidade</h3>
+
+<p>Sem a observabilidade, o MTTD volta de <strong>30 s para 60 min</strong>, e a Lena espera <strong>1,9 s</strong> sem que ninguém saiba onde. Sem a passiva e o DR, SP cai com RTO de <strong>~48 min</strong> e R$ <strong>2,28 mi</strong> perdidos. Sem o roteador por célula, o veneno derruba os <strong>3 pods</strong> do <code>pedidos</code> em 150 ms. Quem avisou foram os módulos 26, 27 e 28.</p>
+
+<h3 class="sec">Você consegue?</h3>
+
+<ol class="flow steps">
+  <li>Desenhar uma célula e dizer o que ela <strong>não</strong> pode compartilhar.</li>
+  <li>Dizer o que o RTO inclui e o que o RPO mede.</li>
+  <li>Escolher a estratégia de DR com o custo da falha.</li>
+  <li>Dizer a ordem <em>que, onde, por quê</em> (métrica, trace, log).</li>
+  <li>Calcular um orçamento de erro.</li>
+</ol>
+
+<h3 class="sec">A loja inteira: o pedido 1060</h3>
+
+<p>O pedido da Lena que atravessa mais peças é o <strong>1060</strong> (<code>celula-recife</code>, 20:25:00.000, 2 gatos de 159,80 + frete de 15,00 = <strong>174,80</strong>). Ele salta por 14 peças, e cada uma vem de um módulo. O pedido está certo se você diz, de cada salto, qual problema resolveu e o que o faria falhar.</p>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=tudo" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: A loja inteira · o pedido 1060" alt="Prévia da figura 3D: A loja inteira · o pedido 1060" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="saltos" title="Os 14 saltos do 1060" hint="Os saltos do pedido da Lena, com o módulo que criou cada um. Esconda os módulos e tente adivinhar." />
+
+<Widget name="monte" title="Monte a loja (a ordem)" hint="Os 28 módulos embaralhados: ponha na ordem em que cada um se tornou necessário. Cada acerto mostra o número e o problema que resolveu." />
+
+<h3 class="sec">A prova final</h3>
+
+<p>O quiz tem <strong>80 perguntas</strong> que misturam os módulos: 70 por bloco e 10 <strong>integradoras</strong>. É uma <strong>autoavaliação</strong>, sem nota oficial. A nota sai por bloco, e abaixo de 70% num bloco o quiz mostra o link do módulo para revisar.</p>
+
+<Figure3D path="labs/provas-finais/loja-3d/?mode=falha" poster="labs/provas-finais/loja-3d-previa.webp" title="Figura interativa: Tire uma peça" alt="Prévia da figura 3D: Tire uma peça" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<Widget name="nota" title="Nota por bloco" hint="O resultado da sua última prova final neste navegador: 7 barras e o link do módulo a revisar nos blocos abaixo de 70%." />
+
+<p>As faixas: <strong>72 ou mais acertos</strong> (90%) pedem "pode explicar a loja sem olhar"; de <strong>56 a 71</strong> (70% a 89%), "revise os blocos abaixo de 70%"; abaixo de 56, "volte ao bloco mais baixo e refaça o 'Você consegue?'". No mapa, derrubar o roteador e o mapa ao mesmo tempo mostra que o <code>edge-loja</code> é o teto de disponibilidade da loja.</p>
+
+<h3 class="sec">O que a loja não tem (de propósito)</h3>
+
+<p>O desenho acaba aqui, e quatro capítulos ficaram de fora. A loja <strong>não tem</strong> segurança além do JWT (segredos, identidade e LGPD), nem <strong>custo</strong> (o <em>FinOps</em> da conta de 53 vCPU), nem <strong>dados analíticos e busca</strong> (<em>data lake</em> e índice de texto), nem <strong>aprendizado de máquina</strong> (as recomendações). Cada um é um capítulo novo.</p>
+
+<p><strong>Agora é com você:</strong> pegue um caso do repositório do autor, o <strong>checkout de livraria</strong> (básico) ou o <strong>estoque</strong> (intermediário), e desenhe do zero, na ordem, com o mesmo molde: o problema, as peças com o porquê e o número, e o que quebra sem cada uma.</p>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o estudo corrigiu nos módulos 26, 27 e 28</h4>
+  <ul>
+    <li><strong>Módulo 26:</strong> <code>(f/N)^k</code> é aproximação (a conta exata é <strong>1 ÷ C(N,k)</strong>), e a 3ª linha da tabela do artigo está <strong>errada por 10×</strong>.</li>
+    <li><strong>Módulo 27:</strong> o RTO <strong>conta da interrupção</strong> (inclui o MTTD), e não "após a detecção".</li>
+    <li><strong>Módulo 28:</strong> a latência dos quatro sinais <strong>separa</strong> sucesso e erro; o artigo as juntava.</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório do autor: pasta cases/ (casos de desenho)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/cases" },
+    { label: "Caso básico: checkout de livraria", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/blob/main/cases/BASICO_CHECKOUT_LIVRARIA.md" },
+    { label: "Caso intermediário: estoque", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/blob/main/cases/INTERMEDIARIO_ESTOQUE.md" },
+    { label: "Azure Well-Architected Framework", href: "https://learn.microsoft.com/en-us/azure/well-architected/" },
+    { label: "Google SRE book: sumário", href: "https://sre.google/sre-book/table-of-contents/" },
+  ]} />
+  <div class="sources">
+<h4>Neste estudo</h4>
+<ul>
+    <li><a href={L('cell-based')}><span>Módulo 26: Cell-Based Architecture</span></a></li>
+    <li><a href={L('disaster-recovery')}><span>Módulo 27: SPoF e Disaster Recovery</span></a></li>
+    <li><a href={L('observabilidade')}><span>Módulo 28: Observabilidade</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">Você refaz a loja do zero, na ordem, e sabe o porquê de cada peça. <strong>Falta saber</strong> o que ela ainda não tem: segurança, custo, dados analíticos e aprendizado de máquina. Cada um é um capítulo novo, e o primeiro passo é o seu desenho de um caso do repositório do autor.</p>
+
+<Flashcards cards={[
+  { q: "O que células, DR e observabilidade respondem?",
+    a: "Onde a falha pode chegar, como se volta quando uma região cai e como se sabe." },
+  { q: "Quanto é o RTO da queda de SP, e o que ele inclui?",
+    a: "65 s: MTTD de 30 s + MTTR de 35 s. Conta da interrupção (módulo 27)." },
+  { q: "Quantos minutos de orçamento tem um SLO de 99,9% em 30 dias?",
+    a: "43,2 min (12.960 requisições ruins). Burn rate de 14,4× em 1 h consome 2% (módulo 28)." },
+  { q: "O que o veneno do mkt-01 faz em pilha única e em células?",
+    a: "7.200 × 2.880 tentativas perdidas em 4 min (módulo 26)." },
+  { q: "O que a loja não tem, de propósito?",
+    a: "Segurança além do JWT, custo (FinOps), dados analíticos e busca, e aprendizado de máquina." },
+]} />
