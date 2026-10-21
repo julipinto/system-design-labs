@@ -1,0 +1,92 @@
+---
+title: "Métricas e service levels"
+order: 9
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o teste ganhou pergunta, mix e taxa. Falta a última: <strong>como saber que passou?</strong> Uma tabela do k6 tem uns vinte números, e o artigo responde que "passar" é cumprir os <strong>service levels</strong> que a pesquisa do produto definiu.</p>
+
+<OneLiner>Passar é <strong>medir contra uma meta</strong>: o <strong>p95</strong> (e não a média), a <strong>taxa de erros</strong>, a <strong>saturação</strong> e o <strong>ponto de medida</strong>. As metas viram <em>thresholds</em> do k6 e, depois, SLO.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Breakpoint</strong>, compare o p95 <strong>por janela</strong> com o <strong>acumulado</strong>: o acumulado só cruza a meta uns 20 s depois.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=breakpoint&step=5" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O ponto de quebra" alt="Prévia da figura 3D: O ponto de quebra" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Latência: p95.</strong> A meta é <code>http_req_duration: p(95)&lt;800</code>. A média esconde a cauda.</li>
+  <li><strong>Erros.</strong> <code>http_req_failed: rate&lt;0.001</code>, isto é, 0,1%. Inclui os <code>504</code> do <code>lb-loja</code>.</li>
+  <li><strong>Saturação.</strong> CPU, pool, fila: o que mostra o <em>porquê</em> da quebra, e não só o quanto.</li>
+  <li><strong>Ponto de medida.</strong> O mesmo pedido tem tempos diferentes no k6, no <code>lb-loja</code> e no serviço; a meta diz qual deles vale.</li>
+  <li><strong>Um painel só.</strong> O <em>single pane of glass</em> do artigo junta dashboards, alertas e logs do teste numa visão.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Média, p95 e p99 não são o mesmo número</h3>
+
+<p>No teste de 30 pedidos/s a <strong>média</strong> foi de 157,5 ms: verde, longe de qualquer meta. O <strong>p99</strong> foi de 498,6 ms, três vezes maior, e é o que 1 em cada 100 clientes sentiu. O p95 de 381 ms fica no meio. Os percentis também <strong>não se somam</strong> (módulo 14): o p95 da cadeia não é a soma dos p95 dos serviços, e sim o percentil das respostas completas.</p>
+
+<h3 class="sec">Por janela × acumulado</h3>
+
+<p>O k6 calcula o p95 do teste inteiro desde o início. Uma rampa de 3 min com 100 s tranquilos puxa o acumulado para baixo: o <code>abortOnFail</code> da aula 7 parou aos <strong>128 s</strong> com p95 acumulado de <strong>894 ms</strong>, mas o p95 <strong>por janela</strong> já tinha passado de 800 ms na janela de <strong>100–110 s</strong> (820 ms). O acumulado serve para o resumo final; a janela serve para localizar a quebra.</p>
+
+<h3 class="sec">O que "passou" quer dizer</h3>
+
+<p>Duas metas, e as duas precisam passar: p95 ≤ 800 ms <strong>e</strong> erros ≤ 0,1%. O widget abaixo lê os números e diz se passou, e, dada uma tabela de janelas, onde estão os três pontos da aula 7.</p>
+
+<Widget name="leitor" title="Leitor de resultado" hint="Escolha um resultado real ou digite avg, p95, p99, erros e taxa: o widget diz se passou contra p95 ≤ 800 ms e erros ≤ 0,1%. Escolha uma tabela de janelas para achar os pontos de meta, erros e colapso." />
+
+<p>O relatório do autor tem um caso que o leitor reprova. No <em>spike</em>, a expectativa é "tempo de resposta médio &lt; 400 ms" e o resultado, "400 ms". Quatrocentos <strong>não é</strong> menor que quatrocentos. O texto diz "se aproximou do limite", mas pela regra do próprio relatório o resultado é <strong>reprovado</strong>, e a meta precisa de um sinal explícito: <code>&lt;</code> ou <code>≤</code>.</p>
+
+<h3 class="sec">E se der errado: a média verde e o abort atrasado</h3>
+
+<p>Ler a <strong>média</strong> de 157 ms e declarar o plano aprovado esquece o p99 de 499 ms e os <code>504</code> que aparecem a partir de ~42 pedidos/s no "hoje" (6,8% na aula 7).</p>
+
+<p>O segundo erro é confiar no <code>abortOnFail</code> como marcador da quebra: ele dispara <strong>tarde</strong> porque olha o acumulado. Para um corte que valha, o certo é avaliar por janela no CSV ou num painel como o Prometheus (histogramas) e usar o abort só como proteção para não derrubar o sistema.</p>
+
+<WhyItMatters>
+  <li><strong>p95 e p99 mostram o que a média esconde.</strong> 157 ms de média tinham p99 de 499 ms.</li>
+  <li><strong>O ponto de medida é parte da meta.</strong> k6, <code>lb-loja</code> e serviço medem tempos diferentes para o mesmo pedido.</li>
+  <li><strong>A janela localiza; o acumulado resume.</strong> O abort aos 128 s veio ~20 s depois da janela que cruzou 800 ms.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Resultado × expectativa.</strong> O relatório do lab aprova um resultado de "400 ms" para uma expectativa de "&lt; 400 ms". Não passa.</li>
+    <li><strong>Média × p95.</strong> O artigo usa média e p95 lado a lado. Faltam <strong>p99</strong>, o <em>goodput</em> (o que <strong>concluiu</strong>, não o que chegou) e o <code>dropped_iterations</code> (o gerador sem fôlego).</li>
+    <li><strong><code>abortOnFail</code></strong> avalia o acumulado, e não a janela.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: thresholds", href: "https://grafana.com/docs/k6/latest/using-k6/thresholds/" },
+    { label: "Google SRE book: Testing for Reliability", href: "https://sre.google/sre-book/testing-reliability/" },
+    { label: "Gil Tene: How NOT to measure latency (YouTube)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com metas claras, o teste completo é caro e pode quebrar em qualquer elo. Falta saber se vale <strong>medir cada peça sozinha</strong> antes de medir a loja inteira.</p>
+
+<Flashcards cards={[
+  { q: "Por que a média não basta para passar?",
+    a: "Porque esconde a cauda: média de 157 ms com p99 de 499 ms. A meta é o p95, junto dos erros." },
+  { q: "Quais são as duas metas e como entram no k6?",
+    a: "p95 ≤ 800 ms e erros ≤ 0,1%, como thresholds: http_req_duration p(95)<800 e http_req_failed rate<0.001." },
+  { q: "Qual é a diferença entre janela e acumulado?",
+    a: "O acumulado pesa o teste inteiro e atrasa. O abort aos 128 s (894 ms) veio depois da janela de 100–110 s (820 ms)." },
+  { q: "Por que 400 ms para uma expectativa de < 400 ms reprova?",
+    a: "Porque 400 não é menor que 400. O relatório do autor diz que 'se aproximou do limite', mas pela própria meta o resultado não passa." },
+  { q: "O que falta ao artigo além de média e p95?",
+    a: "O p99, o goodput (o que concluiu) e o dropped_iterations (o gerador sem fôlego)." },
+]} />

@@ -1,0 +1,130 @@
+---
+title: "Teste de breakpoint"
+order: 7
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a rajada de 60 pedidos por segundo quebrou o "hoje", mas não disse <strong>em quanto</strong> ele quebra. O breakpoint responde isso: sobe a carga devagar até quebrar e marca o ponto.</p>
+
+<OneLiner>O <strong>breakpoint</strong> sobe a carga <strong>até quebrar</strong> e diz <strong>onde</strong>. "Quebrar" tem <strong>três pontos</strong>: a <strong>meta</strong> (p95 &gt; 800 ms), os <strong>erros</strong> (&gt; 0,1%) e o <strong>colapso</strong> (o <em>goodput</em> cai).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Breakpoint</strong>, suba a taxa e marque os três pontos: onde o p95 passa de 800 ms, onde os erros aparecem e onde o <em>goodput</em> começa a cair.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=breakpoint" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O ponto de quebra" alt="Prévia da figura 3D: O ponto de quebra" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Rampa.</strong> <code>ramping-arrival-rate</code> de 1 a <code>TOPO</code> pedidos/s em <code>DUR</code>: <code>TIPO=breakpoint TOPO=60 DUR=3m ABORT=0 k6 run checkout.js</code>.</li>
+  <li><strong>Janelas de 10 s.</strong> O CSV (<code>--out csv=bp.csv</code>) alimenta o <code>analisa.py</code>, que calcula p50, p95, p99, erros e concluídos por janela.</li>
+  <li><strong>Taxa oferecida.</strong> É a da rampa no meio da janela; <em>concluídos/s</em> é o que voltou.</li>
+  <li><strong>Três pontos.</strong> Meta, erros e colapso, lidos nas janelas.</li>
+  <li><strong>Confirmar por degrau.</strong> Uma taxa constante por 2 min confirma o ponto que a rampa só localizou.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O "hoje": de 1 a 60 pedidos por segundo</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Oferecida/s</th><th>Concluídos/s</th><th>p50</th><th>p95</th><th>p99</th><th>Erros</th></tr></thead>
+  <tbody>
+    <tr><th>25,6</th><td>25,2</td><td>119 ms</td><td>364 ms</td><td>457 ms</td><td>0%</td></tr>
+    <tr><th>32,1</th><td>32,8</td><td>142 ms</td><td>357 ms</td><td>467 ms</td><td>0%</td></tr>
+    <tr><th>35,4</th><td>34,9</td><td>139 ms</td><td>345 ms</td><td>389 ms</td><td>0%</td></tr>
+    <tr><th><strong>38,7</strong></th><td>36,3</td><td>331 ms</td><td><strong>932 ms</strong></td><td>1.088 ms</td><td>0%</td></tr>
+    <tr><th><strong>42,0</strong></th><td>37,2</td><td>1.087 ms</td><td>2.001 ms</td><td>2.001 ms</td><td><strong>6,8%</strong></td></tr>
+    <tr><th>45,2</th><td>40,6</td><td>1.074 ms</td><td>2.000 ms</td><td>2.001 ms</td><td>6,5%</td></tr>
+    <tr><th>48,5</th><td>36,7</td><td>1.912 ms</td><td>2.001 ms</td><td>2.002 ms</td><td>22,6%</td></tr>
+    <tr><th>51,8</th><td><strong>29,1</strong></td><td>1.975 ms</td><td>2.001 ms</td><td>2.002 ms</td><td>42,0%</td></tr>
+    <tr><th>55,1</th><td><strong>25,9</strong></td><td>2.000 ms</td><td>2.001 ms</td><td>2.001 ms</td><td>52,2%</td></tr>
+    <tr><th>58,4</th><td><strong>25,5</strong></td><td>2.000 ms</td><td>2.001 ms</td><td>2.002 ms</td><td>55,4%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Total: 5.470 requisições, <strong>18,84%</strong> de falhas, <code>dropped_iterations</code> 19. Os três pontos: a <strong>meta</strong> cai entre <strong>35 e 39</strong> pedidos/s oferecidos (duas rodadas: p95 de 820 ms na janela de 35,4/s e de 932 ms na de 38,7/s, porque a quebra varia entre rodadas); os <strong>erros</strong> começam em <strong>~42/s</strong>, que é 2 pods × 20/s do <code>pagamentos</code>; e o <strong>colapso</strong> vem depois, quando o <em>goodput</em> cai de ~40 para ~26/s. Acima do teto, <strong>mais carga é menos pedidos concluídos</strong>.</p>
+
+<h3 class="sec">O plano e o plano 2</h3>
+
+<p>No "plano" (3 shards, o <code>mkt-01</code> a 60%, rampa de 1 a 360/s em 4 min) o p95 fica em 196–284 ms até ~160/s e depois sobe: 388 ms em 188/s, 444 em 203, 491 em 233, 763 em 248 e <strong>928 ms em 263/s</strong>. A meta cruza em <strong>~250/s</strong>. Os erros começam a 278/s (1.576 ms de p95 e 0,3%) e chegam a 4,8% em 293/s, 11,4% em 308/s e 40,9% em 353/s. O <em>goodput</em> máximo foi ~271/s e caiu a 195/s com 353 oferecidos. Total: 42.726 requisições, 7,69% de falhas, <code>dropped_iterations</code> 593.</p>
+
+<p>O ponto de quebra do plano é <strong>~250/s, e não 300/s</strong>, e a causa é o <strong>shard quente</strong>: 60% de 250 são <strong>150/s</strong>, o teto do shard do módulo 16. A conta "eficiência de 55,6% = 250/s úteis" foi confirmada pelo k6 com 3% de diferença.</p>
+
+<p>No "plano 2" (o <code>mkt-01</code> num shard dedicado de 2×, mesma rampa) o p95 vai de 338 ms em 188/s a 421 em 218, 583 em 233, 728 em 263 e <strong>1.003 ms em 278/s</strong>: a meta cruza em <strong>~270/s</strong> (90% do nominal). Os erros começam em ~300/s: 0,6% em 308/s, 3,1% em 323, 10,6% em 338 e 32,2% em 353. O <em>goodput</em> máximo foi ~292/s. Em ~300/s o próximo elo são <strong>10 pods × 30/s</strong> (<code>pedidos</code>) e <strong>15 × 20/s</strong> (<code>pagamentos</code>) <strong>juntos</strong>, e o p95 cai antes, a 90% do nominal.</p>
+
+<h3 class="sec">A rampa localiza, o degrau confirma</h3>
+
+<p>Uma rampa mede o teto com atraso: a fila ainda está enchendo quando a taxa passa dele. Taxa <strong>constante</strong> por 2 min, em regime permanente, deu isto:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Ambiente</th><th>Taxa</th><th>Requisições</th><th>p95</th><th>Erros</th><th>Meta</th></tr></thead>
+  <tbody>
+    <tr><th>"hoje"</th><td>33/s</td><td>3.960</td><td>431 ms</td><td>0%</td><td>passa</td></tr>
+    <tr><th>"hoje"</th><td><strong>36/s</strong></td><td>4.320</td><td><strong>798 ms</strong></td><td>0%</td><td>passa, por 2 ms</td></tr>
+    <tr><th>plano 2</th><td>250/s</td><td>29.924</td><td>698 ms</td><td>0%</td><td>passa</td></tr>
+    <tr><th>plano 2</th><td><strong>265/s</strong></td><td>31.711</td><td><strong>819 ms</strong></td><td>0%</td><td>falha</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O "hoje" sustenta <strong>36/s</strong> (a rampa dizia 35 a 39) e o plano 2, <strong>~260/s</strong> (a rampa dizia ~270). A rampa de 3 a 4 min é <strong>~4% otimista</strong>: serve para localizar, e o degrau de 2 min confirma. O <code>dropped_iterations</code> foi 75 e 90, uns 0,3% de ~30.000: o gerador.</p>
+
+<Widget name="rampa" title="Rampa × degrau" hint="Duração da rampa, taxa final e o ponto em que a meta cai em regime permanente: o widget mostra onde a rampa acusa a quebra (otimista) e o que o degrau confirma. Também refaz a conta da rampa de 10 usuários por minuto do relatório do autor." />
+
+<h3 class="sec">O k6 corta pelo acumulado</h3>
+
+<p>Com <code>ABORT=1</code>, o <code>abortOnFail</code> parou o teste aos <strong>128 s</strong> (≈ 43 pedidos/s oferecidos) com <code>p(95)=894 ms</code> <strong>cumulativo</strong> (2.764 requisições) e nenhum erro. <strong>Por janela</strong>, o p95 já tinha cruzado 800 ms na janela de 100–110 s (820 ms, ≈ 35 pedidos/s). O corte automático chegou atrasado: ~8 pedidos/s e ~20 s a mais. Para localizar o ponto, use a <strong>janela</strong> (o CSV ou o Prometheus), e não o agregado.</p>
+
+<h3 class="sec">E se der errado: o gerador vira o gargalo, ou o ambiente é elástico</h3>
+
+<p>Primeiro caso: o <strong>gerador</strong>. Na rodada do plano o <code>dropped_iterations</code> foi <strong>593</strong> (1,4%): o k6 ficou para trás e deixou de mandar pedidos que devia mandar. O k6 e o servidor dividiam a mesma máquina, então o gerador competia com o sistema. Monitore o CPU do gerador e olhe se <code>vus</code> chega perto de <code>maxVUs</code>.</p>
+
+<p>Segundo caso: <strong>breakpoint em ambiente elástico</strong>. Com o HPA ligado, o sistema aumenta réplicas enquanto a carga sobe e o teste "acha o limite da conta da nuvem". O k6 manda <strong>desligar a elasticidade</strong> para achar o limite <strong>do sistema</strong>, rodar em <em>staging</em> e testar o autoscaling num teste à parte.</p>
+
+<WhyItMatters>
+  <li><strong>"Quebra" tem três pontos.</strong> Meta (35–39/s, hoje), erros (~42/s) e colapso (goodput a ~26/s): cada um pede uma ação diferente.</li>
+  <li><strong>O plano quebra em ~250/s, não em 300.</strong> O shard quente do <code>mkt-01</code> (60% × 250 = 150/s) é o elo; o shard dedicado leva a ~260/s.</li>
+  <li><strong>Use a janela, não o acumulado.</strong> O corte do k6 aos 128 s veio ~20 s e ~8 pedidos/s depois do ponto real.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"10 usuários por minuto até 10.000."</strong> 10.000 ÷ 10 = <strong>1.000 min = 16 h 40 min</strong>, e o ponto de 3.700 sai em <strong>6 h 10 min</strong>. Uma rampa tão lenta mede o regime permanente de cada degrau; uma curta dá um ponto otimista. O k6 manda <code>ramping-arrival-rate</code> e rampas que deem tempo.</li>
+    <li><strong><code>abortOnFail</code> avalia o acumulado</strong>, não a janela: o corte veio aos 128 s com p95 acumulado de 894 ms, e a janela já tinha cruzado 800 ms 20 s antes.</li>
+    <li><strong>Breakpoint em ambiente elástico.</strong> O artigo sugere analisar as políticas de escalabilidade; o k6 recomenda desligar a elasticidade e testar o autoscaling à parte.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: breakpoint testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/breakpoint-testing/" },
+    { label: "Grafana blog: Breakpoint testing", href: "https://grafana.com/blog/2024/01/30/breakpoint-testing/" },
+    { label: "Grafana k6: thresholds", href: "https://grafana.com/docs/k6/latest/using-k6/thresholds/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O ponto de quebra está medido, mas um teste só vale se responde a uma pergunta. Falta saber o que <strong>perguntar</strong> antes de rodar.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três pontos de quebra?",
+    a: "A meta (p95 > 800 ms), os erros (> 0,1%) e o colapso (o goodput cai). No 'hoje': 35–39/s, ~42/s e queda a ~26/s." },
+  { q: "Onde o plano quebra e por quê?",
+    a: "Em ~250/s, não em 300. O shard quente do mkt-01 recebe 60% do tráfego: 60% × 250 = 150/s, o teto do shard." },
+  { q: "E o plano 2, com o shard dedicado?",
+    a: "A meta cai em ~260/s em regime permanente (~270 na rampa) e os erros em ~300/s." },
+  { q: "Por que a rampa é otimista?",
+    a: "A fila ainda está enchendo quando a taxa passa do teto. A rampa localiza (~4% otimista); o degrau de 2 min confirma." },
+  { q: "Por que o abortOnFail chega tarde?",
+    a: "Ele avalia o p95 acumulado: parou aos 128 s com 894 ms, quando a janela de 100–110 s já tinha cruzado 800 ms." },
+]} />

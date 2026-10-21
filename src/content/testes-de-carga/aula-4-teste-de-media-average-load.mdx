@@ -1,0 +1,84 @@
+---
+title: "Teste de média (average load)"
+order: 4
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o smoke provou que o teste roda, com 2 pedidos por segundo. Agora a pergunta é a da <strong>loja normal</strong>: na carga que ela espera, por tempo bastante, a meta se mantém? A Black Friday de 2026 trouxe 30 pedidos/s ao checkout.</p>
+
+<OneLiner>O <strong>average load</strong> verifica a meta na <strong>carga esperada</strong>, por <strong>tempo bastante</strong> para aparecer o que só aparece com o tempo. Ele responde "a loja normal vai bem?", e não "a Black Friday cabe?".</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Média</strong>, aperte <strong>Mudar para 36/s</strong> (de 30 para 36 pedidos/s) e leia o p95 em regime permanente: ele sobe de 381 para quase 800 ms.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=media" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: A carga média" alt="Prévia da figura 3D: A carga média" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Taxa fixa.</strong> <code>TIPO=media RATE=30</code> usa <code>constant-arrival-rate</code>: 30 pedidos por segundo, sem subir.</li>
+  <li><strong>Tempo.</strong> 2 minutos aqui, para caber numa tarde. O artigo manda horas ou dias, para achar vazamento de memória e padrões.</li>
+  <li><strong>Meta.</strong> As mesmas <em>thresholds</em>: p95 &lt; 800 ms e erros &lt; 0,1%.</li>
+  <li><strong>Comparar com a conta.</strong> O M/M/1 do módulo 23 previa <strong>~259 ms</strong> de média na cadeia (49 + 200 + 2 + 7). Falta ver o que o k6 mede.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">30 pedidos por segundo, 2 minutos</h3>
+
+<p>No ambiente "hoje" foram <strong>3.601</strong> requisições com <strong>média de 157,5 ms</strong>, mediana 129,5, p90 309,9, <strong>p95 381,3</strong>, <strong>p99 498,6</strong> e máximo 617,0 ms. Erros: <strong>0%</strong>. As duas metas passaram.</p>
+
+<p>O M/M/1 dizia ~259 ms de média, e o k6 mediu <strong>157 ms</strong>. A diferença tem causa: o <em>round robin</em> do <code>lb-loja</code> deixa as chegadas em cada pod mais regulares que um sorteio, e fila com chegada regular espera menos. O modelo do módulo 23 é <strong>conservador</strong>, e medir diz quanto.</p>
+
+<h3 class="sec">O plano com a média de 2027</h3>
+
+<p>A média da Black Friday de 2027 é <strong>125 pedidos/s</strong> (200 × 400 ÷ 640, a conta do módulo 23). Com <code>RATE=125</code> no ambiente "plano" foram <strong>15.001</strong> requisições, <strong>média de 109,9 ms</strong>, <strong>p95 247,2</strong>, p99 357,4 e máximo 631,1 ms, com <strong>0%</strong> de erros e código de saída <code>0</code>. O <code>shard-2</code> recebeu 75/s dos 150 que aguenta: <strong>50%</strong>.</p>
+
+<p>O teste passou com folga. Guarde essa palavra, porque a próxima seção mostra o que ela esconde.</p>
+
+<h3 class="sec">E se der errado: a média do dia não é o pico</h3>
+
+<p>Os 125/s passaram com p95 de 247 ms, e o breakpoint do <strong>mesmo ambiente</strong> quebra em ~250/s, o <strong>dobro</strong> (aula 7). Se alguém lê o teste de média como "o plano está validado", conclui que sobram 125/s de folga. A folga real, no pico de 200/s, é bem menor.</p>
+
+<p>O teste não errou. Ele respondeu o que foi perguntado: a loja normal vai bem. A pergunta da Black Friday era outra e pede outro tipo de teste.</p>
+
+<WhyItMatters>
+  <li><strong>O average load é a linha de base.</strong> Se a loja não passa na carga esperada, os outros testes nem fazem sentido.</li>
+  <li><strong>Tempo revela o que a taxa não revela.</strong> Vazamento de memória e padrões só aparecem em horas; por isso o artigo manda rodar por muito tempo.</li>
+  <li><strong>Passar com folga não valida o pico.</strong> 125/s passa a 247 ms de p95 e o plano quebra em 250/s.</li>
+</WhyItMatters>
+
+<Deep min={2}>
+  <h4 class="deep-h">Média longa e o <em>soak</em></h4>
+  <ul>
+    <li><strong>O k6 tem um nome para isso:</strong> <em>soak</em>, a carga média por horas. O artigo trata como "average load" longo; aqui os 2 minutos não procuram vazamento, mostram a forma do teste.</li>
+    <li><strong>Página do k6.</strong> O texto <em>Average-load testing</em> está em <code>/load-testing/</code>; o endereço <code>/average-load-testing/</code> dá 404.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: average-load testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/load-testing/" },
+    { label: "Grafana k6: cenários", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A carga normal passa. Falta saber o que a loja faz <strong>acima</strong> do esperado, e se ela se recupera quando a carga volta.</p>
+
+<Flashcards cards={[
+  { q: "O que o average load responde?",
+    a: "Se a meta se mantém na carga esperada, por tempo bastante. Não responde se a Black Friday cabe." },
+  { q: "Quais foram os números de 30 pedidos/s por 2 min?",
+    a: "3.601 requisições, média 157,5 ms, p95 381,3, p99 498,6, 0% de erros." },
+  { q: "Por que o k6 mediu 157 ms e o M/M/1 previa 259?",
+    a: "O round robin deixa as chegadas mais regulares que um sorteio. O modelo do módulo 23 é conservador." },
+  { q: "Qual é a média de 2027 e como o plano se saiu nela?",
+    a: "125 pedidos/s (200 × 400 ÷ 640): 15.001 requisições, p95 247 ms, 0% de erros, shard-2 a 50%." },
+  { q: "Por que passar na média não valida o plano?",
+    a: "O breakpoint do mesmo ambiente quebra em ~250/s, o dobro. A média responde sobre a loja normal, não sobre o pico." },
+]} />

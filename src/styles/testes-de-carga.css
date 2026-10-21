@@ -1,0 +1,23 @@
+/* SDLabs · Testes de Carga e Estresse: o que só este módulo usa (perfis no tempo, dois modelos lado a lado, janelas). Peças comuns em widgets.css */
+.sdl-content table.sr-table.tc-table{min-width:0}
+.sdl-content table.tc-table th,.sdl-content table.tc-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.tc-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.tc-table td.tc-bad{color:var(--bad);font-weight:700}
+.sdl-content table.tc-table td.tc-ok{color:var(--ok);font-weight:700}
+.sdl-content tr.tc-cur th,.sdl-content tr.tc-cur td{background:var(--accent-wash)}
+.sdl-content tr.tc-pt td:nth-child(n+2),.sdl-content tr.tc-pt th{font-family:var(--mono)}
+.sdl-content .tc-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.tc-badfact b{color:var(--bad)}
+.sdl-content .sr-fact.tc-okfact b{color:var(--ok)}
+.sdl-content .tc-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .tc-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.sdl-content .tc-two{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));margin-top:var(--s-3)}
+.sdl-content .tc-two h4{margin:0 0 var(--s-1);font:700 13px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sdl-content .tc-two .sr-facts{margin:0}
+.sdl-content .tc-prof{width:100%;height:auto;display:block;margin-top:var(--s-3)}
+.sdl-content .tc-prof .ax{stroke:var(--line-strong);stroke-width:1}
+.sdl-content .tc-prof .gr{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4}
+.sdl-content .tc-prof .ln{fill:none;stroke:var(--accent-ink);stroke-width:3;stroke-linejoin:round}
+.sdl-content .tc-prof .ar{fill:var(--accent-wash);stroke:none}
+.sdl-content .tc-prof text{fill:var(--muted);font:600 12px var(--mono)}
+.sdl-content .tc-mark{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:var(--s-2) 0 0;font:600 13px var(--mono);color:var(--ink)}

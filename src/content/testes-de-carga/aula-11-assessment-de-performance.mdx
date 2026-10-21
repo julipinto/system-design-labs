@@ -1,0 +1,110 @@
+---
+title: "Assessment de performance"
+order: 11
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import poolJs from '../../../public/labs/testes-de-carga/lab/pool.js?raw';
+
+<p class="ponte">Na aula passada o pré-teste deu a conta de uma réplica e mostrou que o elo muda. Há agora cinco testes com números reais, e eles só ajudam o produto se virarem <strong>um documento</strong> com objetivos, resultados e uma lista do que fazer. O artigo chama isso de modelo de relatório.</p>
+
+<OneLiner>O <strong>assessment</strong> é o <strong>relatório</strong>: objetivos, cenários, resultados e <strong>backlog</strong>, escrito para a engenharia e para o produto. Ele diz o que o teste mostrou e o que <strong>ainda não mostra</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Relatório</strong>, preencha a ficha com os cinco resultados e depois aperte <strong>Rodar o cenário misto</strong>, em que o pool de 20 conexões é dividido entre os fluxos.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=relatorio" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O relatório" alt="Prévia da figura 3D: O relatório" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Visão geral.</strong> Data, jornada (checkout), versão, ambiente (o simulador) e ferramenta (k6 v2.3.0).</li>
+  <li><strong>Objetivos.</strong> p95 ≤ 800 ms, erros ≤ 0,1%, ≥ 200 pedidos/s. São as metas da aula 9.</li>
+  <li><strong>Cenários.</strong> Pré-teste, média, spike, estresse e breakpoint, cada um com expectativa, resultado e observações.</li>
+  <li><strong>Conclusões.</strong> O que cada número diz sobre o plano.</li>
+  <li><strong>Backlog.</strong> O que fazer, e o que o teste <strong>não cobriu</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O modelo, preenchido com os testes reais</h3>
+
+<p>O modelo do README do autor tem as seções acima, com números de exemplo. A tabela abaixo é o mesmo molde com os resultados rodados neste módulo.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cenário</th><th>Expectativa</th><th>Resultado</th><th>Observação</th></tr></thead>
+  <tbody>
+    <tr><th>Pré-teste (1, 2, 3 pods)</th><td>~30/s por pod</td><td>meta cai em ~35, ~62, ~88/s</td><td>linear até o elo mudar (aula 10)</td></tr>
+    <tr><th>Média, "hoje" (30/s)</th><td>p95 ≤ 800 ms</td><td>p95 381 ms, 0% de erros</td><td>passa; M/M/1 era conservador</td></tr>
+    <tr><th>Média, plano (125/s)</th><td>p95 ≤ 800 ms</td><td>p95 247 ms, 0% de erros</td><td>passa com folga, e o pico é outro</td></tr>
+    <tr><th>Spike, "hoje" (5 → 60/s)</th><td>absorver e voltar</td><td>47–65% de erros no topo</td><td>recuperação em uma janela porque a fila virou 504</td></tr>
+    <tr><th>Estresse, plano 2 (até 300/s)</th><td>meta até 200/s</td><td>meta até 250/s; 300/s falha</td><td>volta em 10–20 s</td></tr>
+    <tr><th>Breakpoint, plano</th><td>300/s</td><td>~250/s</td><td>shard quente do <code>mkt-01</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">As conclusões e o backlog</h3>
+
+<ol class="flow steps">
+  <li><strong>"Hoje" quebra em 36 pedidos/s</strong> (meta, confirmado em regime permanente: p95 de 798 ms) e ~42 (erros). O elo é o <code>pagamentos</code> com 2 pods. Acima disso o <em>goodput</em> cai de 40 para 26/s.</li>
+  <li><strong>O plano quebra em ~250/s, não em 300.</strong> O shard quente do <code>mkt-01</code> (60% do tráfego, 150/s de teto). <strong>Ação:</strong> o shard dedicado de 2× (módulo 16).</li>
+  <li><strong>Com o shard dedicado a meta cai em ~260/s</strong> em regime permanente (~270 na rampa) e os erros em ~300/s. A ficha do módulo 23 (sustentável <strong>210</strong> a 70%) é <strong>conservadora em ~24%</strong> (260 ÷ 210), e a meta de 200/s tem <strong>~30% de folga</strong> até o ponto de quebra (260 ÷ 200).</li>
+  <li><strong>O teste não achou nada dentro do <code>pedidos</code>.</strong> Achou o que o k6 não consegue ver, na próxima seção.</li>
+  <li><strong>Pendências.</strong> PSP real (o simulador tem <code>pagamentos</code> com tempo exponencial, sem os 8 s), cache, réplicas de leitura, elasticidade (o HPA ficou <strong>desligado</strong>, como manda o k6), o mix com buscas e o <code>entregas</code> com Kafka.</li>
+</ol>
+
+<p>A ficha do módulo 23 é <strong>corrigida</strong> assim: a sustentável de 210 era a política de ρ ≤ 70%, que continua valendo como regra de operação. O teste mostra que o ponto onde a meta cai é ~260, e a distância entre os dois é a margem do plano.</p>
+
+<h3 class="sec">E se der errado: o assessment só vê o que o teste cobriu</h3>
+
+<p>O <code>checkout.js</code> mede <strong>um fluxo</strong>. Na loja, às 23:00 roda o <strong>relatório</strong> do <code>mkt-01</code>, e o status do pedido é consultado o tempo todo. Nenhum dos dois estava no script. O cenário misto abaixo (<code>pool.js</code>) junta o checkout a 10/s, o status do pedido a 40/s e o relatório das 23:00 a 10 consultas/s de 4 s, entre 20 s e 50 s, contra um servidor com um <strong>pool único de 20 conexões</strong>.</p>
+
+<pre><code>{poolJs}</code></pre>
+
+<p>Na janela de 25 a 50 s, <strong>33% dos pedidos do checkout</strong> (83 de 250) e <strong>10% das consultas de status</strong> (101 de ~1.000) receberam <code>503</code>, e o relatório foi recusado em 53%. Fora da janela, 0%. O pedido da Lena não fez nada errado: o relatório consumiu o pool dela.</p>
+
+<p>O <code>checkout.js</code> nunca veria isso, porque testa um fluxo por vez. O módulo 25 roda o mesmo cenário com o pool dividido em 16 + 4 e o cliente vê 0% de <code>503</code>.</p>
+
+<WhyItMatters>
+  <li><strong>O relatório é o entregável.</strong> Objetivos, cenários, resultados e backlog: o produto e a engenharia leem o mesmo papel.</li>
+  <li><strong>Os números corrigem a ficha.</strong> O plano quebra em ~250/s sem o shard dedicado, ~260/s com ele; a sustentável de 210 é conservadora em ~24%.</li>
+  <li><strong>O teste só vê o que o script cobre.</strong> O cenário misto achou um fluxo derrubando outro, e 1 em 3 pedidos do checkout recebeu <code>503</code>.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correções ao artigo-base e ao README do autor</h4>
+  <ul>
+    <li><strong>O relatório do lab não fecha.</strong> No estresse, "2.000 usuários por 1 hora com aumento de 500 a cada 15 min": 4 degraus de 500 vão de 500 a 2.000 em 1 h, e a carga não fica em 2.000 por 1 h. No spike, a média de 400 ms para "&lt; 400 ms" não passa.</li>
+    <li><strong>Os números do README são exemplos.</strong> O repositório tem só o <code>README.md</code> e cinco imagens; <strong>não há script de teste</strong>. Os números deste módulo foram medidos no simulador e substituem os de lá.</li>
+    <li><strong>Ferramentas.</strong> O artigo cita Locust, JMeter, Gatling e Oha; o SDLabs usa o k6. Falta no artigo o aviso de que o <strong>gerador também é um sistema</strong> (aqui dividiu a máquina com o simulador), a sincronização de relógio e o teste distribuído.</li>
+    <li><strong>O simulador é um modelo:</strong> exponencial por pod, round robin, sem PSP real, Kafka, catálogo nem HPA.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Repositório público do autor: exemplos/load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+    { label: "Grafana k6: documentação", href: "https://grafana.com/docs/k6/latest/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O teste achou o plano, o ponto de quebra e <strong>um fluxo que derruba o outro por dividir o mesmo pool</strong>. Falta saber como impedir que um fluxo, como o relatório ou o robô do <code>mkt-01</code>, tire os recursos dos que não têm culpa: é o módulo 25, Bulkhead Pattern.</p>
+
+<Flashcards cards={[
+  { q: "O que tem num assessment de performance?",
+    a: "Visão geral, objetivos, cenários (expectativa, resultado, observação), conclusões e backlog, para engenharia e produto." },
+  { q: "Quais são as conclusões do módulo?",
+    a: "'Hoje' quebra em 36/s (elo: pagamentos); o plano em ~250/s (shard quente); com shard dedicado, ~260/s; a ficha de 210 é conservadora em ~24%." },
+  { q: "O que a ficha do módulo 23 passa a dizer?",
+    a: "210/s continua como política de ρ ≤ 70%, mas a meta só cai em ~260/s: a meta de 200/s tem ~30% de folga." },
+  { q: "O que o cenário misto mostrou?",
+    a: "Com pool único de 20 conexões, 33% dos pedidos do checkout e 10% das consultas de status receberam 503 durante o relatório das 23:00." },
+  { q: "Por que o checkout.js nunca veria isso?",
+    a: "Ele mede um fluxo por vez. Só o cenário misto mostrou um fluxo derrubando outro por dividirem o pool." },
+]} />

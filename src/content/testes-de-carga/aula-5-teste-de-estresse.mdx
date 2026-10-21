@@ -1,0 +1,96 @@
+---
+title: "Teste de estresse"
+order: 5
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a carga normal passou com folga, e isso não diz nada sobre a Black Friday. Falta empurrar a carga <strong>acima do esperado</strong>: o plano promete 200 pedidos/s, e a conta do módulo 23 diz que 300/s é o limite nominal. O que a loja faz entre os dois?</p>
+
+<OneLiner>O <strong>estresse</strong> leva a carga acima do esperado, <strong>em degraus</strong>, e observa <strong>o que degrada primeiro</strong> e <strong>como a loja se recupera</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Estresse</strong>, suba os degraus de 100 até 300 pedidos/s e acompanhe o <em>goodput</em>, os pedidos que <strong>concluíram</strong> por segundo, em cada patamar.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=estresse" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O estresse" alt="Prévia da figura 3D: O estresse" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Escada.</strong> <code>ramping-arrival-rate</code> com patamares: 100, 200, 250 e 300 pedidos/s, volta a 100. Cada subida dura 20 s e cada patamar, <strong>45 s</strong>.</li>
+  <li><strong>Janelas de 10 s.</strong> O CSV do k6 permite calcular o p95 de cada janela, e não só o acumulado.</li>
+  <li><strong>Indicadores.</strong> CPU, memória, rede, I/O, <strong>pool</strong> e <strong>fila</strong>, como diz o artigo, junto de p95, erros e <em>goodput</em>.</li>
+  <li><strong>Patamar de meta.</strong> 200/s é o que o plano promete; 250 e 300 são o adverso.</li>
+  <li><strong>Descida.</strong> A volta a 100/s mede se a loja <strong>se recupera</strong> e em quanto tempo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A escada no plano 2</h3>
+
+<p>O ambiente foi o "plano 2": 10 pods no <code>pedidos</code>, 15 no <code>pagamentos</code> e o shard dedicado de 2× para o <code>mkt-01</code>. Foram 59.567 requisições.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Patamar</th><th>p50</th><th>p95 por janela</th><th>p99</th><th>Erros</th><th>Concluídos/s</th></tr></thead>
+  <tbody>
+    <tr><th>100/s</th><td>82–86 ms</td><td>208–232 ms</td><td>279–317 ms</td><td>0%</td><td>~100</td></tr>
+    <tr><th>200/s (a meta)</th><td>136–153 ms</td><td>334–406 ms</td><td>445–587 ms</td><td>0%</td><td>~200</td></tr>
+    <tr><th>250/s</th><td>211–269 ms</td><td>504–738 ms</td><td>639–1.068 ms</td><td>0%</td><td>~250</td></tr>
+    <tr><th>300/s (estresse)</th><td>863–1.204 ms</td><td>1.497–2.000 ms</td><td>1.960–2.001 ms</td><td>0,7% a 5,1%</td><td>280–293</td></tr>
+    <tr><th>volta a 100/s</th><td>90 ms</td><td>244 ms (2ª janela)</td><td>362 ms</td><td>0%</td><td>100</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Total: média 419 ms, p95 1,48 s, p99 1,92 s, falhas <strong>0,54%</strong>, <code>dropped_iterations</code> 182, código de saída <code>99</code>. A meta (p95 ≤ 800 ms) <strong>se sustenta até 250/s</strong>: a pior janela foi 738 ms. A 300/s ela cai, e os erros aparecem. O <em>goodput</em> a 300/s fica em 280–293/s, <strong>abaixo do que chega</strong>.</p>
+
+<h3 class="sec">A recuperação</h3>
+
+<p>Quando a carga volta a 100/s, a primeira janela ainda tem p95 de 1.247 ms, e a segunda já está em 244 ms. A loja volta em <strong>uma a duas janelas</strong> (10 a 20 s). A recuperação é rápida porque o gargalo <strong>descarta o que já expirou</strong>: depois dos 2 s o simulador joga fora a requisição, e a fila esvazia sozinha. O mesmo efeito aparece no spike, na próxima aula.</p>
+
+<h3 class="sec">E se der errado: mais carga, menos pedidos</h3>
+
+<p>No ambiente "hoje" a capacidade é de ~40 pedidos/s. Quando a carga passa disso, o <em>goodput</em> <strong>cai</strong> de ~40 para ~26/s. O <code>pagamentos</code> gasta capacidade em requisições cujo cliente <strong>já desistiu</strong> (a 2 s) e sobra menos para quem ainda espera. O resultado contraria a intuição: <strong>mais carga é menos pedidos concluídos</strong>.</p>
+
+<p>Esse é o tipo de achado que só o estresse dá. O artigo diz que o estresse "excede o fluxo normal"; o que a loja ganha é saber que, acima do teto, empurrar mais não adianta.</p>
+
+<WhyItMatters>
+  <li><strong>O estresse mostra a ordem da degradação.</strong> Primeiro o p95 (250 a 300/s), depois os erros (300/s), por fim o goodput.</li>
+  <li><strong>A recuperação é parte do resultado.</strong> Em 10 a 20 s o p95 volta a ~220 ms, porque o gargalo descarta o que expirou.</li>
+  <li><strong>Acima do teto, o goodput cai.</strong> De ~40 para ~26/s no "hoje": a loja faz menos quando recebe mais.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Estresse é carga muito superior".</strong> O que o estresse mede é <strong>como degrada e se recupera</strong>. O artigo não cita a queda do <em>goodput</em> acima do teto, que aqui foi de 40 para ~26/s.</li>
+    <li><strong>O relatório do lab não fecha.</strong> "Ofendeu os limites em torno de 1.500 usuários" e "2.000 por 1 hora com aumento de 500 a cada 15 min" são incompatíveis: 4 degraus de 500 vão de 500 a 2.000 em 1 h, e a carga <strong>não</strong> fica em 2.000 por 1 h.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: stress testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/stress-testing/" },
+    { label: "Grafana k6: executor ramping-arrival-rate", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A escada sobe devagar e a loja tem tempo de reagir. Falta saber o que acontece quando a carga sobe <strong>de uma vez</strong>, como na newsletter das 20:00.</p>
+
+<Flashcards cards={[
+  { q: "O que o estresse mede além do tamanho da carga?",
+    a: "O que degrada primeiro e como a loja se recupera depois que a carga volta." },
+  { q: "Qual foi a escada do plano 2?",
+    a: "100 → 200 → 250 → 300 → 100 pedidos/s, 20 s de subida e 45 s de patamar. Meta sustentada até 250/s (pior janela 738 ms)." },
+  { q: "O que acontece a 300/s?",
+    a: "p95 de 1,5 a 2 s, erros de 0,7% a 5,1% e goodput de 280 a 293/s: abaixo do que chega." },
+  { q: "Por que a recuperação é rápida?",
+    a: "O gargalo descarta o que já expirou (2 s). A fila esvazia e o p95 volta a ~244 ms em 10 a 20 s." },
+  { q: "Por que mais carga pode dar menos pedidos concluídos?",
+    a: "Acima do teto o pagamentos gasta capacidade em clientes que já desistiram: o goodput do 'hoje' cai de ~40 para ~26/s." },
+]} />

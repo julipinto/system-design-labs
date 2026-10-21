@@ -1,0 +1,83 @@
+---
+title: "Smoke tests"
+order: 3
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada ficou a pergunta da <strong>menor carga</strong> que prova que o teste roda. Antes de gastar duas horas num teste de estresse, vale gastar <strong>30 segundos</strong> para descobrir que o endereço estava errado, que o script tem um erro de digitação ou que o serviço nem subiu.</p>
+
+<OneLiner>O <strong>smoke</strong> é uma carga <strong>mínima</strong> que prova que o <strong>teste e o sistema</strong> funcionam. Roda em todo <em>deploy</em> e <strong>falha o pipeline</strong> quando uma meta não passa.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Smoke</strong>, aperte <strong>Trocar para mkt-01</strong> e veja qual shard recebe o pedido: o <code>shard-2</code>, o que o <code>lena-77</code> nunca exercita.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=smoke" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: O smoke" alt="Prévia da figura 3D: O smoke" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Carga pequena.</strong> <code>TIPO=smoke</code> usa <code>constant-arrival-rate</code> a <strong>2 pedidos/s</strong> por <strong>30 s</strong>, com 5 VUs pré-alocados. O k6 diz "poucos VUs"; mais de 5 já é mini-carga.</li>
+  <li><strong>Um <code>check</code> por resposta.</strong> <code>check(res, {'{'} 'status 201': ... {'}'})</code> conta quantas respostas voltaram com <code>201</code>.</li>
+  <li><strong>Duas <em>thresholds</em>.</strong> <code>http_req_duration: p(95)&lt;800</code> e <code>http_req_failed: rate&lt;0.001</code>.</li>
+  <li><strong>Um código de saída.</strong> <code>0</code> se tudo passou; <code>99</code> se alguma <em>threshold</em> falhou.</li>
+  <li><strong>O pipeline lê o código.</strong> O módulo 22 roda o smoke depois de cada <em>deploy</em>: <code>99</code> barra a promoção da versão.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que o smoke mostrou</h3>
+
+<p>O comando foi <code>TIPO=smoke k6 run checkout.js</code> contra o ambiente "hoje". Em 30 s entraram <strong>61</strong> requisições (2 por segundo), com <strong>média 81,9 ms</strong>, mediana 78,2, p90 138,0, <strong>p95 155,6</strong>, p99 213,7 e máximo 247,5 ms. Erros: <strong>0%</strong>. As duas metas passaram. A soma teórica sem fila é 91,7 ms, e a média de 61 amostras fica em torno dela.</p>
+
+<p>Um smoke não mede capacidade. A pergunta dele é "o checkout <strong>funciona</strong> com carga mínima?", e a resposta aqui é sim: o script chega ao simulador, o simulador atravessa a cadeia e devolve <code>201</code>.</p>
+
+<h3 class="sec">O código de saída que barra o pipeline</h3>
+
+<p>A tabela final do k6 é para gente ler. O que o pipeline lê é o <strong>código de saída</strong>. Todo teste deste módulo que cruzou a meta terminou com <strong>99</strong>: o estresse do plano 2, o degrau de 265/s, o spike. Os testes que passaram terminaram com <code>0</code>. Em CI, <code>k6 run checkout.js</code> com <code>99</code> faz o passo falhar e a versão não vai adiante, sem ninguém abrir a tabela.</p>
+
+<h3 class="sec">E se der errado: o smoke que passa e não viu nada</h3>
+
+<p>O smoke desta aula sorteou os clientes do mix, mas um smoke caseiro costuma usar <strong>um cliente só</strong>. O <code>lena-77</code> cai sempre no <code>shard-1</code> (<code>murmur3 mod 3</code> = 1), e o smoke fica verde sem nunca tocar o <code>shard-2</code>, o do <code>mkt-01</code>, que é onde o plano quebra. O pedido também era conferido só por <code>201</code>: um erro de frete (o módulo 22 mostrou 49,00 × 64,00) passaria. O <code>check</code> precisa olhar o <strong>conteúdo</strong> da resposta, e os dados de teste precisam ser variados.</p>
+
+<p>A moral é pequena e útil: o smoke prova que o teste roda, e é por isso que ele pode ser mínimo. Quando passa, ele só diz "pode seguir".</p>
+
+<WhyItMatters>
+  <li><strong>Barato e rápido.</strong> 30 s e 61 requisições descobrem erro de endereço, de script e de deploy.</li>
+  <li><strong>O código <code>99</code> é o que o pipeline entende.</strong> A tabela é para gente; o código decide se a versão segue.</li>
+  <li><strong>Um cliente só engana.</strong> O <code>lena-77</code> nunca chega ao <code>shard-2</code>; dados variados e <code>check</code> de conteúdo cobrem o que o <code>201</code> não cobre.</li>
+</WhyItMatters>
+
+<Deep min={2}>
+  <h4 class="deep-h">O que fica de fora do smoke</h4>
+  <ul>
+    <li><strong>Não é teste de desempenho.</strong> O artigo diz que o objetivo é "garantir que não há falhas críticas", e não analisar o desempenho em detalhe. Os 156 ms de p95 aqui são uma foto, não uma capacidade.</li>
+    <li><strong>Não aprova versão por si.</strong> Ele barra o que está quebrado; a meta de verdade é testada nas aulas 4 a 7.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: smoke testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/smoke-testing/" },
+    { label: "Grafana k6: thresholds", href: "https://grafana.com/docs/k6/latest/using-k6/thresholds/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O smoke provou que o teste roda. Falta saber como a loja se comporta na carga que ela <strong>espera</strong>, por tempo suficiente para o que só aparece com o tempo.</p>
+
+<Flashcards cards={[
+  { q: "O que o smoke responde?",
+    a: "Se o checkout funciona com carga mínima e se o teste roda. Aqui: 2 pedidos/s por 30 s, 61 requisições, p95 de 155,6 ms." },
+  { q: "Que código de saída o k6 devolve quando uma threshold falha?",
+    a: "99. O 0 é para quando tudo passou. O pipeline lê esse código e barra a versão." },
+  { q: "Por que um cliente só (lena-77) engana o smoke?",
+    a: "Ele cai sempre no shard-1 (murmur3 mod 3 = 1) e nunca exercita o shard-2 do mkt-01, onde o plano quebra." },
+  { q: "Por que conferir só o status 201 não basta?",
+    a: "Um erro de conteúdo (o frete 49,00 × 64,00) devolve 201 do mesmo jeito. O check precisa olhar o corpo da resposta." },
+  { q: "Quando o smoke roda?",
+    a: "Em todo deploy, no pipeline do módulo 22, antes dos testes mais caros." },
+]} />

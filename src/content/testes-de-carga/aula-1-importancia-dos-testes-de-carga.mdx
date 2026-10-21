@@ -1,0 +1,96 @@
+---
+title: "Importância dos testes de carga"
+order: 1
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import checkoutJs from '../../../public/labs/testes-de-carga/lab/checkout.js?raw';
+import lojaSimJs from '../../../public/labs/testes-de-carga/lab/loja-sim.js?raw';
+
+<p class="ponte">O módulo 23 terminou com um <strong>plano</strong> para a Black Friday de 26/11/2027: 200 pedidos por segundo, 10 pods no <code>pedidos</code>, 15 no <code>pagamentos</code>, 4 shards e 8 partições. A conta diz <strong>300/s nominais</strong> e <strong>210/s sustentáveis</strong>. Só que ninguém mediu o pool de conexões, o PSP, o mix de clientes nem a diferença entre o nominal e o que a loja faz de verdade.</p>
+
+<OneLiner>Um plano sem teste é uma <strong>hipótese</strong>. O teste de carga é o jeito de <strong>refutá-la</strong> com número, ponto de medida e meta, antes que a Black Friday faça isso.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Perfis</strong>, escolha "hoje" e depois "plano" e passe pelas cinco formas de carga no tempo. Repare que a cadeia é a mesma e o que muda é o ambiente.</p>
+</DoIt>
+
+<Figure3D path="labs/testes-de-carga/carga-3d/?mode=perfis" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Figura interativa: As formas de carga" alt="Prévia da figura 3D: As formas de carga" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Testar do build à maturidade.</strong> O <strong>smoke</strong> roda em todo <em>deploy</em> (<em>build</em>); o <strong>breakpoint</strong> roda antes do evento (<em>run</em>). Cada fase faz uma pergunta diferente.</li>
+  <li><strong>Escolher a meta antes da carga.</strong> As do módulo 14: <strong>p95 ≤ 800 ms</strong> e <strong>erros ≤ 0,1%</strong>. O k6 as recebe como <em>thresholds</em>.</li>
+  <li><strong>Escolher o alvo.</strong> O <strong>checkout</strong>: <code>POST /pedidos</code> passa por <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> e o banco. O <code>lb-loja</code> desiste em <strong>2 s</strong> (<code>504</code>).</li>
+  <li><strong>Escolher o ambiente.</strong> "Hoje" é a Black Friday de 2026 (3 pods no <code>pedidos</code>, 2 no <code>pagamentos</code>); "plano" é o do módulo 23; "plano 2" é o plano com o shard dedicado ao <code>mkt-01</code>.</li>
+  <li><strong>Rodar e ler.</strong> O script injeta a carga e o k6 devolve uma tabela e um <strong>código de saída</strong>: <code>0</code> passou, <code>99</code> uma meta falhou.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que é o "sistema" deste módulo</h3>
+
+<p>A loja de verdade não está disponível para derrubar. O SDLabs usou um <strong>simulador de filas do checkout</strong>, em Node, com 45 linhas: cada pod é uma fila FIFO de um servidor, com tempo de serviço exponencial. O <code>POST /pedidos</code> atravessa <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> e o banco, e o <strong>shard</strong> sai de <code>murmur3(cliente_id) mod N</code>, como no módulo 16. O <code>lb-loja</code> faz <em>round robin</em> e corta em 2 s.</p>
+
+<p>O <strong>k6 v2.3.0</strong> e as saídas são reais e foram rodados em 20 e 21/10/2026. O <strong>sistema</strong> é um modelo: a conta dos módulos 14, 15, 16 e 23 transformada em código. Os tempos de serviço são os do plano: 33 ms de CPU no <code>pedidos</code> (30/s por pod), 50 ms no <code>pagamentos</code> (20/s), 2 ms no <code>estoque</code> e 6,67 ms no banco (150/s por shard). Sem fila, a soma dá <strong>91,7 ms</strong>.</p>
+
+<pre><code>{lojaSimJs}</code></pre>
+
+<p>Com o alvo e o ambiente definidos, falta o script. O mesmo <code>checkout.js</code> serve para todos os testes deste módulo: a variável <code>TIPO</code> escolhe o perfil de carga, e os clientes saem do mix do teste (40% <code>mkt-01</code>, 60% espalhados, a constante do módulo 16).</p>
+
+<pre><code>{checkoutJs}</code></pre>
+
+<h3 class="sec">O primeiro resultado</h3>
+
+<p>O comando mais simples é <code>TIPO=smoke k6 run checkout.js</code>: 2 pedidos por segundo durante 30 s no ambiente "hoje". Voltaram <strong>61</strong> requisições com média de <strong>81,9 ms</strong>, p95 de <strong>155,6 ms</strong> e <strong>0%</strong> de erros. As duas metas passaram. A soma teórica sem fila é 91,7 ms, e a média de 61 amostras fica em volta disso.</p>
+
+<p>É um resultado pequeno e barato, e já respondeu a pergunta de que o script roda contra o sistema. As perguntas grandes vêm nas próximas aulas.</p>
+
+<h3 class="sec">E se der errado: o ambiente não é o de produção</h3>
+
+<p>Suponha que o teste rode numa pré-produção com <strong>1 pod por serviço</strong>. Um pod do <code>pedidos</code> aguenta 30/s, e a extrapolação ingênua diz que 10 pods aguentam <strong>~300/s</strong>. A conta fecha com o plano e dá confiança.</p>
+
+<p>O teste com o ambiente do plano mostrou outra coisa. O <strong>banco quente</strong> é o <code>shard-2</code>, que recebe 60% do tráfego por causa do <code>mkt-01</code>. Com 150/s de teto por shard, o plano quebra em <strong>~250/s</strong>, e o "plano 2", com o shard dedicado, em <strong>~260/s</strong>. A pré-produção de 1 pod nunca teria visto isso. O resultado depende de o ambiente ter a <strong>mesma forma</strong> da produção, não só os mesmos serviços.</p>
+
+<WhyItMatters>
+  <li><strong>O plano é uma hipótese.</strong> A conta do módulo 23 diz 300/s; o teste diz onde ela quebra.</li>
+  <li><strong>A meta vem antes da carga.</strong> Sem p95 ≤ 800 ms e erros ≤ 0,1%, "passou" não quer dizer nada.</li>
+  <li><strong>O ambiente é parte do resultado.</strong> Extrapolar de 1 pod por serviço dá 300/s; o shard quente limita em 250/s.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Ferramentas, ambiente e o que o artigo-base deixa de fora</h4>
+  <ul>
+    <li><strong>O artigo descreve</strong> k6, Locust, JMeter, Gatling e Oha. O SDLabs usa o <strong>k6</strong>, o mesmo do artigo e do repositório do autor. As outras ferramentas existem e respondem, mas não foram rodadas.</li>
+    <li><strong>Faltam no artigo:</strong> o <strong>gerador também é um sistema</strong> (aqui o k6 e o simulador dividiram a mesma máquina), a sincronização do relógio entre geradores e o teste distribuído.</li>
+    <li><strong>Referências:</strong> LoadView, Lux Quality e PerfMatrix são blogs de fornecedores e não entram no bloco de fontes. O repositório do autor tem só um <code>README.md</code> (o modelo de relatório, aula 11) e cinco imagens: <strong>não há script de teste</strong>, e os números de lá são exemplos.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre testes de carga e estresse (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Repositório público do autor: exemplos/load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+    { label: "Grafana k6: documentação", href: "https://grafana.com/docs/k6/latest/" },
+    { label: "Google SRE book: Testing for Reliability", href: "https://sre.google/sre-book/testing-reliability/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja tem uma meta, um alvo e um script. Falta saber se testar a carga que ela <strong>espera</strong> é a mesma coisa que testar o <strong>estresse</strong>, e como o jeito de injetar a carga muda o resultado.</p>
+
+<Flashcards cards={[
+  { q: "Por que um plano sem teste é uma hipótese?",
+    a: "Porque a conta (300/s nominais, 210 sustentáveis) nunca foi medida: ninguém viu o pool, o PSP, o mix nem o shard quente. O teste refuta ou confirma com número." },
+  { q: "Quais são as metas do checkout?",
+    a: "p95 ≤ 800 ms e erros ≤ 0,1%, as do módulo 14, escritas como thresholds do k6. O lb-loja desiste em 2 s (504)." },
+  { q: "O que é o simulador e o que não é?",
+    a: "Um modelo de filas em Node (45 linhas): pod = fila FIFO com tempo exponencial. O k6 e as saídas são reais; o sistema é a conta dos módulos 14 a 23." },
+  { q: "O que o smoke de 2 pedidos/s mostrou?",
+    a: "61 requisições, média de 81,9 ms, p95 de 155,6 ms e 0% de erros: o script roda e as duas metas passam." },
+  { q: "Por que extrapolar de 1 pod por serviço engana?",
+    a: "Dá ~300/s (10 × 30), mas o shard quente do mkt-01 (60% do tráfego, 150/s de teto) limita o plano em ~250/s." },
+]} />
