@@ -1,0 +1,103 @@
+---
+title: "Eixo Z: sharding e particionamento de dados"
+order: 5
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Depois do Y cada serviço tem o seu banco, e depois do X cada serviço tem várias cópias. Mas o banco do <code>pedidos</code> continua um só: 150 pedidos/s e 50 milhões de linhas. É o buraco do cubo que a loja ainda não usou, e a pergunta que sobra é como dividir um serviço que já é uma coisa só.</p>
+
+<OneLiner>O Z separa <strong>o que é igual, mas grande demais</strong>: o mesmo código, cada instância com um pedaço dos dados, e um <strong>roteador</strong> que olha uma chave para escolher o pedaço.</OneLiner>
+
+<DoIt>
+  <p>Na figura, veja o banco do <code>pedidos</code> em 3 shards e siga o <code>caio-58</code> até o shard 2. No último passo, veja a consulta <code>WHERE id = 1042</code> e conte quantos shards ela lê. Lembre que o Z só nasce no módulo 16: a figura mostra o que ele vai construir.</p>
+</DoIt>
+
+<Figure3D path="labs/scale-cube/cubo-3d/?mode=z" poster="labs/scale-cube/cubo-3d-previa.webp" title="Figura interativa: Eixo Z: separar por dados" alt="Prévia da figura 3D: Eixo Z: separar por dados" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Tudo começa pela <strong>chave</strong>. A AKF cita o módulo do <code>customer_id</code> (na loja, o <code>cliente_id</code>), a geografia (uma região), o SKU e o tipo de cliente. O roteador calcula e escolhe: com 3 shards, <code>murmur3('caio-58') mod 3 = 2</code>.</li>
+  <li>O Z tem <strong>dois modelos</strong>. O Z <strong>só do banco</strong>: os 3 shards de <code>pedidos</code>, com a aplicação intacta. E o Z da <strong>aplicação</strong>: o <code>catalogo</code> busca em partições e um agregador pergunta a todas e junta as respostas (o exemplo de Richardson). A AKF vai além e fala de <strong>pods</strong>, cada um com aplicação e dados de um cliente ou de uma região, inclusive por exigência de lei, como a GDPR. (Aqui "pod" é a palavra da AKF, e não o pod do Kubernetes.)</li>
+  <li>O que o Z melhora: <strong>cache</strong> (cada instância guarda só o seu pedaço, então cabe mais), <strong>I/O</strong> (cada disco lê menos) e <strong>isolamento de falha</strong>: se um shard cai, parte dos dados some, não todos.</li>
+  <li>O que o Z <strong>não</strong> melhora: a organização e a complexidade do código. Três shards de <code>pedidos</code> continuam sendo o mesmo programa mantido pelo mesmo time. Para isso existe o Y.</li>
+  <li>O custo do Z é o <strong>esquema de partição</strong>: é difícil de acertar e mais ainda <strong>quando for preciso repartir</strong>, porque mudar de 3 para 6 shards muda a conta de quase toda chave e move dados.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A conta com 200 pedidos/s</h3>
+
+<p>O <code>pedidos</code> com a demanda do ano que vem, <strong>200 pedidos/s</strong>. Cada réplica dá 30 pedidos/s e o banco de um primário, 150/s. A cada estado, a saída é o menor entre o serviço e o banco.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Estado (X, Y, Z)</th><th>Pods</th><th>Serviço</th><th>Banco</th><th>Saída (de 200/s)</th></tr></thead>
+  <tbody>
+    <tr><th>Hoje (3, 1, 1)</th><td>3</td><td>90/s</td><td>150/s</td><td><strong>90/s</strong> (45%)</td></tr>
+    <tr><th>Só X, 7 réplicas (7, 1, 1)</th><td>7</td><td>210/s</td><td>150/s</td><td><strong>150/s</strong> (75%): o banco para o X</td></tr>
+    <tr><th>X + Z, 3 shards × 3 réplicas (3, 1, 3)</th><td>9</td><td>270/s</td><td>3 × 150 = 450/s</td><td><strong>200/s</strong> (100%), cada banco a 44%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O Z resolve os 200/s com folga, e a conta tem duas pegadinhas. A primeira é o <strong>cliente grande</strong>. Com o <code>mkt-01</code>, o marketplace do módulo 8, um shard recebe 60% dos pedidos: 120/s dos 200, de um teto de 150, ou <strong>80%</strong>, no joelho do módulo 14, enquanto os outros dois recebem 40/s cada. Com 250/s no total, o shard quente chega aos 150/s do teto, e o sistema aproveita 250 dos 450 nominais (<strong>55,6%</strong>). A segunda pegadinha são as <strong>conexões</strong>: cada réplica do <code>pedidos</code> mantém um pool de 10 conexões por shard que ela atende. Se as 9 réplicas falam com todos os shards, cada banco vê 9 × 10 = <strong>90 conexões</strong>, perto do <code>max_connections</code> de 100 do PostgreSQL (módulos 11 e 14). No modelo de <strong>pods por shard</strong>, cada banco vê só as 3 réplicas dele: 3 × 10 = <strong>30</strong>.</p>
+
+<p>O roteador do Z cabe em duas linhas de código e em um widget. O mesmo widget é o do módulo 16.</p>
+
+<Widget name="roteador" title="Roteador do Z: qual shard?" hint="Digite um cliente_id e escolha de 2 a 6 shards. O widget calcula murmur3(chave) mod N e mostra a partição, com os 4 clientes da loja (lena-77, bia-31, caio-58 e davi-12) numa tabela." />
+
+<h3 class="sec">E se der errado: a consulta sem a chave</h3>
+
+<p>O roteador só sabe escolher quando a consulta traz a chave. <code>WHERE id = 1042</code>, só com o id do pedido, não diz qual cliente é dono dele, então a consulta vai para <strong>todos os shards</strong> e o resultado é juntado depois: é o <strong>scatter-gather</strong>. O custo é o do shard mais lento mais a junção, e cresce com o número de shards. O plano do PostgreSQL com tabelas particionadas mostra isso, com um <code>Append</code> sobre as 3 partições (forma ilustrativa, sem custos):</p>
+
+<pre><code>{"Append\n  ->  Index Scan using pedidos_p0_pkey on pedidos_p0\n        Index Cond: (id = 1042)\n  ->  Index Scan using pedidos_p1_pkey on pedidos_p1\n        Index Cond: (id = 1042)\n  ->  Index Scan using pedidos_p2_pkey on pedidos_p2\n        Index Cond: (id = 1042)"}</code></pre>
+
+<p>Com a chave na consulta (<code>WHERE cliente_id = 'caio-58' AND id = 1042</code>), o PostgreSQL descarta as outras duas partições, a <strong>poda de partições</strong>, e lê uma só. O widget abaixo faz a mesma comparação. E há um segundo jeito de errar: o Z <strong>por região</strong>, com SP concentrando 55% dos pedidos (módulo 16), cria um shard quente.</p>
+
+<Widget name="scatter" title="Scatter-gather: com e sem a chave" hint="Escolha entre uma consulta com a chave (cliente_id) e uma sem ela (só o id), e o número de shards. O widget mostra quantas partições são lidas e quais." />
+
+<WhyItMatters>
+  <li><strong>O Z separa o que é igual, mas grande demais.</strong> O mesmo código, um pedaço dos dados, um roteador e uma chave.</li>
+  <li><strong>Resolve o banco.</strong> 3 shards dão 450/s, e a saída de 200/s chega a 100%, com cada banco a 44%.</li>
+  <li><strong>Não é grátis.</strong> Escolher e repartir a chave é difícil, e a consulta sem a chave lê todos os shards.</li>
+  <li><strong>Não melhora a organização.</strong> Isso é trabalho do Y.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>O Z só no banco.</strong> O artigo restringe o Z a dados e à camada de persistência. A AKF e Richardson aplicam o Z também à <strong>aplicação</strong> (shards de um serviço de busca com agregador; <strong>pods</strong> inteiros por cliente ou região), e o Z é um eixo de <strong>isolamento de falha</strong> quando cada pod tem os seus próprios dados.</li>
+    <li><strong>As desvantagens que faltam.</strong> Repartir os dados é difícil, consultas sem a chave vão a todos os shards, transações entre shards não existem de graça e a chave pode criar um shard quente (o módulo 16 trata de cada uma).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o Scale Cube (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "AKF Partners: Splitting databases for scale", href: "https://akfpartners.com/growth-blog/splitting-databases-for-scale" },
+    { label: "Chris Richardson: The Scale Cube (eixo Z, com agregador)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "AKF Partners: The Scale Cube (pods e GDPR)", href: "https://akfpartners.com/growth-blog/scale-cube" },
+    { label: "Repositório público do autor: exemplos/sharding (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Repositório público do autor: exemplos/partitioning (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+  ]} />
+</Deep>
+
+<p class="gancho">Os três eixos estão na mesa, cada um com o seu custo, e o <code>pedidos</code> só fecha a conta com X mais Z juntos. Falta saber <strong>juntar os três</strong>: em que ordem andar e quantas unidades de deploy isso dá.</p>
+
+<Flashcards cards={[
+  { q: "O que o Z separa?",
+    a: "O que é igual, mas grande demais: o mesmo código com cada instância atendendo um subconjunto dos dados, e um roteador que escolhe pela chave." },
+  { q: "Que chaves a AKF cita para o Z?",
+    a: "O módulo do customer_id, a geografia, o SKU e o tipo de cliente." },
+  { q: "Quanto sai do pedidos com 200/s em (3, 1, 3)?",
+    a: "200/s, 100% da demanda, com 9 pods (270/s de serviço) e 3 × 150 = 450/s de banco, cada banco a 44%." },
+  { q: "O que acontece com WHERE id = 1042 numa tabela em 3 shards?",
+    a: "Sem a chave, a consulta vai a todos os shards (scatter-gather): um Append sobre as 3 partições. Com a chave, a poda lê uma só." },
+  { q: "O Z melhora a organização do código?",
+    a: "Não. Melhora cache, I/O e isolamento de falha. A organização é do Y." },
+]} />

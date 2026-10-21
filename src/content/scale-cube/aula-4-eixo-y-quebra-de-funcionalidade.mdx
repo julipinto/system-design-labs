@@ -1,0 +1,90 @@
+---
+title: "Eixo Y: quebra de funcionalidade"
+order: 4
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Widget from '../../components/Widget.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada dez cópias do catálogo bastaram, mas todas faziam a mesma coisa. Dez cópias do monolito inteiro continuariam sendo um programa só, com um banco só e três times esperando um ao outro. Quem separa o que é <strong>diferente</strong> é o Y, e a loja já fez isso no módulo 6.</p>
+
+<OneLiner>O Y separa o que é diferente para que <strong>cada parte escale do seu jeito e tenha dono</strong>: por verbo (um caso de uso, como <code>checkout</code>) ou por substantivo (uma entidade, como <code>clientes</code>), cada serviço com os seus dados.</OneLiner>
+
+<DoIt>
+  <p>Na figura, veja o monolito de 8 vCPU se partir em 7 serviços e siga o pedido <strong>1053</strong> pelo <code>checkout</code>. Anote quantos serviços ele atravessa e a soma de vCPU antes e depois da separação.</p>
+</DoIt>
+
+<Figure3D path="labs/scale-cube/cubo-3d/?mode=y" poster="labs/scale-cube/cubo-3d-previa.webp" title="Figura interativa: Eixo Y: separar por função" alt="Prévia da figura 3D: Eixo Y: separar por função" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Há duas formas de cortar, e Richardson dá os nomes. Por <strong>verbo</strong>: um caso de uso, o <code>checkout</code>, que atravessa <code>carrinho → pedidos → pagamentos → estoque → entregas</code>. Por <strong>substantivo</strong>: uma entidade, o <code>catalogo</code>. O pedido 1053 do Caio, às 20:05 da Black Friday (1 caneca azul de 19,90 mais o frete do Rio de 12,00, <strong>31,90</strong>; o estoque da caneca vai de 38 para 37), cruza <strong>cinco serviços</strong>, com quatro saltos de 5 ms: <strong>+20 ms</strong> (módulo 6).</li>
+  <li>Cada pedaço tem um <strong>perfil</strong> diferente, e é isso que o Y deixa tratar à parte. O artigo fala de CPU contra I/O. O catálogo é CPU e cache. O <code>estoque</code> espera o banco (20 ms de espera para 2 de CPU, módulo 11). O <code>relatorios</code> é um lote de 4 vCPU. Num monolito os três dividem o mesmo tamanho de máquina.</li>
+  <li>A conta aparece em vCPU. Dez cópias do monolito de 8 vCPU custam <strong>80 vCPU</strong>. Os 7 serviços na Black Friday somam <strong>25 vCPU</strong>: catálogo 10 × 1, carrinho 3 × 1, pedidos 3 × 1, pagamentos 2 × 1, estoque 2 × 1, entregas 1 × 1 e relatórios 1 × 4. São 55 vCPU a menos, <strong>69%</strong>.</li>
+  <li>O Y é o <strong>único eixo que aumenta a escalabilidade organizacional</strong>. Os 3 times (Vitrine no catálogo, Checkout em carrinho, pedidos e pagamentos, Logística em estoque e entregas) deixam de disputar um deploy de 40 minutos (módulo 8) e passam a entregar sozinhos, cada um dono do seu código e dos seus dados.</li>
+  <li>Cada serviço tem o <strong>seu</strong> banco. É isso que dá isolamento de falha e disponibilidade: o <code>relatorios</code> pode travar o próprio banco sem tocar o do checkout. Um Y sem dados próprios é um monolito distribuído.</li>
+</ol>
+</HowItWorks>
+
+<p>O widget abaixo refaz a conta de 80 contra 25 vCPU com o multiplicador de tráfego da vitrine.</p>
+
+<Widget name="vcpu" title="Quanto cada eixo custa em vCPU" hint="Escolha o multiplicador de tráfego da vitrine (1× a 20×). O widget compara N cópias do monolito de 8 vCPU com os 7 serviços da loja (25 vCPU a 1×) e mostra a diferença." />
+
+<h3 class="sec">E se der errado: serviço por tabela</h3>
+
+<p>Alguém separa <code>itens_pedido</code> em um serviço próprio, porque "é outra entidade". A tela "meus pedidos" mostra 20 pedidos. Antes era um <code>JOIN</code> de uns <strong>2 ms</strong>; agora é 1 chamada para listar os pedidos e <strong>20 chamadas</strong> para buscar os itens de cada um: 21 × 5 ms = <strong>105 ms</strong> só de rede.</p>
+
+<p>E há um segundo prejuízo, menos visível: a <strong>transação única</strong> some. O estorno do módulo 6 era um <code>ROLLBACK</code>; com dois serviços e dois bancos, vira a saga do módulo 19. O Y corta pela fronteira do negócio, e <code>itens_pedido</code> não tem fronteira própria: ele é parte do pedido.</p>
+
+<WhyItMatters>
+  <li><strong>O Y separa o que é diferente.</strong> Verbo (<code>checkout</code>) ou substantivo (<code>catalogo</code>), cada um com perfil, time e banco.</li>
+  <li><strong>A conta é medida.</strong> 25 vCPU contra 80, 69% a menos, com os mesmos 10 do catálogo.</li>
+  <li><strong>É o eixo da organização.</strong> Deploys independentes no lugar de 40 minutos esperando.</li>
+  <li><strong>Corta pela fronteira do negócio.</strong> Serviço por tabela troca um <code>JOIN</code> de 2 ms por 105 ms de rede.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Quem ficou com cada serviço</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Time</th><th>Serviços</th><th>Perfil</th></tr></thead>
+    <tbody>
+      <tr><th>Vitrine</th><td><code>catalogo</code></td><td>CPU e cache; 10 réplicas na Black Friday</td></tr>
+      <tr><th>Checkout</th><td><code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code></td><td>escrita e transação; 3, 3 e 2 réplicas</td></tr>
+      <tr><th>Logística</th><td><code>estoque</code>, <code>entregas</code></td><td>espera o banco (<code>estoque</code>: 20 ms de espera, 2 de CPU)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Junto com o X, o Y assegura grande parte das características dos microsserviços".</strong> É verdade, mas o Y <strong>sozinho</strong> não é microsserviço bem feito. Sem <strong>dados próprios</strong> por serviço e sem uma fronteira (verbo ou substantivo), ele vira um monolito distribuído: o mesmo acoplamento, agora com rede no meio. A AKF e Richardson insistem em dados próprios.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre o Scale Cube (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "AKF Partners: Splitting applications or services for scale", href: "https://akfpartners.com/growth-blog/splitting-applications-or-services-for-scale" },
+    { label: "Chris Richardson: The Scale Cube (eixo Y, verbo e substantivo)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "microservices.io: padrão Microservice Architecture", href: "https://microservices.io/patterns/microservices.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O Y e o X não dividem os <strong>dados</strong>: o <code>pedidos</code> é um serviço só dele, e mesmo clonado em 7 réplicas ainda conversa com um banco só, que para em 150 pedidos/s. Falta saber como dividir o que é <strong>igual, mas grande demais</strong>. É o eixo Z.</p>
+
+<Flashcards cards={[
+  { q: "O que o Y separa e por que critério?",
+    a: "O que é diferente: por verbo (um caso de uso, como checkout) ou por substantivo (uma entidade, como catalogo), cada serviço com os seus dados." },
+  { q: "Quantos serviços o pedido 1053 atravessa e quanto isso custa em ms?",
+    a: "Cinco (carrinho, pedidos, pagamentos, estoque e entregas), com quatro saltos de 5 ms: +20 ms." },
+  { q: "Qual é a conta de vCPU do Y?",
+    a: "Monolito: 10 × 8 = 80 vCPU. Serviços na Black Friday: 25 vCPU. São 55 a menos, 69%." },
+  { q: "Qual eixo aumenta a escalabilidade organizacional?",
+    a: "Só o Y: cada time passa a ser dono de código e dados e entrega sem esperar os outros (de 40 minutos de deploy para deploys independentes)." },
+  { q: "O que dá errado com um serviço por tabela?",
+    a: "A tela de 20 pedidos faz 1 chamada de lista e 20 de itens: 21 × 5 ms = 105 ms de rede contra um JOIN de ~2 ms, e perde-se a transação única." },
+]} />
