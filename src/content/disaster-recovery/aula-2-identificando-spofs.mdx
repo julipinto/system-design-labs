@@ -1,0 +1,134 @@
+---
+title: "Identificando SPoFs"
+order: 2
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o PSP-B tirou um SPoF do caminho, mas o DNS e o certificado nem apareciam no diagrama. O problema de um SPoF escondido é que <strong>ninguém olha para ele</strong>. Então a primeira tarefa é olhar para o caminho inteiro, elo por elo, e perguntar a cada um quem assume se ele sumir.</p>
+
+<OneLiner>Achar um SPoF é <strong>desenhar o fluxo feliz</strong> de cada função crítica, <strong>listar todos os atores</strong> (inclusive fornecedor, certificado e pessoa) e perguntar a cada um: <strong>quem assume se você sumir, e em quanto tempo?</strong></OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Mapa</strong>, duplique um SPoF por vez e leia quantos minutos por mês sobram. Comece pelo <code>edge-loja</code> e termine no DNS.</p>
+</DoIt>
+
+<Figure3D path="labs/disaster-recovery/spof-3d/?mode=mapa" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Figura interativa: Os 12 elos do 1060" alt="Prévia da figura 3D: Os 12 elos do 1060" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Escolha uma função crítica.</strong> Aqui é o <code>POST /pedidos</code> da Lena, o pedido 1060 da <code>celula-recife</code>.</li>
+  <li><strong>Desenhe o fluxo feliz.</strong> Todos os elos, na ordem, do DNS ao banco, sem pular os que "sempre funcionaram".</li>
+  <li><strong>Liste os atores.</strong> Serviço, banco, fila, rede, fornecedor, certificado e as <strong>pessoas</strong> que acionam cada um.</li>
+  <li><strong>Pergunte a cada elo:</strong> quantas cópias há, quem assume e em quanto tempo.</li>
+  <li><strong>Marque quem não tem resposta.</strong> Esses são os candidatos a SPoF, e a ordem de conserto vem da conta de minutos e do raio.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Os 12 elos do caminho da Lena</h3>
+
+<p>O <code>POST /pedidos</code> do 1060 passa por doze elos. Cada um vale <strong>99,9%</strong> (o módulo 21: 99,9% são 43,2 min por mês de falha). A tabela diz quantas cópias cada elo tem hoje e quem assume:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>#</th><th>Elo</th><th>Cópias hoje</th><th>Quem assume</th><th>SPoF?</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>DNS <code>loja.com.br</code></td><td><strong>1 provedor</strong></td><td>ninguém</td><td><strong>sim</strong> (fornecedor)</td></tr>
+    <tr><th>2</th><td>certificado TLS</td><td><strong>1</strong>, renovado à mão 1×/ano</td><td>ninguém</td><td><strong>sim</strong> (organizacional)</td></tr>
+    <tr><th>3</th><td><code>edge-loja</code> (o roteador)</td><td>3 instâncias</td><td>as outras duas</td><td><strong>sim, lógico</strong> (mesmo código, mesmo mapa)</td></tr>
+    <tr><th>4</th><td>identidade (chaves do JWT, módulo 8)</td><td><strong>1 região</strong></td><td>ninguém</td><td><strong>sim</strong></td></tr>
+    <tr><th>5</th><td><code>lb</code> e <code>gw-loja</code></td><td>2 + 2</td><td>o par</td><td>não</td></tr>
+    <tr><th>6</th><td><code>bff-app</code></td><td>≥ 2</td><td>o par</td><td>não</td></tr>
+    <tr><th>7</th><td><code>pedidos</code></td><td>≥ 2</td><td>o par</td><td>não</td></tr>
+    <tr><th>8</th><td><code>pagamentos</code> → PSP</td><td>2 pods; PSP-A com PSP-B</td><td>o PSP-B</td><td>não</td></tr>
+    <tr><th>9</th><td><code>estoque</code></td><td>2</td><td>o par</td><td>não</td></tr>
+    <tr><th>10</th><td>PostgreSQL da célula</td><td>primário + passiva noutra região</td><td>a passiva (35 s, 0,3 s)</td><td><strong>parcial</strong></td></tr>
+    <tr><th>11</th><td>Kafka da célula</td><td>3 brokers</td><td>os outros</td><td>não</td></tr>
+    <tr><th>12</th><td>mapa e plano de controle</td><td><strong>1 região</strong></td><td>ninguém</td><td><strong>sim</strong>, mas fora do caminho</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cinco elos entram na conta como SPoF: <strong>1, 2, 3, 4 e 12</strong>. O 10 é <strong>parcial</strong>: a passiva assume, mas em 35 s e com 0,3 s de dados a menos (a aula 4 e a 5 contam o que isso custa). O 12 está <strong>fora do caminho</strong> do pedido, e por isso pesa menos do que parece.</p>
+
+<h3 class="sec">A conta em série e em paralelo</h3>
+
+<p>Elos em série multiplicam as disponibilidades (módulo 21). Elos duplicados formam um paralelo, que só falha se as <strong>duas</strong> cópias falharem: 1 − 0,001² = 99,9999%. A tabela compara três mundos:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cenário</th><th>Conta</th><th>Disponibilidade</th><th>Minutos de falha por mês</th></tr></thead>
+  <tbody>
+    <tr><th>12 elos em série, sem duplicar</th><td>0,999<sup>12</sup></td><td><strong>98,8066%</strong></td><td><strong>515,6</strong></td></tr>
+    <tr><th>5 SPoFs, outros 7 duplicados</th><td>0,999<sup>5</sup> × 0,999999<sup>7</sup></td><td><strong>99,5003%</strong></td><td><strong>215,9</strong></td></tr>
+    <tr><th>os 12 duplicados</th><td>0,999999<sup>12</sup></td><td><strong>99,9988%</strong></td><td><strong>0,52</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Dos <strong>215,9</strong> minutos que sobram no segundo cenário, <strong>215,6</strong> vêm dos cinco SPoFs. Os sete elos duplicados valem <strong>0,3</strong> minuto. Cada SPoF consertado devolve cerca de <strong>43,2 min por mês</strong> quando todos valem 99,9%. Na prática o que separa um do outro é o <strong>custo</strong> do conserto e o <strong>raio</strong> do estrago.</p>
+
+<Widget name="auditoria" title="Auditoria de SPoF" hint="Os 12 elos: mude a disponibilidade (99 a 99,999%) e as cópias (1 a 3) de cada um. Mostra os SPoFs, a disponibilidade em série e os minutos por mês (98,8066% · 515,6 × 99,5003% · 215,9 × 99,9988% · 0,52), e o ganho de duplicar um elo (~43,2 min)." />
+
+<h3 class="sec">O que não é SPoF, e os que não são técnicos</h3>
+
+<p>Nem todo "um só" é SPoF. O plano de controle da malha (módulo 10) fica numa região, mas os sidecars <strong>seguem com a última configuração</strong> se ele sumir. O mesmo vale para o mapa do <code>edge-loja</code> (elo 12): as bordas guardam o <strong>último mapa</strong> e continuam roteando. Isso é <strong>estabilidade estática</strong>: o que está no caminho do pedido não depende de algo que só serve para mudar a configuração.</p>
+
+<p>E há SPoFs que nenhum diagrama técnico mostra. O <strong>certificado</strong> renovado à mão uma vez por ano é um (elo 2): no dia em que o prazo vence e ninguém lembra, o HTTPS cai para todo mundo. O conserto é <strong>renovação automática</strong> e um alerta 30 dias antes. Outro é a pessoa: "só o Davi sabe promover o banco". Um SPoF organizacional falha quando o Davi está de férias.</p>
+
+<h3 class="sec">Por onde começar: raio × probabilidade × custo</h3>
+
+<p>Com cinco SPoFs na mão não dá para consertar tudo ao mesmo tempo. Cada um ganha uma nota em três perguntas: quanto estrago faz (<strong>raio</strong>), quão provável é falhar (<strong>probabilidade</strong>) e quanto custa consertar. O certificado tem raio total, probabilidade conhecida (a data de vencimento) e conserto <strong>barato</strong>: automatizar. Vai primeiro. A identidade em duas regiões tem raio alto e conserto caro: entra num plano, com o gateway guardando as chaves em cache por 24 h até lá.</p>
+
+<h3 class="sec">E se der errado: a auditoria envelhece</h3>
+
+<p>A lista de SPoFs de ontem não vale para a loja de hoje. Quando o módulo 26 criou as células, nasceram o <code>edge-loja</code> e o mapa, dois elos que não existiam na lista anterior. Uma auditoria feita <strong>antes</strong> do módulo 26 e arquivada não os teria na lista, e a loja continuaria achando que o roteamento era o de sempre.</p>
+
+<p>O fluxo muda sempre que a arquitetura muda. Por isso a auditoria é uma <strong>revisão contínua</strong>, refeita a cada mudança no caminho do pedido, e não um projeto com data de fim.</p>
+
+<WhyItMatters>
+  <li><strong>Desenhe o fluxo feliz inteiro.</strong> Os cinco SPoFs da loja estavam nas pontas: DNS, certificado, identidade, mapa e o <code>edge-loja</code>.</li>
+  <li><strong>Série mata.</strong> Doze elos a 99,9% dão 98,8066%, ou 515,6 min por mês.</li>
+  <li><strong>Cinco elos valem quase tudo.</strong> Dos 215,9 min que sobram, 215,6 são dos SPoFs; duplicá-los leva a 0,52.</li>
+  <li><strong>Nem todo "um só" é SPoF, e nem todo SPoF é técnico.</strong> O plano de controle fora do caminho é estabilidade estática; o certificado à mão e a pessoa única são SPoFs.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Priorização e correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Independência.</strong> A conta de 99,5003% e 99,9988% só vale com <strong>falhas independentes</strong>. O <code>edge-loja</code> com o mesmo código nas três instâncias tem <strong>uma</strong> falha comum; o conserto não é uma quarta instância, é publicar por <strong>anéis</strong> e manter um mapa "último bom".</li>
+    <li><strong>Os 99,9% iguais são exemplo.</strong> Na prática cada elo tem a sua disponibilidade (use o widget). O que a conta mostra é a <strong>forma</strong>: série cai rápido, paralelo sobe rápido.</li>
+    <li><strong>O artigo fala em mapear, mas não dá a conta.</strong> A série e o paralelo vêm do módulo 21. O artigo também deixa de fora a <strong>estabilidade estática</strong> e os SPoFs organizacionais (certificado, pessoa).</li>
+    <li><strong>O que não foi rodado.</strong> As cópias e os tempos de cada elo são o exemplo do brief; as contas foram calculadas em Python em 21/10/2026.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre SPoF e Disaster Recovery (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+    { label: "AWS Well-Architected, Reliability Pillar: planejar a recuperação de desastres", href: "https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_planning_for_recovery_disaster_recovery.html" },
+    { label: "Anomali: Why a Single Point of Failure (SPOF) is Scary (aprofundar)", href: "https://www.anomali.com/blog/why-single-point-of-failure-is-scary" },
+    { label: "Bryghtpath: Understanding Single Point Failures (aprofundar)", href: "https://bryghtpath.com/single-point-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A auditoria achou cinco SPoFs, e o conserto de cada um é duplicar. Falta saber <strong>como</strong> duplicar sem pagar o que não precisa: o que fica ligado, o que espera, e o que acontece no meio da troca?</p>
+
+<Flashcards cards={[
+  { q: "Como se acha um SPoF?",
+    a: "Desenhe o fluxo feliz da função crítica, liste todos os atores (fornecedor, certificado, pessoa) e pergunte a cada um quem assume se ele sumir e em quanto tempo." },
+  { q: "Quais são os cinco SPoFs da loja?",
+    a: "DNS (1 provedor), certificado (renovado à mão), edge-loja (mesmo código e mapa), identidade (1 região) e o mapa/plano de controle (1 região, fora do caminho)." },
+  { q: "Qual é a disponibilidade dos 12 elos em série, e com tudo duplicado?",
+    a: "0,999^12 = 98,8066% (515,6 min/mês) e 99,9988% (0,52 min/mês). Só com os 5 SPoFs sobrando: 99,5003% (215,9 min)." },
+  { q: "Por que o plano de controle da malha não é SPoF?",
+    a: "Está fora do caminho do pedido: os sidecars seguem com a última configuração. É a estabilidade estática." },
+  { q: "Por que a auditoria envelhece?",
+    a: "O fluxo muda: as células do módulo 26 criaram o edge-loja e o mapa. A lista de ontem não vale; é revisão contínua." },
+]} />

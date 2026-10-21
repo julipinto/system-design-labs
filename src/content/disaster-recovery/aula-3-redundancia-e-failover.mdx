@@ -1,0 +1,125 @@
+---
+title: "Redundância e failover"
+order: 3
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a auditoria achou cinco SPoFs, e o conserto de todos é ter uma cópia. Mas uma cópia pode trabalhar junto ou ficar esperando, e a troca entre elas <strong>também leva tempo</strong>. Esta aula conta o relógio dessa troca e o que dá errado quando ela decide mal.</p>
+
+<OneLiner>A redundância <strong>ativa</strong> divide o estrago e exige sincronizar dados; a <strong>passiva</strong> é mais simples, mas <strong>passa a depender da detecção e da promoção</strong>. O <em>failover</em> automático é <strong>detectar → decidir → trocar</strong>, e cada etapa tem um relógio.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Failover</strong>, siga os três passos (detectar, decidir, trocar) e leia o relógio. Depois <strong>parta a rede</strong> entre SP e Rio e veja os <strong>dois primários</strong>. Para ver a ativa × passiva e o estado saindo do pod, aperte o botão <strong>Redundância</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/disaster-recovery/spof-3d/?mode=failover" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Figura interativa: Detectar, decidir, trocar" alt="Prévia da figura 3D: Detectar, decidir, trocar" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Stateless.</strong> O estado do cliente sai da memória do pod e vai para a camada de dados; qualquer pod atende qualquer pedido.</li>
+  <li><strong>Ativa.</strong> Todas as cópias servem ao mesmo tempo (o balanceador, os consumidores do tópico); perder uma só tira capacidade.</li>
+  <li><strong>Passiva.</strong> Uma serve e a outra espera; perder a primária depende de <strong>detectar</strong> e <strong>promover</strong> a segunda.</li>
+  <li><strong>O relógio.</strong> Sondas detectam, um quórum decide, o líder do banco e o mapa do roteador trocam.</li>
+  <li><strong>O limite.</strong> Se a decisão estiver errada, a troca derruba o que estava bem (<em>split brain</em>).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Stateless: o estado vai embora, e o risco vai junto</h3>
+
+<p>Se a sessão do carrinho da Lena vivesse na memória do <code>pedidos-2</code>, o pod cair levaria o carrinho junto. Foi por isso que o <code>carrinho</code> foi para o Redis (módulo 5): <strong>qualquer</strong> pod atende qualquer pedido, e tirar um pod não perde contexto.</p>
+
+<p>O preço é que o risco muda de lugar. O PostgreSQL e o Redis passam a concentrar o que antes era <strong>diluído</strong> nos pods. Por isso as aulas seguintes tratam de réplica e promoção da camada de dados, e não dos pods.</p>
+
+<h3 class="sec">Ativa e passiva</h3>
+
+<p>Na redundância <strong>ativa</strong>, todas as cópias trabalham. O balanceador distribui os pedidos entre os 3 pods, e os consumidores de um tópico dividem as partições. Perder uma cópia tira 1/3 da capacidade, não o serviço. O custo aparece quando há <strong>escrita</strong> nos dois lados: os dados precisam ser sincronizados.</p>
+
+<p>Na <strong>passiva</strong>, só uma serve. É o que o banco faz: o primário recebe, a réplica espera. O ganho é simplicidade (um só escreve). O preço é que o tempo de volta passa a depender do <strong>mecanismo de detecção e promoção</strong>: se a falha demora a ser percebida, ou se a promoção é manual e lenta, a indisponibilidade é longa.</p>
+
+<h3 class="sec">O relógio do <em>failover</em></h3>
+
+<p>Para cada troca existe um tempo medido ou configurado. A tabela soma o que a loja usa:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Etapa</th><th>Como se conta</th><th>Tempo</th></tr></thead>
+  <tbody>
+    <tr><th>Tirar um pod do balanceador</th><td>verificação a cada 5 s × 3 falhas (módulo 7)</td><td><strong>15 s</strong></td></tr>
+    <tr><th>Detectar a queda de uma região</th><td>sonda sintética a cada 10 s × 3 falhas</td><td><strong>30 s</strong></td></tr>
+    <tr><th>Promover o banco</th><td><code>ttl</code> de 30 s do Patroni + 5 s (módulo 17)</td><td><strong>35 s</strong></td></tr>
+    <tr><th>Virar o mapa do roteador</th><td>propagação do <code>edge-loja</code></td><td><strong>5 s</strong></td></tr>
+    <tr><th>Quem usa DNS com TTL de 60 s</th><td>clientes com o endereço antigo em cache</td><td>até <strong>60 s</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>As etapas <strong>se sobrepõem</strong>: o <code>ttl</code> do banco corre desde a falha, então a promoção (35 s) termina antes de a detecção (30 s) somada aos 30 s dos pods (60 s) acabar. Na queda de SP o que decide o tempo é a detecção e os pods, e o mapa fecha em 65 s (aula 4). O último número da tabela é a razão de o <strong>roteador</strong>, e não só o DNS, decidir para onde vai o pedido: o DNS deixa até 60 s de clientes no endereço antigo, e o mapa vira em 5 s. As sondas de região vêm de <strong>dois pontos de vista</strong> (Rio e Recife) para que uma só sondagem com defeito não derrube nada.</p>
+
+<Widget name="relogio" title="Relógio do failover" hint="Intervalo da sonda (1 a 30 s), falhas seguidas (1 a 5), promoção do banco (35 s), pods (30 s), propagação do mapa e TTL do DNS. Mostra o RTO (65 s com 10 s × 3, pods de 30 s e mapa de 5 s) e a troca entre falso positivo (sonda curta) e demora (sonda longa)." />
+
+<h3 class="sec">Chaveamentos: <em>circuit breaker</em> e <em>feature flag</em></h3>
+
+<p>O artigo cita o <em>circuit breaker</em> e a <em>feature flag</em> como formas de fazer o chaveamento. Eles cuidam de <strong>chamadas</strong> e de <strong>caminhos</strong>: o <em>breaker</em> (módulo 21) abre quando o PSP-A falha e manda o <code>pagamentos</code> para o PSP-B; a <em>flag</em> (módulo 22) desliga um caminho novo. Os dois decidem <strong>por chamada, no cliente</strong>.</p>
+
+<p>O <em>failover</em> de região é outra coisa. Quem decide é uma <strong>sonda</strong>, depois de um <strong>quórum</strong> de observadores, e quem executa é o <strong>roteador</strong>. Misturar os dois dá a impressão de que um <em>breaker</em> sozinho resolve uma queda de região, e não resolve.</p>
+
+<h3 class="sec">E se der errado: <em>split brain</em></h3>
+
+<p>Agora a pior troca: a rede entre SP e Rio <strong>parte</strong>, mas SP <strong>não caiu</strong>. O Rio não vê o primário, espera os 35 s e <strong>promove</strong> a réplica. O primário antigo, ilhado e vivo, continua <strong>aceitando</strong> pedidos de quem ainda chega a ele. São <strong>dois primários</strong> escrevendo, e cada um acha que é o único.</p>
+
+<p>A conta do estrago, com a <code>celula-sp</code> a 9,9 pedidos/s e uma janela de <strong>30 s</strong> até alguém rebaixar o antigo: 9,9 × 30 = <strong>297 pedidos</strong> confirmados em SP que o Rio nunca viu. Quando o primário antigo volta, o <code>pg_rewind</code> (módulo 17) os <strong>descarta</strong>. Se o <em>fencing</em> falha e a janela vai a <strong>5 min</strong> (300 s): 9,9 × 300 = <strong>2.970</strong>.</p>
+
+<Widget name="splitbrain" title="Split brain" hint="Taxa de pedidos da célula (9,9/s) e janela até o fencing (0 a 300 s). Mostra os pedidos confirmados que serão descartados pelo pg_rewind: 297 com 30 s, 2.970 com 5 min." />
+
+<p>O conserto é o <em>fencing</em>: o líder precisa <strong>renovar a chave</strong> a cada ciclo, e quem não renova se rebaixa sozinho (o Patroni derruba o líder que não renova dentro do <code>ttl</code>). A decisão de promover vem do <strong>quórum</strong> (2 observadores em 3, módulo 3), então o lado minoritário da partição <strong>não promove</strong>. Mesmo assim, o risco do <em>failover</em> automático existe: ele pode <strong>derrubar o que estava bem</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>Stateless move o risco.</strong> Tirar o estado do pod é bom, mas o banco e o Redis passam a concentrar o que antes era dos pods.</li>
+  <li><strong>A passiva depende de detectar e de trocar.</strong> A sonda de 10 s × 3 leva 30 s; os pods levam mais 30 s e o mapa 5 s: 65 s, com a promoção do banco (35 s) rodando junto.</li>
+  <li><strong>Sonda curta derruba o que está bem.</strong> Sonda longa demora a ver o que caiu; o widget mostra a troca.</li>
+  <li><strong>Split brain custa pedidos confirmados.</strong> 297 em 30 s e 2.970 em 5 min, que o <code>pg_rewind</code> descarta.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Por que o <em>fencing</em> precisa do tempo</h4>
+  <p>O PostgreSQL promove uma réplica com <code>pg_ctl promote</code>, e o primário antigo só volta como réplica depois de o <code>pg_rewind</code> refazer o diretório de dados a partir do novo primário. Esse passo <strong>descarta</strong> o que o antigo gravou depois de a linha do tempo se separar. A janela do <em>split brain</em> é, portanto, a janela de pedidos que desaparecem.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Circuit breaker e feature flag não são o <em>failover</em> regional.</strong> O artigo põe os dois na mesma figura. O <em>breaker</em> decide por chamada, no cliente; o <em>failover</em> regional decide por sonda, por quórum e pelo roteador.</li>
+    <li><strong>O <em>failover</em> automático pode derrubar o que estava bem.</strong> O artigo fala em monitoramento confiável e critérios claros, mas não do <em>split brain</em> nem do <em>fencing</em>.</li>
+    <li><strong>Passiva "reduz complexidade".</strong> Só em replicação e latência: o próprio artigo diz que ela passa a depender da detecção e da promoção, e a conta de 65 s mostra o tamanho.</li>
+    <li><strong>O que não foi rodado.</strong> Nenhum <em>fencing</em> do Patroni com partição de rede foi feito. O <code>pg_ctl promote</code> e o <code>pg_rewind</code> foram vistos no módulo 17, com PostgreSQL 14; os 297 e 2.970 são a conta, não uma medição.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre SPoF e Disaster Recovery (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "Martin Fowler: Leader and Followers", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/leader-follower.html" },
+    { label: "Patroni: configuração dinâmica (ttl, loop_wait, retry_timeout)", href: "https://patroni.readthedocs.io/en/latest/dynamic_configuration.html" },
+    { label: "PostgreSQL: servidores warm standby", href: "https://www.postgresql.org/docs/current/warm-standby.html" },
+    { label: "PostgreSQL: pg_rewind", href: "https://www.postgresql.org/docs/current/app-pgrewind.html" },
+    { label: "Wikipédia: Split-brain (computing)", href: "https://en.wikipedia.org/wiki/Split-brain_(computing)" },
+  ]} />
+</Deep>
+
+<p class="gancho">A troca de um componente tem um relógio, um quórum e um <em>fencing</em>. Falta saber o que acontece quando não é um componente, e sim a <strong>região inteira</strong> de São Paulo: quanto tempo a loja leva para voltar, e quantos pedidos ficam pelo caminho?</p>
+
+<Flashcards cards={[
+  { q: "O que o stateless muda no risco?",
+    a: "O estado sai do pod e vai para a camada de dados: qualquer pod atende, mas o PostgreSQL e o Redis passam a concentrar o risco." },
+  { q: "Qual a diferença entre redundância ativa e passiva?",
+    a: "Ativa: todas servem (balanceador, consumidores). Passiva: uma serve e outra espera, e o tempo de volta depende de detectar e promover." },
+  { q: "Qual é a conta do relógio do failover?",
+    a: "5 s × 3 = 15 s (pod); 10 s × 3 = 30 s (região); ttl 30 + 5 = 35 s (banco); 5 s (mapa). DNS com TTL de 60 s deixa até 60 s no endereço antigo." },
+  { q: "O que é split brain e quanto custa?",
+    a: "SP ilhado e vivo, Rio promovido: dois primários. 9,9 × 30 s = 297 pedidos descartados pelo pg_rewind; com 5 min, 2.970." },
+  { q: "Como se evita o split brain?",
+    a: "Fencing (o líder que não renova a chave se rebaixa) e quórum (2 em 3 decidem; o lado minoritário não promove)." },
+]} />

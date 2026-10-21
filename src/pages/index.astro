@@ -55,6 +55,8 @@ const modules: Mod[] = [
     text: 'A Black Friday de 2027 aguenta? Teoria das filas, Lei de Little e o ponto saudável, curva do joelho, modelagem de carga, perfis de tráfego, projeção, capacidade end to end e a ficha de limites, com calculadoras e quiz de 45 perguntas.' },
   { slug: 'testes-de-carga', title: 'Testes de Carga e Estresse', lessons: 11, poster: 'labs/testes-de-carga/carga-3d-previa.webp', alt: 'Prévia da figura 3D do gerador de carga e da cadeia do checkout',
     text: 'Refutar o plano de 300 pedidos por segundo com o k6: carga e estresse, smoke, carga média, spike, breakpoint, modelo aberto e fechado, metas e percentis, pré-teste e relatório, com os números medidos, calculadoras e quiz de 56 perguntas.' },
+  { n: 27, slug: 'disaster-recovery', title: 'Single Point of Failure e Disaster Recovery', lessons: 5, poster: 'labs/disaster-recovery/desastre-3d-previa.webp', alt: 'Prévia da figura 3D da queda da região de São Paulo e das células passivas',
+    text: 'A região de São Paulo some às 20:40 da Black Friday: ponto único de falha e a auditoria de 12 elos, redundância ativa e passiva, failover e split brain, backup, pilot light, warm standby e ativo-ativo, MTTD, MTTR, MTBF, RTO e RPO, com o pedido 1061 perdido, calculadoras e quiz de 35 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---
