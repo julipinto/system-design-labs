@@ -1,0 +1,110 @@
+---
+title: "RPC"
+order: 4
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import rpcServer from '../../lab-code/comunicacao-sincrona/rpc-server.go?raw';
+import rpcClient from '../../lab-code/comunicacao-sincrona/rpc-client.go?raw';
+
+<p class="ponte">Na aula passada o Pix do Davi ganhou três jeitos de avisar a tela, e todos falam HTTP em texto. Por dentro da loja, o <code>pedidos</code> chama o <code>pagamentos</code> e o serviço de <code>entregas</code> o dia inteiro, e montar o verbo, o caminho e o JSON de cada vez parece um jeito comprido de pedir uma conta. O que o <code>pedidos</code> queria escrever era <code>frete.Calcular(...)</code>, como se a função morasse no mesmo programa.</p>
+
+<OneLiner>RPC (chamada de procedimento remoto) é um modelo em que o cliente chama uma função de outro programa como se fosse local, e um par de peças, o stub e o skeleton, cuida de serializar os argumentos, mandar pela rede e devolver o resultado.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance pelos passos da chamada <code>Frete.Calcular("50050-000", 0.4)</code> e identifique as três peças: o stub do lado do <code>pedidos</code>, a rede e o skeleton do lado do serviço. Chegue ao passo <strong>"e se der errado"</strong> e veja o que acontece com o cliente quando o servidor trava e a chamada não tem prazo.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/chamada-3d/?mode=rpc" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Figura interativa: RPC: stub, rede, skeleton" alt="Prévia da figura 3D: RPC: stub, rede, skeleton" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A ideia.</strong> Birrell e Nelson (1984) descreveram o RPC com um objetivo: o programador escreve a chamada de função de sempre, e o resto vira encanamento. No lado do cliente, um <strong>stub</strong> parece a função, mas por dentro serializa os argumentos e manda pela rede. No lado do servidor, um <strong>skeleton</strong> desserializa, chama a função de verdade e devolve o resultado pelo mesmo caminho.</li>
+  <li><strong>REST nomeia coisas, RPC nomeia ações.</strong> O REST da aula 2 diz <code>/pedidos/1050</code> e deixa o método dizer o que fazer. O RPC diz o que fazer: <code>Frete.Calcular</code>. Na loja, o <code>pedidos</code> chama o serviço <code>entregas</code> com <code>{`Frete.Calcular(Args{Cep: "50050-000", PesoKg: 0.4})`}</code> e recebe <strong>15.00</strong>, o frete para Recife do módulo 6, para um volume de 0,4 kg.</li>
+  <li><strong>O laboratório.</strong> O repositório público do autor tem um servidor RPC com o pacote <code>net/rpc</code> do Go. Ele registra o tipo <code>Proteinas</code>, escuta na porta <strong>1234</strong> e expõe o método <code>Recomendacao</code>:</li>
+</ol>
+</HowItWorks>
+
+<CodeLab code={rpcServer} />
+
+<ol class="flow steps">
+  <li>O servidor registra o objeto na linha 27 (<code>rpc.Register</code>), abre a porta (linha 29) e, para cada conexão aceita, serve as chamadas numa goroutine (<code>go rpc.ServeConn(conn)</code>, linha 41). O <code>rpc.Register</code> faz o papel do skeleton: o nome do método vira <code>Proteinas.Recomendacao</code>.</li>
+  <li>O método recebe <code>Args</code>, escreve no ponteiro <code>reply</code> e devolve um <code>error</code>. O cálculo (<code>Peso * 2</code>) é trivial de propósito.</li>
+</ol>
+
+<p>E o cliente, também sem alteração:</p>
+
+<CodeLab code={rpcClient} />
+
+<ol class="flow steps">
+  <li>O cliente conecta (<code>rpc.Dial</code>), monta <code>{`Args{Peso: 85.00}`}</code> e chama <code>client.Call("Proteinas.Recomendacao", args, &amp;reply)</code>. Esse <code>Call</code> é o stub: parece uma função, mas é rede.</li>
+  <li>O resultado volta em <code>reply</code>: peso 85 vira <strong>170 g</strong> de proteína por dia. A chamada foi feita pelo nome do método, em texto, e o tipo <code>Args</code> precisa existir igual dos dois lados.</li>
+</ol>
+
+<h3 class="sec">Sem contrato forte</h3>
+
+<ol class="flow steps">
+  <li><strong>Codificação em gob.</strong> O <code>net/rpc</code> usa o tipo do Go e o formato <code>gob</code>, que só clientes Go sabem ler. Um serviço em Java ou Node.js do módulo 10 não consegue chamar esse <code>entregas</code>.</li>
+  <li><strong>Pacote congelado.</strong> A documentação diz que o <code>net/rpc</code> está congelado e não recebe novidades.</li>
+  <li>
+  <strong>Outros RPCs.</strong> O modelo tem muitos protocolos: XML-RPC, SOAP, Thrift, CORBA e o JSON-RPC 2.0, que é texto legível e funciona em qualquer linguagem:
+
+<pre><code>{String.raw`{"jsonrpc":"2.0","method":"Frete.Calcular","params":{"cep":"50050-000","peso_kg":0.4},"id":1}`}</code></pre>
+  </li>
+  <li>O último da lista, o gRPC, é o assunto da próxima aula.</li>
+</ol>
+
+<h3 class="sec">E se der errado: a chamada sem prazo</h3>
+
+<ol class="flow steps">
+  <li>O cliente do lab chama <code>client.Call(...)</code> <strong>sem timeout</strong>. Se o servidor trava no meio da conta, por exemplo num deadlock do módulo 11, nenhuma resposta volta.</li>
+  <li>O <code>Call</code> não retorna nem com erro: o cliente fica <strong>pendurado para sempre</strong>, com a goroutine e a conexão presas, e quem chamou esse cliente fica esperando junto.</li>
+  <li>O RPC faz a rede parecer função local, e a rede falha. Waldo e colegas (1994) argumentam que é exatamente essa confusão que se paga caro: a função local ou termina ou falha rápido, a remota pode simplesmente não responder.</li>
+  <li>O conserto é um <strong>deadline</strong> em toda chamada, um prazo máximo depois do qual o cliente desiste. No <code>net/rpc</code> isso se faz com <code>client.Go</code> e um <code>select</code> com <code>time.After</code>, que não está no lab. No gRPC o prazo já vem no <code>context</code>, e é a aula 5.</li>
+</ol>
+
+<WhyItMatters>
+  <li>Saber que o RPC é um modelo, e não um protocolo, ajuda a ler o que vem depois: o gRPC é um RPC com contrato e transporte definidos.</li>
+  <li>A chamada <code>Frete.Calcular(...)</code> é mais curta de escrever que um <code>POST</code> com JSON, e o custo escondido é de quem a lê: nada no código avisa que ali tem rede, latência e falha parcial.</li>
+  <li>O lab mostra o limite de um RPC sem contrato: o tipo vive no código Go, e quem não é Go fica de fora.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"RPC é um protocolo".</strong> É um <strong>modelo</strong> (chamar um procedimento remoto) com vários protocolos que o implementam. E o <code>net/rpc</code> do Go está congelado e só fala Go, por causa do <code>gob</code>.</li>
+  </ul>
+  <h4 class="deep-h">Stub e skeleton, em passos</h4>
+  <ul>
+    <li>O cliente chama o stub com os argumentos. O stub serializa (marshalling) e manda a mensagem. O skeleton do servidor desserializa, chama a função e serializa o retorno. O stub desserializa e devolve o valor ao chamador.</li>
+  </ul>
+  <Sources items={[
+    { label: "Birrell e Nelson, \"Implementing Remote Procedure Calls\" (1984, cópia no Internet Archive)", href: "https://web.archive.org/web/2023/https://birrell.org/andrew/papers/ImplementingRPC.pdf" },
+    { label: "JSON-RPC 2.0: especificação", href: "https://www.jsonrpc.org/specification" },
+    { label: "Go: pacote net/rpc (documentação)", href: "https://pkg.go.dev/net/rpc" },
+    { label: "Waldo et al., \"A Note on Distributed Computing\" (1994, cópia no Internet Archive)", href: "https://web.archive.org/web/2023/https://scholar.harvard.edu/files/waldo/files/waldo-94.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">O <code>net/rpc</code> nos deu a chamada de função e nos tirou o contrato: o tipo vive no Go de cada lado e o formato só Go entende. Falta saber como um RPC pode ter um contrato escrito num arquivo à parte, valer para qualquer linguagem e ainda mandar menos bytes que o JSON, que é o que o gRPC faz com o Protobuf.</p>
+
+<Flashcards cards={[
+  { q: "O que são stub e skeleton?",
+    a: "O stub fica no cliente: parece a função, mas serializa os argumentos e manda pela rede. O skeleton fica no servidor: desserializa, chama a função de verdade e devolve o resultado." },
+  { q: "Qual a diferença entre REST e RPC no que eles nomeiam?",
+    a: "O REST nomeia coisas (/pedidos/1050) e o RPC nomeia ações (Frete.Calcular)." },
+  { q: "O que o <code>Proteinas.Recomendacao</code> do lab faz com o peso 85?",
+    a: "Multiplica por 2 e devolve 170 g por dia. O servidor escuta na porta 1234, em net/rpc." },
+  { q: "Por que o <code>net/rpc</code> só fala com clientes Go?",
+    a: "Porque usa o tipo Go e o formato gob. O pacote ainda está congelado." },
+  { q: "O cliente do lab chama <code>client.Call</code> sem timeout e o servidor trava. O que acontece e qual o conserto?",
+    a: "O cliente fica pendurado para sempre. O conserto é um deadline em toda chamada; no gRPC o prazo vem no context." },
+]} />

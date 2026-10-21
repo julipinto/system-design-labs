@@ -1,0 +1,96 @@
+---
+title: "GraphQL"
+order: 7
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">A Lena vê o caminhão andar, mas a tela inicial do app dela, a do módulo 9, ainda precisa de quatro pedaços: o gato do <code>catalogo</code>, o carrinho, o que se recomenda e o status do pedido 1048. No módulo 9 o <code>bff-app</code> resolveu isso decidindo, no código do servidor, que forma a resposta teria. E se quem decidisse a forma fosse o próprio cliente, na hora de pedir?</p>
+
+<OneLiner>GraphQL é uma linguagem de consulta com um schema que descreve os dados: o cliente escreve quais campos quer, uma única chamada volta com exatamente esses campos, e um resolver por campo busca cada pedaço onde ele estiver.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance pela consulta única da tela inicial e siga cada pedaço até o resolver que o busca. Compare a resposta com a do <code>bff-app</code>. Chegue ao passo <strong>"e se der errado"</strong> e conte as chamadas ao <code>estoque</code> numa lista de 20 produtos. No widget abaixo, ligue e desligue o DataLoader e veja o número cair.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/chamada-3d/?mode=graphql" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Figura interativa: GraphQL: o cliente escolhe" alt="Prévia da figura 3D: GraphQL: o cliente escolhe" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>Uma consulta só.</strong> A tela inicial vira um <code>POST /graphql</code> de <strong>131 B</strong>, e quem escreveu o texto decidiu os campos:
+
+<pre><code>{String.raw`{destaque:produto(id:42){nome preco foto}carrinho{itens}recomendado:recomendados(produto:42){id nome preco}pedido(id:1048){status}}`}</code></pre>
+  </li>
+  <li>
+  <strong>A resposta tem só os campos pedidos.</strong> Nada de <code>custo_fornecedor</code> nem das 8 fotos em alta. É a mesma forma que o <code>bff-app</code> montava (<code>destaque</code>, <code>carrinho</code>, <code>recomendado</code>, <code>pedido</code>):
+
+<pre><code>{String.raw`{"data":{"destaque":{"nome":"gato de pelúcia","preco":79.9,"foto":"gato-320.webp"},"carrinho":{"itens":1},"recomendado":[{"id":7,"nome":"caneca azul","preco":19.9}],"pedido":{"status":"a caminho"}}}`}</code></pre>
+  </li>
+  <li>
+  <strong>O schema é o contrato.</strong> Escrito em SDL, ele lista os tipos e as operações permitidas. É um arquivo que cliente e servidor leem, como o <code>.proto</code> da aula 5.
+
+<pre><code>{String.raw`type Produto { id: ID! nome: String! preco: Float! }
+type Query    { produto(id: ID!): Produto  recomendados(produto: ID!): [Produto!]! }
+type Mutation { criarPedido(cliente: ID!, itens: [ID!]!): Pedido! }`}</code></pre>
+  </li>
+  <li><strong>As peças.</strong> A <strong>query</strong> lê. A <strong>mutation</strong> (<code>criarPedido</code>) escreve e é onde os efeitos colaterais ficam. A <strong>subscription</strong> deixa o servidor empurrar mudanças, em geral sobre WebSocket. E o <strong>resolver</strong> é uma função por campo: o de <code>produto</code> vai ao <code>catalogo</code>, o de <code>carrinho</code> ao <code>carrinho</code>, o de <code>recomendados</code> às <code>recomendacoes</code> e o de <code>pedido</code> aos <code>pedidos</code>.</li>
+  <li><strong>Over-fetching e under-fetching.</strong> Sem BFF, a tela fazia 4 chamadas de 120 ms (480 ms) e baixava 180 KB feitos para o site. Com GraphQL, é <strong>1 chamada</strong>. A diferença para o <code>bff-app</code> é quem decide a forma: lá, o código do servidor; aqui, o cliente, com o mesmo schema servindo app, site e voz.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="nmais1" title="Quantas chamadas ao estoque uma lista faz?" hint="Escolha quantos produtos a lista tem e ligue ou desligue o DataLoader. Cada produto da consulta pergunta ao estoque a sua quantidade." />
+
+<h3 class="sec">E se der errado</h3>
+
+<ol class="flow steps">
+  <li><strong>N+1.</strong> A consulta <code>{`produtos(first: 20) { nome estoque { quantidade } }`}</code> com um resolver ingênuo busca os 20 produtos (1 chamada) e, para cada um, chama o <code>estoque</code> (20 chamadas): <strong>1 + 20 = 21</strong>. Com o <strong>DataLoader</strong>, que junta os pedidos do mesmo instante num lote só, são <strong>2</strong>: uma para a lista e uma em lote para o <code>estoque</code>.</li>
+  <li><strong>Consulta cara.</strong> Nada impede o cliente de pedir <code>recomendados</code> dentro de <code>recomendados</code>, cinco níveis, com 10 itens por nível: 10⁵ = <strong>100.000</strong> nós no último nível. O servidor precisa de um limite de profundidade e de custo.</li>
+  <li><strong>Cache.</strong> Há uma rota só, <code>POST /graphql</code>, e o corpo muda toda hora. O cache HTTP e a CDN do módulo 5 e o <code>ETag</code> da aula 2 não funcionam sem trabalho extra.</li>
+  <li><strong>Erros com status 200.</strong> Uma falha parcial volta com <code>200</code> e um campo <code>errors[]</code> no corpo. O gateway do módulo 8 e o painel de erros, que contam status 5xx, não a veem como falha.</li>
+</ol>
+
+<WhyItMatters>
+  <li>O GraphQL compensa quando vários clientes pedem formas diferentes dos mesmos dados. A tela, o site e a voz escrevem a sua consulta, e o servidor mantém um só schema.</li>
+  <li>O preço mudou de lugar: o servidor deixa de decidir a forma e passa a se defender de quem decide. Limite de custo, DataLoader e cache próprio entram na conta.</li>
+  <li>Um desenho não exclui o outro: o <code>bff-app</code> e o GraphQL resolvem o mesmo problema da tela inicial, o primeiro com código por canal e o segundo com um schema só.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Desenvolvido pelo Facebook".</strong> Nasceu lá (2012), foi aberto em 2015 e hoje é mantido pela GraphQL Foundation, da Linux Foundation, com uma especificação pública e versionada. O artigo também não cita N+1, custo de consulta, cache nem o fato de os erros virem com status 200.</li>
+  </ul>
+  <h4 class="deep-h">O que o DataLoader faz</h4>
+  <p>Ele espera o fim do tick de execução, junta todas as chaves pedidas nesse tempo (os 20 ids de produto) e chama a fonte uma vez com a lista. Também guarda o resultado durante a consulta, para o mesmo id não ir duas vezes.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis (GraphQL, fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "Especificação do GraphQL (outubro de 2021)", href: "https://spec.graphql.org/October2021/" },
+    { label: "graphql.org: schemas e tipos", href: "https://graphql.org/learn/schema/" },
+    { label: "graphql.org: boas práticas (cache, N+1)", href: "https://graphql.org/learn/best-practices/" },
+    { label: "DataLoader (repositório)", href: "https://github.com/graphql/dataloader" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora a loja conhece vários jeitos de uma chamada esperar ou avisar, cada um bom em uma situação e ruim em outra. Falta saber onde pôr cada um no desenho final: o que fica na porta de fora, o que fica entre os serviços, o que vai para o rastreio e o que fica para o PSP.</p>
+
+<Flashcards cards={[
+  { q: "Quantos bytes tem a consulta da tela inicial em GraphQL?",
+    a: "131 B num único POST /graphql, com 4 pedaços: destaque, carrinho, recomendado e pedido." },
+  { q: "Qual a diferença entre o <code>bff-app</code> e o GraphQL?",
+    a: "No bff-app a forma da resposta é decidida no código do servidor. No GraphQL é o cliente que decide, com o mesmo schema para app, site e voz." },
+  { q: "O que é um resolver?",
+    a: "Uma função por campo do schema que busca o dado na fonte: o catalogo, o carrinho, as recomendacoes, os pedidos." },
+  { q: "Quantas chamadas ao <code>estoque</code> faz uma lista de 20 produtos, com e sem DataLoader?",
+    a: "Sem: 1 + 20 = 21. Com: 2 (a lista e uma chamada em lote)." },
+  { q: "Por que o gateway não vê um erro de GraphQL como falha?",
+    a: "Porque o erro volta com status 200 e um errors[] no corpo." },
+]} />

@@ -1,0 +1,111 @@
+---
+title: "WebSockets"
+order: 6
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import chatServer from '../../lab-code/comunicacao-sincrona/chat-server.go?raw';
+
+<p class="ponte">O gRPC resolveu como o <code>pedidos</code> chama o <code>pagamentos</code>, mas nele, como no REST, quem pergunta é sempre o cliente. Já a Lena, com o pedido <strong>1048</strong> "a caminho", quer ver o caminhão andando no mapa do aplicativo sem tocar em nada. Perguntar a posição a cada 5 s repete o problema do short polling da aula 3, só que agora com uma autenticação em cada pergunta.</p>
+
+<OneLiner>WebSocket é uma conexão que começa como uma chamada HTTP, vira um canal aberto nos dois sentidos e deixa o servidor mandar uma mensagem quando quiser, sem ser perguntado.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance pelo handshake e repare na resposta <code>101</code>: a partir dali, a mesma conexão carrega quadros. Siga as posições do caminhão chegando de 5 em 5 s e olhe o tamanho de cada uma. Chegue ao passo <strong>"e se der errado"</strong> e veja o que o app faz quando a conexão morre sem aviso.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/espera-3d/?mode=websocket" poster="labs/comunicacao-sincrona/espera-3d-previa.webp" title="Figura interativa: WebSocket: o rastreio da Lena" alt="Prévia da figura 3D: WebSocket: o rastreio da Lena" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>O pedido de "upgrade".</strong> O app da Lena abre uma conexão com uma chamada HTTP comum, mas pedindo para trocar de protocolo (RFC 6455, com a chave de exemplo da própria RFC):
+
+<pre><code>{String.raw`GET /rastreio/1048 HTTP/1.1
+Host: api.loja.com.br
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13`}</code></pre>
+  </li>
+  <li>
+  <strong>A resposta que muda tudo.</strong> O servidor aceita com <code>101 Switching Protocols</code>. O <code>Sec-WebSocket-Accept</code> é o SHA-1 da chave do cliente somada a <code>258EAFA5-E914-47DA-95CA-C5AB0DC85B11</code>, em base64: prova de que o servidor entendeu o pedido.
+
+<pre><code>{String.raw`HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=`}</code></pre>
+  </li>
+  <li><strong>Um quadro de cada vez.</strong> Depois do <code>101</code>, <strong>a mesma conexão TCP</strong> passa a carregar <strong>quadros</strong> (frames), nos dois sentidos.</li>
+  <li><strong>A mensagem real.</strong> A cada 5 s o servidor empurra a posição do caminhão: <code>{`{"pedido":1048,"lat":-8.0476,"lng":-34.877,"eta_min":42}`}</code>, <strong>56 B</strong> de texto. Do servidor para o cliente, o quadro tem <strong>2 B</strong> de cabeçalho: <strong>58 B</strong>. Do cliente para o servidor, a máscara obrigatória soma 4 B: 62 B. O <code>eta_min</code> vale para a última milha, no dia da entrega, e a posição vem do caminhão por MQTT, no módulo 13.</li>
+  <li><strong>Contra o short polling.</strong> Perguntar pela posição seria <code>GET /api/v1/pedidos/1048/posicao</code>, com o JWT do módulo 8: cerca de <strong>317 B</strong> (190 de pedido e 127 de resposta) a cada 5 s. Com <strong>1.000 pedidos a caminho</strong> na Black Friday, são 200 mensagens por segundo × 58 B = ~11,6 KB/s, contra 200 req/s × 317 B = ~63 KB/s e 200 autenticações por segundo no gateway.</li>
+  <li><strong>Manter vivo e fechar.</strong> Um <strong>ping</strong> a cada 20 s (exemplo) e o <strong>pong</strong> de volta mostram que o outro lado está ali. O fechamento educado é um quadro <code>close</code> com código 1000.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O laboratório: um chat em Go</h3>
+
+<p>O repositório público do autor tem um chat com o <code>gorilla/websocket</code>: o servidor escuta na porta <strong>8080</strong>, na rota <code>/ws</code>, e um cliente de terminal conecta, manda e recebe linhas. O <code>server_chat.go</code>, sem alteração:</p>
+
+<CodeLab code={chatServer} />
+
+<p>Três peças fazem o trabalho: o mapa <code>clients</code> (linha 12) guarda as conexões, o canal <code>broadcast</code> (linha 13) recebe cada mensagem e <code>messages</code> (linha 16) guarda o histórico, que cada cliente novo recebe ao entrar (linhas 46 a 51). A goroutine <code>handleMessages</code> lê o canal e escreve para todos os <code>clients</code>. Com o módulo 11 na cabeça, dá para achar <strong>quatro problemas reais</strong>:</p>
+
+<ol class="flow steps">
+  <li><strong>O mapa <code>clients</code> não tem mutex.</strong> Cada conexão nova faz <code>clients[ws] = true</code> (linha 44), <code>handleConnections</code> faz <code>delete</code> na saída (linha 58) e <code>handleMessages</code> percorre o mapa (linha 73), tudo em goroutines diferentes. O <code>mutex</code> da linha 17 só protege <code>messages</code>. O Go pode parar o programa com <code>fatal error: concurrent map writes</code>.</li>
+  <li><strong>Dois escritores na mesma conexão.</strong> O gorilla aceita <strong>um</strong> escritor por conexão ao mesmo tempo. O servidor escreve o histórico (<code>WriteJSON</code>, linha 49) e, por outra goroutine, o broadcast (<code>WriteMessage</code>, linha 75), e as duas podem rodar juntas num cliente que acabou de entrar.</li>
+  <li><strong><code>log.Fatal</code> no upgrade.</strong> Se o <code>Upgrade</code> falha (um cliente que mandou um pedido errado), a linha 40 chama <code>log.Fatal</code>, que encerra o programa. Um cliente ruim derruba o servidor inteiro, com todos os outros conectados.</li>
+  <li><strong>Dois formatos de saída.</strong> O histórico sai como JSON (<code>WriteJSON</code>) e o broadcast sai como texto <code>usuario: mensagem</code> (linha 74). Quem lê precisa tratar os dois.</li>
+</ol>
+
+<h3 class="sec">E se der errado</h3>
+
+<ol class="flow steps">
+  <li><strong>Conexão morta sem aviso.</strong> O celular da Lena troca de 4G para Wi-Fi. A conexão antiga morre sem nenhum FIN, e o app continua esperando uma posição que nunca chega. Conserto: ping e pong com prazo (sem pong, fecha e reabre), <strong>reconexão com backoff e jitter</strong> e retomada pelo último número de mensagem recebido (<code>ultimo_seq</code>), para o app pedir só o que perdeu.</li>
+  <li><strong>Reconexão em massa.</strong> O pod do WebSocket reinicia num deploy e as <strong>1.000</strong> conexões voltam no mesmo segundo. Com um jitter aleatório de 0 a 30 s, chegam cerca de 33 reconexões por segundo, e o servidor aguenta.</li>
+</ol>
+
+<WhyItMatters>
+  <li>O WebSocket inverte o papel que o HTTP tinha: o servidor passa a poder falar primeiro. Por isso serve a rastreio, chat e painéis ao vivo.</li>
+  <li>Conexão aberta é estado. Cada uma fica presa a um pod, ocupa memória e precisa de um jeito de ser retomada, coisas que o REST sem estado da aula 2 dispensava.</li>
+  <li>O lab mostra como esse estado vira os bugs do módulo 11: um mapa de conexões compartilhado, um escritor por conexão, um erro que não pode derrubar ninguém.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"O HTTP cria uma nova conexão TCP para cada requisição".</strong> Só era assim no HTTP/1.0. O HTTP/1.1 reaproveita a conexão (keep-alive) e o HTTP/2 multiplexa as chamadas. O que o WebSocket traz é o <strong>servidor poder enviar sem ser perguntado</strong> e <strong>2 a 14 bytes</strong> de cabeçalho por mensagem.</li>
+    <li><strong>"Garantir a retransmissão de mensagens perdidas".</strong> Retransmitir é trabalho do TCP. O que a aplicação perde são as mensagens enviadas <strong>enquanto estava desconectada</strong>, e é isso que o <code>ultimo_seq</code> recupera.</li>
+  </ul>
+  <h4 class="deep-h">Server-Sent Events: a alternativa</h4>
+  <p>O rastreio só vai do servidor ao app, e para isso o SSE (WHATWG HTML) basta: um só sentido, texto, reconexão automática do navegador com o cabeçalho <code>Last-Event-ID</code>. O WebSocket compensa quando o cliente também precisa mandar mensagens, como num chat.</p>
+  <Sources items={[
+    { label: "RFC 6455: o protocolo WebSocket", href: "https://www.rfc-editor.org/rfc/rfc6455.html" },
+    { label: "gorilla/websocket: exemplo de chat", href: "https://github.com/gorilla/websocket/tree/main/examples/chat" },
+    { label: "gorilla/websocket: documentação (concorrência)", href: "https://pkg.go.dev/github.com/gorilla/websocket" },
+    { label: "WHATWG HTML: Server-Sent Events", href: "https://html.spec.whatwg.org/multipage/server-sent-events.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A Lena já vê o caminhão andar, e a loja tem agora REST, RPC, gRPC e WebSocket. O app, porém, ainda monta a tela inicial com quatro chamadas, uma para cada pedaço, e cada chamada traz campos que a tela nem usa. Falta saber como o cliente pode pedir numa só consulta exatamente os campos de que precisa, que é o GraphQL.</p>
+
+<Flashcards cards={[
+  { q: "O que o <code>101 Switching Protocols</code> muda?",
+    a: "A partir dele, a mesma conexão TCP deixa de falar HTTP e passa a carregar quadros WebSocket, nos dois sentidos." },
+  { q: "Quantos bytes tem a posição do pedido 1048 no WebSocket?",
+    a: "56 B de texto + 2 B de cabeçalho do quadro = 58 B do servidor para o cliente. Do cliente para o servidor, +4 B de máscara: 62 B." },
+  { q: "Com 1.000 pedidos a caminho, quanto o WebSocket economiza sobre o polling?",
+    a: "200 mensagens/s × 58 B = ~11,6 KB/s, contra 200 req/s × 317 B = ~63 KB/s e 200 autenticações por segundo no gateway." },
+  { q: "Quais são os 4 problemas do servidor de chat do lab?",
+    a: "Mapa clients sem mutex, dois escritores na mesma conexão, log.Fatal no erro do upgrade e histórico em JSON com broadcast em texto." },
+  { q: "A conexão da Lena morreu sem aviso. Como o app se recupera?",
+    a: "Ping e pong com prazo, reconexão com backoff e jitter, e retomada pelo último número de mensagem (ultimo_seq)." },
+]} />

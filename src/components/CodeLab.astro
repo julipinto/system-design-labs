@@ -1,0 +1,11 @@
+---
+// Código real de um laboratório, com os números de linha do arquivo original. `code` vem de um import ?raw;
+// `from` e `to` (1-based, inclusivos) recortam um trecho sem renumerar. Os números são só leitura: ficam num data-attribute.
+interface Props { code: string; from?: number; to?: number }
+const { code, from = 1, to } = Astro.props;
+const all = code.replace(/\n$/, '').split('\n');
+const last = Math.min(to ?? all.length, all.length);
+const w = String(last).length;
+const text = all.slice(from - 1, last).map((l, i) => String(from + i).padStart(w, ' ') + '  ' + l).join('\n');
+---
+<pre><code>{text}</code></pre>

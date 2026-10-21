@@ -1,0 +1,105 @@
+---
+title: "Webhooks, short polling e long polling"
+order: 3
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O Davi gerou o Pix às 14:05:00 e vai pagar às 14:05:23, no aplicativo do banco, e só o PSP fica sabendo na hora. A chamada <code>POST /cobrancas</code> da aula passada já terminou com um <code>202 pendente</code>, então ninguém está esperando em nenhuma conexão. Como a tela do Davi descobre que o dinheiro entrou?</p>
+
+<OneLiner>Para saber de algo que acontece depois da resposta, ou a tela pergunta de tempos em tempos (short polling), ou o servidor segura a resposta até haver novidade (long polling), ou quem sabe chama a loja quando acontece (webhook).</OneLiner>
+
+<DoIt>
+  <p>Na figura, comece pelo botão <strong>Short</strong> (a tela pergunta a cada 2 s) e conte quantos pontos saem até a tela atualizar e quantos voltam vazios. Depois aperte <strong>Long</strong>, <strong>Webhook</strong> e <strong>Comparar</strong> para ver os outros jeitos de esperar o mesmo Pix e compare o número de requisições e o atraso. Chegue ao passo <strong>"e se der errado"</strong> de cada um. No widget, suba as telas para 5.000 e veja quando o <code>pedidos</code> satura.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/espera-3d/?mode=curto" poster="labs/comunicacao-sincrona/espera-3d-previa.webp" title="Figura interativa: Short polling: perguntar a cada 2 s" alt="Prévia da figura 3D: Short polling: perguntar a cada 2 s" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Short polling, a caixa de correio.</strong> A tela pergunta <code>GET /api/v1/pedidos/1050/status</code> a cada <strong>2 s</strong> e recebe <code>{`{"status":"aguardando_pagamento"}`}</code>. O Pix entra aos 23,4 s e a pergunta seguinte é a de 24 s, a 12ª: foram <strong>12 requisições</strong>, 11 inúteis, e a tela atualizou <strong>0,6 s</strong> depois (em média, 1 s).</li>
+  <li><strong>O preço aparece em escala.</strong> Na Black Friday, <strong>5.000</strong> telas esperando Pix, uma pergunta a cada 2 s cada, são <strong>2.500 req/s</strong>. A 2 ms de CPU por pergunta, são <strong>5 vCPU</strong> só para ouvir "ainda não", e o <code>pedidos</code> tem 3 vCPU (3 réplicas de 1 vCPU, módulo 6): saturado. Cada pergunta, com o JWT do módulo 8, custa na ordem de 300 B de rede ida e volta.</li>
+  <li><strong>Long polling, a RFC 6202.</strong> A tela pergunta <code>GET /api/v1/pedidos/1050/status?aguardar=pago&amp;timeout=10</code> e o servidor <strong>segura a resposta</strong> até o status mudar ou passarem 10 s. O Pix entra às 14:05:23.4, a resposta sai às <strong>14:05:23.45</strong>, uns <strong>50 ms</strong> depois. Desde 14:05:00 foram <strong>3 perguntas</strong> em vez de 12 (às 0, 10 e 20 s), e a que trouxe a notícia já estava esperando quando o Pix entrou. No pior caso, em que ninguém paga, são 5.000 ÷ 10 s = <strong>500 req/s</strong>, cinco vezes menos que 2.500.</li>
+  <li><strong>Mas segurar custa conexão.</strong> São <strong>5.000 conexões abertas</strong>, cada uma uma goroutine (módulo 11) e um descritor de arquivo, e o limite padrão do Linux costuma ser 1.024 por processo. O custo saiu da CPU e foi para a conexão.</li>
+  <li><strong>Webhook, o entregador que toca a campainha.</strong> Em vez de a loja perguntar, o <strong>PSP chama a loja</strong> quando o Pix cai, às 14:05:23.43. Quem recebe é o <strong>servidor</strong> da loja, não o navegador: o webhook alimenta o long polling (ou o WebSocket da aula 6). A cadeia é PSP —webhook→ <code>pagamentos</code> → <code>pedidos</code> —long polling→ tela.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="espera" title="Perguntar, segurar ou ser avisado?" hint="Escolha quantas telas esperam, de quanto em quanto tempo elas perguntam e quando o Pix cai. O widget calcula requisições por segundo, CPU gasta e atraso de cada jeito, com 2 ms de CPU por requisição." />
+
+<h3 class="sec">O webhook em detalhe: o contrato</h3>
+
+<p>Chamar a loja de fora abre uma porta pública. Por isso o webhook tem um contrato. Este é o registro que o PSP manda para <code>POST https://api.loja.com.br/webhooks/psp</code>:</p>
+
+<pre><code>{String.raw`POST /webhooks/psp HTTP/1.1
+Host: api.loja.com.br
+Content-Type: application/json
+X-PSP-Signature: t=1792000000,v1=068149938cba8e09bb177226c07dc4123cf00f012211374b314e534c05eee13a
+
+{"evento_id":"ev-8812","tipo":"cobranca.paga","cobranca_id":"c-7731","valor_centavos":2890,"pago_em":"14:05:23"}`}</code></pre>
+
+<ol class="flow steps">
+  <li>O corpo tem <strong>112 bytes</strong>. O <code>v1</code> é o <strong>HMAC-SHA256</strong> (RFC 2104) do texto <code>"1792000000." + corpo</code>, calculado com um segredo que só o PSP e a loja conhecem. Aqui o segredo de exemplo é <code>segredo-de-exemplo</code>.</li>
+  <li>O <code>pagamentos</code> refaz a conta com o mesmo segredo e confere o <code>v1</code>. Se o corpo foi mexido no caminho, ou se quem chamou não tem o segredo, o valor não bate.</li>
+  <li>Ele olha o <code>t</code>: se for mais velho que <strong>5 minutos</strong>, recusa, para que uma chamada gravada não possa ser reenviada depois.</li>
+  <li>Guarda o <code>evento_id</code> (<code>ev-8812</code>) e responde <strong>200 em ~30 ms</strong>. Só depois o <code>pedidos</code> marca o 1050 como pago e o evento <code>PedidoPago</code> (módulo 6) sai.</li>
+</ol>
+
+<Widget name="assinatura" title="A assinatura do webhook confere?" hint="Mude o corpo, o segredo ou o tempo que a chamada levou para chegar. O widget refaz o HMAC-SHA256 no seu navegador e diz se a assinatura é válida, inválida ou expirada." />
+
+<h3 class="sec">E se der errado</h3>
+
+<ol class="flow steps">
+  <li><strong>Long polling cortado.</strong> O <code>gw-loja</code> corta qualquer requisição parada por <strong>15 s</strong> (exemplo; o Envoy tem 15 s de timeout de rota por padrão), e a tela segurava <strong>25 s</strong>. Todo cliente recebe <strong>504</strong> aos 15 s. O conserto é fazer o tempo que o servidor segura (10 s) ficar <strong>menor</strong> que o timeout de todo intermediário no caminho.</li>
+  <li><strong>Webhook lento e duplicado.</strong> O <code>pagamentos</code> faz tudo antes de responder e leva <strong>12 s</strong>. O PSP espera 5 s, dá o envio como falho e <strong>reenvia</strong> (em 1 min, 5 min e 30 min, como exemplo). O <code>ev-8812</code> chega duas vezes. Conserto: idempotência por <code>evento_id</code> e responder 200 logo, processando depois (módulo 13).</li>
+  <li><strong>Webhook falso.</strong> Alguém descobre a URL e manda um <code>cobranca.paga</code> inventado. Se a loja não confere a assinatura, o pedido sai de graça.</li>
+  <li><strong>Fora de ordem.</strong> O PSP reenvia um <code>pendente</code> depois de um <code>paga</code>. Conserto: guardar a versão do evento e ignorar a que for mais velha (módulo 11, <code>event_version</code>).</li>
+</ol>
+
+<WhyItMatters>
+  <li>Perguntar é o jeito mais fácil e o mais caro: cada resposta "ainda não" é uma requisição inteira, com autenticação, e ela cresce com o número de telas.</li>
+  <li>Segurar e avisar trocam CPU por outras contas: conexão aberta no long polling, contrato de segurança no webhook. Nenhum dos dois é de graça, e cada um tem um jeito próprio de falhar.</li>
+  <li>O webhook inverte quem chama. A loja vira o servidor de um terceiro, e por isso precisa de assinatura, de resposta rápida e de tolerância a duplicidade e a ordem trocada.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Webhooks … ainda de forma síncrona".</strong> A chamada HTTP é síncrona, mas o evento é uma notificação de saída. O que importa é o contrato: responder 2xx rápido, reenvio, assinatura, duplicidade e ordem. O artigo não fala de nenhum deles.</li>
+    <li><strong>Short e long polling não aparecem com nome.</strong> O artigo só diz "polling". As duas definições vêm da RFC 6202, e esta lacuna fica registrada.</li>
+  </ul>
+  <h4 class="deep-h">Server-Sent Events</h4>
+  <p>Para a tela só ler, existe uma terceira via, o SSE (WHATWG HTML): o servidor mantém uma resposta aberta e escreve eventos de texto nela, e o navegador reconecta sozinho com o <code>Last-Event-ID</code>. Aparece de novo na aula 6.</p>
+  <h4 class="deep-h">Standard Webhooks</h4>
+  <p>A forma da assinatura da aula (um carimbo de tempo mais o HMAC do corpo) segue o que as especificações abertas de webhook recomendam: assinar também o tempo evita que alguém reenvie uma chamada gravada. Os cabeçalhos exatos mudam de um provedor para outro.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis (caixa de correio e entregador, fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "RFC 6202: long polling e streaming em HTTP bidirecional", href: "https://www.rfc-editor.org/rfc/rfc6202.html" },
+    { label: "RFC 2104: HMAC", href: "https://www.rfc-editor.org/rfc/rfc2104.html" },
+    { label: "Standard Webhooks: especificação", href: "https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md" },
+    { label: "WHATWG HTML: Server-Sent Events", href: "https://html.spec.whatwg.org/multipage/server-sent-events.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Perguntar, segurar e avisar resolvem como a tela sabe do Pix, e os três continuam sendo HTTP com JSON em texto. Dentro da loja, porém, o <code>pedidos</code> chama o <code>pagamentos</code> o tempo todo, e escrever um endereço, um verbo e um corpo a cada vez parece trabalho demais para algo que se parece com uma chamada de função. Falta saber se dá para chamar uma função em outra máquina como se ela fosse local.</p>
+
+<Flashcards cards={[
+  { q: "Quantas requisições o short polling de 2 s gasta até a tela saber do Pix das 14:05:23.4?",
+    a: "12 requisições, 11 inúteis. A 12ª é a de 24 s, e a tela atualiza 0,6 s depois do pagamento." },
+  { q: "Por que 5.000 telas em short polling saturam o <code>pedidos</code>?",
+    a: "5.000 ÷ 2 s = 2.500 req/s, a 2 ms de CPU cada são 5 vCPU, e o pedidos tem só 3 vCPU." },
+  { q: "O que o long polling resolve e o que ele custa?",
+    a: "O servidor segura a resposta até o status mudar (~50 ms depois) ou 10 s passarem: no pior caso, 500 req/s em vez de 2.500. Custa 5.000 conexões abertas, uma goroutine e um descritor de arquivo cada." },
+  { q: "Como a loja sabe que o webhook veio mesmo do PSP?",
+    a: "Refaz o HMAC-SHA256 de \"t.\" + corpo com o segredo compartilhado, compara com o v1 do cabeçalho e recusa se o t tiver mais de 5 minutos." },
+  { q: "O PSP reenviou o <code>ev-8812</code>. O que impede a loja de processar duas vezes?",
+    a: "Guardar o evento_id e ignorar o repetido, e responder 200 logo, antes de processar." },
+]} />

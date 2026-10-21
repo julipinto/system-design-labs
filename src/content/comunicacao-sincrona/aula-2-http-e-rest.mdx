@@ -1,0 +1,152 @@
+---
+title: "HTTP e REST"
+order: 2
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import booksMain from '../../lab-code/comunicacao-sincrona/books-main.go?raw';
+import booksHandlers from '../../lab-code/comunicacao-sincrona/books-handlers.go?raw';
+
+<p class="ponte">Na aula passada a cobrança <code>c-7731</code> ficou no PSP sem que ninguém soubesse, porque a chamada do <code>pagamentos</code> foi tão incerta quanto o texto que a carregava. Então vale abrir esse texto. A chamada mais comum entre serviços é o HTTP, com o estilo REST em cima, e o pedido do Davi cabe em poucas linhas que dá para ler uma a uma.</p>
+
+<OneLiner>REST é um estilo para nomear coisas (recursos) com URIs e agir nelas com os métodos do HTTP; cada chamada leva tudo o que o servidor precisa saber, e o status da resposta diz o que aconteceu.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance pelo passo em que o pedido 1050 vira texto e conte os bytes: cabeçalhos mais corpo. Depois siga a resposta de volta e repare no que se repete se a chamada acontecer uma segunda vez. Por fim, abra o passo <strong>"e se der errado"</strong> e conte quantos pedidos a loja registra quando o app tenta de novo.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/chamada-3d/?mode=rest" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Figura interativa: REST: HTTP/1.1 e JSON" alt="Prévia da figura 3D: REST: HTTP/1.1 e JSON" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>A requisição.</strong> Estes são os bytes reais do <code>pedidos</code> chamando o <code>pagamentos</code> (HTTP/1.1 em texto puro; com o TLS da malha do módulo 10 o conteúdo é o mesmo, só cifrado). Os cabeçalhos têm <strong>157 B</strong> e o corpo, <strong>53 B</strong>: <strong>210 B</strong>.
+
+<pre><code>{String.raw`POST /cobrancas HTTP/1.1
+Host: pagamentos:8080
+User-Agent: pedidos-go/1.0
+Accept: application/json
+Content-Type: application/json
+Content-Length: 53
+
+{"pedido_id":1050,"valor_centavos":2890,"meio":"pix"}`}</code></pre>
+  </li>
+  <li>
+  <strong>A resposta.</strong> O PSP ainda não confirmou, então o <code>pagamentos</code> devolve <code>202 Accepted</code>, "aceitei, está pendente". O cabeçalho <code>Location</code> aponta para o recurso novo. São <strong>106 B</strong> de cabeçalhos e <strong>44 B</strong> de corpo: <strong>150 B</strong>.
+
+<pre><code>{String.raw`HTTP/1.1 202 Accepted
+Content-Type: application/json
+Content-Length: 44
+Location: /cobrancas/c-7731
+
+{"cobranca_id":"c-7731","status":"pendente"}`}</code></pre>
+  </li>
+  <li><strong>Quanto custa.</strong> Ida e volta, <strong>360 bytes por chamada</strong>. Como o HTTP/1.1 é texto, todos os cabeçalhos vão de novo a cada chamada, e a de número 1.000 repete <code>User-Agent</code> e <code>Accept</code> como a primeira.</li>
+  <li><strong>O estilo.</strong> Fielding descreveu o REST na tese de 2000 com cinco ideias. <strong>Recursos</strong> têm nome (<code>/pedidos/1050</code>) e <strong>métodos</strong> dizem a ação. A chamada é <strong>sem estado</strong>: cada uma traz o JWT do módulo 8, e o servidor não guarda sessão. A resposta pode ser <strong>cacheada</strong>: o <code>GET /produtos/42</code> volta com <code>ETag: "v7"</code> e, na volta, <code>If-None-Match: "v7"</code> recebe <code>304 Not Modified</code> sem corpo (o cache do módulo 5). Há <strong>camadas</strong>: o gateway e o balanceador do meio (módulos 7 e 8) não precisam ser conhecidos por quem chama. E a <strong>interface é uniforme</strong>, igual para todo recurso.</li>
+  <li><strong>Os métodos.</strong> A RFC 9110 define o que cada um garante. Um método <strong>seguro</strong> não muda nada no servidor. Um <strong>idempotente</strong> pode ser repetido e o resultado final é o mesmo. A tabela abaixo mostra o que vale para cada um.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <thead><tr><th scope="col">Método</th><th scope="col">Seguro</th><th scope="col">Idempotente</th><th scope="col">Na loja</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">GET</th><td>sim</td><td>sim</td><td><code>GET /api/v1/pedidos/1050</code> → 200</td></tr>
+    <tr><th scope="row">HEAD</th><td>sim</td><td>sim</td><td>só os cabeçalhos do pedido</td></tr>
+    <tr><th scope="row">PUT</th><td>não</td><td>sim</td><td><code>PUT /api/v1/pedidos/1050</code> troca o pedido inteiro</td></tr>
+    <tr><th scope="row">DELETE</th><td>não</td><td>sim</td><td><code>DELETE /api/v1/pedidos/1050</code> → 204</td></tr>
+    <tr><th scope="row">POST</th><td>não</td><td><strong>não</strong></td><td><code>POST /api/v1/pedidos</code> → 201 + <code>Location: /api/v1/pedidos/1050</code></td></tr>
+    <tr><th scope="row">PATCH</th><td>não</td><td><strong>não</strong></td><td>depende de como a alteração é descrita</td></tr>
+  </tbody>
+</table></div>
+
+<p>A consulta com filtros vai na <strong>query string</strong>: <code>GET /api/v1/pedidos?cliente=davi-12&amp;status=pago&amp;limit=10</code>. E o status diz o que aconteceu, com o vocabulário da loja:</p>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <thead><tr><th scope="col">Status</th><th scope="col">Quando acontece na loja</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">201</th><td>pedido criado</td></tr>
+    <tr><th scope="row">202</th><td>cobrança aceita, ainda pendente</td></tr>
+    <tr><th scope="row">401 e 403</th><td>sem token e sem escopo (módulo 8)</td></tr>
+    <tr><th scope="row">404</th><td>pedido que não existe</td></tr>
+    <tr><th scope="row">409</th><td>sem estoque: o que o Caio recebeu no módulo 11</td></tr>
+    <tr><th scope="row">429</th><td>robô barrado pelo gateway (módulo 8)</td></tr>
+    <tr><th scope="row">503 e 504</th><td>serviço fora (o retry do módulo 10) e gateway sem resposta</td></tr>
+  </tbody>
+</table></div>
+
+<h3 class="sec">O laboratório: uma Books API em Go</h3>
+
+<p>O repositório público do autor tem uma API de livros (Go, Fiber v2 e PostgreSQL 15) que faz o mesmo papel do <code>pedidos</code>: <code>books</code> equivale a <code>pedidos</code>. As rotas, <code>main.go</code> sem alteração (os números de linha são os do arquivo):</p>
+
+<CodeLab code={booksMain} from={39} to={48} />
+
+<p>Cada rota é um método HTTP mais um caminho: <code>GET</code> lista ou busca, <code>POST</code> cria e devolve <code>201</code>, <code>PUT</code> troca o livro inteiro (todos os campos são obrigatórios, como o PUT manda) e <code>DELETE</code> responde <code>204</code>. O <code>README</code> e o <code>test-api.sh</code> chamam <code>localhost:3000</code>. Agora o <code>CreateBook</code> e o <code>DeleteBook</code>, em <code>handlers.go</code>, onde o código e a teoria discordam:</p>
+
+<CodeLab code={booksHandlers} from={96} to={133} />
+
+<CodeLab code={booksHandlers} from={188} to={206} />
+
+<ol class="flow steps">
+  <li><strong>POST com ISBN repetido devolve 500.</strong> A coluna <code>isbn</code> é <code>UNIQUE</code>, então o segundo insert do mesmo livro falha, e o <code>if err != nil</code> da linha 126 responde <code>500 Erro ao criar livro</code>. Erro do cliente (já existe) vira erro do servidor. O status certo seria <strong>409</strong>, o mesmo que o <code>estoque</code> da loja usa.</li>
+  <li><strong>DELETE responde 204 até quando o id não existe.</strong> O código chama <code>result.RowsAffected()</code> e ignora o número. Apagar o que já não existe dá o mesmo estado final, e por isso o DELETE é idempotente, mas o cliente não fica sabendo se apagou ou se nunca houve nada.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o app tenta de novo</h3>
+
+<ol class="flow steps">
+  <li>O app do Davi manda <code>POST /api/v1/pedidos</code>. O <code>pedidos</code> cria o pedido 1050 e a cobrança, mas a resposta demora e o app desiste de esperar.</li>
+  <li>O app <strong>tenta de novo</strong>. Como POST não é idempotente, o servidor trata a segunda chamada como um pedido novo: nascem <strong>dois pedidos</strong> (1050 e outro) e duas cobranças de 28.90.</li>
+  <li>É por isso que a malha do módulo 10 só repete, sozinha, operações idempotentes.</li>
+  <li>O conserto tem dois caminhos. O cabeçalho <code>Idempotency-Key: 3f9a…</code> (rascunho do IETF): o servidor guarda a chave e, na segunda chamada com a mesma chave, devolve a resposta da primeira. Ou o cliente gera o id do pedido e chama <code>{`PUT /pedidos/{id}`}</code>, que repetido dá o mesmo resultado.</li>
+</ol>
+
+<WhyItMatters>
+  <li>Saber o que o HTTP escreve no fio ajuda a ler captura e log: o <code>Content-Length: 53</code> bate com o corpo, e o <code>Location</code> diz onde o recurso novo ficou.</li>
+  <li>Os 360 bytes repetidos em cada chamada são o preço do texto. Na aula 5 o mesmo pedido vira 11 bytes de corpo.</li>
+  <li>Método e status são um acordo público entre quem chama e quem responde. É ele que deixa o gateway, o cache e a malha agirem sem conhecer a loja: repetir um GET é seguro, repetir um POST pode cobrar duas vezes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"REST é a principal abordagem".</strong> O que a maioria das APIs "REST" faz é HTTP com JSON, sem hipermídia: o nível 2 do modelo de maturidade de Richardson. Fielding (2008) diz que, sem hipermídia dirigindo o cliente, não é REST. Por isso a aula diz "API HTTP no estilo REST".</li>
+    <li><strong>Tabela de idempotência.</strong> O artigo está certo ao dizer que o PATCH "depende". Falta marcar quais métodos são <strong>seguros</strong> (GET e HEAD) e citar a RFC 9110 como fonte. E o <code>PUT</code> "cria ou atualiza" é verdade, mas responde 201 quando cria e 200 ou 204 quando atualiza.</li>
+  </ul>
+  <h4 class="deep-h">Os níveis de Richardson, em uma linha cada</h4>
+  <ul>
+    <li><strong>Nível 0:</strong> um endereço só, tudo por POST. <strong>Nível 1:</strong> recursos com URI própria. <strong>Nível 2:</strong> métodos HTTP e status usados direito. <strong>Nível 3:</strong> a resposta traz links e o cliente os segue (hipermídia).</li>
+  </ul>
+  <h4 class="deep-h">Por que o lab usa 204 no DELETE</h4>
+  <p>A RFC 9110 permite 200, 202 ou 204 para um DELETE bem-sucedido. O que ela não pede é esconder do cliente que o recurso nunca existiu; devolver 404 nesse caso é uma escolha de desenho, e a idempotência vale nas duas.</p>
+  <Sources items={[
+    { label: "RFC 9110: Semântica do HTTP (métodos, status, validadores)", href: "https://www.rfc-editor.org/rfc/rfc9110.html" },
+    { label: "RFC 9112: HTTP/1.1", href: "https://www.rfc-editor.org/rfc/rfc9112.html" },
+    { label: "Fielding, tese de 2000, cap. 5: Representational State Transfer", href: "https://ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm" },
+    { label: "Fielding, \"REST APIs must be hypertext-driven\" (2008)", href: "https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven" },
+    { label: "Martin Fowler, Richardson Maturity Model", href: "https://martinfowler.com/articles/richardsonMaturityModel.html" },
+    { label: "Rascunho do IETF para o cabeçalho Idempotency-Key", href: "https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A chamada do Davi agora tem bytes, método e status, e o retry mostrou o que um POST repetido custa. Mas a tela dele ainda não sabe quando o Pix cai: ele paga às 14:05:23 e o PSP é quem fica sabendo primeiro. Falta saber como esse aviso chega de volta, se a tela pergunta, se o servidor segura a resposta ou se o PSP chama a loja.</p>
+
+<Flashcards cards={[
+  { q: "Quanto a chamada <code>POST /cobrancas</code> do pedido 1050 gasta em bytes, ida e volta?",
+    a: "210 B de requisição (157 de cabeçalhos + 53 de corpo) e 150 B de resposta (106 + 44): 360 bytes por chamada, com todos os cabeçalhos repetidos a cada vez." },
+  { q: "Quais métodos HTTP são seguros e quais são idempotentes?",
+    a: "Seguros: GET e HEAD. Idempotentes: GET, HEAD, PUT e DELETE. POST e PATCH não são idempotentes (RFC 9110)." },
+  { q: "O que faz o <code>304 Not Modified</code>?",
+    a: "Responde, sem corpo, que a cópia em cache ainda vale: o cliente mandou <code>If-None-Match: \"v7\"</code> e o ETag continua o mesmo." },
+  { q: "O app do Davi tentou o POST de novo. O que aconteceu e como consertar?",
+    a: "Nasceram 2 pedidos e 2 cobranças de 28.90, porque POST não é idempotente. Conserto: cabeçalho Idempotency-Key, ou PUT com id gerado pelo cliente." },
+  { q: "O que o POST do lab devolve com ISBN repetido, e o que seria correto?",
+    a: "Devolve 500, porque a violação da chave única cai no 'Erro ao criar livro'. O correto seria 409." },
+]} />
