@@ -49,6 +49,8 @@ const modules: Mod[] = [
     text: 'Guardar o que aconteceu como a fonte da verdade e derivar o estado: o pedido 1047 como eventos, agregados, Event Store com versão esperada, bus, projeções, rehidratação, snapshot, ordem por versão e idempotência, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'resiliencia', title: 'Patterns de Resiliência', lessons: 13, poster: 'labs/resiliencia/chamadas-3d-previa.webp', alt: 'Prévia da figura 3D da chamada que atravessa a loja até o PSP',
     text: 'Continuar vendendo quando o PSP responde em 8 s: disponibilidade e orçamento de erro, blast radius, healthchecks, idempotência, timeouts, retry com backoff e jitter, circuit breaker, fallback, degradação, backpressure, camada de dados e bulkheads, com calculadoras e quiz de 72 perguntas.' },
+  { n: 25, slug: 'bulkhead', title: 'Bulkhead Pattern', lessons: 5, poster: 'labs/bulkhead/anteparas-3d-previa.webp', alt: 'Prévia da figura 3D do pool de conexões dividido em compartimentos',
+    text: 'Um furo alaga só o seu compartimento: o pool de 20 conexões do pedidos e o relatório das 23:00 com o k6 de verdade, bulkheads lógicos e físicos, o custo da divisão (Erlang C), raio de explosão, sharding funcional e operacional e os seis desenhos de referência, com calculadoras e quiz de 35 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

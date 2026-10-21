@@ -1,0 +1,99 @@
+---
+title: "Bulkheads e blast radius"
+order: 3
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja aprendeu a escolher o recurso e o tamanho de cada compartimento. Resta a pergunta que justifica o trabalho: <strong>quanto estrago</strong> sobra quando um deles cai? O artigo traz uma tabela simples, em que mais compartimentos dão menos estrago. Ela está certa na ordem de grandeza e esconde três coisas que a loja já viu.</p>
+
+<OneLiner>O <strong>raio de explosão</strong> (<em>blast radius</em>) é a <strong>fração do tráfego</strong> do compartimento que cai. A tabela 1 ÷ N só vale com tráfego <strong>uniforme</strong>; com um cliente enorme, vale o <strong>pior caso</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Raio</strong>, passe de 1 para 3 compartimentos e leia o raio e a disponibilidade. Depois ligue o <code>mkt-01</code> e veja o shard quente subir para 60%.</p>
+</DoIt>
+
+<Figure3D path="labs/bulkhead/anteparas-3d/?mode=raio" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Figura interativa: O raio de explosão" alt="Prévia da figura 3D: O raio de explosão" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A tabela do artigo.</strong> Com N compartimentos e tráfego igual, um incidente derruba 1 ÷ N. A tabela abaixo é a dele com as contas conferidas: o artigo arredonda 33,3% e 66,7% para 33% e 66%.</li>
+  <li><strong>O tráfego não é uniforme.</strong> O raio é a <strong>fração do tráfego</strong> do compartimento, não 1 ÷ N. Com o <code>mkt-01</code> (módulo 16), os 3 shards do <code>pedidos</code> têm <strong>20% · 20% · 60%</strong>. A média dos três é 33,3%, mas o <strong>pior caso é 60%</strong>.</li>
+  <li><strong>O shard dedicado.</strong> Com 4 shards, o do <code>mkt-01</code> sozinho e os outros três a 20%, fica <strong>20% · 20% · 20% · 40%</strong>: o pior caso cai para <strong>40%</strong>. A eficiência de 55,6% e o raio de 60% do módulo 16 são o mesmo fato visto de dois lados.</li>
+  <li><strong>Shuffle sharding.</strong> Em grupos fixos de 2 réplicas em 10, um cliente barulhento derruba <strong>20%</strong> dos clientes. Com o <em>shuffle</em> de 2 em 10 há 45 pares: o pior caso é 1 ÷ 45 = <strong>2,2%</strong>.</li>
+  <li><strong>O que a tabela esconde.</strong> As dependências globais. Os 3 shards chamam o <strong>mesmo</strong> <code>estoque</code>, o <strong>mesmo</strong> <code>pagamentos</code>, o <strong>mesmo</strong> Redis (módulo 5) e o <strong>mesmo</strong> <code>lb-loja</code>. Se o <code>estoque</code> cai, o raio é <strong>100%</strong>, apesar dos 3 shards.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Bulkheads (N)</th><th>Raio (1 ÷ N)</th><th>Disponibilidade em um incidente</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>100%</td><td>0%</td></tr>
+    <tr><th>2</th><td>50%</td><td>50%</td></tr>
+    <tr><th>3</th><td><strong>33,3%</strong></td><td><strong>66,7%</strong> (o artigo diz 33% e 66%)</td></tr>
+    <tr><th>5</th><td>20%</td><td>80%</td></tr>
+    <tr><th>10</th><td>10%</td><td>90%</td></tr>
+    <tr><th>20</th><td>5%</td><td>95%</td></tr>
+    <tr><th>50</th><td>2%</td><td>98%</td></tr>
+    <tr><th>100</th><td>1%</td><td>99%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="raio" title="Raio de explosão" hint="N compartimentos (1 a 100) e a distribuição (uniforme, com o mkt-01 a 40% ou com o shard dedicado). Mostra o raio médio e o pior caso, o shuffle sharding (C(n,k)) e as contas 1 − (1 − p)^N e p^N." />
+
+<h3 class="sec">O raio cai, o número de incidentes sobe</h3>
+
+<p>Há um segundo efeito que a tabela não mostra. Cada compartimento tem a sua chance de falhar. Suponha que cada um fique fora <strong>0,1%</strong> do tempo (99,9% de disponibilidade, p = 0,001). A chance de <strong>algum</strong> estar fora é 1 − 0,999<sup>N</sup>: <strong>0,10%</strong> com 1 compartimento, <strong>0,30%</strong> com 3, <strong>1,00%</strong> com 10, <strong>4,88%</strong> com 50 e <strong>9,52%</strong> com 100. Quanto mais peças, mais incidentes pequenos.</p>
+
+<p>Para <strong>um cliente</strong> que depende de <strong>um</strong> compartimento a indisponibilidade continua <strong>0,1%</strong>. O que muda é a <strong>cauda</strong>: a chance de <strong>todos</strong> estarem fora ao mesmo tempo é p<sup>N</sup>, ou 0,1% com N = 1 e <strong>10<sup>−9</sup></strong> com N = 3. O bulkhead não melhora o tempo médio de falha de cada cliente. Melhora o <strong>tamanho do incidente</strong> e <strong>elimina a parada total</strong>.</p>
+
+<h3 class="sec">E se der errado: o shard quente e o estoque global</h3>
+
+<p>O primeiro furo é o <strong>shard quente</strong>. O <code>mkt-01</code> concentra 60% do tráfego num dos 3 shards, e o raio do incidente é 60%, não 33%. O dedicado leva o pior caso a 40%, e ainda não é 25%. O segundo furo é o <strong>canal oculto</strong>: o <code>estoque</code> é um só para todos os shards. Quando ele cai, o raio é de <strong>100%</strong>, e nenhuma das divisões da loja aparece no mapa do incidente. A conta certa começa pelo desenho das <strong>dependências compartilhadas</strong>, não pelo número de shards.</p>
+
+<WhyItMatters>
+  <li><strong>O raio é uma fração do tráfego.</strong> 1 ÷ N é o caso uniforme. Com o <code>mkt-01</code> vale o pior caso: 60% em 3 shards, 40% com o dedicado.</li>
+  <li><strong>Mais compartimentos, mais incidentes pequenos.</strong> 0,10% de chance de algum estar fora com 1; 4,88% com 50. O que some é a parada total (10<sup>−9</sup>).</li>
+  <li><strong>O global derruba a conta.</strong> Um <code>estoque</code> compartilhado tem raio de 100%, qualquer que seja o número de shards.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>A tabela supõe tráfego uniforme e conta por incidente.</strong> Com o <code>mkt-01</code> o raio é a <strong>maior fração</strong> (60% em 3 shards, 40% com o dedicado), não 1 ÷ N. Arredonda 33,3% e 66,7% para 33% e 66%.</li>
+    <li><strong>O número de incidentes sobe com N</strong> (1 − 0,999<sup>N</sup>: 0,10% a 4,88% com 50), enquanto a indisponibilidade esperada de cada cliente fica igual (0,1%) e a parada total desaparece (p<sup>N</sup>). O artigo não diz isso.</li>
+    <li><strong>"Cada shard é um bulkhead completo ou parcial".</strong> Um shard de <strong>dados</strong> isola só o dado. O artigo diz depois que é preciso segregar balanceadores, aplicações, bancos, tópicos e filas. Na loja, os 3 shards do <code>pedidos</code> compartilham <code>estoque</code>, <code>pagamentos</code>, Redis e <code>lb-loja</code>: o raio do <code>estoque</code> é 100%.</li>
+    <li><strong>Faltam no artigo:</strong> dimensionar (aula 2), observar a saturação <strong>por compartimento</strong> e <strong>testar</strong> (módulo 24).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Bulkhead Pattern (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Microsoft: padrão Bulkhead", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Google SRE: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O raio já tem conta, e o shard quente já tem aviso. Falta saber <strong>que tipo de divisão</strong> é essa: separar por o que o sistema faz (o relatório, o pedido) ou por quem usa (o <code>mkt-01</code>, os shards)? É o bulkhead funcional e operacional, da aula 4.</p>
+
+<Flashcards cards={[
+  { q: "O que é o raio de explosão?",
+    a: "A fração do tráfego do compartimento que cai quando ele falha. A tabela 1 ÷ N só vale com tráfego uniforme." },
+  { q: "Qual é o pior caso de 3 shards com o mkt-01?",
+    a: "60% (frações 20% · 20% · 60%). Com o shard dedicado, 4 shards a 20% · 20% · 20% · 40%: o pior caso cai para 40%." },
+  { q: "O que o shuffle sharding de 2 em 10 faz?",
+    a: "Há 45 pares: o pior caso derruba 1 ÷ 45 = 2,2% dos clientes, contra 20% dos grupos fixos de 2 em 10." },
+  { q: "O que acontece com os incidentes quando N sobe?",
+    a: "Cada um é menor, mas há mais: com cada compartimento a 99,9%, a chance de algum estar fora vai de 0,10% (1) a 4,88% (50). A parada total vai a p^N (10^-9 com 3)." },
+  { q: "O que a tabela de blast radius esconde?",
+    a: "As dependências globais: os 3 shards chamam o mesmo estoque, pagamentos, Redis e lb-loja. Se o estoque cai, o raio é 100%." },
+]} />

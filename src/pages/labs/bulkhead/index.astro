@@ -1,0 +1,36 @@
+---
+// Módulo Bulkhead Pattern: as 5 aulas de src/content/bulkhead/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/bulkhead.css';
+
+const entries = (await getCollection('bulkhead')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/bulkhead/quiz/');
+---
+<ModuleLayout
+  title="Bulkhead Pattern · SDLabs"
+  description="Dividir recursos finitos em compartimentos para que um furo alague um só: o pool de 20 conexões do pedidos e o relatório das 23:00, bulkheads lógicos e físicos, raio de explosão, sharding funcional e operacional e os seis desenhos de referência, com o k6 real, widgets e quiz."
+  module="bulkhead"
+  heading="Bulkhead Pattern"
+  lead={'O relatório das 23:00 e o pedido da Lena dividem um pool de 20 conexões ao banco, e 1 em cada 3 pedidos do checkout recebe 503. Como dividir threads, conexões, filas e nós em compartimentos para que uma peça ruim alague só o seu, e quanto isso custa.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/bulkhead/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

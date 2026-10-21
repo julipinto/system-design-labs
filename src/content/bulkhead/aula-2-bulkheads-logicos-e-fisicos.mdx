@@ -1,0 +1,107 @@
+---
+title: "Bulkheads lógicos e físicos"
+order: 2
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o pool de 20 conexões foi dividido em 16 + 4 e o cliente parou de receber <code>503</code>, mas a divisão só valia para <strong>uma</strong> coisa, as conexões. Um pod do <code>pedidos</code> tem outros recursos finitos: threads, filas, memória, o próprio nó onde roda. Dividir tudo igual não faz sentido. Falta saber <strong>o que</strong> dividir, e com qual força.</p>
+
+<OneLiner>O bulkhead <strong>lógico</strong> divide recursos de <strong>execução</strong> (threads, filas, conexões, limites): é barato. O <strong>físico</strong> divide <strong>infraestrutura</strong> (nós, clusters, zonas, regiões): é caro e mais forte.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Físico</strong>, ligue o <strong>vazamento de memória do <code>relatorios</code></strong> primeiro com tudo no mesmo nó e depois com os dois pools de nós (<code>checkout</code> e <code>batch</code>). Para rever o pool de conexões dimensionado em 4 + 4, volte ao cenário <strong>Pool</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/bulkhead/anteparas-3d/?mode=fisico" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Figura interativa: Lógico e físico: os nós" alt="Prévia da figura 3D: Lógico e físico: os nós" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Pool de threads.</strong> O Hystrix dá um pool de threads <strong>por dependência</strong>: se a chamada trava, trava só as threads daquele pool. O Resilience4j tem o <code>FixedThreadPoolBulkhead</code>, com pool fixo e fila limitada. O custo é a troca de contexto e a fila.</li>
+  <li><strong>Semáforo.</strong> Conta as chamadas <strong>simultâneas</strong> e recusa a que passa do limite (<code>maxConcurrentCalls</code> no <code>SemaphoreBulkhead</code> do Resilience4j). Roda na thread de quem chama, sem fila, e o <em>timeout</em> fica com o cliente. Com I/O assíncrono o semáforo basta. Com uma biblioteca legada que <strong>bloqueia</strong>, só o pool dedicado impede o travamento.</li>
+  <li><strong>Conexões, filas e limites.</strong> O PgBouncer limita conexões por banco e usuário (<code>default_pool_size</code>). O PostgreSQL tem <code>max_connections</code> de <strong>100</strong>, com 3 reservadas ao superusuário. O Envoy limita conexões e requisições pendentes por destino (1.024 por padrão, no <em>circuit breaking</em>), e o Istio expõe isso no <code>ConnectionPoolSettings</code> do <code>DestinationRule</code>. Filas e tópicos por domínio entram aqui também.</li>
+  <li><strong>Pools de nós.</strong> No Kubernetes, <em>taints</em> e <em>tolerations</em> reservam nós para quem tolera. O <code>checkout</code> roda num pool de nós e o <code>batch</code> noutro. Não é uma configuração de biblioteca: é <strong>máquina separada</strong>.</li>
+  <li><strong>Clusters, zonas e regiões.</strong> Domínios com metas incompatíveis ou de alta criticidade ganham cluster próprio. O isolamento passa a ser estrutural, e o custo sobe junto.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Quanto dar a cada compartimento</h3>
+
+<p>Isolar não basta: o tamanho de cada compartimento precisa de uma conta. A regra é <strong>conexões = λ × W × folga</strong>. Para o interativo (checkout mais status), 0,2 + 0,2 = <strong>0,4</strong> conexões em uso. Com folga de <strong>10×</strong> para a variabilidade (módulo 23), bastam <strong>4</strong>. Para o batch, o relatório <strong>quer</strong> 10 × 4 = 40, mas o banco só aguenta algumas consultas pesadas ao mesmo tempo, então ele ganha um teto de <strong>4</strong>.</p>
+
+<p>Pelo Little, o pool dividido seria <strong>4 + 4 = 8</strong>. As outras <strong>12</strong> conexões <strong>voltam</strong> para o <code>max_connections</code> do banco (100, 97 para quem não é superusuário, módulos 11 e 15). <strong>Dividir pode economizar conexões.</strong> O k6 da aula 1 usou 16 + 4 = 20 só para comparar com o pool único com o <strong>mesmo total</strong>; o interativo tem folga de 40× lá, e o custo é conexão ociosa.</p>
+
+<p>E o relatório? Em vez de apertá-lo no primário, o conserto melhor é <strong>físico</strong>: ele lê da <strong>réplica do Rio</strong> (módulo 17). O lag de 300 ms na Black Friday não importa para um relatório, e a consulta pesada <strong>não toca o primário</strong>: 0 conexões e 0% da capacidade de escrita do <code>shard</code>.</p>
+
+<h3 class="sec">A divisão tem preço: multiplexação estatística</h3>
+
+<p>Um pool grande aproveita melhor os workers: quando um fica livre, qualquer fluxo o usa. Isso é a <strong>multiplexação estatística</strong>. Ao dividir, cada compartimento enfrenta sozinho as suas rajadas. A conta é a de <strong>Erlang C</strong> (a fila M/M/c do módulo 23). Com <strong>12 workers em 1 pool</strong>, carga de 70% (8,4 erlangs) e serviço de S = 50 ms, a probabilidade de esperar é <strong>18,4%</strong> e a espera média, <strong>2,6 ms</strong>. Os <strong>mesmos 12 em 3 pools de 4</strong>: <strong>42,9%</strong> de chance de esperar e <strong>17,9 ms</strong>. A 80% de carga: 36,9% e 7,7 ms contra 59,6% e 37,3 ms.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Desenho (carga 70%)</th><th>Workers</th><th>P(esperar)</th><th>Espera média</th></tr></thead>
+  <tbody>
+    <tr><th>1 pool de 12</th><td>12</td><td>18,4%</td><td>2,6 ms</td></tr>
+    <tr><th>3 pools de 4</th><td>12</td><td>42,9%</td><td>17,9 ms</td></tr>
+    <tr><th>3 pools de 5 (iguala a P)</th><td>15 (+25%)</td><td>19,0%</td><td>4,3 ms</td></tr>
+    <tr><th>3 pools de 6 (iguala a espera)</th><td>18 (+50%)</td><td>7,5%</td><td>1,2 ms</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="erlang" title="Multiplexação (Erlang C)" hint="Workers totais, número de pools, carga (50% a 90%) e tempo de serviço S. Mostra a probabilidade de esperar e a espera média (pool único contra dividido) e quantos workers a mais igualam." />
+
+<p>Para <strong>igualar</strong> a probabilidade de esperar (≈ 18,4%), cada pool precisa de <strong>5</strong> workers: 15 no total, <strong>+25%</strong>. Para igualar o tempo médio de espera, <strong>6</strong> cada, 18 no total, <strong>+50%</strong>. Dividir um pool <strong>piora o caso normal</strong> e <strong>melhora o pior caso</strong>. É a troca que o bulkhead faz, e por isso o tamanho do compartimento tem conta e não palpite.</p>
+
+<h3 class="sec">E se der errado: lógico em nó compartilhado</h3>
+
+<p>Imagine o <code>relatorios</code> sem limites de memória, rodando no mesmo <strong>nó</strong> onde estão 3 pods do <code>pedidos</code>. O pool de threads do <code>pedidos</code> está intacto, mas a <strong>memória do nó</strong> não é um pool. O vazamento pressiona o nó, o kubelet evicta pods (<em>node-pressure eviction</em>) e o OOM atinge os vizinhos. O artigo chama isso de <em>shared fate</em>: o destino compartilhado. O compartimento lógico não segurou, porque o recurso que acabou estava <strong>embaixo</strong> dele.</p>
+
+<p>O conserto é físico, e completa o lógico: <code>requests</code> e <code>limits</code> em cada pod (que definem a classe de QoS, de quem é evictado primeiro) e <strong>um pool de nós para o <code>checkout</code> e outro para o <code>batch</code></strong>, com <em>taints</em> e <em>tolerations</em>. Este cenário é qualitativo: a figura descreve o mecanismo, e o vazamento de memória não foi rodado no Kubernetes.</p>
+
+<WhyItMatters>
+  <li><strong>Lógico é barato e físico é forte.</strong> Um semáforo não custa nada; um pool de nós custa máquinas. Quanto mais crítico o fluxo, mais para baixo na lista o isolamento deve ir.</li>
+  <li><strong>O tamanho tem conta.</strong> Little dá 4 + 4 e devolve 12 conexões ao banco; Erlang C mostra o que se paga em espera por dividir.</li>
+  <li><strong>Um lógico sozinho tem um buraco.</strong> Se o recurso que acaba é a memória do nó, nenhum pool de threads ajuda.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Se dois fluxos compartilham os mesmos recursos, não possuem bulkheads".</strong> Vale para isolamento <strong>total</strong>. Existe <strong>reserva com empréstimo</strong> (uma parte garantida e uma parte compartilhada), que reduz o custo. O preço da divisão rígida é a perda de multiplexação estatística (Erlang C: de 18,4% para 42,9%; +25% de workers compensam).</li>
+    <li><strong>"Pool de threads" como único exemplo lógico.</strong> O artigo não distingue <strong>semáforo</strong> (conta chamadas simultâneas, sem fila) de <strong>pool de threads</strong> (isola o bloqueio, com fila e troca de contexto). Hystrix e Resilience4j documentam os dois.</li>
+    <li><strong>Falta dimensionar.</strong> O artigo manda "particionar" e não diz quanto. Aqui o tamanho sai de Little (4 + 4) e o custo, de Erlang C.</li>
+    <li><strong>O que não foi rodado:</strong> um Hystrix ou Resilience4j de verdade e o Kubernetes com pools de nós. As contas (Little e Erlang C) foram refeitas em Python.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Bulkhead Pattern (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Resilience4j: Bulkhead (semáforo e pool de threads)", href: "https://resilience4j.readme.io/docs/bulkhead" },
+    { label: "Hystrix: How it Works (isolamento)", href: "https://github.com/Netflix/Hystrix/wiki/How-it-Works" },
+    { label: "Envoy: circuit breaking (limites por destino)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking" },
+    { label: "Kubernetes: taints e tolerations", href: "https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/" },
+    { label: "Kubernetes: node-pressure eviction", href: "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O que dividir e quanto custa já está na conta. Falta saber <strong>quanto estrago</strong> cada compartimento ainda deixa passar: se há 3 shards, o raio é mesmo 1 ÷ 3? É o raio de explosão, da aula 3.</p>
+
+<Flashcards cards={[
+  { q: "O que é um bulkhead lógico?",
+    a: "Uma divisão de recursos de execução: pool de threads, semáforo, filas, tópicos, pool de conexões, limites por destino. É barato." },
+  { q: "E o físico?",
+    a: "Uma divisão de infraestrutura: nós, pools de nós (taints e tolerations), clusters, zonas, regiões. É caro e mais forte." },
+  { q: "Qual é a diferença entre semáforo e pool de threads?",
+    a: "O semáforo conta chamadas simultâneas e recusa o excesso, sem fila. O pool de threads isola o bloqueio, com fila e troca de contexto." },
+  { q: "Quanto vale o pool dividido pela conta de Little?",
+    a: "4 + 4 = 8 conexões (0,4 em uso com folga de 10×, e um teto de 4 para o batch). As outras 12 voltam ao max_connections de 100." },
+  { q: "O que a divisão custa pelo Erlang C?",
+    a: "12 workers em 1 pool, carga de 70%: espera 18,4% das vezes (2,6 ms). Em 3 pools de 4: 42,9% (17,9 ms). Igualar custa +25% de workers." },
+]} />

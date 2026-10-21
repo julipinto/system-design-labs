@@ -1,0 +1,25 @@
+## pool-shared (janelas antes 5-20 s, durante 25-50 s, depois 55-80 s)
+cenário leitura
+  antes    n= 600 ok=100.0% 503=   0 504=  0 p95(ok)=   16 ms
+  durante  n=1001 ok= 89.9% 503= 101 504=  0 p95(ok)=   15 ms
+  depois   n=1001 ok=100.0% 503=   0 504=  0 p95(ok)=   17 ms
+cenário escrita
+  antes    n= 150 ok=100.0% 503=   0 504=  0 p95(ok)=   69 ms
+  durante  n= 250 ok= 66.8% 503=  83 504=  0 p95(ok)=   66 ms
+  depois   n= 251 ok=100.0% 503=   0 504=  0 p95(ok)=   60 ms
+cenário relatorio
+  durante  n= 250 ok= 47.2% 503= 132 504=  0 p95(ok)=12001 ms
+  depois   n=   5 ok=100.0% 503=   0 504=  0 p95(ok)=11551 ms
+
+## pool-bulkhead (janelas antes 5-20 s, durante 25-50 s, depois 55-80 s)
+cenário leitura
+  antes    n= 600 ok=100.0% 503=   0 504=  0 p95(ok)=   16 ms
+  durante  n=1000 ok=100.0% 503=   0 504=  0 p95(ok)=   15 ms
+  depois   n=1000 ok=100.0% 503=   0 504=  0 p95(ok)=   15 ms
+cenário escrita
+  antes    n= 151 ok=100.0% 503=   0 504=  0 p95(ok)=   62 ms
+  durante  n= 250 ok=100.0% 503=   0 504=  0 p95(ok)=   54 ms
+  depois   n= 251 ok=100.0% 503=   0 504=  0 p95(ok)=   59 ms
+cenário relatorio
+  durante  n= 250 ok= 14.0% 503= 215 504=  0 p95(ok)= 7444 ms
+  depois   n=   2 ok=100.0% 503=   0 504=  0 p95(ok)=22940 ms

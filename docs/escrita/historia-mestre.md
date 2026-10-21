@@ -85,6 +85,7 @@ Cada módulo é um capítulo do mesmo problema: **a loja que vende o gato de pel
 - 23: BF 26/11/2027; série do pico 300·410·520·640; projeções 750/824/950/1.140; cenários 45/200/300 pedidos/s; ρ alvo 70%; plano 14/10/15/2, 4 shards, 8 partições, pool PSP 150; 41 vCPU; sustentável 210 pedidos/s e 980 req/s; pré-escalar 19:50.
 - 24: metas p95 ≤ 800 ms e erros ≤ 0,1%; "hoje" 36/s; "plano" ~250/s; "plano 2" ~260/s; fechado 20 VUs = 38,1/s; jornada cartão 60 / Pix 35 / estorno 5.
 - 25: pool 20 conexões → 16+4; 503 no pool único 33% checkout / 10% status; lanes 12/6/2; raio 60% → 40%; teto do mkt-01 100 req/s no catálogo.
+  - 25 (detalhe): k6 v2.3.0 (20–21/10/2026), janela 25–50 s: pool único checkout 66,8% ok (83 × 503), status 89,9% (101), relatório 47,2%; 16+4 → 100%, 100% e 14,0%; Little 0,2+0,2+40 (pede 4+4); job 10 → 100 min; Erlang C 12 workers 18,4% × 42,9%, +25%; lanes 12·6·2; newsletter no tópico errado 417 s; estoque global = raio 100%; nenhum pedido novo.
 - O 1.300 req/s do módulo 21 é uma rajada de segundos, não o pico sustentado (14: 640 medido, 950 projetado).
 
 ## Constantes novas dos módulos 26–29

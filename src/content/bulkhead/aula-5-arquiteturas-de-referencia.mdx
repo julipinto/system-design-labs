@@ -1,0 +1,100 @@
+---
+title: "Arquiteturas de referência"
+order: 5
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja ficou com dois cortes (por função e por cliente) e uma regra: separar o caminho inteiro. Só que a loja tem problemas diferentes, e cada um pede um corte diferente. O artigo fecha com <strong>seis desenhos de referência</strong>. Cada um responde a <strong>uma pergunta</strong>, e a loja usa os seis juntos.</p>
+
+<OneLiner>Seis desenhos (<strong>prioridade, criticidade, tipo de uso, segmento, hashing consistente e tenants</strong>) respondem a seis perguntas diferentes e <strong>se combinam</strong>. Cada um custa uma coisa, e o custo soma.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Referência</strong>, ligue <strong>um desenho de cada vez</strong> e leia o preço de cada um. No fim, ligue os seis e veja o que acontece com o número de pods.</p>
+</DoIt>
+
+<Figure3D path="labs/bulkhead/anteparas-3d/?mode=referencia" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Figura interativa: Os seis desenhos de referência" alt="Prévia da figura 3D: Os seis desenhos de referência" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Prioridade e criticidade.</strong> Prioridade é o que se atende <strong>primeiro</strong> agora (checkout antes do reprocessamento). Criticidade é o que <strong>não pode falhar</strong> nunca (o <code>pagamentos</code>, com escopo de cartão e auditoria). Uma muda de momento para momento, a outra é do desenho.</li>
+  <li><strong>Tipo de uso e segmento.</strong> O tipo de uso separa o <strong>jeito</strong> de usar (interativo × batch), e o segmento separa <strong>quem</strong> usa (pessoa física × parceiro). O batch pode atrasar ou pausar sem tocar o p95 do checkout. O parceiro não herda o destino do cliente comum.</li>
+  <li><strong>Hashing consistente.</strong> O <code>cliente_id</code> passa por um hash e cai num ponto do anel de 200 (módulo 16). A rajada de um cliente <strong>fica no shard dele</strong>. No <em>round robin</em> do módulo 7 ela vaza para a frota toda, porque o balanceador distribui sem olhar quem manda.</li>
+  <li><strong>Tenants.</strong> O <code>mkt-01</code> recebe <strong>reserva e teto</strong>. O teto de 100 req/s no <code>catalogo</code> (10% de 1.000) recusa o excesso no <strong>compartimento dele</strong>, e os outros 900 req/s ficam garantidos.</li>
+  <li><strong>Combinados.</strong> Um pedido do <code>mkt-01</code> passa pelo shard dedicado (hashing), pela lane normal (prioridade), pelos workers de interativo (tipo de uso) e pelo teto do tenant. Os seis desenhos não competem: são <strong>camadas</strong> do mesmo pedido.</li>
+</ol>
+</HowItWorks>
+
+<p>Lado a lado, os seis desenhos fazem perguntas diferentes, dividem recursos diferentes e cobram preços diferentes:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Desenho</th><th>Pergunta que responde</th><th>Na loja</th><th>Recurso dividido</th><th>Preço</th></tr></thead>
+  <tbody>
+    <tr><th>Prioridade</th><td>O que se atende primeiro?</td><td>checkout (12) · estorno e parceiros (6) · reprocessamento (2)</td><td>workers e filas</td><td>capacidade ociosa nas lanes quietas</td></tr>
+    <tr><th>Criticidade</th><td>O que não pode falhar?</td><td><code>pagamentos</code> (escopo de cartão, auditável) em <strong>pool de nós</strong> e rede próprios</td><td>nós, namespaces, cluster</td><td>custo de infraestrutura dedicada</td></tr>
+    <tr><th>Tipo de uso</th><td>Interativo ou batch?</td><td>o relatório das 23:00 e a newsletter em fila e workers <strong>próprios</strong>; o batch pode atrasar ou <strong>pausar</strong> sem tocar o p95 do checkout</td><td>filas, workers, até o pipeline</td><td>duas esteiras para operar</td></tr>
+    <tr><th>Segmento</th><td>Quem pode compartilhar o destino?</td><td>clientes pessoa física × parceiros (<code>mkt-01</code>, módulo 8)</td><td>pods e pools por segmento</td><td>planejar a capacidade de cada um</td></tr>
+    <tr><th>Hashing consistente</th><td>Para onde vai a rajada de um cliente?</td><td><code>cliente_id</code> → anel de 200 pontos (módulo 16): a rajada fica <strong>no shard dele</strong></td><td>shards</td><td>resharding (módulo 16)</td></tr>
+    <tr><th>Tenants</th><td>E o vizinho barulhento?</td><td>o <code>mkt-01</code> com <strong>reserva e teto</strong> (100 req/s no <code>catalogo</code>) e shard dedicado 2×</td><td>capacidade por tenant</td><td>limites a manter</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">O vizinho barulhento, em números</h3>
+
+<p>O robô do <code>mkt-01</code> (módulo 8) dispara <strong>500 req/s</strong> contra o <code>catalogo</code>, que tem <strong>10 réplicas</strong> e <strong>1.000 req/s</strong> de capacidade. Sem compartimento, o robô consome <strong>50%</strong> da frota e sobra metade para todos os outros clientes. Com o <strong>teto de 100 req/s</strong> para o <code>mkt-01</code>, os outros <strong>900 req/s</strong> ficam garantidos e os <strong>400</strong> excedentes do robô recebem <code>429</code> no compartimento <strong>dele</strong>.</p>
+
+<Widget name="vizinho" title="Vizinho barulhento" hint="Capacidade da frota (1.000 req/s), robô (0 a 1.000) e teto do tenant (0 a 1.000). Mostra o que o robô consome, o que sobra para os outros e o 429." />
+
+<p>O <em>rate limit</em> global do módulo 8 protege o sistema do <strong>total</strong>. O bulkhead por tenant protege cada fluxo dos <strong>outros</strong>. O artigo descreve o problema do <em>noisy neighbor</em> e não lista as saídas. Elas são: <strong>teto por tenant com reserva</strong>, fila por tenant, shard dedicado para o maior (módulo 16), <em>shuffle sharding</em> (2,2% no pior caso) e <em>load shedding</em>.</p>
+
+<h3 class="sec">E se der errado: bulkhead demais</h3>
+
+<p>O contrário também falha. Com <strong>3 lanes</strong> (prioridade) em <strong>4 shards</strong>, são <strong>12 compartimentos</strong>. Cada um precisa de <strong>N+1</strong> pods, com 1 pod de trabalho e 1 de reserva para o caso de um cair: 12 × 2 = <strong>24 pods</strong> onde <strong>10</strong> bastavam. É capacidade ociosa, mais coisa para observar (a saturação precisa ser medida <strong>por compartimento</strong>) e mais coisa para operar. Cada divisão extra reduz o raio e aumenta a conta. A pergunta de cada desenho é: <strong>qual incidente real</strong> este compartimento evita?</p>
+
+<WhyItMatters>
+  <li><strong>Cada desenho tem uma pergunta.</strong> Prioridade, criticidade, tipo de uso, segmento, hashing e tenant não são sinônimos.</li>
+  <li><strong>O teto com reserva é bulkhead por cliente.</strong> O robô de 500 req/s recebe 429 em 400 e os outros 900 req/s ficam garantidos.</li>
+  <li><strong>Mais compartimentos custam pods.</strong> 3 lanes × 4 shards = 12; com N+1 são 24 pods onde 10 bastavam.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Bulkhead lógico é confundido com rate limit".</strong> Certo, e a regra é o <strong>escopo</strong>. Mas o rate limit <strong>por cliente</strong> (módulo 8) é uma forma de bulkhead <strong>operacional</strong> quando vem com <strong>reserva garantida</strong> para os outros (o teto de 100 req/s do <code>mkt-01</code>).</li>
+    <li><strong>Noisy neighbor.</strong> O artigo descreve o problema sem listar as saídas: teto por tenant com reserva, fila por tenant, shard dedicado, <em>shuffle sharding</em> e <em>load shedding</em>.</li>
+    <li><strong>Referências do artigo.</strong> O texto do Medium responde 403 a robôs, por isso não foi citado. O texto da AWS descreve o <strong>App Mesh</strong>, um serviço <strong>descontinuado</strong> em 30/09/2026: a página responde 200 com um aviso de fim de suporte. O padrão continua válido (Envoy e Istio); o produto não. Fica só como histórico. Entram o Azure, o Failsafe-Go, o Resilience4j, o Hystrix, o Envoy e o Istio.</li>
+    <li><strong>O que falta no artigo:</strong> o que fazer quando o compartimento enche (falhar rápido com <code>503</code> ou <code>429</code>, usar <em>fallback</em>, fila limitada), observar a saturação por compartimento e testar (módulo 24).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Bulkhead Pattern (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Failsafe-Go: Bulkhead", href: "https://failsafe-go.dev/bulkhead/" },
+    { label: "Microsoft: padrão Bulkhead", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Microsoft: antipadrão Noisy Neighbor", href: "https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor" },
+    { label: "Google SRE: Handling Overload", href: "https://sre.google/sre-book/handling-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com isso a loja tem bulkheads por <strong>função</strong>, por <strong>cliente</strong> e por <strong>prioridade</strong>. Mas continua sendo <strong>uma pilha só</strong>: o <code>estoque</code>, o <code>pagamentos</code> e o <code>lb-loja</code> são compartilhados, e um incidente em São Paulo ainda derruba o Rio e Recife. Falta saber o que acontece se, em vez de dividir só os pools, a gente dividir a <strong>loja inteira</strong> em pedaços independentes, cada um com seus serviços, fila e banco. É o <em>cell-based</em>, o módulo 26 (o próprio texto do Azure o chama de "arquitetura baseada em células").</p>
+
+<Flashcards cards={[
+  { q: "Quais são os seis desenhos de referência?",
+    a: "Prioridade, criticidade, tipo de uso, segmento, hashing consistente e tenants. Cada um responde a uma pergunta diferente e eles se combinam." },
+  { q: "Qual é a diferença entre prioridade e criticidade?",
+    a: "Prioridade: o que atender primeiro, agora. Criticidade: o que não pode falhar (o pagamentos, com escopo de cartão, em pool de nós próprio)." },
+  { q: "O que o teto de 100 req/s do mkt-01 faz com o robô de 500?",
+    a: "Recusa os 400 excedentes com 429 no compartimento dele e garante os outros 900 req/s. Sem o teto, o robô levaria 50% da frota." },
+  { q: "O que acontece com a rajada de um cliente no hashing consistente?",
+    a: "Fica no shard dele. No round robin do módulo 7 ela vaza para a frota toda." },
+  { q: "Qual é o preço de bulkhead demais?",
+    a: "3 lanes × 4 shards = 12 compartimentos; com N+1 são 24 pods onde 10 bastavam, e mais coisa para observar e operar." },
+]} />
