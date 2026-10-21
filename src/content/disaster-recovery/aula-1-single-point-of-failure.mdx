@@ -1,0 +1,114 @@
+---
+title: "Single Point of Failure"
+order: 1
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No módulo 26 a loja virou quatro células, cada uma com a pilha inteira e uma <strong>célula passiva</strong> noutra região. O veneno do <code>mkt-01</code> derrubou <strong>uma</strong> célula e a Lena comprou o <strong>1060</strong>. Só que a pergunta que ficou é maior: e se não cair uma célula, e sim <strong>a região de São Paulo inteira</strong>? Antes de responder, falta saber o que, exatamente, derruba tudo quando falha.</p>
+
+<OneLiner>Um <strong>ponto único de falha</strong> (SPoF) é qualquer componente cuja falha derruba <strong>tudo ou parte</strong> do sistema <strong>sem caminho alternativo</strong>. Eliminar todos é impossível e duplicar tudo é desperdício: o objetivo é reduzir o <strong>raio</strong> do estrago, a <strong>surpresa</strong> e o <strong>tempo de volta</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Ponte</strong>, derrube a ponte e veja o que sobra da cidade. Depois derrube o <strong>PSP-A</strong>, primeiro <strong>sem</strong> o PSP-B e depois <strong>com</strong> ele ligado, e compare o checkout nos dois casos.</p>
+</DoIt>
+
+<Figure3D path="labs/disaster-recovery/spof-3d/?mode=ponte" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Figura interativa: A ponte e o checkout" alt="Prévia da figura 3D: A ponte e o checkout" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A ponte.</strong> Uma cidade com uma única ponte de acesso: se a ponte cai, ainda dá para chegar de barco, mas <strong>não todo mundo</strong>, e o que entra e sai da cidade fica gravemente prejudicado.</li>
+  <li><strong>O estrago tem tamanho.</strong> Quando um SPoF falha, o sistema vai para o <strong>modo degradado</strong> (no melhor caso) ou para a <strong>parada total</strong> (no pior).</li>
+  <li><strong>Quem pesa mais, quebra mais.</strong> Quanto maior a responsabilidade do componente, maior o estrago de perdê-lo sem um fluxo de <em>fallback</em>.</li>
+  <li><strong>Componente × produto.</strong> O SPoF derruba <strong>um serviço</strong>. O desastre (aula 4) derruba o produto, uma região ou um provedor.</li>
+  <li><strong>Consertar leva tempo.</strong> Recuperar na mão ou reconstruir um componente demora e pode perder dados, então o conserto bom acontece <strong>antes</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A ponte e o PSP-A</h3>
+
+<p>A cidade com uma ponte só é a imagem do artigo, e serve uma vez. Na loja, a ponte tem nome: é o <code>pagamentos</code> falando com o <strong>PSP-A</strong>, o provedor de pagamento. Se o PSP-A some e não existe outro, o pedido da Lena chega até o fim do caminho e <strong>não consegue fechar</strong>. O catálogo continua abrindo, o carrinho continua guardando, mas ninguém compra: é <strong>modo degradado</strong>, com a loja de vitrine.</p>
+
+<p>Com o <strong>PSP-B</strong> do módulo 21 ligado, o <code>pagamentos</code> troca de provedor e a Lena nem vê. O PSP-A deixou de ser um SPoF <strong>sem</strong> que ninguém tivesse duplicado o sistema todo: bastou duplicar <strong>o ponto</strong> onde a falha doía.</p>
+
+<h3 class="sec">Total × parcial: o raio do estrago</h3>
+
+<p>O artigo fala em indisponibilidade <strong>total ou parcial</strong>, e a diferença muda o que a loja faz em seguida. Na tabela, cada falha com o que ela deixa de pé:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Quem falha</th><th>O que para</th><th>O que continua</th><th>Tipo</th></tr></thead>
+  <tbody>
+    <tr><th>PSP-A, sem PSP-B</th><td>fechar o pedido</td><td>catálogo, carrinho, status</td><td><strong>modo degradado</strong></td></tr>
+    <tr><th>PSP-A, com PSP-B</th><td>nada (troca de provedor)</td><td>tudo</td><td>sem estrago visível</td></tr>
+    <tr><th>um pod do <code>pedidos</code> (3 pods)</th><td>nada</td><td>os outros 2 assumem</td><td>sem estrago visível</td></tr>
+    <tr><th>o <code>edge-loja</code> inteiro</th><td>entrar na loja</td><td>nada chega às células</td><td><strong>parada total</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O que separa as linhas é a <strong>responsabilidade</strong>: o <code>edge-loja</code> está no caminho de <strong>todos</strong> os pedidos, e um pod do <code>pedidos</code> está no caminho de um terço. Por isso o mesmo tipo de falha custa muito mais num lugar do que no outro.</p>
+
+<h3 class="sec">O que a loja já eliminou, e o que ela nem sabe que tem</h3>
+
+<p>Depois de 26 módulos a loja já tirou vários SPoFs sem chamá-los pelo nome:</p>
+
+<ol class="flow steps">
+  <li>O <code>pagamentos</code> tem o <strong>PSP-B</strong> (módulo 21).</li>
+  <li>Os serviços rodam em <strong>3 pods</strong>, atrás de um balanceador que tira quem falha.</li>
+  <li>O banco foi partido em <strong>shards</strong> (módulo 16) e depois em <strong>células</strong>, e o raio de uma falha ficou pequeno.</li>
+  <li>Cada célula tem uma <strong>passiva</strong> (módulo 26) com a cópia dos dados.</li>
+  <li>O roteador, o <code>edge-loja</code>, roda em <strong>3 instâncias</strong>: SP, Rio e Recife.</li>
+</ol>
+
+<p>Todos esses estão resolvidos <strong>onde alguém já olhou</strong>. O problema é o resto: um DNS que depende de um único provedor, um certificado que alguém renova à mão uma vez por ano. Nenhum deles aparece no diagrama de arquitetura, e é por isso que dão surpresa. Achá-los é o assunto da próxima aula.</p>
+
+<h3 class="sec">E se der errado: a redundância que não é independente</h3>
+
+<p>O <code>edge-loja</code> tem três instâncias, então parece protegido. Só que as três rodam o <strong>mesmo código</strong> e leem o <strong>mesmo mapa</strong> de células. Quando uma publicação ruim do mapa chega, as <strong>três</strong> aplicam o erro e as três falham juntas. É uma falha de <strong>modo comum</strong>: uma causa, três quedas.</p>
+
+<p>A conta mostra o tamanho da ilusão. Três instâncias independentes a 99,9% dariam 1 − 0,001³ = <strong>99,9999999%</strong>. Com a causa compartilhada, a disponibilidade real do conjunto é a de <strong>uma</strong> instância: <strong>99,9%</strong>. Duplicar uma coisa com o mesmo defeito não ajuda.</p>
+
+<WhyItMatters>
+  <li><strong>SPoF é uma pergunta, não um tipo de peça.</strong> Banco, balanceador, gateway, broker, outro serviço, fornecedor: qualquer um que não tenha caminho alternativo.</li>
+  <li><strong>O estrago depende do peso.</strong> O PSP-A sem PSP-B deixa a loja de vitrine; o <code>edge-loja</code> inteiro fora é parada total.</li>
+  <li><strong>Duplicar o ponto basta.</strong> O PSP-B resolveu o PSP-A sem duplicar a loja.</li>
+  <li><strong>Redundância tem que ser independente.</strong> Três instâncias com o mesmo mapa são uma falha só: 99,9999999% na conta, 99,9% na prática.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Duplicar" supõe falhas independentes.</strong> Um paralelo de duas peças a 99,9% dá 99,9999% <strong>só</strong> se elas não compartilham causa. Mesmo código, mesmo mapa, mesma região ou mesmo fornecedor de DNS <strong>somam</strong> a falha em vez de multiplicar. O artigo fala em falhas simultâneas sem usar a ideia de <strong>modo comum</strong>.</li>
+    <li><strong>Nem tudo é componente.</strong> O artigo trata o SPoF no nível do componente e o desastre no nível do produto. A divisão é útil, mas a fronteira é de <strong>escopo de dano</strong>, e a aula 4 mostra um SPoF (o <strong>hub</strong>) que só aparece quando se olha a região.</li>
+    <li><strong>O que não foi rodado.</strong> Nenhum SPoF foi derrubado de verdade neste módulo: os tempos e as contas vêm do modelo do brief, avisado como exemplo.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre SPoF e Disaster Recovery (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "Wikipédia: Single point of failure", href: "https://en.wikipedia.org/wiki/Single_point_of_failure" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o PSP-B a loja matou um SPoF, e com os pods e as passivas matou outros. Falta saber como <strong>achar</strong> os que ninguém desenhou: o DNS, o certificado, o mapa. Como se caça um ponto único que não está no diagrama?</p>
+
+<Flashcards cards={[
+  { q: "O que é um SPoF?",
+    a: "Um componente cuja falha derruba tudo ou parte do sistema sem caminho alternativo: banco, balanceador, gateway, broker, outro serviço ou fornecedor." },
+  { q: "Qual a diferença entre modo degradado e parada total?",
+    a: "Degradado: a loja segue de vitrine (PSP-A fora, sem PSP-B: catálogo abre, pedido não fecha). Parada total: nada chega às células (o edge-loja inteiro fora)." },
+  { q: "Como o PSP-B resolveu o PSP-A?",
+    a: "Duplicando só o ponto onde a falha doía: o pagamentos troca de provedor e a Lena nem vê." },
+  { q: "Por que três instâncias do edge-loja podem ser um SPoF?",
+    a: "Rodam o mesmo código e o mesmo mapa: uma publicação ruim derruba as três (falha de modo comum). A conta dá 99,9999999%; a realidade dá 99,9%." },
+  { q: "Qual é o objetivo ao lidar com SPoFs?",
+    a: "Reduzir o raio do estrago, a surpresa e o tempo de volta. Eliminar todos é impossível e duplicar tudo é desperdício." },
+]} />

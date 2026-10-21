@@ -1,0 +1,141 @@
+---
+title: "Métricas e KPIs de recuperação"
+order: 5
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja voltou em 65 s depois da queda de SP, e a conta fechou: R$ 51.480 com o <em>warm standby</em>. Mas ficou uma frase sem prova: o <strong>RPO esperado</strong> era 2,97 pedidos, e nesta noite foi <strong>1</strong>. Para saber se um DR está melhorando, e se a promessa bateu com o que aconteceu, é preciso <strong>medir</strong>, com cinco números que se encaixam.</p>
+
+<OneLiner>As cinco métricas formam um <strong>sistema</strong>: <strong>MTTD</strong> (detectar), <strong>MTTR</strong> (voltar) e <strong>MTBF</strong> (entre falhas) são <strong>medidas</strong>; <strong>RTO</strong> (quanto tempo parado) e <strong>RPO</strong> (quantos dados perdidos) são <strong>objetivos contratuais</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>RPO</strong>, mova a queda para <strong>20:40:00.050</strong> e depois para <strong>20:40:00.350</strong> e veja se o pedido 1061 entra ou não na janela de lag. Para ver MTTD, MTTR e RTO na linha do tempo, aperte o botão <strong>Métricas</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/disaster-recovery/desastre-3d/?mode=rpo" poster="labs/disaster-recovery/desastre-3d-previa.webp" title="Figura interativa: RPO e o pedido 1061" alt="Prévia da figura 3D: RPO e o pedido 1061" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>MTTD.</strong> Do início da falha até alguém (ou algo) perceber: 30 s na queda de SP.</li>
+  <li><strong>MTTR.</strong> Da detecção até a recuperação: 35 s (30 s de pods novos mais 5 s de mapa; a promoção do banco, 35 s, corre em paralelo).</li>
+  <li><strong>RTO.</strong> O tempo máximo parado, contado <strong>da interrupção</strong>: MTTD + MTTR = 65 s.</li>
+  <li><strong>RPO.</strong> A janela de dados que se aceita perder: o lag de 0,3 s, ou 2,97 pedidos.</li>
+  <li><strong>MTBF.</strong> Quanto a loja funciona entre uma falha e a próxima; com o MTTR, dá a disponibilidade.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As três medidas, com as tabelas do artigo conferidas</h3>
+
+<p>O artigo dá uma tabela para cada medida. Refazendo as contas:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Medida</th><th>O que conta</th><th>Valores (min)</th><th>Média</th></tr></thead>
+  <tbody>
+    <tr><th>MTTD</th><td>do início à detecção</td><td>60 + 18 + 20 + 21 + 51 = 170 ÷ 5</td><td><strong>34 min</strong></td></tr>
+    <tr><th>MTTR</th><td>da detecção à recuperação</td><td>90 + 105 + 132 + 22 + 193 = 542 ÷ 5</td><td><strong>108,4 min</strong> (o artigo escreve 108)</td></tr>
+    <tr><th>MTBF</th><td>da recuperação ao início do próximo</td><td>116 + 85 + 240 + 377 = 818 ÷ 4</td><td><strong>204,5 min</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A <strong>disponibilidade</strong> sai de MTBF ÷ (MTBF + MTTR): 204,5 ÷ (204,5 + 108,4) = <strong>65,4%</strong>. Um sistema com 65,4% de disponibilidade seria inaceitável, o que mostra que os números do artigo são <strong>didáticos</strong>, e não de uma operação real. Há outro aviso: as <strong>três tabelas não descrevem os mesmos incidentes</strong>. A detecção de "12:00 PM" na tabela do MTTD é "12:00 AM" na do MTTR, e a última detecção é 10:02 numa e 11:02 na outra. As médias estão certas <strong>para cada tabela</strong>, mas não dá para encadeá-las.</p>
+
+<Widget name="mttd" title="MTTD, MTTR e MTBF" hint="Tabela de incidentes (início, detecção, recuperação) editável. Calcula as três médias e a disponibilidade MTBF ÷ (MTBF + MTTR). O botão 'tabela do artigo' reproduz 34 · 108,4 · 204,5 e avisa que as tabelas não são os mesmos incidentes." />
+
+<h3 class="sec">Os números da loja, e o "R" de MTTR</h3>
+
+<p>Na queda de SP: <strong>MTTD 30 s</strong>, <strong>MTTR 35 s</strong>, <strong>RTO medido 65 s</strong> (do 20:40:00.150 ao 20:41:05.150). Com um <strong>MTBF de 30 dias</strong> (43.200 min) e 65 s parados por falha (da interrupção à volta), a disponibilidade é 43.200 ÷ (43.200 + 1,083) = <strong>99,9975%</strong>. Com o MTTR de 108 min do artigo, seria <strong>99,7506%</strong>.</p>
+
+<p>Duas definições merecem cuidado. A primeira é o <strong>R</strong>: a Atlassian lista <strong>quatro</strong> significados para o MTTR (<em>repair</em>, <em>recovery</em>, <em>respond</em> e <em>resolve</em>), e quem mede a partir do <strong>início</strong> do incidente inclui a detecção. Esta aula usa a definição do artigo (<strong>da detecção à recuperação</strong>) e a diz. A segunda é o <strong>RTO</strong>: o artigo o conta "após a detecção", mas a AWS o define como o atraso entre a <strong>interrupção</strong> e a restauração. O RTO <strong>inclui</strong> o MTTD, e na loja são 30 + 35 = <strong>65 s</strong>, e não 35.</p>
+
+<h3 class="sec">RPO em tempo e em pedidos</h3>
+
+<p>O RPO é uma janela de tempo, mas o que dói é a <strong>contagem de pedidos</strong>: taxa × lag. Com os números do módulo 26:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Célula</th><th>Pedidos/s</th><th>Lag</th><th>Perda esperada</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-sp</code></th><td>9,9</td><td>0,3 s</td><td><strong>2,97</strong> pedidos</td></tr>
+    <tr><th><code>celula-recife</code></th><td>3,6</td><td>0,8 s</td><td><strong>2,88</strong></td></tr>
+    <tr><th><code>celula-mkt</code></th><td>12,0</td><td>0,8 s</td><td><strong>9,6</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O artigo dá o exemplo de backups a cada 12 h e diz que o RPO é de 12 h. Esse é o <strong>pior caso</strong> (a perda máxima). Com a falha num instante aleatório entre dois backups, a perda <strong>esperada</strong> é de 6 h. Para <strong>zerar</strong> o RPO é preciso replicação síncrona, e ela custa <strong>a rede</strong>: o commit de 2 ms vira <strong>12 ms</strong> com o Rio (2 + 10) e <strong>82 ms</strong> com Recife (2 + 80), como no módulo 17.</p>
+
+<Widget name="rpo" title="RPO e lag" hint="Taxa por célula (3,6 · 4,5 · 9,9 · 12 pedidos/s) e lag (0 a 2 s). Mostra a perda esperada (taxa × lag) e a latência do commit: assíncrono 2 ms, síncrono com o Rio 12 ms, síncrono com Recife 82 ms." />
+
+<p>RPO é, na prática, uma <strong>métrica de lag</strong>: a loja precisa de um <code>replication_lag_seconds</code> por célula, com alerta em <strong>500 ms</strong> (módulo 28). Se o lag passa de 500 ms, a promessa de 1 s já está em risco antes de qualquer desastre.</p>
+
+<p>Por serviço, as metas da aula 4 viram contratos: checkout <strong>5 min / 1 s</strong>, catálogo <strong>15 min / 1 h</strong>, relatórios <strong>24 h / 24 h</strong>. A pergunta que resta é se o RPO prometido é o que se mede.</p>
+
+<h3 class="sec">E se der errado: o RPO prometido não bate com o medido</h3>
+
+<p>A promessa do checkout era de 1 s, e a Bia <strong>perdeu um pedido que o banco confirmou</strong>. O pedido 1061 (um gato de pelúcia 79,90, uma caneca azul 19,90 e frete de SP 9,00, <strong>R$ 108,80</strong>) foi criado às 20:39:59.950 e viu <code>201</code> às 20:39:59.960. Mas o WAL só chegaria ao Rio às 20:40:00.252, e a queda foi às 20:40:00.150. O 1061 existia só no disco de SP.</p>
+
+<p>O estrago continua depois do pedido. A Bia pagou o Pix <code>c-7733</code> às <strong>20:40:20</strong>. O Davi, cinco segundos depois de o mapa virar, criou um pedido na <code>celula-sp@rio</code> às 20:41:10: duas canecas azuis (39,80) e o frete de SP (9,00), <strong>R$ 48,80</strong>, Pix <code>c-7734</code>. A sequência do Rio parou em 1060, então o número foi <strong>1061, de novo</strong>. Quando o PSP reenviou o webhook de <code>c-7733</code> (com <em>backoff</em>, módulo 12), ele chegou ao Rio às <strong>20:41:25</strong> e a loja achou um 1061 diferente: o <code>cobranca_id</code> não bate, e a mensagem vai para a <strong>quarentena</strong> (a DLQ do módulo 13).</p>
+
+<p>Há três saídas:</p>
+
+<ol class="flow steps">
+  <li><strong>O disco de SP volta.</strong> Neste exemplo, às 23:40, três horas depois: o 1061 da Bia é <strong>recuperado e renumerado para 1062</strong> (o 1061 fica com o Davi).</li>
+  <li><strong>Recriar</strong> o pedido pelo webhook e pelo carrinho dela, com a idempotência do módulo 21.</li>
+  <li><strong>Estornar</strong> a cobrança com <code>estorno-c-7733</code> (a saga do módulo 19).</li>
+</ol>
+
+<p>A lição é de <strong>identificador</strong>: o número vinha de <strong>uma sequência por banco</strong>, e depois de uma promoção a sequência <strong>reutiliza</strong> o último valor replicado. O conserto é <strong>id por célula</strong> (<code>rec-1061</code>) ou UUIDv7, ou <strong>pular a sequência</strong> (+1.000) na promoção. O <code>estoque</code> também mente: o gato e a caneca vendidos à Bia (17 → 16 e 32 → 31) <strong>voltam</strong> no Rio, e a reconciliação é por contagem. A <strong>Lena</strong>, por sua vez, não percebeu nada: a célula dela estava de pé, só que sem passiva por 3 h.</p>
+
+<WhyItMatters>
+  <li><strong>As medidas e os objetivos se encaixam.</strong> MTTD 30 s + MTTR 35 s = RTO 65 s; MTBF e MTTR dão a disponibilidade (99,9975% × 99,7506%).</li>
+  <li><strong>O RTO conta da interrupção.</strong> O artigo diz "após a detecção"; a AWS e a conta da loja dizem 65 s, não 35.</li>
+  <li><strong>RPO se mede em pedidos.</strong> 2,97 · 2,88 · 9,6; zerá-lo custa a rede (12 ms com o Rio, 82 ms com Recife).</li>
+  <li><strong>O prometido pode não bater.</strong> O 1061 foi confirmado e perdido; o número voltou a ser usado; a saída é id por célula ou pular a sequência.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Onde o RPO se mede e quem mede</h4>
+  <p>O arquivamento contínuo do PostgreSQL tem o <code>archive_timeout</code> para forçar a troca de segmento do WAL, e é ele que dá o "5 min" do backup com WAL. O RPO de um DR de backup é o intervalo entre segmentos arquivados; o de um DR com réplica é o lag. O NIST SP 800-34 trata o RTO e o RPO como parte da análise de impacto, e não como métricas técnicas soltas.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>RTO "após a detecção".</strong> O artigo define o RTO como o tempo máximo após a detecção. A AWS define como o atraso entre a <strong>interrupção</strong> e a restauração: o RTO inclui o MTTD (30 + 35 = 65 s).</li>
+    <li><strong>Quatro significados do "R" de MTTR.</strong> O artigo usa <em>reparo</em>. A Atlassian lista <em>repair</em>, <em>recovery</em>, <em>respond</em> e <em>resolve</em>; a aula escolhe uma definição e a diz.</li>
+    <li><strong>Tabelas que não são os mesmos incidentes.</strong> As médias (34 · 108,4 · 204,5) estão certas para cada tabela, e a disponibilidade dá 65,4%: didáticas, não realistas. O MTTR de 108,4 aparece como 108.</li>
+    <li><strong>RPO "12 h".</strong> É o pior caso; a perda esperada é de 6 h. E o RPO se converte em pedidos (taxa × tempo).</li>
+    <li><strong>O que não foi rodado.</strong> Nenhum <em>failover</em> real. As médias, a disponibilidade e as contas de RPO foram calculadas em Python em 21/10/2026.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre SPoF e Disaster Recovery (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "AWS: Business continuity plan (BCP): RTO e RPO", href: "https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/business-continuity-plan-bcp.html" },
+    { label: "NIST SP 800-34 rev. 1: Contingency Planning Guide", href: "https://csrc.nist.gov/pubs/sp/800/34/r1/upd1/final" },
+    { label: "Atlassian: Common incident management metrics", href: "https://www.atlassian.com/incident-management/kpis/common-metrics" },
+    { label: "PostgreSQL: arquivamento contínuo", href: "https://www.postgresql.org/docs/current/continuous-archiving.html" },
+    { label: "Splunk: o que é o MTTD (aprofundar)", href: "https://www.splunk.com/en_us/blog/learn/mean-time-to-detect-mttd.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">O MTTD de 30 s só existiu porque alguém tinha posto sondas para medir. Antes delas, o defeito do frete do módulo 22 levou <strong>60 min</strong> para ser notado. Falta saber como <strong>ver</strong>, em 30 s, o que está acontecendo dentro da loja, e por quê, pedido por pedido. É o módulo 28, Observabilidade e Monitoramento.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as medidas e quais são os objetivos?",
+    a: "Medidas: MTTD (detectar), MTTR (voltar) e MTBF (entre falhas). Objetivos contratuais: RTO (tempo parado) e RPO (dados perdidos)." },
+  { q: "Quanto dão as médias do artigo e a disponibilidade?",
+    a: "MTTD 34 min, MTTR 108,4 min, MTBF 204,5 min. Disponibilidade = MTBF ÷ (MTBF + MTTR) = 65,4%: números didáticos." },
+  { q: "Qual é o RTO da queda de SP e por que não 35 s?",
+    a: "65 s: o RTO conta da interrupção, então MTTD 30 s + MTTR 35 s. O artigo conta 'após a detecção'; a AWS conta desde a interrupção." },
+  { q: "Quantos pedidos o RPO deixa perder?",
+    a: "Taxa × lag: celula-sp 9,9 × 0,3 = 2,97; celula-recife 3,6 × 0,8 = 2,88; celula-mkt 12 × 0,8 = 9,6. RPO zero custa a rede: 12 ms (Rio) e 82 ms (Recife)." },
+  { q: "O que aconteceu com o pedido 1061 da Bia?",
+    a: "O banco confirmou, mas o WAL não chegou ao Rio. O Davi reutilizou o número 1061; o webhook de c-7733 foi para a quarentena; a saída é recuperar (1062), recriar ou estornar, e usar id por célula." },
+]} />

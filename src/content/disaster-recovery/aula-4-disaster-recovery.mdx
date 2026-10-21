@@ -1,0 +1,165 @@
+---
+title: "Disaster Recovery"
+order: 4
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a troca de <strong>um componente</strong> tinha relógio, quórum e <em>fencing</em>. Agora é a noite da Black Friday, 30 pedidos por segundo, e o que some não é um componente: é a <strong>região de São Paulo inteira</strong>. Energia e rede, às <strong>20:40:00.150</strong>. A <code>celula-sp</code> sai do ar, e com ela as passivas de <strong>três</strong> das quatro células.</p>
+
+<OneLiner>Um <strong>desastre</strong> passa dos limites do que a aplicação absorve (região, provedor, dado corrompido, ataque, erro humano em escala), e o DR opera no nível do <strong>produto</strong>. As estratégias formam uma <strong>escala de custo × tempo</strong>: quanto mais rápida a volta, mais cara a espera.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Estratégias</strong>, passe de <em>pilot light</em> para <em>warm standby</em> e conte quantos minutos e quantos reais mudam. Para ver a queda de SP minuto a minuto, aperte o botão <strong>São Paulo cai</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/disaster-recovery/desastre-3d/?mode=estrategias" poster="labs/disaster-recovery/desastre-3d-previa.webp" title="Figura interativa: A escada do DR" alt="Prévia da figura 3D: A escada do DR" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Queda (t = 0).</strong> A região de SP some. As células <code>rio</code>, <code>recife</code> e <code>mkt</code> continuam, mas <strong>sem cópia</strong>.</li>
+  <li><strong>Detecção (30 s).</strong> Três sondas de 10 s, de dois pontos de vista, falham seguidas.</li>
+  <li><strong>Promoção (35 s).</strong> A réplica da <code>celula-sp</code> no Rio vira primária.</li>
+  <li><strong>Capacidade (60 s).</strong> Os pods da passiva vão de 30% para 100%.</li>
+  <li><strong>Mapa (65 s).</strong> O roteador vira: os clientes de SP voltam a comprar.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A queda de SP: a linha do tempo</h3>
+
+<p>O desenho é o <strong>ativo-passivo</strong> do artigo, que a AWS chama de <em>warm standby</em>: a passiva roda a 30% da capacidade e escala quando precisa. A tabela traz o que acontece e quando (as durações de nós e pods são <strong>modelo</strong>, avisado como exemplo):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Quando</th><th>O que acontece</th></tr></thead>
+  <tbody>
+    <tr><th>20:39:59.950</th><td>a <strong>Bia</strong> cria o <strong>pedido 1061</strong> na <code>celula-sp</code>; o commit local leva 2 ms e ela vê <code>201</code> às 20:39:59.960</td></tr>
+    <tr><th><strong>20:40:00.150</strong> (t = 0)</th><td><strong>a região de SP cai</strong></td></tr>
+    <tr><th>20:40:00.252</th><td>seria a hora de o WAL do 1061 chegar ao Rio (lag de 300 ms): <strong>nunca chega</strong></td></tr>
+    <tr><th>20:40:10 · :20 · <strong>:30</strong></th><td>três sondas seguidas falham: <strong>MTTD = 30 s</strong></td></tr>
+    <tr><th>20:40:20</th><td>a Bia paga o Pix <code>c-7733</code>; o webhook do PSP não alcança a <code>celula-sp</code></td></tr>
+    <tr><th>20:40:30</th><td>o alerta dispara e a decisão é <strong>automática</strong> (quórum 2 em 3); o <em>scale-up</em> da passiva começa</td></tr>
+    <tr><th>20:40:35</th><td>a réplica do Rio é <strong>promovida</strong> (o <code>ttl</code> de 30 s + 5 s do módulo 17)</td></tr>
+    <tr><th>20:41:00</th><td>os pods da passiva ficam prontos (30 s por pod, módulo 22)</td></tr>
+    <tr><th><strong>20:41:05</strong> (t = 65 s)</th><td>o mapa vira (5 s de propagação): <strong>RTO medido = 65 s</strong>, <strong>MTTR = 35 s</strong></td></tr>
+    <tr><th>20:41:10</th><td>o <strong>Davi</strong> cria um pedido na <code>celula-sp@rio</code>: a sequência do Rio parou em 1060, então o número é <strong>1061</strong>, de novo (aula 5)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A conta que fecha: <strong>MTTD 30 s + MTTR 35 s = RTO 65 s</strong>. O RTO conta <strong>da interrupção</strong>, não da detecção. Para os clientes de SP, o custo foi 9,9 × 65 = <strong>643,5 tentativas</strong> de pedido que falharam. E o <strong>RPO esperado</strong> é 9,9 × 0,3 = <strong>2,97 pedidos</strong>; nesta noite foi <strong>1</strong>, o 1061.</p>
+
+<h3 class="sec">A passiva precisa aguentar</h3>
+
+<p>Quando a <code>celula-sp</code> some, o Rio recebe a carga dela. A região vai de <strong>4,5 para 14,4 pedidos/s</strong> (4,5 + 9,9), um fator de <strong>3,2×</strong>, a conta do módulo 26. Por isso a passiva roda <em>warm</em> a <strong>30%</strong> e escala em 30 s por pod, com nós já livres. Se não houvesse nós livres, o <em>scale-up</em> esperaria mais <strong>4 min</strong> por eles. É exatamente a diferença entre o <em>warm standby</em> e o <em>pilot light</em> da próxima seção.</p>
+
+<Widget name="passiva" title="Capacidade da passiva" hint="A célula que assume, a carga dela e a da passiva. Mostra o fator (3,2× para o Rio), os pods e o tempo de scale-up (30 s com nós livres, mais 4 min sem)." />
+
+<h3 class="sec">A escada: do backup ao ativo-ativo</h3>
+
+<p>A mesma queda da <code>celula-sp</code> (9,9 pedidos/s, ticket médio de <strong>R$ 80</strong>, a média dos 13 pedidos da história: 79,82), com a passiva em cada modo. Os custos extras são <strong>relativos à infraestrutura da célula</strong> (exemplo) e as durações são modelo (nós 4 min, decisão humana 5 min, aquecimento 2 min):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Estratégia (AWS · artigo)</th><th>O que roda na reserva</th><th>RPO</th><th>RTO</th><th>Custo extra</th><th>R$ perdidos</th></tr></thead>
+  <tbody>
+    <tr><th>backup e restauração (o artigo não lista)</th><td>nada: backup e WAL em armazenamento de objetos</td><td>24 h ou 5 min</td><td><strong>~48 min</strong> (2.874 s)</td><td>~2%</td><td><strong>R$ 2.276.208</strong></td></tr>
+    <tr><th><em>pilot light</em> (artigo: <em>pilot light</em>)</th><td>só o banco e o tópico replicando; 0 pods</td><td>0,3 s</td><td><strong>12 min</strong> (720 s)</td><td>~10%</td><td><strong>R$ 570.240</strong></td></tr>
+    <tr><th><em>warm standby</em> (artigo: ativo-passivo)</th><td>a pilha a 30% da capacidade</td><td>0,3 s</td><td><strong>65 s</strong></td><td>~30%</td><td><strong>R$ 51.480</strong></td></tr>
+    <tr><th>ativo-ativo (<em>multi-site</em>)</th><td>a pilha a 100%, servindo clientes</td><td>0,3 s ou 0 (síncrono)</td><td><strong>35 s</strong></td><td>~100%</td><td><strong>R$ 27.720</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Os R$ vêm de <strong>9,9 pedidos/s × R$ 80 = R$ 792 por segundo × o RTO</strong>. O artigo chama de ativo-passivo o que a AWS separa em dois: o <em>warm standby</em> (a pilha reduzida, ligada) e o <em>pilot light</em> (só o dado, <strong>zero</strong> de computação). O artigo também não lista o <strong>backup e restauração</strong>, a base da escada.</p>
+
+<p>Três avisos sobre as linhas da tabela:</p>
+
+<ol class="flow steps">
+  <li><strong>O ativo-ativo distribui o risco, e não o elimina.</strong> Escrita nos dois lados exige resolver conflitos (<em>last write wins</em> ou CRDTs, módulo 17), e o impacto fica menos concentrado, não menor.</li>
+  <li><strong>O <em>pilot light</em> depende de automação e teste.</strong> Os 12 min são 30 s para detectar, <strong>5 min de decisão humana</strong>, 4 min de nós, 30 s de pods e 2 min de aquecimento.</li>
+  <li><strong>O backup é um restore.</strong> Os 48 min incluem os 46,2 GB do banco a 50 MB/s (924 s) e o <em>replay</em> do WAL.</li>
+</ol>
+
+<Widget name="estrategia" title="Estratégia de DR" hint="Escolha a estratégia (backup, pilot light, warm standby, ativo-ativo), os pedidos/s da célula e o ticket (R$ 80). Mostra RPO, RTO, custo extra, R$ perdidos (2,28 mi · 570 mil · 51 mil · 28 mil) e passa ou não passa contra a meta do serviço (5 min · 15 min · 24 h)." />
+
+<Widget name="restore" title="Restore e pilot light em passos" hint="Tamanho do banco (GB), vazão (50 MB/s), decisão humana, nós, pods e aquecimento. Soma o RTO (2.874 s do backup, 720 s do pilot light) e mostra qual passo mais pesa." />
+
+<h3 class="sec">A conta que decide</h3>
+
+<p>A AWS diz que, se o custo da estratégia é <strong>maior</strong> que o custo da falha, ela <strong>não se adota</strong> (salvo exigência regulatória). Com R$ 792 por segundo, cada minuto a mais de <em>pilot light</em> custa R$ 47.520 (60 × 792). A pergunta certa não é "qual a melhor estratégia", e sim "<strong>qual meta cada serviço tem</strong>". As metas da loja, por serviço (exemplo; o artigo diz só que a criticidade guia):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Serviço</th><th>RTO</th><th>RPO</th><th>Por quê</th></tr></thead>
+  <tbody>
+    <tr><th>checkout (<code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code>)</th><td><strong>5 min</strong></td><td><strong>1 s</strong></td><td>dinheiro entra; o <code>estoque</code> pode vender até 3 a mais, a reconciliar</td></tr>
+    <tr><th><code>catalogo</code></th><td>15 min</td><td>1 h</td><td>dado de leitura; a CDN e o cache (módulo 5) seguram</td></tr>
+    <tr><th><code>relatorios</code></th><td>24 h</td><td>24 h</td><td>reconstrói por <em>replay</em> (módulo 20: 200 milhões de eventos a 20.000/s = <strong>2 h 47 min</strong>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Com essas metas, <strong>só o <em>warm standby</em> e o ativo-ativo</strong> cumprem o checkout (5 min). O <em>pilot light</em> (12 min) cumpre o <code>catalogo</code> e o <code>relatorios</code>. O backup cumpre só o <code>relatorios</code>. A loja, então, <strong>não precisa de uma estratégia só</strong>: paga o <em>warm standby</em> onde o dinheiro entra e o <em>pilot light</em> onde 12 min não machucam.</p>
+
+<h3 class="sec">E se der errado: o DR depende da região que caiu</h3>
+
+<p>O plano de DR morre se depender de algo que mora em SP. Quatro lugares onde isso acontece:</p>
+
+<ol class="flow steps">
+  <li>O <strong>runbook</strong> no wiki hospedado em SP: ninguém lê o passo a passo.</li>
+  <li>O <strong>pipeline de deploy</strong> e o estado do Terraform em SP: não dá para subir a infraestrutura da reserva.</li>
+  <li>O <strong>painel do DNS</strong> e as <strong>senhas</strong> atrás de um login que só existe em SP.</li>
+  <li>O <strong>hub</strong>: SP guarda as passivas de <strong>3 células</strong>. Com SP fora, <code>celula-rio</code>, <code>celula-recife</code> e <code>celula-mkt</code> funcionam <strong>sem cópia</strong>, e uma segunda falha (o disco do Rio) perde o que não foi replicado. É o SPoF do próprio plano de DR, e a auditoria da aula 2 não o achou.</li>
+</ol>
+
+<p>E o pior: o <strong>DR que nunca foi testado</strong>. A credencial do PSP-B venceu (módulo 21), o <em>scale-up</em> esbarra num limite de cota, o 30% já não é suficiente. O conserto é o <em><strong>game day</strong></em>: derrubar SP <strong>de propósito</strong>, medir o RTO real, comparar com a meta e consertar o que quebrar. O DR é um exercício repetido, não um documento.</p>
+
+<WhyItMatters>
+  <li><strong>Desastre é do produto.</strong> A queda de SP deixou 3 células sem cópia, e o RTO foi de 65 s com o <em>warm standby</em>.</li>
+  <li><strong>RTO conta da interrupção.</strong> MTTD 30 s + MTTR 35 s = 65 s; para SP foram 9,9 pedidos/s × 65 = 643,5 tentativas falhas.</li>
+  <li><strong>Subir a escada custa e rende.</strong> R$ 2,28 mi · 570 mil · 51 mil · 28 mil para ~2% · 10% · 30% · 100% de custo extra.</li>
+  <li><strong>A meta decide, e o plano é por serviço.</strong> 5 min no checkout, 15 min no catálogo, 24 h nos relatórios.</li>
+  <li><strong>O plano de DR também tem SPoF.</strong> O runbook, o pipeline, o DNS e o hub em SP: só o <em>game day</em> mostra.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Ativo-ativo, regulação e o custo da espera</h4>
+  <p>No ativo-ativo, a sincronização síncrona leva o RPO a <strong>zero</strong>, mas custa a rede: +10 ms com o Rio e +80 ms com Recife em cada commit (módulo 17). E o <em>failover</em> de 35 s do ativo-ativo é só detecção e mapa: <strong>não há promoção</strong> quando as duas regiões escrevem. A conta da AWS (não adotar a estratégia que custa mais que a falha) tem uma exceção: a <strong>exigência regulatória</strong>, em que se paga mesmo com a conta contra.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Ativo-passivo" sem dizer quanto fica ligado.</strong> A AWS separa o <em>warm standby</em> (pilha reduzida, ligada) do <em>pilot light</em> (só o dado) e inclui o <strong>backup e restauração</strong>, que o artigo não lista. O RTO sobe de 65 s a 12 min a ~48 min conforme se desce a escada.</li>
+    <li><strong>Faltam no artigo:</strong> <strong>testar</strong> o DR (<em>game day</em>), as <strong>metas por serviço</strong>, o <strong>custo da falha × o da estratégia</strong> e as <strong>dependências cruzadas</strong> (o hub, o runbook em SP). O artigo diz que a criticidade guia, sem a tabela.</li>
+    <li><strong>O que não foi rodado.</strong> Nenhum <em>failover</em> regional de verdade. Os tempos de nós e pods, o ticket médio (média de 13 pedidos) e os custos relativos de cada estratégia são <strong>exemplo</strong>. O repositório público do autor tem um caso de plataforma multirregião na AWS (<code>cases/</code>) para ler depois.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre SPoF e Disaster Recovery (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "AWS: Disaster Recovery of Workloads on AWS (as estratégias)", href: "https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html" },
+    { label: "AWS Architecture Blog: Disaster Recovery (DR) Architecture on AWS, Part I", href: "https://aws.amazon.com/blogs/architecture/disaster-recovery-dr-architecture-on-aws-part-i-strategies-for-recovery-in-the-cloud/" },
+    { label: "Google SRE book: Postmortem Culture", href: "https://sre.google/sre-book/postmortem-culture/" },
+    { label: "Repositório público do autor: plataforma multirregião na AWS (aprofundar)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/blob/main/cases/AVANCADO_PLATAFORMA_MULTIREGIAO_AWS.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja voltou em 65 s e perdeu um pedido que o banco havia confirmado. Falta saber como <strong>medir</strong> se o DR está melhorando: o que são MTTD, MTTR e MTBF, o que o RTO e o RPO prometem, e como saber se a promessa bateu com o que aconteceu?</p>
+
+<Flashcards cards={[
+  { q: "Qual a diferença entre SPoF e desastre?",
+    a: "O SPoF derruba um componente ou serviço; o desastre ultrapassa o que a aplicação absorve (região, provedor, dado corrompido) e o DR opera no nível do produto." },
+  { q: "Quais os RTOs das quatro estratégias na queda de SP?",
+    a: "Backup e restauração ~48 min (2.874 s); pilot light 12 min (720 s); warm standby 65 s; ativo-ativo 35 s. Perdas: R$ 2,28 mi · 570 mil · 51 mil · 28 mil." },
+  { q: "Qual é a conta de reais perdidos?",
+    a: "9,9 pedidos/s × R$ 80 = R$ 792 por segundo × o RTO. Cada minuto a mais de pilot light custa R$ 47.520." },
+  { q: "Quais estratégias cumprem o checkout (RTO 5 min)?",
+    a: "Só o warm standby (65 s) e o ativo-ativo (35 s). O pilot light (12 min) cumpre catálogo e relatórios; o backup, só os relatórios." },
+  { q: "O que é o hub e por que importa?",
+    a: "SP guarda as passivas de 3 células. Com SP fora, essas células rodam sem cópia: uma segunda falha perde dados. É o SPoF do próprio plano de DR." },
+]} />
