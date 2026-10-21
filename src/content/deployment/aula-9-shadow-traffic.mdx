@@ -1,0 +1,80 @@
+---
+title: "Shadow traffic"
+order: 9
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o dado ficou compatível com as duas versões, mas a 2.5.0 continua sem ter visto <strong>um único pedido real</strong>. O blue/green testou com tráfego sintético e o canary expõe uma fatia de clientes. Existe um jeito de testar com tráfego real e <strong>0% de cliente exposto</strong>: <strong>copiar</strong> o tráfego. É o <em>shadow</em>.</p>
+
+<OneLiner>No <strong>shadow</strong> (ou <em>mirror traffic</em>) uma <strong>cópia</strong> de uma parte das requisições vai para a versão nova, e a <strong>resposta é descartada</strong>. O estável continua com 100% e o cliente nunca vê a sombra. Para aprender algo, é preciso <strong>comparar</strong> as duas respostas.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Shadow</strong>, ligue o espelho a <strong>10%</strong> e leia o diff do comparador: o pedido da Lena sai por <strong>64,00</strong> na 2.4.0 e por <strong>49,00</strong> na sombra.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/liberacao-3d/?mode=shadow" poster="labs/deployment/liberacao-3d-previa.webp" title="Figura interativa: A cópia do tráfego" alt="Prévia da figura 3D: A cópia do tráfego" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Como o Istio faz.</strong> No <code>VirtualService</code>, <code>mirror</code> diz para onde copiar e <code>mirrorPercentage</code> diz quanto. A cópia leva um <code>Host</code> (ou <code>Authority</code>) terminado em <code>-shadow</code> e é <strong>"fire and forget"</strong>: a resposta é descartada.</li>
+  <li><strong>Espelho é duplicação, não divisão.</strong> O estável continua com 100% do tráfego; a sombra recebe uma cópia a mais. Por isso a sombra aumenta a carga (e é por isso que o canary e o shadow não se confundem).</li>
+  <li><strong>O caso ideal: <code>catalogo</code> (leitura).</strong> Espelhar 10% de 640 req/s dá <strong>64 req/s</strong> para <strong>1</strong> réplica do <code>catalogo</code> novo: ρ = <strong>64%</strong> e R = 37,8 ms (a tabela do módulo 14). Mede o p95 da busca nova de 900 ms em <strong>tráfego real</strong>, sem nenhum cliente exposto.</li>
+  <li><strong>O caso difícil: <code>pedidos</code> (escrita).</strong> O espelho em modo <strong>dry-run</strong> (o código do artigo, abaixo): 10% × 5/s = 0,5 pedido/s, ou <strong>150 pedidos</strong> em 5 min, com <strong>30</strong> de Recife.</li>
+  <li><strong>Sem comparador, só custa dinheiro.</strong> O Istio descarta a resposta; a 2.5.0-sombra registra a sua com o <code>x-request-id</code>, e um <strong>comparador</strong> junta com a da 2.4.0 campo a campo (<code>total</code>, <code>frete</code>, status).</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{`if os.Getenv("ENVIRONMENT") == "shadow" {
+    tx.Rollback()
+} else {
+    tx.Commit()
+}`}</code></pre>
+
+<p>Os 150 pedidos copiados em 5 minutos incluem os 30 de Recife, e <strong>todos</strong> os 30 divergem: a 2.4.0 respondeu <code>total</code> 64,00 e a 2.5.0-sombra respondeu 49,00. É o defeito do frete visível, com <strong>0</strong> pedidos reais afetados e R$ <strong>0</strong> de perda. Compare com o canary da aula 6 (30 pedidos reais, R$ 450): o shadow encontra o mesmo defeito sem expor ninguém.</p>
+
+<h3 class="sec">E se der errado: o Rollback não desfaz o que saiu da transação</h3>
+
+<p>O <code>tx.Rollback()</code> desfaz o <code>INSERT</code>. Mas a 2.5.0-sombra ainda <strong>chamou o <code>pagamentos</code> de verdade</strong> e <strong>publicou o evento</strong> no Kafka. São <strong>0,5 cobranças/s duplicadas</strong> × R$ 64,00 médios = <strong>150 cobranças em 5 min = R$ 9.600</strong>. O banco ficou limpo, a Lena foi cobrada duas vezes.</p>
+
+<p>O conserto tem quatro partes. O shadow chama um <strong>stub</strong> do <code>pagamentos</code> (ou envia <code>Idempotency-Key</code> e o cabeçalho <code>x-shadow: 1</code>, que o <code>pagamentos</code> recusa efetivar). Publica num tópico <code>pedidos.shadow</code> e <strong>nunca</strong> no <code>pedidos</code>. A idempotência do módulo 21 vale também aqui. E a sombra mede o que importa: a divergência, não a cobrança.</p>
+
+<WhyItMatters>
+  <li><strong>Único modelo com 0% de cliente exposto e tráfego real.</strong> O blue/green usa sintético; o canary expõe uma fatia.</li>
+  <li><strong>Leitura é o caso ideal.</strong> O <code>catalogo</code> a 64 req/s em 1 réplica (64%) mede busca nova sem risco.</li>
+  <li><strong>Sem comparador, não se aprende.</strong> A resposta é descartada; o diff 64,00 × 49,00 é o resultado.</li>
+  <li><strong>Escrita exige cuidado fora do banco.</strong> <code>tx.Rollback()</code> não desfaz cobrança, evento nem e-mail.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base: o dry-run</h4>
+  <p>O artigo propõe o <code>tx.Rollback()</code> e cita a idempotência, mas não diz que o rollback só desfaz a transação do <strong>banco</strong>, e não os efeitos fora dela (chamada ao <code>pagamentos</code>, evento no Kafka, e-mail). Também não fala do <strong>comparador</strong> (sem ele não se aprende nada) nem do custo de <strong>dobrar a carga</strong> nas dependências. O texto do Christian Posta sobre <em>shadowing</em> que o artigo cita devolve 404 no caminho indicado, por isso não entra nas fontes.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Istio: traffic mirroring", href: "https://istio.io/latest/docs/tasks/traffic-management/mirroring/" },
+    { label: "Envoy: RequestMirrorPolicy (route components)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "Fowler: CanaryRelease (a ligação com o canary)", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A teoria do espelho está clara: copiar, descartar a resposta e comparar. Falta saber como o laboratório do autor configura isso no <strong>Istio</strong>, e o que ele deixa de fora.</p>
+
+<Flashcards cards={[
+  { q: "O que é o shadow traffic?",
+    a: "Uma cópia de parte do tráfego vai para a versão nova e a resposta é descartada. O estável continua com 100%; o cliente não vê a sombra." },
+  { q: "Como o Istio espelha?",
+    a: "Com mirror e mirrorPercentage no VirtualService. A cópia leva Host/Authority terminado em -shadow e é fire and forget." },
+  { q: "Quanto tráfego o catalogo copia a 10%?",
+    a: "10% de 640 req/s = 64 req/s para 1 réplica da sombra: ρ = 64% e R = 37,8 ms." },
+  { q: "Por que o shadow do pedidos precisa de comparador?",
+    a: "O Istio descarta a resposta. O comparador junta a da 2.4.0 e a da 2.5.0 pelo x-request-id e acha 64,00 contra 49,00 nos 30 pedidos de Recife." },
+  { q: "O que o tx.Rollback() não desfaz?",
+    a: "A chamada ao pagamentos e o evento no Kafka: 0,5 cobranças/s × R$ 64,00 = 150 cobranças em 5 min = R$ 9.600. O conserto é um stub, x-shadow e um tópico pedidos.shadow." },
+]} />

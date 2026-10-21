@@ -1,0 +1,82 @@
+---
+title: "Canary releases"
+order: 6
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o blue/green virou tudo de uma vez, e a análise do laboratório não enxergava o frete. A pergunta seguinte é natural: e se a versão nova atendesse só uma <strong>fatia</strong> do tráfego real, medida, antes de crescer? É o <em>canary</em>, e o que o faz funcionar é <strong>o que se mede</strong> e <strong>quanta amostra</strong> há.</p>
+
+<OneLiner>No <strong>canary</strong> a versão nova (<em>canary</em>) atende uma fatia pequena do tráfego real, ao lado da estável, e <strong>só cresce se a análise passar</strong>. A decisão depende de duas coisas: a métrica (<strong>técnica e de negócio</strong>) e a <strong>amostra</strong>; o relógio sozinho não decide.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Canary</strong>, suba para <strong>10%</strong> e veja a Lena cair no canary: o pedido <strong>1059</strong> sai por 49,00, e a análise de negócio é quem enxerga.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=canary" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Canary" alt="Prévia da figura 3D: Canary" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O plano da loja.</strong> Retoma o canary de 10% do módulo 8 e a malha do módulo 10: <strong>0%</strong> público com o cabeçalho <code>x-versao: v2</code> (a equipe e os clientes sintéticos), depois <strong>10%</strong> por 5 min, <strong>50%</strong> por 5 min e <strong>100%</strong>.</li>
+  <li><strong>Cada degrau tem análise.</strong> Técnica (5xx ≤ 0,1%, p95 ≤ 800 ms, a meta do checkout do módulo 24) <strong>e de negócio</strong> (<code>pedidos_frete_zero{'{'}cidade{'}'}</code> = 0). A saúde do pod nunca viu o frete; a métrica de negócio vê.</li>
+  <li><strong>Compara com o estável, no mesmo intervalo.</strong> O SRE Workbook compara o canary com o <strong>controle no mesmo intervalo</strong>, não com o dia anterior: o dia anterior tinha outro tráfego.</li>
+  <li><strong>O peso exato precisa de malha.</strong> Sem <code>trafficRouting</code>, o Argo Rollouts aproxima o peso pelo <strong>número de pods</strong> ("41% de 10 está mais perto de 4/10"). Com 3 pods o mínimo é <strong>1 de 3 = 33%</strong>. Com a malha (módulo 10) o peso é exato: 10%.</li>
+  <li><strong>Voltar é peso zero.</strong> A malha empurra a regra e o tráfego sai do canary em segundos.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A amostra, não o relógio</h3>
+
+<p>Cinco minutos a 10% de 5 pedidos/s dão 0,5/s × 300 s = <strong>150 pedidos</strong>. Se o erro verdadeiro da 2.5.0 fosse <strong>1%</strong> (dez vezes a meta), a chance de <strong>não ver nenhum</strong> erro nesses 150 é 0,99<sup>150</sup> = <strong>22%</strong>. Em um de cada cinco rollouts, a análise passaria um defeito real.</p>
+
+<p>Para ver pelo menos um erro com 95% de confiança, são necessárias ln(0,05) ÷ ln(0,99) = <strong>298 requisições</strong>: nesse tráfego, <strong>10 min</strong> (com erro de 2%, 148 requisições; com 5%, 58). O <code>catalogo</code>, a 640 req/s, junta 64/s no canary de 10% e chega a 298 em <strong>4,7 s</strong>. O mesmo critério em minutos serve para um serviço e é curto demais para o outro.</p>
+
+<Widget name="canary-poder" title="Poder estatístico do canary" hint="Tráfego (req/s), parcela do canary (%), erro verdadeiro (0,1 a 5%) e janela (min). O widget mostra a amostra, a chance de ver pelo menos um erro e o tempo para chegar a 95% (298 requisições = 10 min a 0,5/s; 4,7 s a 64/s)." />
+
+<p>O defeito do frete é de outro tipo: é <strong>100% determinístico</strong> para Recife. No degrau de 10%, os 150 pedidos têm 20% de Recife = <strong>30 pedidos</strong>, todos errados. A métrica de negócio os pega no primeiro degrau, e a perda é 30 × 15,00 = <strong>R$ 450</strong> (o degrau de 50%, se chegasse a ele, seria 750 pedidos, 150 de Recife, R$ 2.250).</p>
+
+<h3 class="sec">E se der errado: a janela "passa" por falta de amostra</h3>
+
+<p>Imagine um defeito raro: 1% de erro, sem relação com cidade. A janela de 5 min "passa" porque tem pouca amostra, e o canary sobe a 50% com o defeito dentro. O conserto é decidir por <strong>número de requisições</strong>, não por minutos: um mínimo de amostra antes de cada decisão (298 para ver um erro de 1% com 95% de confiança) e, para a loja, <strong>o degrau só avança se tiver os dois: a janela e a amostra</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>O canary é uma fatia medida.</strong> Reduz o raio de explosão: a fração exposta cai de 100% para 10%.</li>
+  <li><strong>A métrica de negócio decide.</strong> A análise técnica não vê o frete zero; só <code>pedidos_frete_zero</code> por cidade vê.</li>
+  <li><strong>Amostra, não relógio.</strong> 150 pedidos deixam 22% de chance de não ver um erro de 1%.</li>
+  <li><strong>Peso exato pede malha.</strong> Sem ela, o peso é o número de pods (33% com 3 pods).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base: "semanas ou meses"</h4>
+  <p>O artigo conta o canary da padaria em "semanas ou meses" e fala de latência e erros. Em software o canary dura <strong>minutos a horas</strong>, e o que decide é a <strong>amostra</strong> (150 pedidos × 22%) e a <strong>métrica de negócio</strong>. O artigo também não diz que o SRE Workbook compara o canary com o <strong>controle no mesmo intervalo</strong>.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: CanaryRelease", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+    { label: "Google SRE Workbook: Canarying Releases", href: "https://sre.google/workbook/canarying-releases/" },
+    { label: "Argo Rollouts: estratégia Canary", href: "https://argo-rollouts.readthedocs.io/en/stable/features/canary/" },
+    { label: "Flagger: progressive delivery com Istio (referência do artigo)", href: "https://docs.flagger.app/tutorials/istio-progressive-delivery" },
+  ]} />
+</Deep>
+
+<p class="gancho">O canary mede, e a medida só vale se tiver amostra e olhar o negócio. Falta saber como o laboratório do autor escreve isso em YAML, e o que ele deixa de fora.</p>
+
+<Flashcards cards={[
+  { q: "Qual é o plano de canary da loja?",
+    a: "0% público (cabeçalho x-versao: v2), 10% por 5 min, 50% por 5 min e 100%, com análise técnica e de negócio em cada degrau." },
+  { q: "Com que o canary é comparado?",
+    a: "Com o estável no mesmo intervalo (SRE Workbook), não com o dia anterior." },
+  { q: "Quantos pedidos tem um degrau de 5 min a 10% de 5/s, e quantos são de Recife?",
+    a: "150 pedidos e 30 de Recife (20%). Perda: 30 × 15,00 = R$ 450." },
+  { q: "Qual é a chance de não ver nenhum erro de 1% em 150 pedidos?",
+    a: "0,99 elevado a 150 = 22%. Para ver pelo menos um com 95% de confiança, são necessárias 298 requisições (10 min nesse tráfego)." },
+  { q: "Por que o peso exato precisa de malha?",
+    a: "Sem trafficRouting o Argo aproxima o peso pelo número de pods (mínimo de 1 de 3 = 33%). Com a malha o peso é exato." },
+]} />

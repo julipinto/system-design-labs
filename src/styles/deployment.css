@@ -1,0 +1,10 @@
+/* SDLabs · Modelos de Deployment: o que só este módulo usa (tabelas, linhas e peças dos widgets de rolling, raio, canary, migration, flag e anéis). Peças comuns em widgets.css */
+.sdl-content table.sr-table.dp-table{min-width:0}
+.sdl-content table.dp-table th,.sdl-content table.dp-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.dp-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content tr.dp-cur th,.sdl-content tr.dp-cur td{background:var(--accent-wash)}
+.sdl-content tr.dp-bad th,.sdl-content tr.dp-bad td{color:var(--bad)}
+.sdl-content .dp-out{margin-top:var(--s-3)}
+.sdl-content .sr-ctl[hidden]{display:none}
+.sdl-content .dp-out .sr-fact b{font-size:17px;overflow-wrap:anywhere}
+

@@ -1,0 +1,111 @@
+---
+title: "Blue/Green, o exemplo do laboratório"
+order: 5
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import bgSimple from '../../lab-code/deployment/blue-green-simple-blue-green.yml?raw';
+import bgAutomated from '../../lab-code/deployment/blue-green-automated-blue-green.yml?raw';
+
+<p class="ponte">Na aula passada o blue/green prometeu testar o green sem cliente e voltar em 1 s. O laboratório público do autor tem dois arquivos que fazem isso com o <strong>Argo Rollouts</strong>: um manual (<code>simple</code>) e um com teste automático antes da virada (<code>automated</code>). Vale ler as linhas que mandam, e o que elas <strong>não</strong> pegam.</p>
+
+<OneLiner>No Argo Rollouts, <code>blueGreen</code> liga dois Services (<code>activeService</code> e <code>previewService</code>); a <strong>promoção</strong> troca o ponteiro, e <code>prePromotionAnalysis</code> roda testes <strong>antes</strong>. Pega <code>500</code> sem cliente, mas <strong>não</strong> pega um <code>201</code> com frete zero.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Blue/Green</strong>, no último passo, use os botões da janela do <em>blue</em> de pé (30 s, 60 s, 10 min) e compare o que sobra aos os <strong>8 minutos</strong> em que o defeito do frete aparece: com 60 s, o blue já saiu e voltar vira subir 3 pods e esperar 30 s.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=bluegreen&step=6" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Blue/Green" alt="Prévia da figura 3D: Blue/Green" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">O simple: promoção manual</h3>
+
+<p>O repositório público do autor (<code>exemplos/deployment-methods/</code>) é um laboratório de homelab: usa Argo CD, um chart Helm, a imagem <code>fidelissauro/chip:v1</code> e Istio. Este trecho é o centro do <code>simple</code> (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original).</p>
+
+<CodeLab code={bgSimple} from={37} to={45} />
+
+<ol class="flow steps">
+  <li>As linhas 37 e 38 fixam <strong>5 réplicas</strong> (<code>min: 5</code>, <code>max: 5</code>, sem autoscaling).</li>
+  <li>A linha 42 diz qual Service recebe o cliente (<code>activeService: chip</code>) e a 43, qual recebe a versão nova para teste (<code>previewService: chip-green</code>).</li>
+  <li>A linha 44, <code>autoPromotionEnabled: false</code>, faz da promoção um ato manual: alguém olha o green e aprova.</li>
+  <li>A linha 45, <code>scaleDownDelaySeconds: 60</code>, mantém o <em>blue</em> de pé <strong>60 s</strong> depois da virada. O padrão do Argo é 30 s.</li>
+</ol>
+
+<h3 class="sec">O automated: testes antes da promoção</h3>
+
+<p>O <code>automated</code> é o mesmo arquivo com <code>prePromotionAnalysis</code> (linhas 46 a 49) e dois modelos de análise. Repare que a linha do <code>scaleDownDelaySeconds</code> está <strong>comentada</strong> (linha 45): sem ela vale o padrão, 30 s.</p>
+
+<CodeLab code={bgAutomated} from={41} to={49} />
+
+<p>O primeiro modelo, <code>http-bench-analysis</code>, é um <em>Job</em> do Kubernetes que roda o <code>cassowary</code> (uma ferramenta de teste de carga) contra o green:</p>
+
+<CodeLab code={bgAutomated} from={53} to={74} />
+
+<p>O segundo, <code>chip-check-success</code>, consulta o Prometheus pela taxa de sucesso do <strong>green</strong>:</p>
+
+<CodeLab code={bgAutomated} from={76} to={93} />
+
+<ol class="flow steps">
+  <li>A linha 72 manda o <code>cassowary</code> (<code>-c 3 -n 1000</code>) fazer 1.000 requisições, com 3 conexões, para <code>http://chip-green.chip:8080/system</code>. O alvo é o <code>chip-green</code>: o green sozinho, sem cliente.</li>
+  <li>As linhas 87 a 92 dividem as respostas que <strong>não</strong> são <code>5xx</code> pelo total, só para o <code>chip-green</code>. A condição da linha 81, <code>result[0] >= 0.95</code>, exige 95% de sucesso.</li>
+  <li>Se qualquer análise falha, o Argo <strong>não promove</strong>: o green fica de lado e o blue segue atendendo.</li>
+</ol>
+
+<h3 class="sec">O que o laboratório mostra e o que não mostra</h3>
+
+<p>O teste de carga e a taxa de sucesso rodam <strong>antes</strong> da promoção, contra o green sozinho. É o jeito de pegar <code>500</code> sem cliente exposto, e é o que o laboratório demonstra bem. O que ele não pega:</p>
+
+<ol class="flow steps">
+  <li><strong>O frete zero.</strong> Para a análise, <code>201</code> é sucesso. A 2.5.0 passa nas duas análises e vai a 100% do tráfego.</li>
+  <li><strong>A meta da loja.</strong> <code>&gt;= 0.95</code> aceita <strong>5%</strong> de erro; a meta da loja é 0,1% (o 99,9% do checkout, módulo 24).</li>
+  <li><strong>A amostra.</strong> 1.000 requisições com 3 conexões são poucas para um defeito raro, e antes da promoção o green não recebe cliente: a taxa do Prometheus mede, na prática, o tráfego do próprio teste.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o defeito aparece 8 minutos depois</h3>
+
+<p>A virada passou nos testes. Oito minutos depois alguém vê a métrica de negócio (<code>frete_zero</code> por cidade em Recife) e decide voltar. Mas o <code>scaleDownDelaySeconds</code> do laboratório é <strong>60 s</strong>, e o <em>blue</em> foi desligado aos 60 s: voltar é <strong>subir 3 pods e esperar 30 s</strong>, em vez de virar o ponteiro em 1 s. A janela de "voltar em 1 s" fechou muito antes de o defeito aparecer.</p>
+
+<p>O conserto é dimensionar o <code>scaleDownDelaySeconds</code> pelo <strong>tempo de detecção</strong>, não pelo tempo de virada. Se a loja só nota em 8 min, o blue precisa viver 8 min (3 pods a mais por esse intervalo), ou o canary da aula 6 reduz a exposição desde o começo.</p>
+
+<WhyItMatters>
+  <li><strong>Duas peças e um ponteiro.</strong> <code>activeService</code>, <code>previewService</code> e a promoção, que é o ato de trocar.</li>
+  <li><strong>O teste antes da virada pega erro de infraestrutura.</strong> <code>500</code>s e lentidão aparecem sem cliente.</li>
+  <li><strong>O limite é o que se mede.</strong> <code>201</code> com frete zero é sucesso para a análise do laboratório.</li>
+  <li><strong>O delay é uma decisão de custo.</strong> Cada segundo do blue de pé é pod pago; ele deve cobrir o tempo de detecção.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Dois cuidados com o laboratório</h4>
+  <ul>
+    <li><strong>Só roda no homelab do autor.</strong> Os arquivos apontam para o domínio dele, um ChartMuseum interno e um Prometheus local. Foram lidos, <strong>não executados</strong> aqui (sem cluster).</li>
+    <li><strong><code>irate</code> em regra de análise.</strong> A documentação do Prometheus manda usar <code>rate</code> para regras e alertas e <code>irate</code> só para gráficos de contadores voláteis (a aula 7 volta a isso).</li>
+  </ul>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos/deployment-methods (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Argo Rollouts: estratégia BlueGreen", href: "https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/" },
+    { label: "Argo Rollouts: Analysis", href: "https://argo-rollouts.readthedocs.io/en/stable/features/analysis/" },
+    { label: "Prometheus: funções de consulta (irate e rate)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O blue/green vira tudo de uma vez, e a análise do laboratório não enxerga o frete. Falta saber o que muda se a gente <strong>não virar tudo</strong> e mandar só uma <strong>fatia</strong> do tráfego para a versão nova.</p>
+
+<Flashcards cards={[
+  { q: "Para que servem activeService e previewService no Argo Rollouts?",
+    a: "O active recebe o cliente (o blue); o preview recebe a versão nova para teste (o green). A promoção troca o ponteiro." },
+  { q: "O que faz autoPromotionEnabled: false?",
+    a: "Torna a promoção manual: alguém aprova o green antes da virada." },
+  { q: "O que o prePromotionAnalysis do laboratório faz?",
+    a: "Roda um Job do cassowary (-c 3 -n 1000) contra o green e confere uma taxa de sucesso no Prometheus (result[0] >= 0.95), tudo antes da promoção." },
+  { q: "O que a análise do laboratório não pega?",
+    a: "O frete zero (201 conta como sucesso) e erros abaixo de 5%, que o >= 0.95 aceita." },
+  { q: "Por que o scaleDownDelaySeconds importa?",
+    a: "Mantém o blue de pé depois da virada. Com 60 s e um defeito achado em 8 min, voltar vira subir 3 pods e esperar 30 s. Deve cobrir o tempo de detecção." },
+]} />

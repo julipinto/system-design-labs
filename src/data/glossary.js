@@ -14,6 +14,7 @@ import { performance } from './glossary-performance.js';
 import { scaleCube } from './glossary-scale-cube.js';
 import { sharding } from './glossary-sharding.js';
 import { saga } from './glossary-saga.js';
+import { deployment } from './glossary-deployment.js';
 import { replicacao } from './glossary-replicacao.js';
 import { cqrs } from './glossary-cqrs.js';
 import { eventSourcing } from './glossary-event-sourcing.js';
@@ -100,5 +101,6 @@ export const glossaries = {
   saga,
   'event-sourcing': eventSourcing,
   resiliencia,
-  'capacity-planning': capacityPlanning
+  'capacity-planning': capacityPlanning,
+  deployment
 };

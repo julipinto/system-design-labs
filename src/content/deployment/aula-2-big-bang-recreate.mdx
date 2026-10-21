@@ -1,0 +1,85 @@
+---
+title: "Big Bang (Recreate)"
+order: 2
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a volta ficou clara: o código volta, o dado não, e o tempo depende do modelo. Falta o modelo mais simples de todos: <strong>parar tudo e subir de novo</strong>. É o <em>Big Bang</em>, que o Kubernetes chama de <strong>Recreate</strong>, e ele tem um preço que dá para somar em segundos.</p>
+
+<OneLiner>No <strong>Recreate</strong> todos os pods antigos morrem antes de qualquer pod novo nascer. É o <strong>único</strong> modelo em que a 2.4.0 e a 2.5.0 nunca atendem juntas, e o preço é o <strong>tempo fora do ar</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Recreate</strong>, derrube os 3 pods da 2.4.0 e acompanhe o relógio de <strong>40 s</strong> até a 2.5.0 atender. Repare que durante esse intervalo o <code>lb-loja</code> só devolve <code>503</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=recreate" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Recreate (Big Bang)" alt="Prévia da figura 3D: Recreate (Big Bang)" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A configuração.</strong> No Kubernetes é <code>strategy.type: Recreate</code>: "todos os Pods antigos são encerrados antes de criar os novos" (documentação do Deployment). Não há <code>maxSurge</code> nem <code>maxUnavailable</code>.</li>
+  <li><strong>A conta do <code>pedidos</code>.</strong> Encerrar os 3 pods antigos leva 10 s; cada pod novo demora 30 s para ficar pronto (a conta do módulo 14). São <strong>40 s</strong> sem atender ninguém.</li>
+  <li><strong>O que isso custa.</strong> A 5 pedidos/s, <strong>200</strong> pedidos recusados nos 40 s. Na Black Friday do módulo 14, a 30/s, <strong>1.200</strong>.</li>
+  <li><strong>Quando vale.</strong> Quando as duas versões <strong>não podem coexistir</strong> (a 2.5.0 troca a representação de um campo que a 2.4.0 não entende), ou quando a transição gradual custa mais que a parada.</li>
+  <li><strong>O caso do artigo: Kafka.</strong> Um grupo de consumidores com <em>leasing</em> faz <em>rebalance</em> a cada pod que sai ou entra. No <code>entregas</code> (3 partições, módulo 13), com <strong>6 s</strong> parados por rebalance (exemplo declarado), o rolling gasta 3 trocas × 2 rebalances × 6 s = <strong>36 s</strong> com consumo interrompido em partes. O Recreate faz <strong>1</strong> rebalance de 6 s depois que os 3 novos entram.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Quem</th><th>Parada</th><th>A 5 pedidos/s</th><th>A 30 pedidos/s</th></tr></thead>
+  <tbody>
+    <tr><th>Recreate do <code>pedidos</code></th><td>10 s + 30 s = 40 s</td><td>200 recusados</td><td>1.200 recusados</td></tr>
+    <tr><th>Se a 2.5.0 não sobe</th><td>40 s + 40 s de volta = 80 s</td><td>400 recusados</td><td>2.400 recusados</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: a 2.5.0 não sobe</h3>
+
+<p>A 2.5.0 grava a coluna <code>frete</code>, e alguém esqueceu de aplicar a migration. O primeiro pod novo tenta gravar e o banco responde <code>column "frete" does not exist</code>; o pod entra em <em>CrashLoopBackOff</em>. Os 3 pods antigos <strong>já morreram</strong>: são <strong>0 pods</strong> e 100% de <code>503</code> até alguém desfazer. O <code>rollout undo</code> é outro Recreate, com mais 40 s: <strong>80 s</strong> fora do ar no total, <strong>400</strong> pedidos recusados a 5/s e <strong>2.400</strong> a 30/s.</p>
+
+<p>Repare no que o Recreate <strong>não</strong> faz: ele não deixa ninguém ver o defeito do frete antes, porque a 2.5.0 sobe saudável. Quando o defeito é de negócio, o Recreate é o modelo com o maior raio: 100% do tráfego de uma vez e nenhum portão de resultado.</p>
+
+<WhyItMatters>
+  <li><strong>Nenhuma versão mista.</strong> É a única garantia que só o Recreate dá, e justifica o preço quando as versões não convivem.</li>
+  <li><strong>O preço é aritmética.</strong> 40 s × os pedidos por segundo, e dobra se a versão nova não sobe.</li>
+  <li><strong>O critério vale além do Kafka.</strong> O que decide é a incompatibilidade entre versões, não o tipo de serviço.</li>
+  <li><strong>Sem portão.</strong> O Recreate não confere nada antes de atender com a versão nova.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Só é viável com comunicação assíncrona e consistência eventual."</strong> O critério é <strong>duas versões não poderem coexistir</strong>, ou a transição custar mais que a parada. Assincronia e consistência eventual não são pré-requisito; o preço é o tempo fora do ar.</li>
+    <li><strong>"Consumidores Kafka exigem Recreate."</strong> O <em>rebalance</em> cooperativo (KIP-429) e a associação estática (<code>group.instance.id</code>) reduzem o custo do rolling. O Recreate é uma opção, não uma exigência.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Kubernetes: Deployments (strategy Recreate)", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Kafka: KIP-429, rebalance incremental do consumidor", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol" },
+    { label: "Documentação do Apache Kafka", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Parar tudo custa 40 s, ou 80 s quando a versão nova não sobe. Falta saber se dá para trocar <strong>sem parar</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que o Recreate faz?",
+    a: "Encerra todos os pods antigos antes de criar os novos: nunca há duas versões ao mesmo tempo, mas há tempo fora do ar." },
+  { q: "Quanto tempo o pedidos fica fora do ar no Recreate?",
+    a: "40 s: 10 s para encerrar os 3 pods antigos e 30 s para os novos ficarem prontos. São 200 pedidos recusados a 5/s e 1.200 a 30/s." },
+  { q: "E se a 2.5.0 não sobe?",
+    a: "O Recreate já matou os antigos: são 80 s fora do ar (40 s + 40 s de volta), com 400 pedidos recusados a 5/s e 2.400 a 30/s." },
+  { q: "Quando o Recreate faz sentido?",
+    a: "Quando as duas versões não podem coexistir, ou quando a transição gradual custa mais que a parada." },
+  { q: "O Recreate é a única saída para consumidores Kafka?",
+    a: "Não. O rebalance cooperativo (KIP-429) e a associação estática reduzem o custo do rolling." },
+]} />

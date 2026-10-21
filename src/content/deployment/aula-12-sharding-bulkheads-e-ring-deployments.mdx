@@ -1,0 +1,84 @@
+---
+title: "Sharding, bulkheads e ring deployments"
+order: 12
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a flag sorteou os clientes pelo <em>bucket</em>, mas um sorteio não escolhe <strong>quem</strong> deve ver a mudança primeiro. Quando os clientes são muito diferentes (Recife não é São Paulo), a pergunta muda: em que <strong>ordem</strong> a versão vai chegando a cada grupo? A resposta do artigo são os <strong>anéis</strong>, e o módulo 16 já deixou os grupos prontos: os <strong>shards</strong>.</p>
+
+<OneLiner>No <strong>ring deployment</strong> a mesma versão vai por <strong>anéis</strong> de risco crescente, e só passa ao próximo se o anterior ficar saudável pelo tempo de <em>bake</em>. O anel limita o raio de explosão da <strong>mudança</strong>, e <strong>quem exercita o código</strong> importa mais que o tamanho do anel.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Anéis</strong>, solte a 2.5.0 anel por anel e repare em qual deles o frete zero aparece: o <strong>anel 1</strong>, com 40% do tráfego já na versão nova, porque o anel 0 não tem ninguém de Recife.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/liberacao-3d/?mode=aneis" poster="labs/deployment/liberacao-3d-previa.webp" title="Figura interativa: Anéis por shard" alt="Prévia da figura 3D: Anéis por shard" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os anéis vêm dos shards.</strong> Com o <code>mkt-01</code> no <code>shard-2</code> (módulo 16): <strong>anel 0</strong> = <code>shard-0</code> (20% do tráfego: <code>davi-12</code>), <strong>anel 1</strong> = <code>shard-1</code> (20%: <code>lena-77</code> e <code>bia-31</code>), <strong>anel 2</strong> = <code>shard-2</code> (<strong>60%</strong>: <code>caio-58</code> e <code>mkt-01</code>).</li>
+  <li><strong>A exposição acumulada cresce por degraus.</strong> 20% → 40% → 100%. Entre um anel e outro, o <em>bake time</em>: o tempo de esperar o que o defeito levaria para aparecer (AWS Builders' Library).</li>
+  <li><strong>O anel 0 é o <em>one-box</em>.</strong> A AWS começa com uma caixa só, para pegar o defeito com o menor raio possível. Só que o defeito do frete é de <strong>Recife</strong>, e a Lena está no <code>shard-1</code>: o anel 0 (<code>davi-12</code>, SP) <strong>não vê nada</strong>.</li>
+  <li><strong>O defeito aparece no anel 1,</strong> com <strong>40%</strong> do tráfego já na 2.5.0. O anel 0 passou limpo e deu uma falsa segurança.</li>
+  <li><strong>O conserto é pôr clientes sintéticos</strong> com pedidos em <strong>todas</strong> as cidades no anel 0 (a ideia do <em>one-box</em>): o frete zero de Recife aparece já no anel 0, sem nenhum cliente real exposto.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="aneis" title="Anéis por shard" hint="Frações dos 3 shards (20, 20 e 60%) e a cidade do defeito; escolha a ordem dos anéis e se o anel 0 recebe clientes sintéticos. O widget mostra a exposição acumulada (20 → 40 → 100%) e em qual anel o defeito aparece (o anel 1, sem sintéticos)." />
+
+<h3 class="sec">O custo, e a escolha do primeiro anel</h3>
+
+<p>Os anéis exigem <strong>pods por anel</strong>: os 3 pods de <code>pedidos</code> viram 1 por shard, de 30 pedidos/s cada. O <code>shard-2</code>, com 60% de 30 pedidos/s, vê 18/s e cabe. Com a Black Friday dobrada, 60 × 60% = <strong>36/s</strong> passa dos 30: o anel quente precisa de mais pods. Exige também uma <strong>versão por anel</strong> para operar e monitorar. O artigo avisa desse custo, e ele liga com o <strong>bulkhead</strong> (módulo 25: o anel é o raio de explosão da <em>mudança</em>) e com as <strong>células</strong> (módulo 26).</p>
+
+<p>O artigo propõe escolher o primeiro anel por <strong>cluster</strong> de clientes, com <em>k-means</em> sobre segmento, volume e região. O <em>k-means</em> só <strong>descobre</strong> grupos parecidos a partir de variáveis; ele <strong>não diz</strong> quais são de baixo risco. Na prática, o primeiro anel sai de um <strong>critério de risco e de negócio</strong> (funcionários, clientes sintéticos, regiões pequenas), e o clustering ajuda no segundo passo, não é pré-requisito.</p>
+
+<h3 class="sec">E se der errado: o último anel tem 60%</h3>
+
+<p>O degrau de <strong>40% para 100%</strong> é o maior e o mais arriscado. Se o defeito só aparece sob a carga do <code>mkt-01</code>, ele só explode no anel 2, quando 60% do tráfego muda de uma vez. O conserto é dividir o anel 2 (o <code>shard-2</code> dedicado do módulo 16) ou colocar um anel intermediário, para que nenhum degrau passe de uma fração que a loja aguenta perder.</p>
+
+<WhyItMatters>
+  <li><strong>O anel é um raio de explosão escolhido.</strong> A mudança só chega ao próximo grupo depois de o anterior ficar saudável.</li>
+  <li><strong>Quem exercita o código importa mais que o tamanho.</strong> O anel 0 do Davi não vê Recife; clientes sintéticos em todas as cidades veem.</li>
+  <li><strong>O degrau grande é o ponto fraco.</strong> 40% → 100% concentra o risco no último anel.</li>
+  <li><strong>Custa pods e operação.</strong> Um anel por shard é mais capacidade parada e mais versões para monitorar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Sharding Deployment."</strong> O nome mais comum é <strong>ring deployment</strong> (ou <em>waves</em>); AWS e Microsoft descrevem anéis e ondas com <em>bake time</em>. O artigo está certo no custo; falta dizer que dependências <strong>globais</strong> (configuração, autenticação, catálogo) reintroduzem o raio de explosão global (módulo 25).</li>
+    <li><strong>Clustering com k-means.</strong> Descobre grupos, não risco; clientes sintéticos em todas as cidades valem mais que um cluster.</li>
+    <li><strong>O que falta no artigo.</strong> A compatibilidade N/N−1 em <strong>eventos</strong> e APIs (leitor tolerante) e o congelamento de mudanças antes de eventos como a Black Friday.</li>
+    <li><strong>Referências.</strong> O texto do Medium sobre k-means não foi conferido e fica de fora; os do Split.io, Red Hat, Codefresh e Spacelift são blogs de fornecedores e entram só como "aprofundar".</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre estratégias de deployment (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "AWS Builders' Library: Automating safe, hands-off deployments", href: "https://aws.amazon.com/builders-library/automating-safe-hands-off-deployments/" },
+    { label: "Azure Architecture Center: padrão Deployment Stamps", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp" },
+    { label: "Kubernetes: Deployments", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe <strong>publicar</strong> sem derrubar a si mesma: rolling, blue/green, canary, shadow, flags e anéis. Mas <strong>quanto</strong> ela aguenta na Black Friday do ano que vem, e quanto isso custa, ninguém calculou. Falta saber como prever a capacidade com os números do módulo 14: é o módulo 23, <strong>Capacity Planning</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os anéis da loja e a exposição acumulada?",
+    a: "Anel 0 = shard-0 (20%), anel 1 = shard-1 (20%), anel 2 = shard-2 (60%). A exposição vai 20% → 40% → 100%." },
+  { q: "Por que o anel 0 não vê o defeito do frete?",
+    a: "Ele tem o davi-12, de SP. O defeito é de Recife, e a Lena está no shard-1: aparece no anel 1, com 40% do tráfego já na 2.5.0." },
+  { q: "Como pegar o defeito já no anel 0?",
+    a: "Pôr clientes sintéticos com pedidos em todas as cidades no anel 0, a ideia do one-box da AWS." },
+  { q: "O k-means escolhe o primeiro anel?",
+    a: "Não. Ele descobre grupos parecidos, mas não diz quais são de baixo risco; o primeiro anel sai de critério de risco e de negócio." },
+  { q: "Qual é o ponto fraco dos anéis da loja?",
+    a: "O degrau de 40% para 100% (o anel de 60%). A solução é dividir o anel 2 ou pôr um anel intermediário." },
+]} />

@@ -1,0 +1,111 @@
+---
+title: "Canary, o exemplo do laboratório"
+order: 7
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import canarySimple from '../../lab-code/deployment/canary-simple-canary.yml?raw';
+import canaryAnalysis from '../../lab-code/deployment/canary-analysis-canary.yml?raw';
+
+<p class="ponte">Na aula passada o canary ficou definido: uma fatia, medida, com amostra e com métrica de negócio. O laboratório público do autor tem quatro versões do mesmo canary (<code>initial</code>, <code>simple</code>, <code>time</code> e <code>analysis</code>). Cada uma ensina uma peça do Argo Rollouts, e a última mostra <strong>cinco lacunas</strong> que a loja precisa fechar.</p>
+
+<OneLiner>O laboratório é um exemplo <strong>mínimo</strong> e funciona como tal. O canary dele sobe por <strong>passos</strong> (<code>setWeight</code>, <code>pause</code>, <code>analysis</code>), e a análise é uma <strong>taxa de sucesso</strong> do Prometheus. Para a loja, falta medir o <strong>negócio</strong> e medir só o <strong>canary</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Canary</strong>, no passo da análise, aperte <strong>+ frete zero</strong> e veja o canary abortar em 5 min, com 30 pedidos de Recife já gravados com frete zero. Depois aperte <strong>só 5xx</strong> e veja o defeito passar e subir a 50% sem ninguém perceber.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/rollout-3d/?mode=canary&step=3" poster="labs/deployment/rollout-3d-previa.webp" title="Figura interativa: Canary" alt="Prévia da figura 3D: Canary" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">Do initial ao time: quem decide avançar</h3>
+
+<p>O <code>initial</code> e o <code>simple</code> são <strong>idênticos</strong>, menos a <code>version</code> (<code>v3</code> e <code>v4</code>). Os dois têm 10 réplicas e estes passos (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original):</p>
+
+<CodeLab code={canarySimple} from={37} to={53} />
+
+<ol class="flow steps">
+  <li>As linhas 37 e 38 fixam <strong>10 réplicas</strong> (<code>min: 10</code>, <code>max: 10</code>).</li>
+  <li>Os passos sobem o peso 0 → 10 → 20 → 40 → 80 → 100, e o <code>pause: {'{ }'}</code> é uma pausa <strong>sem fim</strong>: alguém promove à mão (<code>kubectl argo rollouts promote</code>).</li>
+  <li>O <code>time</code> troca cada pausa por <code>pause: {'{duration: 10s}'}</code> (as linhas 44, 46, 48, 50 e 52 do arquivo). A promoção passa a ser automática, <strong>por tempo, sem olhar métrica</strong>: é só um relógio.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o canary por tempo</h3>
+
+<p>O <code>time</code> do laboratório, com 10 s por degrau, passa 0 → 10 → 20 → 40 → 80 → 100 em <strong>5 × 10 s = 50 s</strong>. É mais rápido que o rolling de 3 pods da aula 3 (90 s). <strong>Canary por tempo sem análise é rolling com mais passos</strong>: ninguém olhou nada entre um degrau e outro, e a 2.5.0 com frete zero chegaria a 100% antes de a primeira janela de métrica fechar.</p>
+
+<h3 class="sec">O analysis: a taxa de sucesso</h3>
+
+<p>O <code>analysis</code> troca as pausas por análises. Os passos e o modelo de análise, linha a linha:</p>
+
+<CodeLab code={canaryAnalysis} from={41} to={73} />
+
+<ol class="flow steps">
+  <li>Linhas 43 a 53: 20% → pausa de 30 s → <strong>análise</strong> (<code>chip-check-success</code>) → 50% → pausa de 1 min → análise → 100%.</li>
+  <li>Linha 60: <code>interval: 2m</code>; linha 73: <code>count: 1</code>. A análise roda <strong>uma</strong> medição.</li>
+  <li>Linha 61: <code>successCondition: result[0] &gt;= 0.95</code>, e linha 62, <code>failureLimit: 1</code>.</li>
+  <li>Linhas 66 a 72: a consulta divide o <code>irate</code> das respostas que <strong>não</strong> são <code>5xx</code> pelo <code>irate</code> de todas, com janela de 5 minutos.</li>
+</ol>
+
+<h3 class="sec">Cinco coisas que o laboratório deixa de fora</h3>
+
+<p>O laboratório é um exemplo mínimo, e as cinco abaixo são o que separa um exemplo de uma análise para a loja.</p>
+
+<ol class="flow steps">
+  <li><strong>5% de tolerância.</strong> <code>&gt;= 0.95</code> aceita 5% de <code>5xx</code>. A meta da loja é <strong>99,9%</strong>.</li>
+  <li><strong>Só vê <code>5xx</code>.</strong> <code>response_code!~"5.*"</code> conta o <code>201</code> com frete 0 como sucesso. Só uma <strong>métrica de negócio</strong> o pega.</li>
+  <li><strong>Serviço inteiro.</strong> <code>destination_service=~"chip.chip.svc.cluster.local"</code> mede o serviço inteiro (estável + canary) e <strong>dilui</strong> o erro do canary pelo peso. Para medir só o canary é preciso filtrar pelo subconjunto ou pela versão.</li>
+  <li><strong><code>irate</code> em janela de 5 m.</strong> A documentação do Prometheus manda usar <code>rate</code> para regras e alertas e <code>irate</code> só para gráficos de contadores voláteis.</li>
+  <li><strong><code>count: 1</code>.</strong> É <strong>uma</strong> medição: o <code>interval: 2m</code> nem chega a valer.</li>
+</ol>
+
+<h3 class="sec">A análise da loja (adaptação, não executada)</h3>
+
+<p>A consulta que a loja usaria troca o código de resposta pelo defeito de negócio, por versão e por cidade, e exige zero:</p>
+
+<pre><code>{`sum(increase(pedidos_criados_total{versao="2.5.0",frete="0"}[5m])) by (cidade)
+
+successCondition: result[0] == 0`}</code></pre>
+
+<p>É uma <strong>adaptação</strong> (não foi executada, sem cluster). Com <code>by (cidade)</code> a consulta devolve uma série por cidade, então a condição real do Argo precisa de ajuste (somar tudo, ou checar cada série). A ideia é o que importa: no degrau de 10%, a série de Recife mostra 30 e o canary aborta, com R$ 450 de perda em vez de R$ 54.000.</p>
+
+<WhyItMatters>
+  <li><strong>Pausa sem fim é decisão humana.</strong> <code>pause: {'{ }'}</code> espera alguém promover; <code>duration</code> é só um relógio.</li>
+  <li><strong>Análise é um critério, e o critério está na consulta.</strong> <code>&gt;= 0.95</code> sobre <code>5xx</code> é permissivo e cego ao negócio.</li>
+  <li><strong>O que se mede decide o raio.</strong> Serviço inteiro dilui o canary; só o canary mostra o canary.</li>
+  <li><strong>Uma medição não é tendência.</strong> <code>count: 1</code> decide com um ponto.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Peso por malha</h4>
+  <p>O laboratório usa Istio (módulo 10), e é a malha que dá o peso exato. A documentação do Argo Rollouts tem uma página só sobre isso, em "Istio".</p>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos/deployment-methods/canary (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Argo Rollouts: estratégia Canary", href: "https://argo-rollouts.readthedocs.io/en/stable/features/canary/" },
+    { label: "Argo Rollouts: Analysis", href: "https://argo-rollouts.readthedocs.io/en/stable/features/analysis/" },
+    { label: "Argo Rollouts: gerenciamento de tráfego com Istio", href: "https://argo-rollouts.readthedocs.io/en/stable/features/traffic-management/istio/" },
+    { label: "Prometheus: funções de consulta (irate e rate)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Tudo isso assume que os <strong>dados</strong> servem às duas versões ao mesmo tempo. Falta saber o que acontece quando a <strong>coluna mudou</strong>.</p>
+
+<Flashcards cards={[
+  { q: "O que é pause vazio e pause com duration no Argo Rollouts?",
+    a: "A pausa vazia espera alguém promover à mão. A pausa com duration promove sozinha depois do tempo, sem olhar métrica." },
+  { q: "Quanto tempo leva o canary time do laboratório?",
+    a: "5 pausas de 10 s: 50 s até 100%, mais rápido que um rolling de 3 pods (90 s). Canary por tempo sem análise é rolling com mais passos." },
+  { q: "Quais são as cinco lacunas da análise do laboratório?",
+    a: "5% de tolerância, só 5xx (201 com frete 0 passa), serviço inteiro (dilui o canary), irate em vez de rate e count 1 (uma medição)." },
+  { q: "Qual é a análise de negócio da loja?",
+    a: "A soma de pedidos_criados_total com versão 2.5.0 e frete 0, por cidade, em 5 minutos, exigindo zero. É uma adaptação, não executada." },
+  { q: "Por que medir o serviço inteiro dilui o erro?",
+    a: "Estável e canary entram na mesma taxa: um canary de 10% com defeito aparece só pelo peso dele. É preciso filtrar pelo subconjunto ou pela versão." },
+]} />

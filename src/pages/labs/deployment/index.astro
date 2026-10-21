@@ -1,0 +1,36 @@
+---
+// Módulo Modelos de Deployment: as 12 aulas de src/content/deployment/, na ordem do campo `order`.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../components/Lesson.astro';
+import { withBase } from '../../../lib/url.js';
+import '../../../styles/deployment.css';
+
+const entries = (await getCollection('deployment')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('labs/deployment/quiz/');
+---
+<ModuleLayout
+  title="Modelos de Deployment · SDLabs"
+  description="Publicar o pedidos 2.5.0 numa terça-feira comum sem a Lena notar, e conseguir voltar: rollback, recreate, rolling, blue/green, canary, migrations, shadow, feature flags e anéis por shard, com os laboratórios do autor lidos, medições reais de PostgreSQL, widgets e quiz."
+  module="deployment"
+  heading="Modelos de Deployment"
+  lead="Uma versão nova do pedidos entra no ar numa terça-feira, às 14:00, com um defeito que só o dado real mostra: a tabela de frete esqueceu Recife. Como lançar sem ser o incidente, e como voltar quando o defeito aparece."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../scripts/deployment/widgets.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Teste o que aprendeu: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

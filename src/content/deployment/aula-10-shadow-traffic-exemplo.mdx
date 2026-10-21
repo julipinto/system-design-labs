@@ -1,0 +1,96 @@
+---
+title: "Shadow traffic, o exemplo do laboratório"
+order: 10
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import shadowChip from '../../lab-code/deployment/shadow-chip.yml?raw';
+import shadowShadow from '../../lab-code/deployment/shadow-shadow.yml?raw';
+
+<p class="ponte">Na aula passada o espelho ficou claro no papel: copiar, descartar a resposta e comparar. O laboratório do autor tem a versão em YAML, com <strong>dois apps</strong> e o <code>mirror</code> do Istio. Ele mostra bem o mecanismo, e deixa de fora quatro peças que a loja precisaria.</p>
+
+<OneLiner>No laboratório, o app <code>chip</code> copia <strong>1%</strong> do tráfego para outro app, o <code>chip-shadow</code>, que mora em <strong>outro namespace</strong>. A cópia chega e o estável responde normal. Falta o <strong>comparador</strong>, uma amostra suficiente e capacidade na sombra.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Shadow</strong>, no último passo, o espelho sobe a <strong>100%</strong>: leia a CPU da sombra: com 1 réplica para os 640 req/s do <code>catalogo</code>, ela vai a 640% e a fila não para.</p>
+</DoIt>
+
+<Figure3D path="labs/deployment/liberacao-3d/?mode=shadow&step=7" poster="labs/deployment/liberacao-3d-previa.webp" title="Figura interativa: A cópia do tráfego" alt="Prévia da figura 3D: A cópia do tráfego" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<h3 class="sec">Os dois arquivos</h3>
+
+<p>O primeiro, <code>shadow/chip.yml</code>, é o app que recebe o tráfego. Ele tem 10 réplicas e um canary de passos 0 → 20 → 40 → 80 → 100 com pausa manual, e no <code>virtualService</code> liga o espelho (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original):</p>
+
+<CodeLab code={shadowChip} from={36} to={51} />
+
+<CodeLab code={shadowChip} from={81} to={92} />
+
+<ol class="flow steps">
+  <li>As linhas 37 e 38 fixam 10 réplicas; as 41 a 51 são o canary com <code>pause</code> manual, como na aula 7.</li>
+  <li>A linha 89 liga o espelho (<code>enabled: true</code>). A 90 diz para onde copiar, <code>chip.shadow.svc.cluster.local</code>, e a 91, a porta <code>8080</code>.</li>
+  <li>A linha 92, <code>percent: 1</code>, é a fração: <strong>1%</strong>. É o <code>mirrorPercentage</code> do Istio.</li>
+</ol>
+
+<p>O segundo, <code>shadow/shadow.yml</code>, é a sombra: o release <code>chip-shadow</code>, no namespace <code>shadow</code>, versão <code>v9</code>, com <strong>1 réplica</strong> e sem autoscaling.</p>
+
+<CodeLab code={shadowShadow} from={21} to={43} />
+
+<ol class="flow steps">
+  <li>A linha 21 nomeia o release (<code>chip-shadow</code>) e a 26, o namespace <code>shadow</code>. São <strong>dois</strong> apps: o espelho mora fora do namespace do estável.</li>
+  <li>As linhas 37 e 38 (<code>min: 1</code>, <code>max: 1</code>) fixam <strong>1 réplica</strong>, e a 43 (<code>setWeight: 100</code>) é o único passo do <code>Rollout</code>.</li>
+</ol>
+
+<h3 class="sec">O que o laboratório mostra e o que falta</h3>
+
+<p>O que ele mostra: a cópia de <strong>1%</strong> chega ao <code>chip-shadow</code> e o estável responde normal. É o mecanismo funcionando. O que falta, na ordem em que a loja sentiria:</p>
+
+<ol class="flow steps">
+  <li><strong>O comparador.</strong> O laboratório só olha o <code>/metrics</code> do Prometheus. Sem juntar a resposta da sombra com a do estável, não há o diff 64,00 × 49,00 que a aula 9 queria.</li>
+  <li><strong>A amostra.</strong> 1% de 5 pedidos/s é <strong>0,05/s</strong>, ou <strong>3 pedidos por minuto</strong>. Para o <code>pedidos</code> é pouco; para o <code>catalogo</code> a 640 req/s serve.</li>
+  <li><strong>A capacidade da sombra.</strong> 1 réplica para um estável de 10: a sombra tem <strong>menos</strong> capacidade que o que ela copia. A conta de 10% × 640 = 64/s ≤ 100/s da aula 9 é o limite.</li>
+  <li><strong>O <code>Rollout</code> com <code>canary.steps</code> numa sombra.</strong> Um app que é só sombra não precisa de passos; o único passo (<code>setWeight: 100</code>) é ruído herdado do chart.</li>
+</ol>
+
+<h3 class="sec">E se der errado: espelhar 100% em 1 réplica</h3>
+
+<p>Alguém troca <code>percent: 1</code> por <code>percent: 100</code> no <code>catalogo</code>. O espelho copia os 640 req/s para <strong>1</strong> réplica de sombra que aguenta 100: 640 ÷ 100 = <strong>640%</strong> de CPU, fila infinita. Como a resposta é descartada, <strong>ninguém vê o estrago</strong> a não ser a própria métrica da sombra. E se a sombra compartilha banco ou cache com o estável, <strong>o estável sente</strong>: o espelho, que deveria ser invisível, passa a derrubar a produção.</p>
+
+<WhyItMatters>
+  <li><strong>O espelho é uma linha de configuração.</strong> <code>percent</code> decide a carga extra; um zero a mais é um incidente.</li>
+  <li><strong>Sombra é app à parte.</strong> Outro namespace, outro release, outra capacidade.</li>
+  <li><strong>Amostra pequena não ensina.</strong> 1% de 5/s são 3 pedidos por minuto.</li>
+  <li><strong>O estrago na sombra é silencioso.</strong> Resposta descartada não vira erro para o cliente; só a métrica da sombra mostra.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Só roda no homelab do autor</h4>
+  <p>Os arquivos apontam para o domínio dele, um ChartMuseum interno e Istio. Foram lidos, <strong>não executados</strong>, e o laboratório é um exemplo mínimo; as lacunas acima são do que a loja precisaria, não defeitos dele.</p>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos/deployment-methods/shadow (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Istio: VirtualService (mirror e mirrorPercentage)", href: "https://istio.io/latest/docs/reference/config/networking/virtual-service/" },
+    { label: "Istio: traffic mirroring", href: "https://istio.io/latest/docs/tasks/traffic-management/mirroring/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O shadow protege contra defeitos de infraestrutura e de resposta, mas o risco nem sempre está aí: às vezes é a <strong>regra</strong> que o cliente vê. Falta saber como <strong>separar publicar de liberar</strong> e dar ao negócio um botão.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os dois apps do laboratório de shadow?",
+    a: "O chip (estável, 10 réplicas, com mirror) e o chip-shadow (namespace shadow, versão v9, 1 réplica). O espelho mora fora do namespace do estável." },
+  { q: "Quanto o laboratório espelha, e quanto isso dá no pedidos?",
+    a: "percent: 1. De 5 pedidos/s, 0,05/s: 3 pedidos por minuto, amostra pequena para o pedidos." },
+  { q: "O que o laboratório não tem?",
+    a: "Comparador (só olha /metrics), amostra suficiente para escrita, capacidade da sombra igual à do estável e um Rollout com passos que não faz sentido numa sombra." },
+  { q: "O que acontece ao espelhar 100% do catalogo em 1 réplica?",
+    a: "640 ÷ 100 = 640% de CPU, fila infinita. Ninguém vê, porque a resposta é descartada, e se a sombra divide banco ou cache o estável sente." },
+  { q: "Quem pode sentir o espelho além da sombra?",
+    a: "Qualquer dependência compartilhada (banco, cache, pagamentos): a carga duplicada chega nela." },
+]} />
