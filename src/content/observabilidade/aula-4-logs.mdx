@@ -1,0 +1,99 @@
+---
+title: "Logs"
+order: 4
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A métrica mostrou que 8 pedidos demoraram mais de 1 s e não disse quais, porque o <code>pedido_id</code> não cabe num rótulo. A resposta a "o que aconteceu com <strong>aquele</strong> pedido?" mora no <strong>log</strong>: um registro, com hora, de algo que o serviço fez. Só que cada serviço escreve o seu, e há cinco no caminho da Lena.</p>
+
+<OneLiner>O log é o <strong>diário de um evento</strong>: o que aconteceu com <strong>aquele</strong> pedido. Só vale se for <strong>estruturado</strong> e <strong>correlacionável</strong> (<code>trace_id</code>, <code>pedido_id</code>, <code>celula</code>, <code>versao</code>), e o que o limita é o <strong>custo</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Logs</strong>, avance até o filtro pelo <code>trace_id</code> do 1063 e leia o <strong>WARN</strong>. Depois, no widget <strong>Custo de log</strong>, passe o nível de INFO para DEBUG e veja os GB por dia.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/sinais-3d/?mode=logs" poster="labs/observabilidade/sinais-3d-previa.webp" title="Figura interativa: Logs: o diário do pedido" alt="Prévia da figura 3D: Logs: o diário do pedido" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Seis níveis.</strong> <strong>TRACE</strong> (cada passo interno), <strong>DEBUG</strong> (por que o sistema decidiu assim; o artigo o associa às crises), <strong>INFO</strong> (os fatos do fluxo), <strong>WARN</strong> (um desvio do qual o sistema se recuperou), <strong>ERROR</strong> (a operação falhou) e <strong>FATAL</strong> (o processo não segue).</li>
+  <li><strong>O WARN acionável.</strong> Um bom WARN traz contexto para triagem e aparece <strong>antes</strong> do incidente. O <code>espera por lock</code> do <code>estoque</code> é um: saiu antes de a Lena escrever.</li>
+  <li><strong>O ERROR é um log de triagem.</strong> Diz o que falhou, por quê, onde, e como achar o resto do fluxo (o <code>trace_id</code>).</li>
+  <li><strong>Estruturar.</strong> JSON com campos fixos (<code>trace_id</code>, <code>pedido_id</code>, <code>celula</code>, <code>servico</code>, <code>versao</code>, <code>level</code>) em vez de texto livre. Dá para filtrar e somar por campo.</li>
+  <li><strong>Indexar só alguns.</strong> Indexar o texto de todas as linhas custa muito. Com campos fixos, indexa-se o <code>trace_id</code> e o <code>level</code>, e o resto fica comprimido e barato, procurado só depois.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As cinco linhas do 1063</h3>
+
+<p>O pedido da Lena passa por cinco serviços, e cada um escreve umas três linhas de INFO. Entre as cerca de 15 linhas do pedido, estas cinco, de três serviços (o <code>pedidos</code> escreve duas), contam a história, e o <code>trace_id</code> as junta. Em ordem de hora:</p>
+
+<pre><code>{`{"ts":"2026-12-03T15:30:07.412-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"POST /pedidos","cliente_id":"lena-77"}
+{"ts":"2026-12-03T15:30:07.422-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido aceito","itens":1,"total":74.70}
+{"ts":"2026-12-03T15:30:09.068-03:00","level":"WARN","servico":"estoque","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","span_id":"6d1f0a2b9e3c4a58","msg":"espera por lock","sku":"CANECA-007","lock_wait_ms":1620,"holder":"contagem-estoque","holder_pid":4412}
+{"ts":"2026-12-03T15:30:09.302-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido criado","total":74.70}
+{"ts":"2026-12-03T15:30:09.307-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"resposta","status":201,"duracao_ms":1895}`}</code></pre>
+
+<p>Leia pela ordem. A primeira linha é a entrada no <code>gw-loja</code>. A terceira é a que explica: o <code>estoque</code> esperou <strong>1.620 ms</strong> por um <em>lock</em> que a <code>contagem-estoque</code> (o <code>holder_pid</code> 4412) segurava na linha <code>CANECA-007</code>. A última fecha: <code>201</code>, <strong>1.895 ms</strong>. Nenhuma linha sozinha conta a história, e as cinco, com o mesmo <code>trace_id</code>, contam. O pedido 1047 do módulo 6 tinha 5 linhas juntas pelo <code>7f3a…</code>; é o mesmo mecanismo, e aquele id completo é <code>7f3a9c0e5b2d4186a9e3c7d1f0b84e26</code>.</p>
+
+<p>Dois detalhes. O <code>cliente_id</code> pode ir no log (identifica o pedido), e o <strong>CPF</strong> e o <strong>token</strong> do cliente não podem: dado pessoal e segredo entram mascarados ou nem entram. E o <code>trace_id</code> não substitui o horário, só o completa: os relógios de máquinas diferentes divergem alguns milissegundos.</p>
+
+<h3 class="sec">Quanto custa o diário</h3>
+
+<p>A conta tem poucas peças. Cada pedido passa por <strong>5 serviços</strong>, com ~<strong>3 linhas de INFO</strong> cada, de ~<strong>300 B</strong> em JSON: 5 × 3 × 300 = <strong>4,5 KB por pedido</strong>. O catálogo escreve <strong>1 linha de 250 B</strong> por requisição. Num dia comum, a 5 pedidos por segundo e 40 req/s no catálogo (módulo 14): 5 × 4,5 = 22,5 KB/s, mais 40 × 250 B = 10 KB/s, ou <strong>32,5 KB/s</strong> = <strong>2,81 GB por dia</strong>.</p>
+
+<p>Agora o pico da Black Friday, com <strong>30 pedidos por segundo</strong> e <strong>640 req/s</strong>, numa conta conservadora que supõe o pico durando o dia todo: 135 KB/s + 160 KB/s = 295 KB/s, <strong>25,5 GB por dia</strong>, e <strong>765 GB</strong> em 30 dias de retenção. Com o <strong>DEBUG</strong> ligado (o artigo diz que ele é "usado em crises"), uns 10 vezes mais: <strong>255 GB por dia</strong>.</p>
+
+<Widget name="custo-log" title="Custo de log" hint="Pedidos por segundo, req/s do catálogo, linhas por serviço, bytes, nível (INFO ou DEBUG ×10) e retenção. Mostra os GB por dia e o total retido (2,81 · 25,5 · 255 GB/dia; 765 GB em 30 dias)." />
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>DEBUG ligado na Black Friday.</strong> Alguém abre o nível para entender um defeito e esquece. São 255 GB por dia, o custo de ingestão sobe e a busca fica lenta justamente na hora em que se precisa dela. A saída é abrir o DEBUG por <strong>serviço e por tempo</strong>, não em toda a loja.</p>
+
+<p><strong>Dado pessoal no log.</strong> Uma linha com CPF, e-mail ou token fica indexada, copiada e retida por 30 dias, em um lugar que muita gente consulta. Pior: o log é difícil de apagar. A prevenção é mascarar na origem; o <code>cliente_id</code> é suficiente para achar o pedido.</p>
+
+<WhyItMatters>
+  <li><strong>O log responde ao "por quê?".</strong> O <code>holder</code> <code>contagem-estoque</code> estava escrito, uma linha, antes de a Lena reclamar.</li>
+  <li><strong>O <code>trace_id</code> faz as linhas virarem uma só história.</strong> Sem ele, cada serviço escreve uma ilha.</li>
+  <li><strong>O custo tem número.</strong> 2,81 GB por dia no dia comum, 25,5 no pico e 255 com DEBUG; 765 GB em 30 dias.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Por que indexar só alguns campos</h4>
+  <p>O Loki, da Grafana, guarda os logs com um índice só nos <strong>rótulos</strong> e deixa o texto comprimido. A documentação dele avisa o mesmo que o artigo: rótulos de valor quase único (um id por requisição) explodem o índice. É a cardinalidade da aula 3 de volta, agora para logs: o <code>trace_id</code> se <strong>procura</strong>, mas não se usa como rótulo.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Falta o número do custo.</strong> O artigo diz que o custo é o maior desafio e não o calcula. Aqui são 4,5 KB por pedido e 2,81 · 25,5 · 255 GB por dia; os tamanhos por linha são <strong>exemplo</strong>.</li>
+    <li><strong>Sem lab do autor.</strong> O repositório público do autor não tem exemplo de log estruturado ou observabilidade (conferido em 21/10/2026). As cinco linhas do 1063 são construídas pela conta, não saem de uma coleta.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Grafana Loki: cardinalidade de rótulos", href: "https://grafana.com/docs/loki/latest/get-started/labels/cardinality/" },
+    { label: "OpenTelemetry: Signals (logs)", href: "https://opentelemetry.io/docs/concepts/signals/" },
+    { label: "Repositório público do autor (não há lab de observabilidade)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design" },
+  ]} />
+</Deep>
+
+<p class="gancho">As cinco linhas do 1063 se achavam por um id, mas dizem pouco sobre o <strong>tempo</strong>: cada serviço fala do seu momento, e nenhuma mostra o caminho todo, com as esperas lado a lado. Falta saber como juntar o percurso inteiro da requisição, com as durações. É a aula 5, os <em>traces</em>.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os seis níveis de log e como o artigo trata WARN e ERROR?",
+    a: "TRACE, DEBUG, INFO, WARN, ERROR e FATAL. O WARN bom é acionável e aparece antes do incidente; o ERROR é um log de triagem (o que, por quê, onde, como correlacionar)." },
+  { q: "O que as cinco linhas do 1063 contam?",
+    a: "O gw-loja recebe, os pedidos aceita, o estoque espera 1.620 ms por lock (holder contagem-estoque), o pedidos cria e o gw-loja responde 201 em 1.895 ms; todas com o mesmo trace_id." },
+  { q: "Por que estruturar o log e indexar só alguns campos?",
+    a: "Texto livre indexado inteiro custa muito. JSON com campos fixos deixa indexar o trace_id e o level e comprimir o resto." },
+  { q: "Quanto a loja escreve de log por dia?",
+    a: "4,5 KB por pedido: 2,81 GB/dia no dia comum, 25,5 GB/dia no pico (765 GB em 30 dias) e 255 GB/dia com DEBUG." },
+  { q: "O que não deve ir para o log?",
+    a: "Dado pessoal e segredo (CPF, token): mascarar na origem. O cliente_id basta para achar o pedido." },
+]} />

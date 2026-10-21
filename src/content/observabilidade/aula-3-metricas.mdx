@@ -1,0 +1,109 @@
+---
+title: "Métricas"
+order: 3
+min: 16
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a Lena esperou 1,9 s, o painel estava verde e o suporte tinha só o código <code>9c1e5a7b</code>. O primeiro sinal que o time abre é a <strong>métrica</strong>, porque é o mais barato e o mais agregado. Mas por que um painel de percentis não viu aquele pedido?</p>
+
+<OneLiner>A <strong>métrica</strong> diz <strong>que</strong> algo mudou e <strong>quanto</strong>, a baixo custo. Tem três tipos (contador, <em>gauge</em>, histograma) e seus <strong>rótulos</strong> custam <strong>cardinalidade</strong>.</OneLiner>
+
+<DoIt>
+  <p>No widget <strong>Histograma e percentis</strong>, troque o limite do <em>bucket</em> de 2,5 para <strong>2,0</strong> e veja o p99,9 chegar perto de 1,9 s. Na figura, no cenário <strong>Métricas</strong>, acompanhe os mesmos <em>buckets</em> enchendo e o episódio de 8 pedidos lentos. Depois ponha o <code>cliente_id</code> como rótulo no widget de <strong>Cardinalidade</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/observabilidade/sinais-3d/?mode=metricas" poster="labs/observabilidade/sinais-3d-previa.webp" title="Figura interativa: Métricas: o histograma" alt="Prévia da figura 3D: Métricas: o histograma" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Contador.</strong> Só sobe (ou volta a zero quando o serviço reinicia). <code>http_server_requests_total</code> conta requisições. Um contador sozinho diz pouco; o que interessa é o quanto ele sobe por segundo, a função <code>rate()</code> do Prometheus.</li>
+  <li><strong>Gauge.</strong> Sobe e desce: <code>db_pool_connections_in_use</code>, <code>replication_lag_seconds</code> (o RPO do módulo 27). Guarda o <strong>último valor</strong>, e só.</li>
+  <li><strong>Histograma.</strong> Guarda a distribuição: uma contagem <strong>acumulada</strong> por faixa de valor, os <em>buckets</em>. É o tipo certo para tempo de resposta.</li>
+  <li><strong>Percentil.</strong> Sai do histograma por <strong>interpolação linear</strong> dentro do <em>bucket</em> em que o percentil cai. A precisão depende de onde os <em>buckets</em> estão.</li>
+  <li><strong>Rótulo.</strong> <code>servico</code>, <code>rota</code>, <code>status</code> e <code>celula</code> dividem uma métrica em muitas <strong>séries</strong>. Cada combinação de valores é uma série guardada, e a conta cresce depressa.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O histograma do 1063</h3>
+
+<p>Tome uma janela de <strong>1.000 requisições</strong> (200 s a 5 por segundo) de <code>POST /pedidos</code>, medidas por <code>http_server_request_duration_seconds</code>. Os <em>buckets</em> têm limites (<code>le</code>, "menor ou igual") em 0,05 · 0,1 · 0,25 · 0,5 · 0,8 · 1 · 2,5 · 5 e +Inf. O 0,8 está lá de propósito: é o limite do SLO. As contagens são <strong>acumuladas</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><code>le</code> (s)</th><th>0,05</th><th>0,1</th><th>0,25</th><th>0,5</th><th>0,8</th><th>1</th><th>2,5</th><th>5</th><th>+Inf</th></tr></thead>
+  <tbody>
+    <tr><th>requisições até ali</th><td>0</td><td>0</td><td><strong>400</strong></td><td><strong>975</strong></td><td><strong>992</strong></td><td><strong>992</strong></td><td><strong>1.000</strong></td><td>1.000</td><td>1.000</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O percentil sai de uma interpolação. O <strong>p50</strong> é a requisição de número 500, que está no <em>bucket</em> de 0,25 a 0,5 (do 400º ao 975º valor). Dentro dele, supõe-se que os valores estão <strong>espalhados em linha reta</strong>: 0,25 + (500 − 400) ÷ (975 − 400) × 0,25 = <strong>0,293 s</strong>. O <strong>p95</strong> (a 950ª) cai no mesmo <em>bucket</em>: 0,25 + 550 ÷ 575 × 0,25 = <strong>0,489 s</strong>. O <strong>p99</strong> (a 990ª) cai no de 0,5 a 0,8: 0,5 + 15 ÷ 17 × 0,3 = <strong>0,765 s</strong>, abaixo do SLO de 0,8 s. O <strong>p99,9</strong> (a 999ª) cai no de 1 a 2,5: 1 + 7 ÷ 8 × 1,5 = <strong>2,3125 s</strong>.</p>
+
+<Widget name="histograma" title="Histograma e percentis" hint="Limites dos buckets editáveis e contagens acumuladas (o 1063: 400 · 975 · 992 · 992 · 1.000). Mostra p50, p95, p99 e p99,9 pela interpolação, o valor real da janela e a média. O botão 'tirar a média dos p99' refaz a conta do módulo 14 (269 × 2.000)." />
+
+<p>O que o 1063 mostra é esta regra: <strong>o episódio não move p95 nem p99</strong>. Oito pedidos em 1.000 são 0,8%, e o p99 descarta justamente os 10 mais lentos. O painel fica verde e a Lena esperou 1,9 s. O <strong>p99,9</strong> já enxerga os 8, mas dá 2,3125 s para um valor que é de uns 1,9 s: o <em>bucket</em> de 1 a 2,5 é largo, e a interpolação sabe só que o valor está lá dentro. Quem define a precisão são os <strong>limites dos <em>buckets</em></strong>. Ponha um perto do SLO (0,8) e outro perto do que você teme (2,0).</p>
+
+<h3 class="sec">Percentil não se soma</h3>
+
+<p>No módulo 14, cada réplica mandava ao painel o seu p99, e o painel tirava a média: (4 × 55 + 5 × 74 + 2.100) ÷ 10 = <strong>269 ms</strong>. O p99 verdadeiro da frota, sobre as 100 requisições juntas, era <strong>2.000 ms</strong>. O percentil <strong>não se soma nem se tira a média</strong>: o Prometheus diz que quantis não se agregam. O certo é somar as contagens dos <em>buckets</em> de todas as réplicas e calcular o percentil <strong>de novo</strong>. Dá para olhar a mesma coisa pelo outro lado: a média esconde a distribuição, e a <code>catalogo-3</code> a 99% sumia numa frota a 67,5%.</p>
+
+<h3 class="sec">Técnicas e de negócio</h3>
+
+<p>O artigo separa duas famílias. As <strong>técnicas</strong> medem o software: tempo de resposta, contadores de <em>status</em>, estado de <em>breaker</em>. As de <strong>negócio</strong> medem o que o domínio considera sucesso: <code>pedidos_criados_total&#123;celula&#125;</code>, <code>pagamentos_recusados_total&#123;motivo&#125;</code> e a que achou o frete errado na aula 1, <code>pedidos_frete_zero_total&#123;cidade="recife"&#125;</code>. As duas ficam no mesmo painel. As de negócio são as que denunciam o "disponível e errado".</p>
+
+<h3 class="sec">Rótulos custam séries</h3>
+
+<p>Cada rótulo divide a métrica. Na loja: <code>servico</code> (7 valores) × <code>rota</code> (12) × <code>status</code> (6) × <code>celula</code> (4) = <strong>2.016 combinações</strong>. Um histograma gera <strong>11 séries</strong> por combinação (8 <code>le</code>, o <code>+Inf</code>, o <code>_sum</code> e o <code>_count</code>): 2.016 × 11 = <strong>22.176 séries</strong>. Está bem para um Prometheus. Se alguém puser <code>cliente_id</code> como rótulo, são 22.176 × 1.500.000 = <strong>33,3 bilhões</strong>. O <code>cliente_id</code>, o <code>pedido_id</code> e o <code>trace_id</code> são valores <strong>quase únicos</strong>, e quase único é o oposto de rótulo: o lugar deles é o <strong>log</strong> e o <em>trace</em>.</p>
+
+<Widget name="cardinalidade" title="Cardinalidade" hint="Rótulos com a quantidade de valores (servico 7, rota 12, status 6, celula 4, versao, cliente_id 1,5 M) e o tipo da métrica (contador ou histograma de 11 séries). Mostra as séries (2.016 · 22.176 · 33,3 bilhões) e avisa quando passa do razoável." />
+
+<h3 class="sec">E se der errado</h3>
+
+<p>Há duas maneiras de a métrica falhar sem estar quebrada. A primeira é o <strong><code>cliente_id</code> como rótulo</strong>: 33,3 bilhões de séries derrubam o servidor de métricas, e o painel some justamente quando mais é preciso. A segunda é o <strong><em>bucket</em> largo</strong>: o p99,9 dá 2,31 s para um valor de 1,9 s, e quem confia no número procura o problema no lugar errado. Nos dois casos a métrica diz <strong>que</strong> há algo e não deixa achar <strong>o quê</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>A métrica é a mais barata.</strong> Com 22.176 séries, a loja inteira cabe num painel por célula.</li>
+  <li><strong>O percentil depende dos <em>buckets</em>.</strong> p99 = 0,765 s, p99,9 = 2,3125 s para um valor de 1,9 s.</li>
+  <li><strong>O episódio fica fora do p99.</strong> Oito de 1.000 é 0,8%; a métrica mostra <em>que</em> há um problema, e não <em>quais</em> pedidos.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Onde o Prometheus entra e onde não</h4>
+  <p>A interpolação é a do <code>histogram_quantile</code> do Prometheus: assume distribuição uniforme dentro do <em>bucket</em>. As consultas aparecem como exemplo de forma, sem saída "real": nenhum Prometheus foi rodado, e o histograma é uma janela <strong>definida</strong> neste módulo.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Tempos de resposta" como <em>gauge</em>.</strong> O artigo traz o exemplo errado: um <em>gauge</em> guarda o último valor e perde a distribuição. Tempo de resposta é <strong>histograma</strong>. O artigo acerta ao falar de histogramas e percentis; falta dizer que o percentil <strong>não</strong> se agrega e que a precisão depende dos <em>buckets</em>.</li>
+    <li><strong>Falta a cardinalidade.</strong> O artigo não fala do custo dos rótulos. A conta (2.016 → 22.176 → 33,3 bilhões) está aqui.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Observabilidade e Monitoramento (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Prometheus: tipos de métrica", href: "https://prometheus.io/docs/concepts/metric_types/" },
+    { label: "Prometheus: histogramas e summaries", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Prometheus: nomes de métricas e rótulos", href: "https://prometheus.io/docs/practices/naming/" },
+    { label: "Google SRE book: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A métrica diz que 8 pedidos demoraram mais de 1 s, mas não diz <strong>quais</strong>, e não vai dizer: o <code>pedido_id</code> não cabe num rótulo. Falta saber onde fica o que <strong>aconteceu com aquele pedido</strong>. É a aula 4, os logs.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três tipos de métrica e para que serve cada um?",
+    a: "Contador (só sobe; se usa rate()), gauge (sobe e desce, guarda o último valor) e histograma (a distribuição, em buckets acumulados). Tempo de resposta é histograma." },
+  { q: "Quanto dão p50, p95, p99 e p99,9 do histograma do 1063?",
+    a: "0,293 · 0,489 · 0,765 · 2,3125 s. Os 8 pedidos lentos não movem p95 nem p99." },
+  { q: "Por que o p99,9 de 2,3125 s não é o valor real?",
+    a: "O bucket de 1 a 2,5 s é largo e a interpolação só sabe que o valor está lá dentro. O valor real é ~1,9 s; com um bucket em 2,0 o p99,9 dá ~1,875 s." },
+  { q: "Por que não se tira a média dos p99 de várias réplicas?",
+    a: "Porque percentil não se soma: a média dos p99 do módulo 14 deu 269 ms, e o p99 verdadeiro da frota era 2.000 ms. Soma-se os buckets e calcula-se de novo." },
+  { q: "Quanta cardinalidade cabe nos rótulos da loja, e o que o cliente_id faz?",
+    a: "7 × 12 × 6 × 4 = 2.016 combinações × 11 séries = 22.176. Com cliente_id (1,5 milhão): 33,3 bilhões. Ids vão no log e no trace, não na métrica." },
+]} />

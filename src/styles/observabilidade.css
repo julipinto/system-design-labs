@@ -1,0 +1,30 @@
+/* SDLabs · Observabilidade: o que só este módulo usa (tabelas e estados dos widgets, cascata de spans, o cabeçalho traceparent).
+   Peças comuns em widgets.css; cor sempre com var(--accent-ink), nunca var(--accent). */
+.sdl-content table.ob-table th,.sdl-content table.ob-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.ob-table td{overflow-wrap:normal}
+.sdl-content table.sr-table.ob-table{min-width:420px}
+.sdl-content table.sr-table.ob-table tbody th{white-space:normal;overflow-wrap:anywhere}
+.sdl-content table.ob-table td.ob-ok{color:var(--ok);font-weight:700}
+.sdl-content table.ob-table td.ob-bad{color:var(--bad);font-weight:700}
+.sdl-content .ob-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.ob-badfact b{color:var(--bad)}
+.sdl-content .sr-fact b{overflow-wrap:anywhere}
+.sdl-content .ob-two p{margin:0 0 var(--s-2);font-size:15px}
+/* cascata de spans: nome, trilho com a barra deslocada, tempos */
+.sdl-content .ob-wf{display:grid;gap:var(--s-2);margin:var(--s-3) 0}
+.sdl-content .ob-wf-row{display:grid;grid-template-columns:minmax(120px,210px) 1fr;grid-template-areas:"n track" "t t";gap:2px var(--s-3);align-items:center}
+.sdl-content .ob-wf-n{grid-area:n;font:600 13px var(--mono);color:var(--ink-hi);overflow-wrap:anywhere}
+.sdl-content .ob-wf-t{grid-area:t;font:600 12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.sdl-content .ob-wf-track{grid-area:track;position:relative;height:18px;background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-1)}
+.sdl-content .ob-wf-bar{position:absolute;top:2px;bottom:2px;background:var(--accent-ink);border-radius:2px;min-width:3px}
+.sdl-content .ob-wf-bar.hot{background:var(--bad)}
+.sdl-content .ob-wf-bar.orphan{background:transparent;border:2px dashed var(--bad)}
+/* cabeçalho traceparent */
+.sdl-content pre.ob-tp{margin:0 0 var(--s-3);font-size:13px}
+@media (max-width:480px){
+  .sdl-content .ob-wf-row{grid-template-columns:1fr;grid-template-areas:"n" "track" "t"}
+  .sdl-content pre.ob-tp{font-size:12px}
+}
+/* campos numéricos em duas colunas (cascata e buckets) */
+.sdl-content .sr-ctrls.ob-grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-2) var(--s-3)}
+.sdl-content .ob-grid2 .sr-ctl label{font-size:13px;flex-direction:column;gap:0}
