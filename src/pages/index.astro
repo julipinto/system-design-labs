@@ -45,6 +45,8 @@ const modules: Mod[] = [
     text: 'Um modelo para escrever e outro para ler: comandos e consultas, view materializada, réplicas de leitura, consistência eventual, SQL e NoSQL, modelos que juntam serviços, escrita dupla, CDC e outbox, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'saga', title: 'Saga Pattern', lessons: 10, poster: 'labs/saga/saga-3d-previa.webp', alt: 'Prévia da figura 3D do pedido 1057 atravessando os serviços',
     text: 'Um pedido que atravessa pedidos, pagamentos, estoque e entregas sem transação distribuída: passos locais e compensações, coreografia e orquestração, máquina de estados, log de saga, escrita dupla e o laboratório do autor lido, com o 1057 do Davi, widgets e quiz de 50 perguntas.' },
+  { slug: 'event-sourcing', title: 'Event Sourcing', lessons: 11, poster: 'labs/event-sourcing/eventos-3d-previa.webp', alt: 'Prévia da figura 3D do pedido 1047 como uma fita de eventos ao lado da tabela',
+    text: 'Guardar o que aconteceu como a fonte da verdade e derivar o estado: o pedido 1047 como eventos, agregados, Event Store com versão esperada, bus, projeções, rehidratação, snapshot, ordem por versão e idempotência, com calculadoras e quiz de 50 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

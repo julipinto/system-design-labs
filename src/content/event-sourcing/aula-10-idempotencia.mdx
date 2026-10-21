@@ -1,0 +1,115 @@
+---
+title: "Idempotência"
+order: 10
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import mongo from '../../lab-code/event-sourcing/statement_pkg_mongodb_client.go?raw';
+import stmt from '../../lab-code/event-sourcing/statement_listeners_transaction_listener.go?raw';
+
+<p class="ponte">Na aula passada a versão deixou o consumidor ignorar o evento velho. Mas o <code>e-502</code> do 1047 chegou <strong>duas vezes com a mesma versão</strong>, e "versão não maior" só serve a quem guarda o último estado. E o estoque, que <strong>soma</strong>? O módulo 6 já mostrou o estrago: o <code>PedidoPago</code> duplicado e o saldo do gato indo de 3 para 2 e depois para <strong>1</strong>, para um pedido só. Esse é o problema da <strong>idempotência</strong>.</p>
+
+<OneLiner>O mesmo evento pode chegar mais de uma vez (a entrega é "pelo menos uma vez", o relay reenvia, a rehidratação republica). <strong>Idempotente</strong> é o consumidor para quem <strong>processar de novo não muda o resultado</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Idempotência</strong>, entregue o <code>e-502</code> <strong>duas vezes</strong> ao estoque, primeiro sem proteção (o saldo vai <strong>3 → 2 → 1</strong>) e depois com a tabela de processados (<strong>3 → 2</strong>). Para o "e se der errado" (replay de todo o período num consumidor sem proteção), troque para o botão que reprocessa tudo.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/replay-3d/?mode=idempotencia" poster="labs/event-sourcing/replay-3d-previa.webp" title="Figura interativa: Idempotência" alt="Prévia da figura 3D: Idempotência" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>De onde vem a duplicata.</strong> O bus entrega <strong>pelo menos uma vez</strong> (aula 5), o relay da outbox reenvia se não sabe se a mensagem chegou, o consumidor cai depois de aplicar e antes de confirmar, e a rehidratação (aula 7) republica o período inteiro de propósito.</li>
+  <li><strong>O Store barra o dele.</strong> O <code>UNIQUE (evento_id)</code> recusa gravar o <code>e-502</code> uma segunda vez: <code>ERROR: duplicate key value violates unique constraint "eventos_evento_id_key"</code>, com <code>Key (evento_id)=(e-502) already exists</code>. Medido no PostgreSQL 14.</li>
+  <li><strong>O consumidor precisa do dele.</strong> Há três jeitos, conforme o modelo. <strong>(a) Por versão</strong>, num modelo de último estado: a duplicata tem a mesma versão e não passa o <code>versao &lt; $v</code> (aula 9). <strong>(b) Por <code>evento_id</code> já processado</strong>, num modelo que soma: uma tabela <code>eventos_processados</code> guarda o id, e o <code>INSERT</code> dela entra <strong>na mesma transação</strong> que aplica o efeito. <strong>(c) Por chave natural</strong>: o destino usa um identificador do próprio fato como chave, e a segunda gravação é recusada.</li>
+  <li><strong>Reprocessar exige todos.</strong> Reprocessar um período (aula 7) manda os eventos de novo a <strong>todos</strong> os consumidores. Basta um que não seja idempotente para o replay virar duplicidade em massa.</li>
+</ol>
+</HowItWorks>
+
+<p>O jeito (b) em SQL, no consumidor do estoque (exemplo da loja):</p>
+
+<pre><code>{`BEGIN;
+INSERT INTO eventos_processados (evento_id) VALUES ('e-502')
+  ON CONFLICT DO NOTHING;
+-- 0 linhas inseridas = já processado: COMMIT sem aplicar nada
+UPDATE estoque SET saldo = saldo - 1 WHERE sku = 'GATO-042';
+COMMIT;`}</code></pre>
+
+<p>A <strong>mesma transação</strong> é o que importa: se o consumidor caísse depois do <code>UPDATE</code> e antes de gravar o id, a retentativa aplicaria de novo. Com os dois no mesmo <code>COMMIT</code>, ou entram os dois ou nenhum.</p>
+
+<Widget name="idempotencia" title="Idempotência" hint="Entregue o e-502 ao estoque de 1 a 5 vezes, com e sem a tabela de processados, num modelo de último estado ou de soma. Mostra o saldo (3 → 2 contra 3 → 1)." />
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O extrato do laboratório vai para o MongoDB com o <code>movimentacao_id</code> como <code>_id</code> do documento: é o jeito <strong>(c)</strong>, chave natural. O README diz que isso é "para idempotência". Foi <strong>lido, não executado</strong>.</p>
+
+<CodeLab code={stmt} from={44} to={55} />
+
+<CodeLab code={mongo} from={79} to={95} />
+
+<ol class="flow steps">
+  <li>As linhas 45 e 46 do listener põem o <code>movimentacao_id</code> no campo <code>ID</code> do documento, que vira o <code>_id</code>.</li>
+  <li>A linha 85 insere. Se o mesmo <code>movimentacao_id</code> chega outra vez, o MongoDB recusa com o erro de chave duplicada (código <strong>11000</strong>).</li>
+  <li>As linhas 87 a 90 <strong>ignoram</strong> esse erro e devolvem <code>nil</code>. A duplicata some sem efeito. Repare que a <strong>chave é do fato</strong>, e não do evento do bus: se a mesma movimentação fosse reenviada com outro <code>evento_id</code>, a chave natural ainda a barraria.</li>
+</ol>
+
+<h3 class="sec">E se der errado: a tabela de processados que nunca para de crescer</h3>
+
+<p>A tabela <code>eventos_processados</code> ganha uma linha por evento. A 30 pedidos por segundo, com 4 eventos por pedido, são 120 linhas por segundo: ~10,4 milhões por dia e ~72,6 milhões em 7 dias, <strong>no pior caso</strong> (se o pico durasse a semana inteira). Ninguém limpa e o índice cresce, a gravação desacelera, o <code>COMMIT</code> de cada evento fica mais lento. A solução é uma <strong>janela</strong>: guarda-se os ids de 7 dias (o mesmo da retenção do tópico) e apaga-se o resto. Fora da janela, quem decide é a <strong>versão</strong>. Uma duplicata de 8 dias atrás já não é um problema do bus: só pode vir de um replay deliberado, que o operador controla.</p>
+
+<WhyItMatters>
+  <li><strong>A duplicata é normal.</strong> "Pelo menos uma vez", retentativa e replay a garantem.</li>
+  <li><strong>Sem proteção, soma errado.</strong> O <code>e-502</code> duas vezes leva o estoque de 3 a 2 e a 1.</li>
+  <li><strong>Cada modelo tem o seu jeito.</strong> Versão para último estado, <code>evento_id</code> para soma, chave natural onde o fato tem um id.</li>
+  <li><strong>O replay depende disso.</strong> Reprocessar o período todo só é seguro se todos os consumidores forem idempotentes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Os três jeitos, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Jeito</th><th>Serve a</th><th>Como barra a duplicata</th><th>Custo</th></tr></thead>
+    <tbody>
+      <tr><th>por versão</th><td>último estado (status do 1047)</td><td><code>WHERE versao &lt; $v</code></td><td>quase nenhum; falha se o modelo soma</td></tr>
+      <tr><th>por <code>evento_id</code></th><td>soma (saldo do estoque)</td><td>tabela de processados, na mesma transação</td><td>uma linha por evento, a podar por janela</td></tr>
+      <tr><th>por chave natural</th><td>documento que tem id do fato</td><td><code>_id</code> repetido recusado (11000)</td><td>nenhum; a chave precisa ser do fato</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>"Idempotência é fundamental" sem o como.</strong> O artigo pede "chaves de idempotência fortes" e controle de versão em todos os domínios, e não separa os dois casos: <strong>último estado</strong> (versão basta) e <strong>soma</strong> (precisa do <code>evento_id</code>). O widget deixa ver a diferença.</li>
+    <li><strong>O laboratório.</strong> Cobre o extrato (chave natural no MongoDB) e o saldo (versão no ScyllaDB). Nos arquivos lidos não há tabela de processados, e faz sentido: os dois modelos dele guardam o último valor, não somam eventos.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Repositório do autor: event-source-distributed-ledger (README, movimentacao_id)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "microservices.io: Idempotent Consumer", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "MongoDB: códigos de erro (11000)", href: "https://www.mongodb.com/docs/manual/reference/error-codes/" },
+    { label: "PostgreSQL: INSERT (ON CONFLICT)", href: "https://www.postgresql.org/docs/current/sql-insert.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora a loja guarda fatos, reconstrói estado, ordena e ignora duplicatas. Falta saber o que tudo isso <strong>custa</strong> e quando vale a pena pagar.</p>
+
+<Flashcards cards={[
+  { q: "O que é um consumidor idempotente?",
+    a: "Aquele para quem processar o mesmo evento de novo não muda o resultado. É necessário porque a entrega é 'pelo menos uma vez' e a rehidratação republica." },
+  { q: "O que acontece com o saldo do gato se o e-502 chega duas vezes a um consumidor que soma?",
+    a: "Vai de 3 para 2 e depois para 1, para um pedido só. Com a tabela de processados fica em 2." },
+  { q: "Quais são os três jeitos de ser idempotente?",
+    a: "(a) Por versão, no modelo de último estado. (b) Por evento_id já processado, na mesma transação, no modelo que soma. (c) Por chave natural, como o _id = movimentacao_id do MongoDB, ignorando o erro 11000." },
+  { q: "Por que o evento_id processado vai na mesma transação do efeito?",
+    a: "Para entrarem os dois ou nenhum. Se o consumidor caísse entre o efeito e o registro, a retentativa aplicaria de novo." },
+  { q: "Como evitar que a tabela de processados cresça para sempre?",
+    a: "Com uma janela (7 dias, como a retenção do tópico). Fora dela, a versão decide." },
+]} />

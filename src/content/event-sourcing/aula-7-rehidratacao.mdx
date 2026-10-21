@@ -1,0 +1,109 @@
+---
+title: "Rehidratação"
+order: 7
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import rehydrate from '../../lab-code/event-sourcing/ledger_internal_listeners_rehydratate_listener.go?raw';
+
+<p class="ponte">Na aula passada reconstruir um <strong>modelo</strong> inteiro levou horas, e tudo bem, porque é raro. O que acontece o tempo todo é menor e mais exigente: antes de aceitar um <code>Enviar</code>, o agregado <code>Pedido</code> precisa saber em que estado o 1047 está. E o Store só guarda eventos. Sobra reconstruir o estado dele agora, a cada comando. Esse trabalho tem nome: <strong>rehidratar</strong>.</p>
+
+<OneLiner><strong>Rehidratar</strong> é reconstruir o estado de um agregado <strong>dobrando</strong> os seus eventos em ordem. Acontece a <strong>cada comando</strong> (carregar o agregado antes de decidir) e a cada reprocessamento. O custo cresce com o <strong>tamanho do stream</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Rehidratação</strong>, rehidrate o <code>estoque-CANECA-007</code>, que tem <strong>1.000.000 de eventos</strong>, e leia o contador de milissegundos: ~1.800 ms. Depois olhe o pedido 1047, que dobra só 4 eventos.</p>
+</DoIt>
+
+<Figure3D path="labs/event-sourcing/replay-3d/?mode=rehidratacao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Figura interativa: Rehidratação" alt="Prévia da figura 3D: Rehidratação" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Começa vazio e dobra.</strong> O estado inicial do <code>pedido-1047</code> é nada. <code>PedidoCriado</code> leva a <code>{`{status: criado, cliente: lena-77, total: 9490}`}</code>. <code>PedidoPago</code> troca o status para <code>pago</code>. <code>PedidoEnviado</code> põe <code>enviado</code> e o rastreio <code>LA123456789BR</code>. <code>PedidoEntregue</code> deixa <code>entregue</code>. Resultado: <code>{`{pedido_id: 1047, status: entregue, total_centavos: 9490, rastreio: LA123456789BR, versao: 4}`}</code>. "Dobrar" é isto: aplicar cada evento sobre o estado, em ordem.</li>
+  <li><strong>A cada comando.</strong> Para decidir se <code>Enviar</code> é aceito, o <code>Pedido</code> dobra os eventos dele e só então aplica a regra (aula 3). Com 4 eventos custa quase nada. É por isso que o agregado deve ser <strong>pequeno</strong>.</li>
+  <li><strong>O custo é linear.</strong> Num stream de <strong>1.000.000 de eventos</strong> (o <code>estoque-CANECA-007</code>), ler tudo na ordem e somar levou <strong>1.935 · 1.801 · 1.770 ms</strong> em 3 execuções: ~555 mil eventos por segundo. Duas vezes mais eventos, duas vezes mais tempo.</li>
+  <li><strong>Para recuperar um domínio.</strong> Se o <code>meus-pedidos</code> perdeu dados, a aplicação <strong>republica</strong> os eventos para ele se reconstruir. É o <code>rehydratate</code> do laboratório do autor, com filtro opcional por data.</li>
+  <li><strong>Para auditar.</strong> "Qual era o status do 1047 às 14:15?" é dobrar só até a versão 2 (<code>14:02:11</code>) e parar: <code>pago</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="rehidratar" title="Rehidratar o pedido 1047" hint="Escolha até que versão dobrar (0 a 4) ou a hora (14:02:10 até 19/06 10:40). Mostra o estado que os eventos dão e, ao lado, a tabela tradicional, que só tem o último." />
+
+<h3 class="sec">O stream do SKU quente</h3>
+
+<p>O <code>estoque-CANECA-007</code> foi montado só para medir: a cada 100 eventos, um <code>EstoqueAjustado +100</code> e 99 <code>EstoqueReservado −1</code>, e o saldo final é <strong>10.000</strong>. Tabela e índices ocupam <strong>263 MB</strong> (~263 B por evento, com payload pequeno). Na Black Friday a caneca azul recebe ~20% dos 30 pedidos por segundo: <strong>6 eventos/s</strong> no stream, <strong>86.400</strong> em 4 horas (20:00 às 24:00). O milhão chega em <strong>1,9 dia</strong> corrido de pico (1.000.000 ÷ 6 ÷ 86.400), ou meses em dias comuns. Mesmo assim, ao fim desse tempo, cada comando para a caneca carregaria <strong>1,8 s</strong> de rehidratação. A aula 8 conserta.</p>
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O <code>rehydratate/listener.go</code> do laboratório rehidrata para <strong>recuperar</strong>, não para decidir. Recebe um pedido (um <code>aggregate_id</code>, com datas opcionais), busca <strong>todos</strong> os eventos do agregado ordenados por versão (linhas 98 a 118) e dobra, republicando o saldo (linhas 126 a 161). Foi lido, não executado.</p>
+
+<CodeLab code={rehydrate} from={98} to={118} />
+
+<CodeLab code={rehydrate} from={126} to={161} />
+
+<ol class="flow steps">
+  <li>A linha 102 ordena <code>version ASC</code>: a ordem do stream, a mesma garantia da aula 4.</li>
+  <li>As linhas 104 a 110 filtram por <code>occurred_at</code> quando há datas. O código não usa snapshot: lê <strong>tudo</strong> (a aula 8 explica).</li>
+  <li>Para cada evento, o <code>switch</code> aplica a regra e, nas linhas 152 e 158, <strong>republica</strong> a transação e o saldo para os outros domínios. É a rehidratação como <strong>recuperação</strong>.</li>
+</ol>
+
+<h3 class="sec">E se der errado</h3>
+
+<p><strong>(a) Rehidratar com um evento de formato antigo.</strong> O <code>PedidoCriado</code> de 2026 gravou o <code>frete</code> como um número (<code>1500</code>). Um ano depois o código passou a esperar <code>frete_centavos</code>. O código novo lê o evento velho, não acha o campo e calcula um total errado. O evento <strong>não pode ser editado</strong>. A solução é o <em>upcasting</em>: na leitura, converter o evento antigo no formato atual, antes de dobrar (o Axon descreve esse padrão). A versão do esquema vai no evento, e cada mudança de formato ganha um conversor.</p>
+
+<p><strong>(b) Republicar tudo para um domínio que não é idempotente.</strong> A recuperação reenvia, por exemplo, os 4 eventos do 1047 ao <code>estoque</code>. Se o <code>estoque</code> aplica cada <code>PedidoPago</code> como "−1", o saldo desce <strong>de novo</strong>, como se o pedido tivesse sido feito outra vez. A rehidratação só é segura se <strong>todo consumidor</strong> aguentar receber o mesmo evento duas vezes: a aula 10.</p>
+
+<WhyItMatters>
+  <li><strong>Rehidratar é dobrar em ordem.</strong> Os 4 eventos do 1047 dão <code>entregue</code>, versão 4; parar na versão 2 dá <code>pago</code>.</li>
+  <li><strong>Acontece a cada comando.</strong> Por isso o agregado precisa ser pequeno e o stream não pode crescer sem limite.</li>
+  <li><strong>O custo é linear.</strong> 1 milhão de eventos levam ~1.800 ms (medido, ~555 mil/s).</li>
+  <li><strong>Serve a dois usos.</strong> Decidir (comando) e recuperar (republicar para quem perdeu dado), e o segundo exige consumidores idempotentes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As três medidas do milhão</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Execução</th><th>Tempo</th><th>Eventos por segundo</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>1.935 ms</td><td>~517 mil</td></tr>
+      <tr><th>2</th><td>1.801 ms</td><td>~555 mil</td></tr>
+      <tr><th>3</th><td>1.770 ms</td><td>~565 mil</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Medido num PostgreSQL 14.24 local, em 20/10/2026, com um cliente em Python lendo via <code>psql COPY</code>. Os milissegundos mudam de máquina para máquina; a forma (linear no tamanho do stream) não muda.</p>
+  <h4 class="deep-h">Correções ao artigo-base e ao laboratório</h4>
+  <ul>
+    <li><strong>Evoluir o formato.</strong> O artigo fala de eventos imutáveis e não diz como o <strong>formato</strong> muda com o tempo. É o <em>upcasting</em> (Axon): conversores que levam o evento antigo ao formato novo na leitura.</li>
+    <li><strong>O laboratório.</strong> O <code>rehydratate</code> republica por <strong>recuperação</strong>, não rehidrata para decidir: cada comando do <code>ledger</code> lê só o <code>MAX(version)</code>. E, pelo que o código mostra, um filtro de data que <strong>exclua</strong> o <code>ContaCriada</code> faz o laço pular todas as movimentações (linhas 139 a 142: "conta não foi criada ainda"), então a recuperação parcial por data só funciona se o corte incluir a criação. Lido, não executado.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Event Sourcing (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Repositório do autor: event-source-distributed-ledger (rehydratate)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "Axon Framework: versionamento de eventos e upcasting", href: "https://docs.axoniq.io/axon-framework-reference/4.11/events/event-versioning/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Rehidratar o 1047 é instantâneo; rehidratar a caneca, depois de 1 milhão de eventos, custa 1,8 s <strong>por comando</strong>. Falta saber como não reler o milhão inteiro toda vez.</p>
+
+<Flashcards cards={[
+  { q: "O que é rehidratar?",
+    a: "Reconstruir o estado de um agregado dobrando os seus eventos em ordem: começa vazio e aplica cada evento. Acontece a cada comando e a cada reprocessamento." },
+  { q: "O que a rehidratação do pedido 1047 produz?",
+    a: "{pedido_id: 1047, status: entregue, total_centavos: 9490, rastreio: LA123456789BR, versao: 4}. Parando na versão 2, o estado é pago." },
+  { q: "Quanto custa rehidratar 1 milhão de eventos?",
+    a: "~1.800 ms medidos (1.935, 1.801 e 1.770 ms), uns 555 mil eventos por segundo. O custo é linear no tamanho do stream." },
+  { q: "O que é upcasting?",
+    a: "Converter, na leitura, um evento de formato antigo (frete como número) para o formato atual (frete_centavos) antes de dobrar. Evita editar eventos imutáveis." },
+  { q: "Por que republicar tudo pode ser perigoso?",
+    a: "Um consumidor que não é idempotente aplica de novo cada evento: o estoque desceria outra vez a cada PedidoPago republicado." },
+]} />

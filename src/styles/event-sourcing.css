@@ -1,0 +1,22 @@
+/* SDLabs · Event Sourcing: o que só este módulo usa (tabelas e JSON dos widgets, o par "eventos × tabela", a lista de chegada que se reordena). Peças comuns em widgets.css */
+.sdl-content table.sr-table.es-table{min-width:0}
+.sdl-content table.es-table th,.sdl-content table.es-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.es-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.sr-table.es-wide{min-width:520px}
+.sdl-content table.es-table td.es-bad{color:var(--bad);font-weight:700}
+.sdl-content tr.es-on th,.sdl-content tr.es-on td{background:var(--accent-wash)}
+.sdl-content tr.es-off td{color:var(--muted)}
+.sdl-content tr.es-bad th,.sdl-content tr.es-bad td{color:var(--bad)}
+.sdl-content .es-out{margin-top:var(--s-3)}
+.sdl-content .es-json{margin:var(--s-3) 0 0;max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12.5px/1.5 var(--mono)}
+.sdl-content .es-json code{font:inherit;background:none;padding:0;border:0}
+.sdl-content .es-pair{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.sdl-content .es-pair .sr-sub{margin-top:var(--s-3)}
+.sdl-content .sr-ctl[hidden]{display:none}
+/* chegada dos eventos: uma linha por evento, com os botões de subir e descer (alvo de toque de 44px) */
+.sdl-content .es-arr{list-style:none;margin:0 0 var(--s-3);padding:0;display:grid;gap:var(--s-2)}
+.sdl-content .es-arr-i{display:flex;align-items:center;gap:var(--s-2);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:4px var(--s-2) 4px var(--s-3);background:var(--surface);cursor:grab}
+.sdl-content .es-arr-n{font:700 12px var(--mono);color:var(--muted);min-width:1.2em}
+.sdl-content .es-arr-t{flex:1;min-width:0;font:600 13px var(--mono);overflow-wrap:anywhere}
+.sdl-content .es-mv{min-width:44px;min-height:44px;padding:0}
+.sdl-content .es-mv:disabled{opacity:.4;cursor:default}
