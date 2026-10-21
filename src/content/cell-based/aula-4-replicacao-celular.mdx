@@ -1,0 +1,169 @@
+---
+title: "Replicação celular"
+order: 4
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o veneno do <code>mkt-01</code> derrubou a <code>celula-mkt</code> e o roteador seguiu com as outras três. Mas e se a célula cair <strong>de verdade</strong>, por um servidor, um deploy ruim ou um disco? Os clientes dela precisam de algum lugar para ir, e os dados precisam estar lá antes.</p>
+
+<OneLiner>O dado de cada célula tem <strong>uma cópia numa célula passiva</strong>, <strong>assíncrona</strong> por padrão (a perda é <strong>taxa × lag</strong>). A forma <strong>consistente</strong> (2PC) soma a latência e a disponibilidade das células, e o <em>shuffle sharding</em> dá a cada cliente <strong>k células</strong> em vez de uma.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Shuffle</strong>, aperte <strong>Derrubar 8 e 9</strong> e veja quem entre <code>mkt-01</code>, Lena, Bia, Caio e Davi perde as duas. Depois aperte o botão <strong>Replicação</strong> para ver o lag e o 2PC.</p>
+</DoIt>
+
+<Figure3D path="labs/cell-based/celulas-3d/?mode=shuffle" poster="labs/cell-based/celulas-3d-previa.webp" title="Figura interativa: Shuffle sharding" alt="Prévia da figura 3D: Shuffle sharding" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A passiva.</strong> Cada célula ativa tem uma <strong>célula passiva</strong> noutra região: SP → Rio (lag de 300 ms), Rio → SP (300 ms), Recife → SP (800 ms) e <code>mkt</code> → SP (800 ms).</li>
+  <li><strong>O <em>stream</em>.</strong> O banco da ativa envia o log à passiva, fora do caminho do pedido. O commit do cliente continua <strong>local, em 2 ms</strong>.</li>
+  <li><strong>A queda.</strong> A célula ativa cai. A passiva promove o banco dela e o roteador troca a linha do mapa.</li>
+  <li><strong>A perda.</strong> O que estava no ar dentro da janela de lag, <strong>taxa × lag</strong>, não chegou.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Replicação assíncrona: o que se perde</h3>
+
+<p>Como o <em>stream</em> é assíncrono, os pedidos dos últimos 300 ms (ou 800 ms) podem não ter chegado quando a ativa cai. A perda esperada é a <strong>taxa × lag</strong> (módulo 17):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Célula</th><th>Pedidos/s</th><th>Passiva em</th><th>Lag</th><th>Perda esperada</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-sp</code></th><td>9,9</td><td>Rio</td><td>300 ms</td><td><strong>2,97</strong> pedidos</td></tr>
+    <tr><th><code>celula-rio</code></th><td>4,5</td><td>SP</td><td>300 ms</td><td><strong>1,35</strong></td></tr>
+    <tr><th><code>celula-recife</code></th><td>3,6</td><td>SP</td><td>800 ms</td><td><strong>2,88</strong></td></tr>
+    <tr><th><code>celula-mkt</code></th><td>12,0</td><td>SP</td><td>800 ms</td><td><strong>9,6</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Antes das células, com o primário único a 30 pedidos/s, a réplica do Rio perdia <strong>9</strong> (30 × 0,3) e a de Recife <strong>24</strong> (30 × 0,8). A célula reduz a perda em pedidos porque reduz a <strong>taxa por primário</strong>, não porque o lag melhorou.</p>
+
+<h3 class="sec">Replicação consistente: o 2PC</h3>
+
+<p>Onde perder pedido dói, o artigo propõe o <em>Two-Phase Commit</em>: a transação só vale quando <strong>todas</strong> as células confirmam. São duas rodadas (<em>prepare</em> e <em>commit</em>), e cada uma espera o participante mais lento. Os tempos abaixo são <strong>modelo</strong> (rodadas de rede), não medição:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Modo</th><th>Latência do commit</th><th>Linha quente (1 ÷ latência)</th><th>Disponibilidade (0,999<sup>k</sup>)</th></tr></thead>
+  <tbody>
+    <tr><th>Assíncrono (só a ativa)</th><td><strong>2 ms</strong></td><td>500 reservas/s</td><td>99,9%</td></tr>
+    <tr><th>2PC SP + Rio</th><td>2 × 10 + 2 × 2 = <strong>24 ms</strong></td><td>41,7/s</td><td>99,8%</td></tr>
+    <tr><th>2PC SP + Rio + Recife</th><td>2 × 80 + 2 × 2 = <strong>164 ms</strong></td><td>6,1/s</td><td>99,7%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A <strong>linha quente</strong> é o estoque do gato (módulo 11): o <em>lock</em> fica segurado durante as rodadas, então só entra uma reserva a cada 24 ms (ou 164 ms). E qualquer participante fora <strong>aborta</strong> a transação, por isso a disponibilidade vira 0,999<sup>k</sup>.</p>
+
+<Widget name="replicacao" title="Replicação e 2PC" hint="Taxa por célula, lag (0 a 2 s) e os RTTs. Mostra a perda esperada (taxa × lag), a latência do commit (async 2 · 2PC SP+Rio 24 · SP+Rio+Recife 164 ms), a taxa máxima de uma linha quente e a disponibilidade 0,999^k." />
+
+<h3 class="sec">Folga para o <em>failover</em></h3>
+
+<p>Quando uma célula cai, as outras <strong>assumem a carga dela</strong>. Com N células <strong>iguais</strong>, cada sobrevivente recebe 1 ÷ (N − 1) a mais. Para continuarem em ρ ≤ 70% (módulo 23) depois de <strong>uma</strong> queda, a ocupação <strong>normal</strong> tem um teto: 70% × (N − 1) ÷ N.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>N células</th><th>Acréscimo por sobrevivente</th><th>Ocupação normal máxima</th></tr></thead>
+  <tbody>
+    <tr><th>2</th><td>+100%</td><td><strong>35%</strong></td></tr>
+    <tr><th>3</th><td>+50%</td><td><strong>46,7%</strong></td></tr>
+    <tr><th>4</th><td>+33,3%</td><td><strong>52,5%</strong></td></tr>
+    <tr><th>10</th><td>+11,1%</td><td><strong>63,0%</strong></td></tr>
+    <tr><th>20</th><td>+5,3%</td><td><strong>66,5%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Pares ativo-passivo (N = 2) obrigam a rodar a <strong>35%</strong> da capacidade. Muitas células pequenas rodam perto do alvo, e é por isso que o piso da aula 2 e o número de células puxam em direções opostas.</p>
+
+<Widget name="folga" title="Folga para o failover" hint="N células, ρ alvo e quantas falham. Mostra a ocupação normal máxima (35% … 66,5%), o acréscimo por sobrevivente (1 ÷ (N − f)) e o caso desigual da loja (Rio 15% → 48%)." />
+
+<h3 class="sec"><em>Shuffle sharding</em>: o raio como probabilidade</h3>
+
+<p>Em vez de uma célula fixa, cada cliente fica em <strong>k células</strong> sorteadas de N, estáveis e com os dados replicados nelas. Uma célula que cai afeta só quem a tem no conjunto, e quem a tem <strong>ainda tem a outra</strong>. A pergunta deixa de ser “qual o impacto da falha de um <em>shard</em>” e passa a ser “qual a chance de um cliente estar <strong>exatamente</strong> nas células que caíram”.</p>
+
+<p>O artigo dá a fórmula <code>(f/N)^k</code>, com f células caídas. Ela é uma <strong>aproximação</strong>, porque sorteia <strong>com reposição</strong>. A conta exata de “o cliente tem todas as suas k células entre as f que caíram” é <strong>C(f,k) ÷ C(N,k)</strong>, que para f = k vale 1 ÷ C(N,k):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>N</th><th>f = k</th><th>Artigo (f/N)<sup>k</sup></th><th>Exato 1 ÷ C(N,k)</th><th>Pares/conjuntos</th></tr></thead>
+  <tbody>
+    <tr><th>20</th><td>2</td><td>1%</td><td><strong>0,526%</strong></td><td>190</td></tr>
+    <tr><th>20</th><td>3</td><td>0,3375% (o artigo imprime 0,33%)</td><td><strong>0,0877%</strong></td><td>1.140</td></tr>
+    <tr><th>20</th><td>5</td><td><strong>0,0977%</strong> (o artigo imprime 0,009%)</td><td><strong>0,00645%</strong></td><td>15.504</td></tr>
+    <tr><th>10</th><td>2</td><td>4%</td><td><strong>2,22%</strong> (o 1 ÷ 45 do módulo 16)</td><td>45</td></tr>
+    <tr><th>4</th><td>2</td><td>25%</td><td><strong>16,7%</strong></td><td>6</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A 3ª linha do artigo tem um erro: (5 ÷ 20)<sup>5</sup> é <strong>0,0977%</strong>, e não 0,009% (10× menos). Com <strong>4 células o <em>shuffle</em> quase não ajuda</strong> (6 pares); com 10 vira os 2,2% do módulo 16; com 20, 0,53%.</p>
+
+<p>Com 10 células (c1…c10, k = 2, sorteio por <em>rendezvous</em> com <code>murmur3</code>) os cinco clientes ficam assim: <code>mkt-01</code> <strong>{'{8, 9}'}</strong>, <code>lena-77</code> <strong>{'{6, 8}'}</strong>, <code>bia-31</code> <strong>{'{4, 6}'}</strong>, <code>caio-58</code> <strong>{'{1, 4}'}</strong>, <code>davi-12</code> <strong>{'{1, 9}'}</strong>. O veneno do <code>mkt-01</code> derruba as células 8 e 9. A Bia e o Caio <strong>nem notam</strong>. A Lena e o Davi perdem <strong>uma</strong> e ficam com a outra. Só quem tem <strong>exatamente</strong> {'{8, 9}'} (1 em 45, 2,2%) fica sem serviço, e é o próprio <code>mkt-01</code>. As 8 sobreviventes assumem +25% (2 ÷ 8) cada.</p>
+
+<Widget name="shuffle" title="Shuffle exato × aproximado" hint="N (4 a 50), k (1 a 5) e f (1 a k + 3). Mostra (f/N)^k (o artigo), C(f,k) ÷ C(N,k) (exato), o número de conjuntos e os cinco clientes sorteados (N = 10); marca o erro da 3ª linha do artigo (0,009% × 0,0977%)." />
+
+<p>O artigo compara: “para 1% precisaria de 100 <em>bulkheads</em>”. Mas mistura <strong>uma</strong> falha (100 compartimentos fixos) com <strong>duas</strong> (20 células, k = 2). Na mesma falha, <strong>uma</strong> célula caída deixa <strong>0%</strong> dos clientes totalmente fora (todos têm outra cópia), e <strong>duas</strong> deixam 0,526%, o que equivale a <strong>190</strong> compartimentos fixos, não 100.</p>
+
+<h3 class="sec">E se der errado: a passiva não aguenta</h3>
+
+<p>A <code>celula-sp</code> tem 33% do tráfego e, se cair, <strong>só</strong> a passiva no Rio a assume. O Rio vai de <strong>15% a 48%</strong> do tráfego: de 4,5 para <strong>14,4 pedidos/s</strong>, ou <strong>3,2×</strong>, e não os +33% da tabela de células iguais. As saídas custam diferente:</p>
+
+<ol class="flow steps">
+  <li><strong>Rodar a 35%</strong> em pares ativo-passivo: paga em capacidade parada.</li>
+  <li><strong>Muitas células pequenas</strong>, que diluem o acréscimo (+11,1% com 10): paga em piso por célula.</li>
+  <li><strong>Degradar por prioridade</strong> (as lanes 12 · 6 · 2 do módulo 25): o checkout fica e o reprocessamento espera.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>A perda é taxa × lag.</strong> 2,97 · 1,35 · 2,88 · 9,6 pedidos: a célula reduz a taxa por primário, não o lag.</li>
+  <li><strong>O 2PC soma.</strong> 24 ms e 164 ms de commit, 41,7 e 6,1 reservas/s numa linha quente, 99,8% e 99,7% de disponibilidade.</li>
+  <li><strong>A folga é uma conta de N.</strong> 35% com 2 células, 66,5% com 20; células desiguais pioram (Rio 15% → 48%).</li>
+  <li><strong>O <em>shuffle</em> transforma o raio em probabilidade.</strong> 0,526% com 20, 2,2% com 10, 16,7% com 4. A conta do artigo é aproximada.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O veneno de dados é replicado junto</h4>
+  <p>O veneno <strong>de requisição</strong> (a <code>quantidade: 2147483648</code>) fica na célula: ele derruba o processo e a fila que o receberam. O veneno <strong>de dados</strong> é diferente. Uma <strong>linha corrompida</strong> no banco da ativa é replicada para a passiva, e quando a ativa cai por causa dela, a passiva lê a mesma linha e cai também. Replicar passivamente protege de falha de infraestrutura, e não de dado ruim.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>(f/N)<sup>k</sup> é aproximação.</strong> A exata é C(f,k) ÷ C(N,k): 0,526% (e não 1%) para N = 20 e f = k = 2. A 3ª linha da tabela do artigo está errada (0,0977%, não 0,009%); a 2ª linha (0,33%) é a fórmula, e a exata é 0,0877%.</li>
+    <li><strong>“1% com 20 células = 100 <em>bulkheads</em>”.</strong> Compara uma falha com duas. Na mesma falha, uma célula caída deixa 0% de clientes fora, e duas deixam 0,526%, o equivalente a 190 compartimentos.</li>
+    <li><strong>2PC entre pilhas.</strong> O artigo reconhece o acoplamento, mas o 2PC <strong>bloqueia</strong> (se o coordenador some depois do <em>prepare</em>, os participantes ficam com as linhas travadas, como diz Fowler) e <strong>soma</strong> a latência e a disponibilidade das células. A AWS diz que a célula não compartilha estado. O que se usa de fato é a assíncrona; para “RPO zero” onde dói, vale a replicação síncrona de <strong>um banco só</strong> (módulo 17: 12 ms com o Rio, 82 ms com Recife) ou consenso (Raft ou Paxos), não 2PC entre pilhas.</li>
+    <li><strong>O que não foi rodado.</strong> Nenhum 2PC no PostgreSQL: os tempos de 24 e 164 ms são <strong>modelo</strong> de rodadas de rede. O artigo do <em>shuffle sharding</em> citado vem por tradutor (<code>translate.goog</code>); entra o original da AWS.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cell-Based Architecture (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "AWS Architecture Blog: Shuffle Sharding, Massive and Magical Fault Isolation", href: "https://aws.amazon.com/blogs/architecture/shuffle-sharding-massive-and-magical-fault-isolation/" },
+    { label: "Martin Fowler: Two-Phase Commit", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html" },
+    { label: "AWS Well-Architected: What is a cell-based architecture?", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com a passiva e o <em>shuffle</em> a loja sobrevive a uma célula, e até a duas. Falta saber o que acontece quando não é uma célula, e sim a <strong>região de São Paulo inteira</strong>: a <code>celula-sp</code> e as passivas da <code>celula-rio</code>, da <code>celula-recife</code> e da <code>celula-mkt</code>, que moram lá. Quanto tempo leva voltar e quantos pedidos se perdem? É o módulo 27, Single Point of Failure e Disaster Recovery.</p>
+
+<Flashcards cards={[
+  { q: "Quanto se perde por célula no failover assíncrono?",
+    a: "Taxa × lag: celula-sp 2,97 · celula-rio 1,35 · celula-recife 2,88 · celula-mkt 9,6 pedidos. Antes, com primário único: Rio 9 e Recife 24." },
+  { q: "O que o 2PC soma?",
+    a: "Latência (24 ms com SP+Rio, 164 ms com Recife) e disponibilidade (99,8% e 99,7%). Numa linha quente cai para 41,7 e 6,1 reservas/s." },
+  { q: "Qual é a ocupação normal máxima com 2 células e com 20?",
+    a: "35% e 66,5% (70% × (N − 1) ÷ N). Pares ativo-passivo obrigam a rodar pela metade." },
+  { q: "Qual é a probabilidade exata no shuffle (N = 20, f = k = 2)?",
+    a: "1 ÷ C(20,2) = 0,526%, não 1%. Com N = 10 são 2,22% e com N = 4, 16,7%." },
+  { q: "O que acontece se a celula-sp cair e só a passiva do Rio a assumir?",
+    a: "O Rio vai de 15% a 48% do tráfego (4,5 → 14,4 pedidos/s, 3,2×). Saídas: rodar a 35%, células pequenas ou degradar por prioridade." },
+]} />

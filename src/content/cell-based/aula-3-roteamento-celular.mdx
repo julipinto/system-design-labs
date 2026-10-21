@@ -1,0 +1,117 @@
+---
+title: "Roteamento celular"
+order: 3
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a Lena entrou na <code>celula-recife</code> e levou os dois últimos gatos de lá. Alguém tinha que saber, <strong>antes</strong> da porta, que <code>lena-77</code> mora em Recife. Esse alguém é o <strong>roteador</strong>, a única parte da loja que todas as células compartilham.</p>
+
+<OneLiner>O roteador precisa ser <strong>fino</strong> (só rotear), <strong>determinístico</strong> (a mesma chave, a mesma célula) e <strong>mais disponível que as células</strong>. Se não for, ele vira o novo ponto único de falha.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Roteador</strong>, avance e aperte <strong>+ 1 célula</strong>: compare quantos clientes mudam de lugar com <code>mod N</code> (80,1%), com o anel (~19,7%) e com a tabela (0). Depois aperte o botão <strong>Assíncrono</strong> para ver o veneno no tópico compartilhado e nos tópicos de cada célula.</p>
+</DoIt>
+
+<Figure3D path="labs/cell-based/celulas-3d/?mode=roteador" poster="labs/cell-based/celulas-3d-previa.webp" title="Figura interativa: O roteador" alt="Prévia da figura 3D: O roteador" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A chegada.</strong> O DNS leva o <code>api.loja.com.br</code> à <em>edge cell</em> mais próxima (<code>edge-loja</code>, 3 instâncias regionais: SP, Rio e Recife).</li>
+  <li><strong>A chave.</strong> A borda lê o <code>cliente_id</code> no JWT (módulo 8): <code>lena-77</code>. Ela não abre o corpo do pedido nem sabe o que é um gato.</li>
+  <li><strong>O mapa.</strong> Uma consulta ao <code>mapa-v42</code>, que fica <strong>em memória</strong> na própria borda (1,5 milhão de clientes × ~100 B = <strong>150 MB</strong>), devolve <code>celula-recife</code>.</li>
+  <li><strong>O repasse.</strong> A requisição segue ao <code>gw</code> da célula (aula 2). A partir dali a borda sai do caminho.</li>
+</ol>
+</HowItWorks>
+
+<p>O mapa não nasce sozinho. Outra parte, o <strong>plano de controle</strong>, decide a <strong>colocação</strong> (em qual célula entra um cliente novo), a <strong>migração</strong> (mover um cliente entre células) e <strong>publica</strong> o mapa. Ela fica <strong>fora do caminho do pedido</strong>: se cair, a borda continua roteando com o último mapa.</p>
+
+<h3 class="sec">A chave e o mapa</h3>
+
+<p>A chave tem que ser <strong>estável</strong> e ligada ao negócio: <code>cliente_id</code>, <code>conta_id</code>, <code>tenant_id</code>. Para ligá-la à célula há <strong>três jeitos</strong>, que o módulo 16 já mostrou para o shard:</p>
+
+<ol class="flow steps">
+  <li><strong>Tabela cadastral.</strong> Uma linha <code>cliente_id → célula</code>. O mapa de 150 MB. Mover um cliente é editar uma linha.</li>
+  <li><strong><code>hash mod N</code>.</strong> Sem tabela, mas cada mudança em N <strong>embaralha</strong> quase tudo.</li>
+  <li><strong>Anel (hash consistente).</strong> Cada célula ocupa pontos do anel e um novo membro só toma um pedaço.</li>
+</ol>
+
+<p>A diferença aparece quando a loja passa de 4 para <strong>5 células</strong>. Numa simulação com 100.000 chaves, o <code>hash mod N</code> move <strong>80,1%</strong> delas (3 → 4 move 75,0%; com <code>murmur3</code> o módulo 16 mediu 75,2%). O anel move cerca de <strong>20%</strong> (teoria: 1 ÷ (N + 1); o módulo 16 mediu 25,7% de 3 → 4). A tabela move <strong>só quem você mover</strong>. É a <em>rehash storm</em> do artigo: o <code>mod N</code> faria 80% dos clientes mudarem de célula, e dados migram junto com eles.</p>
+
+<Widget name="roteador" title="Roteador" hint="Cliente (lena-77, bia-31, caio-58, davi-12, mkt-01), N (3 a 10) e método (tabela, mod N, anel). O botão N → N + 1 conta quem mudou de célula (80,1% × ~20% × 0%)." />
+
+<p>Mover um cliente com a tabela tem custo de dados. O <code>mkt-01</code> tem 20 milhões de linhas de 2 KB: <strong>40 GB</strong>. A 50 MB/s são <strong>800 s = 13 min 20 s</strong> (a conta do módulo 16): copia, aplica o que chegou durante a cópia e <strong>vira o mapa</strong>. Mais barato do que 80% da loja, mas não é de graça.</p>
+
+<h3 class="sec">Edge cells: finas, não “inteligentes”</h3>
+
+<p>O roteador roda onde a requisição passa: DNS, gateway, <em>proxy</em> de borda ou malha (módulo 10). O artigo pede uma camada “inteligente e agnóstica”, que vai “além de um proxy”. A AWS pede o <strong>oposto</strong>: a camada <strong>mais fina possível</strong>, sem lógica de negócio, simples o bastante para ser <strong>testada por inteiro</strong>. O texto segue a AWS: toda lógica na borda é lógica que cai com as quatro células.</p>
+
+<p>O artigo também diz que a borda deve ser “o mais <em>stateless</em> possível, mas pode ter estado cadastral”. O estado é o <strong>mapa</strong>: pequeno, em memória e com <strong>estabilidade estática</strong>. Se o plano de controle morrer, as bordas seguem com o último mapa que receberam, sem pedir nada a ninguém para continuar.</p>
+
+<p>E a conta do ponto único aparece. Em <strong>série</strong>, o roteador a 99,99% e a célula a 99,9% dão 0,9999 × 0,999 = <strong>99,89%</strong>. O roteador é o <strong>teto</strong> de todas as células, por isso precisa ser mais disponível que elas e ter várias instâncias.</p>
+
+<h3 class="sec">Células síncronas</h3>
+
+<p>No caminho síncrono o roteamento está no <strong>caminho crítico</strong>, e a latência da célula é a que o cliente <strong>sente</strong>. Por isso cada célula é uma unidade de capacidade <strong>própria</strong>: CPU, memória, pool de conexões do banco, <em>thread pools</em> e <em>rate limit</em> são configurados <strong>por célula</strong>, não globalmente. O teto de 100 req/s do <code>mkt-01</code> (módulo 25) é, na prática, o tamanho da <code>celula-mkt</code>.</p>
+
+<h3 class="sec">Células assíncronas</h3>
+
+<p>No assíncrono o roteamento acontece antes do tópico. Um <strong>consumidor de borda</strong> lê um tópico de domínio e <strong>republica</strong> cada mensagem no tópico da célula, que só conhece a mensageria dela. É o caminho do webhook do PSP: ele chega a <strong>um endereço só</strong>, e a borda lê a célula na <strong>referência da cobrança</strong>. A cobrança de Pix de SP, <code>c-7733</code>, carrega <code>celula=sp</code> e vai ao tópico da <code>celula-sp</code>.</p>
+
+<p>O veneno do Kafka mostra o ganho. Num tópico <code>pedidos</code> <strong>compartilhado</strong> (3 partições, 4 eventos por pedido: 30 pedidos/s = 120 eventos/s, 40/s por partição, módulo 13), o consumidor <strong>cai ao desserializar</strong>, antes de ler a política de DLQ. A partição do veneno <strong>trava</strong>. Em <strong>10 min (600 s)</strong> ficam <strong>24.000</strong> eventos presos (40 × 600), e <strong>60% (14.400)</strong> são de pessoa física: o <code>PedidoPago</code> da Lena, atrasado.</p>
+
+<p>Com tópicos <strong>por célula</strong>, o <code>pedidos.mkt</code> recebe 12 × 4 ÷ 3 = <strong>16 eventos/s por partição</strong>: <strong>9.600</strong> presos, <strong>todos do parceiro</strong>. As outras três células seguem com atraso <strong>0</strong>, e o <em>backlog</em> fica na célula que o produziu.</p>
+
+<h3 class="sec">E se der errado: o mapa ruim</h3>
+
+<p>O <code>mapa-v43</code> sai com um erro de digitação: <code>bia-31 → celula-xx</code>, uma célula que não existe. O plano de controle publica o arquivo para <strong>todas as bordas de uma vez</strong>, e quem consulta o mapa dá <code>503</code>. O config é <strong>compartilhado</strong> e o raio volta a <strong>100%</strong>, o mesmo problema da aula 1 por outro caminho.</p>
+
+<p>A saída é a do deploy: <strong>validar</strong> o mapa antes (toda chave aponta para uma célula viva), publicar <strong>por borda</strong>, em anéis, e manter o <strong>último mapa bom</strong> para voltar. A estabilidade estática protege da queda do plano de controle, mas não de um mapa errado que ele mesmo publicou.</p>
+
+<WhyItMatters>
+  <li><strong>O roteador é a parte compartilhada que sobra.</strong> Fino, determinístico e mais disponível que as células, ou vira o novo ponto único de falha.</li>
+  <li><strong>A tabela cadastral não faz <em>rehash storm</em>.</strong> De 4 para 5 células: 80,1% (<code>mod N</code>), ~20% (anel) e 0 (tabela).</li>
+  <li><strong>O tópico por célula guarda o backlog.</strong> 24.000 eventos presos viram 9.600, e os 14.400 de pessoa física viram 0.</li>
+  <li><strong>O mapa é config compartilhado.</strong> Publicar em todas as bordas de uma vez devolve o raio de 100%.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base e o que falta nele</h4>
+  <ul>
+    <li><strong>“Edge cells inteligentes”.</strong> O artigo pede um roteador “inteligente e agnóstico” que vai além de um <em>proxy</em> básico. A AWS pede a camada mais fina possível, sem lógica de negócio, testável por inteiro. O texto segue a AWS.</li>
+    <li><strong>“Determinístico” × “continua na célula X”.</strong> Vale para a leitura do mapa. O plano de controle <strong>muda</strong> o mapa (colocação e migração, como os 13 min 20 s do <code>mkt-01</code>). Falta no artigo o plano de controle fora do caminho do pedido.</li>
+    <li><strong>Números do <em>rehash</em>.</strong> A simulação de 100.000 chaves usou SHA-256 (3 → 4: 75,0%; 4 → 5: 80,1%). O módulo 16 mediu 75,2% com <code>murmur3</code>. O widget usa <code>murmur3</code> e dá valores próximos, não idênticos.</li>
+    <li><strong>O que não foi rodado.</strong> Um sistema celular de verdade e o Kafka com o veneno. Os números de eventos presos são <strong>taxa × tempo</strong> sobre a descrição qualitativa.</li>
+    <li><strong>Referências.</strong> A palestra da WSO2 de 2025 responde 403 a robôs e não é citada. O código mais próximo no repositório público do autor é <code>exemplos/sharding</code> (o roteamento por chave, módulo 16); não há lab de células.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cell-Based Architecture (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: Cell routing", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-routing.html" },
+    { label: "AWS Builders' Library: Reliability, constant work, and a good cup of coffee", href: "https://aws.amazon.com/builders-library/reliability-and-constant-work/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+    { label: "Repositório público do autor: exemplos/sharding (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+  ]} />
+</Deep>
+
+<p class="gancho">Até aqui a célula caiu por causa de um veneno de requisição, e as outras seguiram. Falta saber o que acontece quando a <strong>célula</strong> cai de verdade, no servidor: para onde vão os clientes dela, o que se perde dos dados e quanto custa deixar uma cópia pronta noutra célula.</p>
+
+<Flashcards cards={[
+  { q: "Como o pedido da Lena chega à celula-recife?",
+    a: "O DNS leva à edge-loja; ela lê o cliente_id no JWT, consulta o mapa em memória (150 MB) e repassa ao gateway da célula. O plano de controle fica fora do caminho." },
+  { q: "O que a borda deve ser?",
+    a: "Fina (só rotear), determinística e mais disponível que as células: 99,99% × 99,9% = 99,89%, o teto de todas as células." },
+  { q: "Quanto o rehash move de 4 para 5 células?",
+    a: "80,1% com hash mod N, ~20% no anel e 0 na tabela cadastral (só quem você mover)." },
+  { q: "O que o tópico compartilhado faz com o veneno?",
+    a: "A partição trava: 24.000 eventos presos em 10 min, 14.400 de pessoa física. Com tópicos por célula são 9.600, todos do parceiro." },
+  { q: "O que o mapa-v43 ruim mostra?",
+    a: "Config compartilhado publicado em todas as bordas devolve o raio de 100%. O conserto é validar, publicar por borda e guardar o último mapa bom." },
+]} />

@@ -1,0 +1,132 @@
+---
+title: "Introdução ao Cell-Based"
+order: 1
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No módulo passado a loja ganhou bulkheads por <strong>função</strong>, por <strong>cliente</strong> e por <strong>prioridade</strong> (o pool de 20 conexões em 16 + 4, o teto de 100 req/s do <code>mkt-01</code>, as lanes 12 · 6 · 2). Só que continua sendo <strong>uma pilha só</strong>: o <code>estoque</code>, o <code>pagamentos</code>, o Redis e o <code>lb-loja</code> são de todos, e uma única versão do <code>pedidos</code> atende a loja inteira. O que acontece quando <strong>um pedido</strong> derruba essa versão?</p>
+
+<OneLiner>O <em>bulkhead</em> divide <strong>recursos</strong>. A <strong>célula</strong> divide a <strong>pilha inteira</strong>: uma cópia independente, com o seu banco, a sua fila e o seu cache, que atende uma <strong>parcela fixa</strong> dos clientes e <strong>não compartilha estado</strong> com as outras.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Pilha</strong>, avance e aperte <strong>Mandar o veneno</strong> e, depois, <strong>Dividir em células</strong> e <strong>Mandar o veneno de novo</strong>: compare quem recebe <code>503</code> com a pilha única e com as 4 células. Depois aperte o botão <strong>Raio</strong> para ver as barras de cada célula.</p>
+</DoIt>
+
+<Figure3D path="labs/cell-based/celulas-3d/?mode=pilha" poster="labs/cell-based/celulas-3d-previa.webp" title="Figura interativa: Pilha única × células" alt="Prévia da figura 3D: Pilha única × células" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>20:25:00.000.</strong> O robô do <code>mkt-01</code> envia um <code>POST /pedidos</code> com um item de <code>quantidade: 2147483648</code>. É 2³¹, um a mais do que cabe num <code>int32</code>.</li>
+  <li><strong>O <code>panic</code>.</strong> A <code>pedidos</code> 2.6.0 soma o total, estoura o inteiro e cai.</li>
+  <li><strong>O retry.</strong> O <code>gw-loja</code> tenta de novo (até 3 vezes, módulo 21) e o robô manda <code>Idempotency-Key</code>. A chave não ajuda: a queda acontece <strong>antes</strong> de qualquer deduplicação. A mesma requisição derruba os <strong>3 pods</strong> em ~150 ms (3 × ~50 ms).</li>
+  <li><strong>A volta.</strong> Cada pod renasce em <strong>30 s</strong> (a conta do módulo 14), e o robô reenvia 1 vez por segundo. Cai de novo.</li>
+  <li><strong>O bloqueio.</strong> Alguém bloqueia a chave do <code>mkt-01</code> depois de <strong>4 min</strong> (exemplo). Até lá, <strong>30 pedidos/s × 240 s = 7.200 tentativas</strong> falham: 100% do tráfego, a Lena inclusa (<code>503</code>, sem consumir número, como o 504 do 1052).</li>
+</ol>
+</HowItWorks>
+
+<p>É uma <em>poison pill</em>, a requisição envenenada: uma só, bem formada na aparência, que derruba quem a processa. Os bulkheads do módulo 25 não a seguram, porque o <code>pedidos</code> é <strong>um serviço compartilhado</strong> e o pod que cai atende todo mundo.</p>
+
+<h3 class="sec">A mesma requisição, com células</h3>
+
+<p>Agora a loja é <strong>quatro cópias</strong> da pilha, e cada uma atende uma parcela dos clientes. O roteador lê o <code>cliente_id</code> no JWT (módulo 8) e manda o veneno do <code>mkt-01</code> à <code>celula-mkt</code>. Ela tem o <strong>piso</strong> de <strong>2 pods</strong> de <code>pedidos</code> e cai sozinha. O parceiro perde <strong>12 pedidos/s × 240 s = 2.880 tentativas</strong>, 40% do tráfego. Os <strong>1,5 milhão de clientes pessoa física</strong> perdem <strong>0</strong>.</p>
+
+<p>No mesmo instante, às 20:25:00.000, a Lena compra dois gatos de pelúcia de presente para as sobrinhas. O pedido cai na <code>celula-recife</code>, que não sabe que a <code>celula-mkt</code> existe: <strong>pedido 1060</strong>, 2 × 79,90 = 159,80 + frete Recife 15,00 = <strong>174,80</strong>, <code>201</code>. O estoque do gato vai de 19 para 17. Na pilha única, esse pedido entraria no <code>503</code> dos outros.</p>
+
+<Widget name="veneno" title="Veneno: pilha única × células" hint="Número de células (1 a 10), a divisão do tráfego (uniforme, a da loja 40 · 33 · 15 · 12 ou editável), tentativas por segundo e minutos até o bloqueio. Mostra as tentativas perdidas (7.200 × 2.880), o raio por tipo de cliente e o que fica preso no tópico (24.000 × 9.600)." />
+
+<h3 class="sec">O raio de cada célula</h3>
+
+<p>As quatro células da loja não têm o mesmo tamanho. O mix de cidades do módulo 22 (<strong>55 · 25 · 20</strong>) vale para os <strong>60%</strong> do tráfego que não é do <code>mkt-01</code>, e o parceiro fica com os outros <strong>40%</strong> (as 40% das linhas do módulo 16). A carga medida é a de 30 pedidos/s:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Célula</th><th>Quem atende</th><th>Fração</th><th>Pedidos/s</th><th>Primário em</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-mkt</code></th><td>o parceiro <code>mkt-01</code></td><td><strong>40%</strong></td><td>12,0</td><td>Recife</td></tr>
+    <tr><th><code>celula-sp</code></th><td>pessoa física de SP (Bia, Davi)</td><td><strong>33%</strong> (55% × 60%)</td><td>9,9</td><td>SP</td></tr>
+    <tr><th><code>celula-rio</code></th><td>pessoa física do Rio (Caio)</td><td><strong>15%</strong> (25% × 60%)</td><td>4,5</td><td>Rio</td></tr>
+    <tr><th><code>celula-recife</code></th><td>pessoa física de Recife (Lena)</td><td><strong>12%</strong> (20% × 60%)</td><td>3,6</td><td>Recife</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O <strong>raio de explosão</strong> de cada célula é a sua <strong>fração do tráfego</strong>, e não 1 ÷ N. Com N = 4 a conta ingênua dá 25%, mas o <strong>pior caso</strong> é <strong>40%</strong> (a <code>celula-mkt</code>), a média é 25% e a eficiência é 1 ÷ (4 × 0,40) = <strong>62,5%</strong>. Sem separar o <code>mkt-01</code> seriam 3 células de 55 · 25 · 20%, com pior caso de <strong>55%</strong>. Para a <strong>pessoa física</strong> o raio do parceiro cai de 100% para <strong>0%</strong>.</p>
+
+<p>O <code>celula-mkt</code> mora em Recife por uma razão de conta: assim nenhuma região concentra mais de <strong>52%</strong> do tráfego (SP 33%, Rio 15%, Recife 12% + 40%). Em SP seriam 73%, no Rio 55%.</p>
+
+<Widget name="raio" title="Raio de explosão das células" hint="N células e a distribuição (uniforme, a da loja, SP dividida em 2). Mostra o raio médio e o pior caso, a eficiência 1 ÷ (N × máx.) e o mix 55 · 25 · 20 × 40%." />
+
+<h3 class="sec">Shard, bulkhead e célula</h3>
+
+<p>A palavra “célula” cai perto de duas que já apareceram. A diferença é <strong>o que se divide</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Padrão</th><th>O que divide</th><th>Na loja</th><th>O que continua compartilhado</th></tr></thead>
+  <tbody>
+    <tr><th><em>Shard</em> (módulo 16)</th><td>os <strong>dados</strong></td><td><code>shard-0..2</code> por <code>murmur3(cliente_id) mod 3</code></td><td>todos os serviços, o Redis, o balanceador</td></tr>
+    <tr><th><em>Bulkhead</em> (módulo 25)</th><td>os <strong>recursos</strong></td><td>o pool de 20 em 16 + 4, o teto de 100 req/s</td><td>o <code>estoque</code>, o <code>pagamentos</code>, o <code>lb-loja</code></td></tr>
+    <tr><th><strong>Célula</strong></th><td>a <strong>pilha inteira</strong></td><td><code>celula-recife@2.6.0</code>: <code>lb</code> até o PostgreSQL</td><td>quase nada (o roteador e o plano de controle, aula 3)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A célula <strong>substitui o shard</strong>: o banco dela é o “shard” daquela fração dos clientes. A diferença é quem escolhe a fração. No módulo 16 era um hash, e aqui é uma <strong>tabela cadastral</strong> (<code>cliente_id → célula</code>), que a aula 3 abre.</p>
+
+<div class="callout why" role="note">
+  <h3>Dois sentidos de “célula”</h3>
+  <p>O artigo e a AWS usam “célula” para a <strong>cópia da pilha inteira, uma por parcela dos clientes</strong>. A WSO2, que o artigo também cita, usa a mesma palavra para outra coisa: um <strong>contexto delimitado alinhado a um time</strong>, com um conjunto de componentes publicado por um gateway (“cada célula pertence a um time”, “sem células dentro de células”, tamanho pela lei de Conway). Falam de <strong>domínios</strong>, não de clientes, e a analogia deles é com os microsserviços do módulo 6. São dois padrões com o mesmo nome. Este módulo usa o da AWS.</p>
+</div>
+
+<p>A antepara do navio, que o módulo 25 já usou, serve aqui só de ponte: o Azure chama o <em>bulkhead</em> de “também conhecido como arquitetura baseada em células”. A antepara que o 25 pôs <strong>dentro</strong> do pool, a célula põe <strong>em volta da loja inteira</strong>.</p>
+
+<h3 class="sec">E se der errado: células que dividem o estoque</h3>
+
+<p>Suponha quatro <code>pedidos</code> separados, mas ligados ao <strong>mesmo</strong> <code>estoque</code> e ao <strong>mesmo</strong> Redis. O <code>estoque</code> virou o ponto onde as quatro se encontram: qualquer falha dele (uma reserva travada, um pool esgotado, uma versão ruim) para as quatro células juntas. O raio volta a <strong>100%</strong>: é o “canal oculto” do módulo 25, agora com um desenho que <strong>parece</strong> isolado. Se a célula divide só uma parte, o isolamento é decoração.</p>
+
+<WhyItMatters>
+  <li><strong>Um pedido pode derrubar a pilha.</strong> A <code>quantidade: 2147483648</code> custou 7.200 tentativas em 4 minutos, 100% do tráfego.</li>
+  <li><strong>A célula contém a requisição.</strong> Com 4 células o veneno do <code>mkt-01</code> custa 2.880 tentativas, todas do parceiro, e a Lena fecha o 1060.</li>
+  <li><strong>O raio é a fração, não 1 ÷ N.</strong> 40 · 33 · 15 · 12%: o pior caso é a maior célula.</li>
+  <li><strong>Dividir só uma parte não basta.</strong> Um <code>estoque</code> ou um Redis global devolve o raio de 100%.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Dois sentidos de “célula”.</strong> O artigo e a AWS falam da cópia da pilha por parcela de clientes. A referência da WSO2 (2018 a 2025) fala de um contexto delimitado de um time. O texto usa o sentido da AWS e avisa o outro.</li>
+    <li><strong>A tabela 1 ÷ N.</strong> A do artigo é a do módulo 25 e vale só com tráfego <strong>uniforme</strong>, além de arredondar 33,3% e 66,7% para 33% e 66%. Com o <code>mkt-01</code> a 40% as células têm 40 · 33 · 15 · 12%, e o raio é a maior fração.</li>
+    <li><strong>“Células eliminam <em>poison pill</em>”.</strong> Contêm a <strong>requisição</strong> envenenada, porque cada célula é um processo e uma fila à parte. O veneno <strong>de dados</strong> (uma linha corrompida) é replicado para a passiva (aula 4).</li>
+    <li><strong>Referências.</strong> O texto da WSO2 em <code>wso2.com/library/conference/2025/07/…</code> responde 403 a robôs e não é citado; entra a referência de arquitetura da WSO2 no GitHub. A palestra do re:Invent é um vídeo e <strong>não foi assistida</strong> para estas aulas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Cell-Based Architecture (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: What is a cell-based architecture?", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html" },
+    { label: "Microsoft: padrão Bulkhead (“também conhecido como arquitetura baseada em células”)", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "WSO2: referência de arquitetura baseada em células (outro sentido de “célula”)", href: "https://github.com/wso2/reference-architecture/blob/master/reference-architecture-cell-based.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora é quatro cópias, e uma delas pode cair sem levar as outras. Falta saber o que <strong>tem dentro</strong> de uma célula: quais peças a compõem, o que a faz uma célula e não só um conjunto de pods, quanto ela custa e o que acontece com um gato que só existe numa prateleira.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre shard, bulkhead e célula?",
+    a: "O shard divide os dados, o bulkhead divide os recursos e a célula divide a pilha inteira: lb, gateway, serviços, banco, Redis e tópico." },
+  { q: "O que a quantidade 2147483648 fez na pilha única?",
+    a: "Estourou o int32, derrubou os 3 pods do pedidos em ~150 ms e, a cada volta de 30 s, de novo: 7.200 tentativas falhas em 4 minutos, 100% do tráfego." },
+  { q: "E com 4 células?",
+    a: "Só a celula-mkt cai: 12 × 240 = 2.880 tentativas do parceiro (40%). A Lena compra o 1060 na celula-recife, e a pessoa física perde 0." },
+  { q: "Qual é o raio das quatro células e o pior caso?",
+    a: "40 · 33 · 15 · 12%. O pior caso é 40% (a celula-mkt), a média é 25% e a eficiência é 62,5%." },
+  { q: "O que acontece se as células dividem o estoque?",
+    a: "O raio volta a 100%: é o canal oculto do módulo 25, e o isolamento vira decoração." },
+]} />
