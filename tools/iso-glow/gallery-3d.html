@@ -58,6 +58,14 @@
   #load { left:50%; top:50%; transform:translate(-50%,-50%); color:var(--dim); letter-spacing:.12em; text-transform:uppercase; }
   @media (max-width:1100px) { #hint { display:none; } #info { bottom:56px; } #credit { bottom:auto; top:44px; right:16px; } #ctl { top:72px; } }
   @media (max-width:640px) { #ctl { top:auto; bottom:170px; width:150px; max-height:40vh; } #info { bottom:92px; max-width:calc(100vw - 190px); } #credit, #hint { display:none; } }
+  /* SDLabs: alvo de toque de 44 px no celular e em tela de toque (tema, revolve, cores e botões do painel) */
+  @media (pointer:coarse), (max-width:900px) {
+    #theme { width:44px; height:44px; }
+    #spin { height:44px; }
+    .swatches > * { min-width:44px; min-height:44px; }
+    .ctl button { min-height:44px; box-sizing:border-box; align-items:center; }
+    #info button, .ui button { min-height:44px !important; box-sizing:border-box; align-items:center; }
+  }
 </style>
 <script type="importmap">
 { "imports": {
