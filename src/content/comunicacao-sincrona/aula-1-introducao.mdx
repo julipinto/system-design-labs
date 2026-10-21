@@ -1,0 +1,78 @@
+---
+title: "Introdução: chamar e esperar"
+order: 1
+min: 7
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import Figure3D from '../../components/Figure3D.astro';
+
+<p class="ponte">O módulo 11 terminou com o <code>estoque</code> reservando o último gato sem vender duas vezes: trava por réplica, trava distribuída, um pool de 10 conexões. A Bia levou o pedido 1049 e o Caio recebeu <code>409</code>. Só que reservar o gato é metade da venda. O <code>pedidos</code> ainda precisa dizer ao <code>pagamentos</code> "cobre 88.90 do pedido 1049", e essa frase chega por uma conexão, num formato, com um número de bytes. Agora o gato acabou, e quem aparece é o Davi, de São Paulo, que quer a caneca azul e paga com Pix num PSP, um provedor de pagamento de terceiros. A pergunta deste módulo: quando um serviço chama outro e espera a resposta, em que formato, por qual protocolo e como o outro lado avisa de volta?</p>
+
+<OneLiner>Chamada síncrona é quando quem chama para e espera a resposta antes de seguir: fica simples e o erro volta na hora, mas a velocidade e a disponibilidade de quem chama passam a depender de todos os que estão atrás.</OneLiner>
+
+<DoIt>
+  <p>Na figura, avance com a seta → pelo caminho do pedido 1050 e some os milissegundos de cada salto até a resposta chegar ao Davi. Chegue ao passo <strong>"e se der errado"</strong> e veja o que sobra no PSP quando o timeout estoura. Depois, no widget abaixo, deixe 3 saltos de 99,9% e confira os 129 minutos por mês.</p>
+</DoIt>
+
+<Figure3D path="labs/comunicacao-sincrona/chamada-3d/?mode=rest" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Figura interativa: REST: HTTP/1.1 e JSON" alt="Prévia da figura 3D: REST: HTTP/1.1 e JSON" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Às <strong>14:05:00.000</strong> o app do Davi cria o pedido <strong>1050</strong>: caneca azul (produto 7) de <strong>19.90</strong> mais frete de SP de <strong>9.00</strong>, <strong>28.90</strong> no total, ou <strong>2890</strong> centavos, pago com Pix. A cobrança no PSP vai se chamar <code>c-7731</code>.</li>
+  <li>O pedido atravessa uma cadeia: app do Davi → <code>gw-loja</code> → <code>pedidos</code> → <code>pagamentos</code> → PSP. Em cada salto, quem chama fica parado até a resposta voltar. Isso é uma chamada <strong>síncrona</strong>.</li>
+  <li>Os tempos deste exemplo, no servidor: <code>gw-loja</code> → <code>pedidos</code> 5 ms, a reserva de estoque do módulo 11 20 ms, <code>pedidos</code> → <code>pagamentos</code> 5 ms e <code>pagamentos</code> → PSP <strong>180 ms</strong>, porque o PSP está na internet. A soma é 5 + 20 + 5 + 180 = <strong>210 ms</strong>, e o Davi só vê resposta depois do último salto.</li>
+  <li>Esperar tem uma vantagem: a ordem é clara e o erro volta pelo mesmo caminho. Se o <code>estoque</code> responde <code>409</code>, como respondeu ao Caio, o <code>pedidos</code> sabe na hora e não chega a cobrar ninguém.</li>
+  <li>O custo aparece na conta. Com <code>pedidos</code>, <code>pagamentos</code> e PSP em <strong>99,9%</strong> cada, a cadeia só funciona quando os três funcionam: 0,999 × 0,999 × 0,999 = <strong>99,70%</strong>. São <strong>129 minutos por mês</strong> fora do ar, contra 43 minutos de um serviço sozinho. Com 4 saltos (o <code>bff</code> entra na frente), 0,999⁴ = 99,60%, ou <strong>173 minutos</strong>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="serie" title="Quantos minutos fora do ar a cadeia custa?" hint="Escolha quantos serviços ficam em série e a disponibilidade de cada um. A conta é a disponibilidade elevada ao número de saltos, em um mês de 30 dias." />
+
+<h3 class="sec">E se der errado: o PSP demora 8 segundos</h3>
+
+<ol class="flow steps">
+  <li>O <code>pagamentos</code> chama o PSP e cria a cobrança <code>c-7731</code>, mas o PSP está lento e leva <strong>8 s</strong> para responder.</li>
+  <li>O timeout de <strong>2 s</strong> do <code>pagamentos</code> (a regra do módulo 10) estoura aos 2 s. O <code>pagamentos</code> desiste, o <code>pedidos</code> recebe o erro e devolve falha ao Davi.</li>
+  <li>Só que a cobrança <code>c-7731</code> <strong>já existe no PSP</strong>. O Davi pode abrir o aplicativo do banco e pagar o Pix de um pedido que a loja deu como falho.</li>
+  <li>Quem chamou não sabe se a outra ponta fez ou não. Timeout só diz "não recebi a resposta a tempo", e isso é diferente de "não aconteceu".</li>
+</ol>
+
+<WhyItMatters>
+  <li>A conta em série explica por que dependência síncrona nunca é de graça: cada serviço a mais na cadeia tira disponibilidade de quem está na frente.</li>
+  <li>O caso do timeout mostra que erro do lado de quem chama não prova que a outra ponta não fez. É esse buraco que as próximas aulas tapam, com aviso de volta (aula 3) e, mais à frente, com idempotência (módulo 21).</li>
+  <li>O resto do módulo é uma escolha de formato e de protocolo para essa mesma chamada, REST, RPC, gRPC, WebSocket e GraphQL, e cada um deixa a conta acima intacta: a chamada continua esperando.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Síncrono é sobre a lógica, não sobre a thread</h4>
+  <p>O artigo descreve a chamada síncrona como "bloqueante". Do ponto de vista do pedido do Davi isso vale: a lógica não avança até a resposta chegar. Mas uma goroutine esperando uma resposta de rede custa pouco (módulo 11), e o servidor atende outros clientes enquanto isso. O que bloqueia é o fluxo do pedido, e não o processo.</p>
+  <h4 class="deep-h">Quatro saltos e a cadeia inteira</h4>
+  <p>Cada serviço em série multiplica a disponibilidade. Com 99,9% em cada um: 1 salto dá 43 min por mês, 2 dão 86 min, 3 dão 129 min, 4 dão 173 min e 6 dão 259 min. A conta supõe falhas independentes e tempo de reparo igual; na prática, uma falha que se propaga em cadeia piora o resultado.</p>
+  <h4 class="deep-h">A rede não é uma função local</h4>
+  <p>Waldo e colegas (1994) argumentam que tratar uma chamada remota como se fosse local esconde coisas que mudam o desenho: latência bem maior, memória que não é compartilhada, falha parcial e concorrência. A cobrança criada que ninguém sabe se foi criada é a falha parcial em estado puro.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de comunicação síncronos (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "Waldo et al., \"A Note on Distributed Computing\" (1994, cópia no Internet Archive)", href: "https://web.archive.org/web/2023/https://scholar.harvard.edu/files/waldo/files/waldo-94.pdf" },
+    { label: "Google SRE Book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Quem chama não sabe se a outra ponta fez, e o próprio texto da chamada já é uma decisão: o que o <code>pedidos</code> escreve no fio, em que formato, com que cabeçalhos. Falta saber como é essa chamada por dentro, em bytes, quando ela é REST sobre HTTP.</p>
+
+<Flashcards cards={[
+  { q: "O que é uma chamada síncrona?",
+    a: "Quem chama espera a resposta antes de seguir. É simples e o erro volta na hora, mas a latência e a disponibilidade de quem chama dependem de todos os de trás." },
+  { q: "Quanto vale a disponibilidade de <code>pedidos</code>, <code>pagamentos</code> e PSP, cada um com 99,9%, em série?",
+    a: "0,999³ = 99,70%, ou 129 minutos por mês fora do ar. Um serviço só tem 43 minutos. Com 4 saltos são 99,60% e 173 minutos." },
+  { q: "Quanto tempo leva a cadeia do pedido 1050 no exemplo?",
+    a: "5 + 20 + 5 + 180 = 210 ms: gateway → pedidos, reserva de estoque, pedidos → pagamentos e pagamentos → PSP." },
+  { q: "O PSP demorou 8 s e o timeout de 2 s estourou. O que sobrou?",
+    a: "A cobrança c-7731 já existia no PSP, e o Davi podia pagar o Pix de um pedido que a loja deu como falho. Quem chamou não sabe se a outra ponta fez." },
+]} />

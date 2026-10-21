@@ -22,3 +22,4 @@ public/labs/api-gateways/*-3d/
 node_modules
 public/labs/load-balancers/*-3d/
 public/labs/bff/*-3d/
+public/labs/comunicacao-sincrona/*-3d/

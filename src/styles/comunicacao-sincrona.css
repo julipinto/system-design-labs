@@ -1,0 +1,9 @@
+/* SDLabs · Comunicação Síncrona: o que só este módulo usa (campos de texto longos, bytes em hex, bloco de assinatura). Peças comuns em widgets.css */
+.sdl-content .sr-fill.bad{background:var(--bad)}
+.sdl-content .as-pre{margin:0 0 var(--s-3);font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-all}
+.sdl-content td.by-hex{font:700 13px var(--mono);color:var(--accent-ink);white-space:normal;overflow-wrap:anywhere}
+.sdl-content .sr-ctrls .ck-in{margin:0}
+.sdl-content .sr-ctl input[type="text"]{font:16px var(--mono);color:var(--ink-hi);background:var(--sunken);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:var(--s-2) 10px;min-height:44px;width:100%;max-width:none;box-sizing:border-box}
+.sdl-content .sr-ctl input[type="number"]{box-sizing:border-box}
+.sdl-content table.sr-table caption{caption-side:top;text-align:left;font:700 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 0 var(--s-2)}
+.sdl-content .es-out table.pc-table th{width:28%}
