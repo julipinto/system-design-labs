@@ -1,0 +1,104 @@
+---
+title: "Entendendo a capacidade em sistemas"
+order: 3
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja achou a <code>catalogo-3</code> olhando por réplica: a média de CPU da frota, 67,5%, parecia tranquila, e ela estava a 99%. Isso deixa uma pergunta maior, a de quanto o catálogo aguenta antes de a resposta passar da meta, e outra do lado do checkout: o que acontece quando a demanda passa do que um serviço dá conta.</p>
+
+<OneLiner><strong>Capacidade</strong> é o máximo de trabalho que o sistema atende com resposta aceitável, e o <strong>gargalo</strong> é o elo em que a demanda passa da capacidade: o catálogo dá <strong>1.000 req/s</strong> mas só é seguro até <strong>700</strong>, e o checkout inteiro vale o seu elo mais fraco, o <code>pagamentos</code>, com <strong>40 pedidos/s</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Cadeia</strong>, comece com 30 pedidos/s, que passam inteiros, e avance para 60. Veja qual bloco estrangula a saída e quantos pedidos por segundo ficam represados. Siga até o último passo, em que o <code>estoque</code> dobra e a saída não muda. O joelho da curva fica no botão <strong>Joelho</strong> da figura da aula anterior e no primeiro widget, logo abaixo.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/capacidade-3d/?mode=cadeia" poster="labs/performance/capacidade-3d-previa.webp" title="Figura interativa: A cadeia do checkout" alt="Prévia da figura 3D: A cadeia do checkout" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Comece pela conta de uma réplica. Cada requisição à página do produto usa <strong>10 ms de CPU</strong> (e 10 ms esperando cache e banco, sem ocupar a CPU, o que o módulo 11 já mostrou). Então 1 s ÷ 10 ms = <strong>100 req/s por réplica</strong>, e as 10 réplicas dão <strong>1.000 req/s</strong>. Os "100 pedidos por segundo" do módulo 8 eram de <strong>uma</strong> réplica.</li>
+  <li>Só que a capacidade não é "o máximo antes de quebrar". Perto do limite, as requisições passam a esperar umas pelas outras, e o tempo de resposta sobe como uma curva com <strong>joelho</strong>. No modelo de fila de brinquedo do módulo, R(ρ) = 10 ms + 10 ms ÷ (1 − ρ), onde ρ é a utilização da CPU: <strong>43 ms a 70%</strong>, 60 ms a 80%, 110 ms a 90%, 210 ms a 95% e <strong>1.010 ms a 99%</strong>. Essa utilização de 99% é o "2 s" da Black Friday, na ordem de grandeza. Por isso o limite seguro do catálogo é <strong>70%</strong>, 700 req/s.</li>
+  <li>A lei de Little dá o tamanho da fila: <strong>L = λ × W</strong>, requisições em andamento = chegadas por segundo × tempo de cada uma. A 640 req/s e 0,135 s de média, são <strong>86,4 requisições em andamento</strong> na frota. A <code>catalogo-3</code> sozinha tem 64 req/s × 1,01 s = <strong>64,6</strong>, três quartos de tudo, contra 2,4 em cada réplica saudável.</li>
+  <li>Agora o checkout, em <strong>pedidos por segundo</strong>. O pedido passa por <code>pedidos</code> (3 × 1 vCPU, 33 ms de CPU, capacidade <strong>90/s</strong>), por <code>pagamentos</code> (2 × 1 vCPU, 50 ms, <strong>40/s</strong>), pelo <code>estoque</code> (2 × 1 vCPU, 2 ms, <strong>1.000/s</strong>) e é gravado no banco do <code>pedidos</code>, um primário PostgreSQL com <strong>150/s</strong>. O <strong>gargalo</strong> é a demanda maior que a capacidade de um elo.</li>
+  <li>Quem não vê o gargalo só olha o total. Hoje são <strong>30 pedidos/s</strong>: <code>pedidos</code> a 33%, <code>pagamentos</code> a <strong>75%</strong> (resposta de 50 ms ÷ 0,25 = 200 ms, quatro vezes o tempo sem fila) e <code>estoque</code> a 3%. O elo mais fraco já aparece, e a conta do total esconde.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="joelho" title="A curva do joelho: resposta × utilização" hint="Mexa na utilização ou nos req/s (e nas réplicas, de 1 a 20). O widget calcula R(ρ) = 10 + 10 ÷ (1 − ρ), marca os 70% seguros e os 99% do 2 s, e mostra as requisições em andamento (Little)." />
+
+<h3 class="sec">O gargalo é o elo, e ele anda</h3>
+
+<p>A <strong>Black Friday dobrada</strong> daria 60 pedidos/s. O <code>pedidos</code> passa (90), mas o <code>pagamentos</code> só dá <strong>40</strong>: saem 40 por segundo e <strong>20 por segundo ficam represados</strong>, 33% de degradação. Em 60 s são 1.200 pedidos esperando, e o <code>estoque</code> fica a 4% a vida inteira. É a conta do artigo com a loja: ele usa três serviços de 100, 60 e 300 por segundo e uma entrada de 120, e a saída é 60, 50% da entrada, seja qual for a capacidade do elo mais forte.</p>
+
+<p>O excedente não some: ou <strong>vira fila</strong> (e a fila aumenta o tempo de resposta pela lei de Little) ou <strong>é descartado</strong> (erro). E há um efeito de segunda ordem: resolver um gargalo manda mais carga para o elo seguinte, que pode virar o próximo. Escalar o <code>pagamentos</code> de 2 para 4 réplicas leva a cadeia a min(90, 80, 150) = <strong>80/s</strong>; a 100 pedidos/s o próximo elo é o <code>pedidos</code> (90/s). O gargalo anda.</p>
+
+<Widget name="cadeia" title="A cadeia do checkout: onde a demanda vira fila" hint="Escolha a demanda (1 a 200 pedidos/s) e escale as réplicas de cada serviço. O widget calcula a saída, o represado por segundo, a fila em 60 s, a utilização de cada elo e qual é o gargalo." />
+
+<h3 class="sec">O custo por transação</h3>
+
+<p>Capacidade também custa. Com 1 réplica = 1 vCPU, uma frota fixa de 10 réplicas durante 24 h são <strong>240 réplica-horas</strong>. Uma frota elástica, com 10 réplicas só nas 4 h do pico e 2 no resto, gasta 10 × 4 + 2 × 20 = <strong>80 réplica-horas</strong>, 33% do fixo, três vezes menos. O <strong>custo por transação</strong> é o custo total ÷ o número de transações (por 1.000 pedidos, × 1.000): cai quando a utilização sobe e sobe quando a frota fica ociosa.</p>
+
+<h3 class="sec">E se der errado: escalar o elo errado</h3>
+
+<p>Alguém olha o painel, vê "checkout lento" e dobra o <code>estoque</code> de 2 para 4 réplicas (2.000 pedidos/s de capacidade). Nada muda: a saída continua em <strong>40 pedidos/s</strong>, os 20 por segundo continuam represados, e a conta de CPU da loja dobrou para um serviço que estava a 4%. A capacidade que importa é a do elo mais fraco, e só a medida por elo mostra qual é.</p>
+
+<WhyItMatters>
+  <li><strong>Capacidade tem unidade.</strong> 100 req/s por réplica e 1.000 req/s na frota do catálogo; 40 pedidos/s no checkout.</li>
+  <li><strong>O limite seguro fica antes do 100%.</strong> A 70% a resposta é 43 ms; a 99% é 1 s.</li>
+  <li><strong>O elo mais fraco manda.</strong> A saída do checkout vale 40/s, não importa quanto o <code>estoque</code> aguente.</li>
+  <li><strong>Escalar custa.</strong> 240 contra 80 réplica-horas para o mesmo dia, e o custo por transação mostra a ociosidade.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A tabela do checkout</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Serviço</th><th>Réplicas × vCPU</th><th>CPU por pedido</th><th>Capacidade</th><th>A 30/s</th><th>A 60/s</th></tr></thead>
+    <tbody>
+      <tr><th><code>pedidos</code></th><td>3 × 1</td><td>33 ms</td><td>90/s</td><td>33%</td><td>67%</td></tr>
+      <tr><th><code>pagamentos</code></th><td>2 × 1</td><td>50 ms</td><td>40/s</td><td>75%</td><td>saturado: sai 40/s</td></tr>
+      <tr><th><code>estoque</code></th><td>2 × 1</td><td>2 ms</td><td>1.000/s</td><td>3%</td><td>4% (recebe 40/s)</td></tr>
+      <tr><th>banco do <code>pedidos</code></th><td>1 primário</td><td>medido na carga (módulo 24)</td><td>150/s</td><td>20%</td><td>40%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>As capacidades são de exemplo, conferidas com a conta CPU por pedido (1 s ÷ 33 ms é 30/s por réplica, 3 réplicas: 90). O teste de carga do módulo 24 vai medir de verdade.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Backpressure é outra coisa.</strong> O artigo usa a definição da física de fluidos e dá um exemplo que é de <strong>gargalo e represamento</strong> (o serviço B represa 40 por segundo). Em software, "backpressure" costuma ser o <strong>mecanismo</strong> pelo qual quem consome avisa quem produz para desacelerar: streams reativos, controle de fluxo do TCP, <code>429</code> ou <code>503</code> com <code>Retry-After</code>. Este módulo chama o exemplo de gargalo na cadeia e deixa o mecanismo para o módulo 21, Resiliência. O que o artigo não diz é o destino do excedente: vira fila ou é descartado.</li>
+    <li><strong>A capacidade por réplica depende do mix.</strong> O artigo trata os 10 ou 15 TPS por réplica como constante. Eles mudam com o <strong>tipo</strong> de requisição (a página de 20 ms contra a busca de 900 ms): meça por tipo, com teste de carga (módulo 24).</li>
+  </ul>
+  <h4 class="deep-h">Um teste de carga de verdade</h4>
+  <p>O repositório público do autor tem <code>exemplos/load-test/README.md</code>, um modelo de relatório de teste de performance: metas de p95 abaixo de 800 ms, 600 TPS e erro abaixo de 0,1%, com um pré-teste de <strong>uma</strong> réplica a 100 req/s e a política de autoscaling. É o que mede a capacidade por réplica, e o centro do módulo 24.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Lei de Little (Wikipédia)", href: "https://en.wikipedia.org/wiki/Little%27s_law" },
+    { label: "Fila M/M/1 (Wikipédia)", href: "https://en.wikipedia.org/wiki/M/M/1_queue" },
+    { label: "Lei de Amdahl (Wikipédia, referência do artigo)", href: "https://pt.wikipedia.org/wiki/Lei_de_Amdahl" },
+    { label: "Repositório público do autor: exemplos/load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe o que cada elo aguenta e que o gargalo manda no resto. O <code>pagamentos</code> dá 40 por segundo, e a Black Friday pede 60. Falta saber como <strong>aumentar</strong> a capacidade: comprar uma máquina maior para cada serviço ou ligar mais máquinas iguais?</p>
+
+<Flashcards cards={[
+  { q: "Qual é a capacidade de uma réplica do catálogo?",
+    a: "100 req/s: 1 s ÷ 10 ms de CPU. As 10 réplicas dão 1.000 req/s. Os 10 ms de espera por cache e banco não ocupam a CPU." },
+  { q: "Qual é o limite seguro e por quê?",
+    a: "70% de CPU (700 req/s): a resposta é 43 ms. A 90% já é 110 ms, a 95% é 210 ms e a 99% é 1.010 ms." },
+  { q: "Quantas requisições estão em andamento no pico das 20:03?",
+    a: "Little: 640 × 0,135 = 86,4. A catalogo-3 tem 64,6 delas (64 × 1,01), e cada réplica saudável tem 2,4." },
+  { q: "O que acontece a 60 pedidos/s no checkout?",
+    a: "O pagamentos só dá 40/s: sai 40 e represa 20 por segundo (1.200 pedidos em 60 s). O estoque fica a 4%." },
+  { q: "Por que dobrar o estoque não resolve?",
+    a: "A saída continua em 40/s, o limite do pagamentos, e a conta de CPU dobra. Escalar o pagamentos para 4 réplicas leva a 80/s, e o próximo elo vira o gargalo." },
+]} />

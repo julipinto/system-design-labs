@@ -1,0 +1,94 @@
+---
+title: "Escalabilidade vertical e horizontal"
+order: 4
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o <code>pagamentos</code> ficou em 40 pedidos por segundo contra uma demanda de 60, e a loja descobriu que a capacidade do elo mais fraco manda no checkout. Agora a pergunta é como aumentar essa capacidade. Há dois caminhos: trocar a máquina por uma maior ou juntar mais máquinas iguais.</p>
+
+<OneLiner><strong>Escalar</strong> é adicionar ou remover capacidade: a <strong>vertical</strong> muda o tamanho de uma unidade (1 para 8 vCPU na mesma réplica, que dá 600 req/s), a <strong>horizontal</strong> muda o número de unidades (10 réplicas de 1 vCPU, que dão 1.000 req/s).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Horizontal</strong>, comece com as 10 réplicas de 1 vCPU (1.000 req/s) e avance: elas caem para 9, 8 e 7 e depois para 6, sempre a 640 req/s. Anote em que passo a utilização passa de 100%. Depois aperte <strong>Vertical</strong> para ver a caixa de 8 vCPU, a conta de Amdahl e o que acontece quando ela cai.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/capacidade-3d/?mode=horizontal" poster="labs/performance/capacidade-3d-previa.webp" title="Figura interativa: Escalar na horizontal" alt="Prévia da figura 3D: Escalar na horizontal" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Uma empresa de ônibus com filas nos pontos tem as duas saídas. Trocar os ônibus por modelos de dois andares é <strong>escalar na vertical</strong>; comprar mais ônibus iguais é <strong>escalar na horizontal</strong>. Na loja, a vertical é o <code>catalogo</code> passar de 1 vCPU para <strong>8 vCPU</strong> numa réplica só (<strong>scale up</strong>, e <strong>scale down</strong> para voltar). A horizontal é ligar mais réplicas (<strong>scale out</strong>, e <strong>scale in</strong> para tirar).</li>
+  <li>A vertical não rende 8 vezes. Se a parte que não paraleliza for a do <code>relatorios</code> do módulo 11, <strong>1/21</strong> do trabalho (4,76%), a lei de Amdahl dá 1 ÷ (1/21 + (20/21) ÷ 8) = <strong>6,0 vezes</strong>: <strong>600 req/s</strong>, e não 800. São 75 req/s por vCPU contra 100 na horizontal. Exige reiniciar o pod (o Kubernetes tem redimensionamento no lugar, ver as fontes) e tem teto: a maior máquina do provedor.</li>
+  <li>A horizontal rende por réplica: 10 réplicas de 1 vCPU dão <strong>1.000 req/s</strong> com 10 vCPU. Para isso o estado precisa estar <strong>fora do processo</strong> (a sessão no Redis, módulo 5) e algo precisa repartir os pedidos (o balanceador, módulo 7). Ajustar a frota para cima <strong>e para baixo</strong>, sozinho, conforme a demanda, é a <strong>elasticidade</strong>.</li>
+  <li>A queda mostra a diferença que mais importa. A 640 req/s, com 10 réplicas cada uma fica a 64% (37,8 ms). Cai <strong>1</strong>: 71,1% (44,6 ms). Caem <strong>2</strong>: 80% (60 ms). Caem <strong>3</strong>: <strong>91,4%</strong> (126,7 ms). Caem <strong>4</strong>: sobram 6 réplicas, capacidade de 600 contra 640 de demanda, <strong>106,7%</strong>, e o catálogo satura.</li>
+  <li>O planejamento chama isso de <strong>N+k</strong>: a folga é o que sobra depois de cair k réplicas. A frota vertical, de uma réplica de 8 vCPU, não tem folga nenhuma: quando ela cai, <strong>100%</strong> da capacidade some.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="queda" title="Queda de réplicas, e vertical contra horizontal" hint="Em cima: a demanda, as réplicas, a capacidade por réplica e quantas caem; o widget mostra a utilização, o tempo de resposta e se satura. Embaixo: o scale up de 1 a 16 vCPU com a fração que não paraleliza (1/21) e os ganhos de Amdahl." />
+
+<h3 class="sec">E se der errado: a fila de 2.400 por minuto</h3>
+
+<p>São 20:05, o pico está em 640 req/s e uma falha de zona derruba <strong>4</strong> das 10 réplicas. Restam 6, com capacidade de 600 req/s, e a demanda é de 640: faltam <strong>40 req/s</strong>. Esses 40 por segundo viram fila, <strong>2.400 por minuto</strong>, e as respostas passam de 2 s e levam <code>504</code>. Com 7 réplicas vivas o catálogo ainda aguentava (91,4%, 126,7 ms).</p>
+
+<p>Se a loja tivesse feito o scale up para uma réplica de 8 vCPU, a queda seria pior: sem nenhuma outra réplica, as 640 req/s encontram uma capacidade de <strong>zero</strong>. A vertical é mais simples de operar, e concentra o risco numa unidade só.</p>
+
+<WhyItMatters>
+  <li><strong>As duas formas respondem a limites diferentes.</strong> A vertical bate no teto da máquina e no reinício; a horizontal pede estado fora do processo e um balanceador.</li>
+  <li><strong>O ganho não é linear.</strong> 8 vCPU valem 6 vezes (600 req/s) quando 1/21 do trabalho é serial.</li>
+  <li><strong>A folga é o seguro.</strong> Com 10 réplicas, a perda de 3 ainda cabe em 91,4%; a de 4 não.</li>
+  <li><strong>Elasticidade corta nos dois sentidos.</strong> A frota que sobe no pico e desce depois é a de 80 réplica-horas, e não a de 240.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A queda de réplicas, linha a linha</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Réplicas vivas</th><th>Capacidade</th><th>Utilização a 640 req/s</th><th>Resposta</th></tr></thead>
+    <tbody>
+      <tr><th>10</th><td>1.000</td><td>64%</td><td>37,8 ms</td></tr>
+      <tr><th>9</th><td>900</td><td>71,1%</td><td>44,6 ms</td></tr>
+      <tr><th>8</th><td>800</td><td>80%</td><td>60 ms</td></tr>
+      <tr><th>7</th><td>700</td><td>91,4%</td><td>126,7 ms</td></tr>
+      <tr><th>6</th><td>600</td><td>106,7%</td><td>satura: fila de 40 req/s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A resposta usa o modelo de brinquedo R(ρ) = 10 + 10 ÷ (1 − ρ) da aula anterior, que só vale abaixo de 100%.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Elasticidade.</strong> O artigo diz que escalar na horizontal com ferramentas de autoscaling é "elasticidade". Elasticidade é ajustar a capacidade <strong>automaticamente</strong> à demanda, <strong>nos dois sentidos</strong>, e pode ser vertical ou horizontal. O HPA da próxima aula é um mecanismo de elasticidade horizontal. E "escalabilidade", no sentido de Nygard em <em>Release It!</em>, tem duas leituras (como a vazão muda com a demanda, e os modos de escala); o artigo escolhe a segunda.</li>
+    <li><strong>Otimizar o algoritmo não é escalar na vertical.</strong> O artigo põe "otimizações em algoritmos" dentro da vertical. Otimizar o código aumenta a capacidade <strong>por recurso</strong> sem trocar o recurso: é outra alavanca, a da última aula.</li>
+    <li><strong>Horizontal não é linear.</strong> O artigo sugere que N réplicas dão N vezes a capacidade. Com um recurso compartilhado, como o banco do <code>pedidos</code> a 150/s ou o pool de conexões do módulo 11, o ganho para (Amdahl; a Universal Scalability Law de Gunther acrescenta o custo de coerência). As 10 réplicas do catálogo dão 1.000 req/s <strong>porque</strong> o catálogo não compartilha banco de escrita.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Kubernetes: redimensionar os recursos de um contêiner no lugar", href: "https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/" },
+    { label: "Kubernetes: Vertical Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/" },
+    { label: "Neil Gunther: Universal Scalability Law", href: "https://www.perfdynamics.com/Manifesto/USLscalability.html" },
+    { label: "Lei de Amdahl (Wikipédia, referência do artigo)", href: "https://pt.wikipedia.org/wiki/Lei_de_Amdahl" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja já sabe que a horizontal rende 100 req/s por réplica e que a folga protege da queda. Mas a Black Friday não avisa o tamanho do pico, e ligar réplicas na mão é tarde demais. Falta saber <strong>quantas</strong> réplicas ligar e <strong>quando</strong>, e a fórmula que o Kubernetes usa para decidir.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a diferença entre escalar na vertical e na horizontal?",
+    a: "Vertical muda o tamanho de uma unidade (scale up/down, 1 para 8 vCPU). Horizontal muda o número de unidades (scale out/in, 10 réplicas de 1 vCPU)." },
+  { q: "Quanto rendem 8 vCPU se 1/21 do trabalho é serial?",
+    a: "Amdahl: 1 ÷ (1/21 + (20/21) ÷ 8) = 6,0 vezes, ou 600 req/s (75 por vCPU), e não 800. Na horizontal são 100 por vCPU." },
+  { q: "O que a horizontal exige do serviço?",
+    a: "Estado fora do processo (a sessão no Redis, módulo 5) e um balanceador (módulo 7). Elasticidade é ajustar para cima e para baixo." },
+  { q: "O que acontece a 640 req/s quando caem 1, 2, 3 e 4 réplicas?",
+    a: "71,1%, 80%, 91,4% e 106,7%. Com 4 caídas satura e a fila cresce 40 req/s, 2.400 por minuto." },
+  { q: "O que é N+k, e o que a vertical perde nele?",
+    a: "A folga que sobra depois de cair k réplicas. A réplica única de 8 vCPU, quando cai, leva 100% da capacidade." },
+]} />

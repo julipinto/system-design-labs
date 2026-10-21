@@ -1,0 +1,97 @@
+---
+title: "Fórmula de capacity e HPA"
+order: 5
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja viu que mais réplicas dão mais capacidade e que a folga protege da queda. Falta decidir quantas ligar e quando, sem que ninguém fique olhando o painel. O Kubernetes faz isso com o HPA, o Horizontal Pod Autoscaler, e a conta dele cabe numa linha.</p>
+
+<OneLiner>A fórmula do HPA transforma uma métrica num número de réplicas: <strong>desejadas = ⌈ atuais × valor atual ÷ valor desejado ⌉</strong>. No pico de 950 req/s, 10 réplicas a 95% de CPU com alvo de 70% viram <strong>14</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>HPA</strong>, avance e veja as 10 réplicas virarem 14 em um passo, com a CPU caindo de 95% para 67,9%. No último passo, o pico chega tarde. Depois aperte <strong>HPA média</strong> e veja a <code>catalogo-3</code> a 99% enquanto a média da frota fica em 67,5%: com alvo de 70% nada acontece, e com 80% o HPA tira uma réplica.</p>
+</DoIt>
+
+<Figure3D path="labs/performance/capacidade-3d/?mode=hpa" poster="labs/performance/capacidade-3d-previa.webp" title="Figura interativa: A fórmula do HPA" alt="Prévia da figura 3D: A fórmula do HPA" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O HPA compara o que mede com o que você quer e ajusta a frota na mesma proporção, como um termostato de ar-condicionado que aumenta a potência quando a sala esquenta e reduz quando esfria. A conta: <strong>desejadas = ⌈ atuais × atual ÷ desejado ⌉</strong>. O <code>⌈ ⌉</code> arredonda <strong>para cima</strong>, porque meia réplica não existe e a falta custa mais que a sobra.</li>
+  <li>Com <strong>CPU</strong>: o pico sobe a <strong>950 req/s</strong>, as 10 réplicas ficam a <strong>95%</strong> (resposta de 210 ms) e o alvo é <strong>70%</strong>. ⌈ 10 × 95 ÷ 70 ⌉ = ⌈13,57⌉ = <strong>14 réplicas</strong>. Depois, 950 ÷ 1.400 = <strong>67,9%</strong> de CPU e 41,1 ms de resposta.</li>
+  <li>Com <strong>vazão</strong>: se uma réplica deve receber no máximo 70 req/s, ⌈ 950 ÷ 70 ⌉ = <strong>14</strong>, a mesma conta, porque CPU e req/s andam juntos no catálogo. A política padrão de subida permite +4 pods <strong>ou</strong> +100% a cada 15 s, o que for maior, então 10 para 14 cabe em <strong>um</strong> passo.</li>
+  <li>O HPA real tem regras que a fórmula não mostra. Consulta a cada <strong>15 s</strong>. Ignora a diferença se a razão estiver a menos de <strong>10%</strong> de 1,0 (a tolerância padrão). A utilização de CPU é a % dos <strong>requests</strong> do pod, em média entre os pods, e por isso os <code>requests</code> precisam estar definidos. E na descida há uma <strong>janela de estabilização de 300 s</strong>, para a frota não oscilar.</li>
+  <li>O pedido <strong>1052</strong> do Davi volta aqui. O <code>504</code> dele fez o Davi recarregar a página: cada erro vira uma requisição a mais. Com 1% de erros em 640 req/s são 6,4 req/s extras, pouco, e que caem nas réplicas que já estão cheias. A conta do HPA enxerga esse tráfego como demanda, sem saber que parte é retry.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="hpa" title="Calculadora do HPA" hint="Escolha um preset (pico de 95%, média 67,5% com réplica quente, pico de 1.100 req/s, os exemplos do artigo) ou digite réplicas, métrica atual, alvo, tolerância, mínimo e máximo. O widget aplica o ceil, a tolerância e mostra a linha do tempo de reação e as requisições perdidas." />
+
+<h3 class="sec">E se der errado (a): a média esconde a réplica quente</h3>
+
+<p>A <code>catalogo-3</code> está a 99% e as outras 9 a 64%, e a média de CPU da frota é (9 × 64 + 99) ÷ 10 = <strong>67,5%</strong>. Com alvo de <strong>70%</strong>, a razão é 0,964, dentro da tolerância de 10%: o HPA <strong>não faz nada</strong> e a <code>catalogo-3</code> continua a 99%. Com alvo de <strong>80%</strong>, a razão é 0,844 e ⌈ 10 × 0,844 ⌉ = <strong>9</strong>: o HPA <strong>tira</strong> uma réplica no pior momento (a janela de 300 s atrasa a descida, mas ela vem). Com alvo de <strong>60%</strong>, 1,125 dá <strong>12</strong>. A média não vê o desequilíbrio. A correção está no balanceador (módulo 7) e no p95 e p99 por réplica.</p>
+
+<h3 class="sec">E se der errado (b): o pico que chega mais rápido que o HPA</h3>
+
+<p>Entre 20:03 e 20:04 a demanda sobe de 640 para <strong>1.100 req/s em 10 s</strong>, com a capacidade em 1.000. O HPA calcula ⌈ 10 × 110 ÷ 70 ⌉ = <strong>16</strong>, mas entre a métrica chegar (cerca de 15 s de atraso), a decisão (15 s) e o pod ficar pronto (cerca de 30 s) passam <strong>60 s</strong>. Nesse tempo sobram 100 req/s acima da capacidade: 100 × 60 = <strong>6.000 requisições</strong> recusadas ou atrasadas, 9,1% das 66.000 do minuto.</p>
+
+<p>Pods que ainda não estão prontos entram na conta do HPA como <strong>0%</strong> de uso, o que amortece a subida seguinte. O conserto é ter <strong>folga</strong> (um alvo mais baixo) e subir o <strong>mínimo de réplicas</strong> antes dos eventos conhecidos: a newsletter das 20:00 é conhecida, e esse é o planejamento agendado do módulo 23.</p>
+
+<WhyItMatters>
+  <li><strong>Uma linha decide a frota.</strong> 95% com alvo 70% é 14 réplicas, e a conta se confere à mão.</li>
+  <li><strong>CPU e vazão levam ao mesmo número</strong> quando andam juntas, e a vazão é mais fácil de planejar.</li>
+  <li><strong>A média pode mentir.</strong> 67,5% com réplica quente não sobe nada e, com alvo de 80%, ainda tira uma réplica.</li>
+  <li><strong>O HPA reage depois.</strong> Os 60 s de atraso custam 6.000 requisições num salto de 1.100 req/s, e só folga e escala agendada evitam.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">As contas, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Cenário</th><th>Réplicas</th><th>Atual ÷ alvo</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>Pico de 95%, alvo 70%</th><td>10</td><td>95 ÷ 70</td><td>⌈13,57⌉ = 14</td></tr>
+      <tr><th>Média 67,5%, alvo 70%</th><td>10</td><td>0,964 (tolerância)</td><td>10, não faz nada</td></tr>
+      <tr><th>Média 67,5%, alvo 80%</th><td>10</td><td>0,844</td><td>⌈8,44⌉ = 9</td></tr>
+      <tr><th>Média 67,5%, alvo 60%</th><td>10</td><td>1,125</td><td>⌈11,25⌉ = 12</td></tr>
+      <tr><th>Pico de 1.100 req/s (110%), alvo 70%</th><td>10</td><td>110 ÷ 70</td><td>⌈15,71⌉ = 16</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base: as contas do HPA</h4>
+  <ul>
+    <li><strong>O exemplo de CPU.</strong> O artigo dá 6 réplicas de 200m e diz "Recurso Disponível: 600m", com 1.200m usados e 200% de utilização, e chega a 15 réplicas. Seis réplicas de 200m têm <strong>1.200m</strong> disponíveis; com 1.200m usados a utilização é <strong>100%</strong>, e a fórmula dá ⌈ 6 × 100 ÷ 80 ⌉ = <strong>8</strong>. O 15 do artigo só fecha com 2.400m usados (200%): ⌈ 6 × 200 ÷ 80 ⌉ = 15. A utilização é a % dos <strong>requests</strong> do pod, em média entre os pods (a documentação).</li>
+    <li><strong>O exemplo de vazão.</strong> 10.000 requisições em um minuto são 166,66 req/s, ou 27,78 por réplica com 6 réplicas; 6 × 27,78 ÷ 15 = 11,11. O artigo conclui 11 (arredondou para baixo). O HPA usa <strong>ceil</strong>, então são <strong>12</strong>. Com 11 réplicas, cada uma recebe 15,15 req/s, acima dos 15 declarados.</li>
+    <li><strong>O HPA real.</strong> O artigo mostra só a fórmula. Faltam o ceil, a tolerância de 10%, a janela de estabilização de 300 s na descida, as políticas de subida (+4 pods ou +100% a cada 15 s), o tratamento dos pods ainda não prontos e a exigência de <code>requests</code> definidos.</li>
+    <li><strong>As referências.</strong> "Test of the New Infortrend CS Scale-Out NAS Cluster" (armazenamento, sem relação com o texto), "Stupid Simple Scalability" e os slides do Nomad Autoscaler não ficam. A calculadora de instâncias do learnk8s entra como leitura extra.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre performance, capacidade e escalabilidade (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling (algoritmo, tolerância, estabilização)", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+    { label: "Kubernetes: tutorial do HorizontalPodAutoscaler", href: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/" },
+    { label: "learnk8s: calculadora de instâncias do Kubernetes (referência do artigo)", href: "https://learnk8s.io/kubernetes-instance-calculator" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora decide a frota com uma conta e sabe onde o HPA erra: na média, no atraso e no que ele não vê. Falta saber o que tudo isso <strong>deixa sem resolver</strong>: com as réplicas dos serviços ligadas, qual elo vira o próximo gargalo, e o que mais, além de máquinas, aumenta a capacidade.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a fórmula do HPA?",
+    a: "desejadas = ⌈ atuais × atual ÷ desejado ⌉. Arredonda para cima, ignora razões a menos de 10% de 1,0 e consulta a cada 15 s." },
+  { q: "Quantas réplicas no pico de 950 req/s, com alvo de 70%?",
+    a: "⌈ 10 × 95 ÷ 70 ⌉ = 14, e depois 950 ÷ 1.400 = 67,9% de CPU. Pela vazão (alvo de 70 req/s por réplica) também 14." },
+  { q: "O que o HPA faz com média 67,5% e alvo 70%, 80% e 60%?",
+    a: "70%: nada (dentro da tolerância). 80%: 9 réplicas, tira uma. 60%: 12. A média não vê a catalogo-3 a 99%." },
+  { q: "Por que o salto para 1.100 req/s custa 6.000 requisições?",
+    a: "Métrica (15 s) + decisão (15 s) + pod pronto (30 s) = 60 s. Sobram 100 req/s sobre a capacidade de 1.000: 100 × 60 = 6.000, 9,1% das 66.000." },
+  { q: "Como se conserta o atraso do HPA?",
+    a: "Com folga (alvo mais baixo) e um mínimo de réplicas antes do evento conhecido, como a newsletter das 20:00 (planejamento do módulo 23)." },
+]} />
