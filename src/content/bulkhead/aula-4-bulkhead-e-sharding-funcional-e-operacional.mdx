@@ -1,0 +1,91 @@
+---
+title: "Bulkhead e sharding funcional e operacional"
+order: 4
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o raio ficou em 60% por causa de um cliente e em 100% por causa de um serviço que todos dividem. Os dois furos têm a mesma origem: dividimos <strong>algo</strong> sem dizer <strong>por qual critério</strong>. O módulo 15 deu os dois eixos do cubo, e eles viram dois tipos de bulkhead: um corta pelo que o sistema <strong>faz</strong> e o outro, por <strong>quanto e de quem</strong>.</p>
+
+<OneLiner>O bulkhead <strong>funcional</strong> divide por <strong>função</strong> (eixo Y): pedido, relatório, entrega. O <strong>operacional</strong> divide por <strong>volume ou cliente</strong> (eixo Z): shards, região. Os dois só isolam de verdade se separarem <strong>todos</strong> os recursos do caminho.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Funcional</strong>, mande o relatório das 23:00 para a <strong>réplica do Rio</strong> e veja o primário do <code>pedidos</code> ficar com 0 consultas pesadas. Para ver o corte por cliente (3 shards e o dedicado), troque para o cenário <strong>Operacional</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/bulkhead/anteparas-3d/?mode=funcional" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Figura interativa: Bulkhead funcional" alt="Prévia da figura 3D: Bulkhead funcional" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Funcional.</strong> A loja tem três funções com perfis opostos. O <code>pedidos</code> é transacional (p95 ≤ 800 ms). O <code>relatorios</code> é analítico: o relatório das 23:00 do módulo 6, que agora <strong>lê da réplica do Rio</strong> (módulo 17) e usa <strong>0%</strong> da capacidade de escrita do primário. O <code>entregas</code> é assíncrono, em Kafka. Cada um com recursos próprios.</li>
+  <li><strong>Operacional.</strong> A divisão é por <strong>quanto e de quem</strong>. Os 3 shards do <code>pedidos</code> são por <code>cliente_id</code> (módulo 16), o <code>mkt-01</code> ganha um <strong>shard dedicado</strong>, e a região também é um corte operacional.</li>
+  <li><strong>O caso do tópico.</strong> A newsletter de <strong>50.000 e-mails</strong> (módulo 13) já passa pelo RabbitMQ, separada do tópico <code>pedidos</code> do Kafka. Se estivesse no <strong>mesmo</strong> tópico, os 3 consumidores do <code>entregas</code>, a <strong>40 eventos/s</strong> cada (<strong>120/s</strong>, módulo 23), levariam 50.000 ÷ 120 = <strong>417 s ≈ 7 min</strong> para chegar nos eventos de pedido. Separados, o atraso dos pedidos é <strong>0</strong>.</li>
+  <li><strong>Prioridade.</strong> A mesma carga, três filas: 20 workers divididos em <strong>alta 12</strong> (o checkout de cliente), <strong>normal 6</strong> (estorno e parceiros) e <strong>baixa 2</strong> (reprocessamento). Um surto de <code>baixa</code>, como o robô de 500/s do módulo 8 ou a reconciliação, <strong>não passa de 2 workers</strong>. O checkout continua com 12.</li>
+  <li><strong>O caminho inteiro.</strong> Dividir só o banco não basta. O fluxo precisa ficar na mesma parte do <strong>balanceador</strong>, da <strong>aplicação</strong>, do <strong>banco</strong>, da <strong>fila</strong>. Um único recurso comum no meio abre um canal de uma ponta à outra.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="lanes" title="Lanes de prioridade" hint="Workers (20), divisão entre alta, normal e baixa (12 · 6 · 2) e quem faz o surto (o robô do mkt-01 ou o reprocessamento). Mostra quanto cada fila atende e quem sobra." />
+
+<h3 class="sec">Os dois cortes lado a lado</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Tipo</th><th>Eixo</th><th>Pergunta</th><th>Na loja</th></tr></thead>
+  <tbody>
+    <tr><th>Funcional</th><td>Y (módulo 15)</td><td>O que o sistema faz?</td><td><code>pedidos</code> · <code>relatorios</code> (réplica do Rio) · <code>entregas</code> (Kafka)</td></tr>
+    <tr><th>Operacional</th><td>Z (módulo 16)</td><td>Quanto e de quem?</td><td>3 shards por <code>cliente_id</code> · shard do <code>mkt-01</code> · região</td></tr>
+    <tr><th>Prioridade</th><td>dentro de uma função</td><td>O que atender primeiro?</td><td>alta 12 · normal 6 · baixa 2</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A divisão por função é a que já vinha do módulo 15, e o bulkhead dá a ela a razão que faltava: o relatório saiu do primário não só por organização, e sim para o 503 do checkout <strong>não acontecer</strong>. Já a divisão operacional traz de volta a conta da aula 3: o raio do shard do <code>mkt-01</code> é o pior caso, e o dedicado o reduz de 60% para 40%.</p>
+
+<h3 class="sec">E se der errado: o shard "isolado" que divide o estoque</h3>
+
+<p>É comum os shards nascerem bem isolados e, aos poucos, passarem a dividir <strong>dependências globais</strong>: um serviço de configuração, um catálogo, um banco auxiliar. O shard dedicado do <code>mkt-01</code> tem seu próprio banco, mas continua chamando o <strong>mesmo</strong> <code>estoque</code> e lendo a <strong>mesma configuração global</strong>. Uma configuração errada, ou um <code>estoque</code> saturado pelo robô, atinge os 4 shards ao mesmo tempo. O artigo chama isso de <strong>canal oculto</strong>. Sem separar todo o caminho, o desenho tem 4 caixas e um destino só.</p>
+
+<WhyItMatters>
+  <li><strong>Funcional separa o que o sistema faz.</strong> O relatório vai para a réplica do Rio, e o primário fica com 0% de consultas pesadas.</li>
+  <li><strong>Operacional separa por cliente e volume.</strong> O shard dedicado leva o pior caso de 60% a 40%.</li>
+  <li><strong>O mesmo tópico é o mesmo compartimento.</strong> A newsletter no tópico de pedidos atrasa os eventos em 417 s; em RabbitMQ, em 0.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>Hashing consistente "determinístico".</strong> O hash <strong>roteia</strong>; o isolamento vem de os recursos serem <strong>separados</strong> por shard. E ao mudar N (módulo 16), <strong>25%</strong> das chaves migram e o raio muda junto.</li>
+    <li><strong>Segregar tudo, de ponta a ponta.</strong> O artigo diz isso na seção de sharding, depois de chamar cada shard de "bulkhead completo ou parcial". Aqui a diferença é a regra: o shard é parcial até separar balanceador, aplicação, banco, tópico e fila.</li>
+    <li><strong>O relatório na réplica é físico.</strong> Tirar o relatório do primário é uma divisão funcional que vira física: outra máquina, outro disco. O lag de 300 ms (módulo 17) não importa para ele.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Bulkhead Pattern (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Microsoft: antipadrão Noisy Neighbor", href: "https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor" },
+    { label: "Repositório público do autor: exemplos/sharding (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "AWS Builders' Library: Using load shedding to avoid overload", href: "https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Dois cortes e uma regra (separar o caminho todo) ainda não dizem como se combinam. Falta saber como esses cortes se <strong>combinam</strong>: prioridade, criticidade, tipo de uso, segmento, hashing consistente e tenants. É a aula 5.</p>
+
+<Flashcards cards={[
+  { q: "O que é o bulkhead funcional?",
+    a: "A divisão por função (eixo Y do cubo): pedidos, relatórios na réplica do Rio e entregas em Kafka, cada um com recursos próprios." },
+  { q: "E o operacional?",
+    a: "A divisão por volume ou cliente (eixo Z): 3 shards por cliente_id, o shard dedicado do mkt-01, a região." },
+  { q: "Qual é o atraso da newsletter no tópico errado?",
+    a: "50.000 e-mails ÷ 120 eventos/s dos 3 consumidores = 417 s (≈ 7 min) de atraso nos eventos de pedido. Em fila separada, 0." },
+  { q: "Como ficam as lanes de prioridade?",
+    a: "20 workers: alta 12 (checkout), normal 6 (estorno, parceiros) e baixa 2 (reprocessamento). Um surto de baixa não passa de 2." },
+  { q: "O que é um canal oculto?",
+    a: "Uma dependência global compartilhada (estoque, configuração, catálogo) que liga shards que pareciam isolados." },
+]} />

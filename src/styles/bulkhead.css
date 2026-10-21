@@ -1,0 +1,17 @@
+/* SDLabs · Bulkhead: o que só este módulo usa (tabelas dos widgets, barras de compartimentos). Peças comuns em widgets.css */
+.sdl-content table.sr-table.bk-table{min-width:0}
+.sdl-content table.bk-table th,.sdl-content table.bk-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.bk-table td{white-space:pre-line;overflow-wrap:break-word}
+.sdl-content table.bk-table td.bk-bad{color:var(--bad);font-weight:700}
+.sdl-content .bk-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.bk-badfact b{color:var(--bad)}
+.sdl-content .sr-fact b{overflow-wrap:anywhere}
+/* compartimentos: uma coluna por bulkhead, a mais alta em destaque */
+.sdl-content .bk-shards{display:flex;align-items:flex-end;gap:var(--s-1);height:140px;margin-top:var(--s-3);border-bottom:var(--hair) solid var(--line-strong)}
+.sdl-content .bk-shard{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:4px;font:600 12px var(--mono);color:var(--muted);text-align:center;overflow:hidden}
+.sdl-content .bk-shard i{display:block;background:var(--accent-ink);border-radius:var(--r-1) var(--r-1) 0 0}
+.sdl-content .bk-shard.hot i{background:var(--bad)}
+.sdl-content .bk-axis{margin:4px 0 var(--s-3);font:600 12px var(--mono);color:var(--muted)}
+@media (max-width:480px){
+  .sdl-content .bk-shard span{font-size:12px;letter-spacing:-.04em}
+}

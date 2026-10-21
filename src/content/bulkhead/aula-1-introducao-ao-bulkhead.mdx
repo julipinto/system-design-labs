@@ -1,0 +1,115 @@
+---
+title: "Introdução ao Bulkhead"
+order: 1
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import lojaPool from '../../../public/labs/bulkhead/lab/loja-pool.js?raw';
+import poolK6 from '../../../public/labs/bulkhead/lab/pool.js?raw';
+
+<p class="ponte">O módulo 24 terminou com um achado que o <code>checkout.js</code> nunca veria: o relatório das 23:00, rodando junto com o tráfego normal, deixou <strong>1 em cada 3 pedidos do checkout</strong> e <strong>1 em cada 10 consultas de status</strong> com <code>503</code>. Ninguém tinha errado nada. O pedido da Lena (o <strong>1054</strong>) e o status dele dividem o <strong>mesmo pool de 20 conexões</strong> ao banco do <code>pedidos</code> com o relatório do módulo 6. Cuidar do tempo e da falha de cada chamada (módulo 21) não resolve isso. Falta cuidar da <strong>fronteira</strong>.</p>
+
+<OneLiner>O <strong>bulkhead</strong> não evita que uma peça falhe: ele <strong>limita até onde a falha chega</strong>. Divide um recurso finito em <strong>compartimentos</strong>, e quando um enche, só ele alaga.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Pool</strong>, ligue o <strong>relatório das 23:00</strong> com o <strong>pool único</strong> de 20 conexões e conte quantas requisições do cliente (checkout e status) batem em <code>503</code>. Depois divida o pool em 16 + 4 e repita. Para ver a analogia do navio, troque para o cenário <strong>Casco</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/bulkhead/anteparas-3d/?mode=pool" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Figura interativa: O pool de 20 conexões" alt="Prévia da figura 3D: O pool de 20 conexões" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O casco.</strong> Num navio, as anteparas (<em>bulkheads</em>) são paredes que dividem o casco em compartimentos. Se um é perfurado, só aquele enche de água e o resto flutua. A parede não impede o furo: impede o <strong>naufrágio</strong>. É a única vez que o navio aparece neste módulo.</li>
+  <li><strong>O pool da loja.</strong> O banco do <code>pedidos</code> (um shard, módulos 11, 15 e 16) atende no máximo <strong>20 conexões</strong> por vez. Três fluxos usam as mesmas 20: o <strong>checkout</strong> (<code>POST /pedidos</code>, 10/s, ~20 ms cada), o <strong>status do pedido</strong> (<code>GET /pedidos/1054</code>, o <em>short polling</em> do app do módulo 12, 40/s, ~5 ms) e o <strong>relatório das 23:00</strong> (10 consultas/s de 4 s).</li>
+  <li><strong>A conta.</strong> Pela Lei de Little (módulo 23), conexões em uso = taxa × tempo. Checkout: 10 × 0,02 = <strong>0,2</strong>. Status: 40 × 0,005 = <strong>0,2</strong>. Relatório: 10 × 4 = <strong>40</strong>. Sem o relatório, 0,4 de 20 (2%). Com ele, <strong>40,4 de 20</strong>: o relatório sozinho pede o dobro do pool.</li>
+  <li><strong>Pool cheio é recusa imediata.</strong> Neste modelo quem não acha conexão recebe <code>503</code> na hora, sem fila. É o jeito de um semáforo, o do Hystrix e do Resilience4j com <code>maxWaitDuration</code> zero. As consultas de 5 ms do cliente chegam e as 20 vagas já estão presas por consultas de 4 s.</li>
+  <li><strong>A divisão.</strong> Com <strong>16</strong> conexões para o interativo (checkout e status) e <strong>4</strong> para o batch, o relatório só consegue ocupar as 4 dele. O cliente continua com as 16, de onde precisa de 0,4.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="pool-little" title="Pool e Little" hint="Taxa e tempo de cada fluxo, tamanho do pool e divisão entre interativo e batch. Mostra as conexões em uso (0,2 · 0,2 · 40), se o pool satura, a capacidade do batch e a duração do job." />
+
+<h3 class="sec">O que o k6 mostrou</h3>
+
+<p>A conta de Little diz que vai faltar conexão. Só um teste diz <strong>quanto</strong> cliente fica de fora. O lab do módulo é um <strong>modelo</strong> da loja, não a loja: um servidor de ~25 linhas em Node simula o pool (<code>MODE=shared</code> para 1 pool de 20, <code>MODE=bulkhead</code> para 16 + 4) e o k6 v2.3.0 dispara os três fluxos juntos. Os arquivos estão em <code>public/labs/bulkhead/lab/</code>.</p>
+
+<CodeLab code={lojaPool} />
+
+<p>As linhas que importam. A <strong>10</strong> cria os três contadores: <code>shared</code> (20), <code>inter</code> (16) e <code>batch</code> (4). A <strong>11</strong> escolhe o contador pelo modo. A <strong>17</strong> é o semáforo: <code>busy &gt;= n</code> devolve <code>503</code> sem esperar. A <strong>18</strong> e a <strong>20</strong> ocupam e soltam a vaga. A <strong>19</strong> sorteia o tempo de cada tipo com distribuição exponencial (média 20 ms, 5 ms ou 4 s).</p>
+
+<CodeLab code={poolK6} />
+
+<p>O script do k6 tem <strong>três cenários</strong> com chegada em taxa constante: <code>escrita</code> (10/s, os 80 s inteiros), <code>leitura</code> (40/s, os 80 s) e <code>relatorio</code> (10/s, de <strong>20 s a 50 s</strong>, o relatório das 23:00 resumido a 30 segundos). A janela "durante" é de 25 s a 50 s. Saídas reais, rodadas em 20 e 21/10/2026 nesta máquina.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Fluxo (janela 25–50 s)</th><th>Pool único de 20</th><th>Pool 16 + 4</th></tr></thead>
+  <tbody>
+    <tr><th>Checkout (POST, 250 requisições)</th><td><strong>66,8% ok</strong> · 83 × <code>503</code> · p95 66 ms</td><td><strong>100% ok</strong> · 0 × <code>503</code> · p95 54 ms</td></tr>
+    <tr><th>Status do pedido (GET, ~1.000)</th><td><strong>89,9% ok</strong> · 101 × <code>503</code> · p95 15 ms</td><td><strong>100% ok</strong> · p95 15 ms</td></tr>
+    <tr><th>Relatório (250 consultas de 4 s)</th><td>47,2% ok · 132 × <code>503</code> · p95 12,0 s</td><td><strong>14,0% ok</strong> · 215 × <code>503</code> · p95 7,4 s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Fora da janela do relatório, antes e depois, <strong>todos os fluxos ficam em 100%</strong> nos dois pools. Então o problema não é o pool de 20 em si, e sim ele ser <strong>de todo mundo</strong> quando o relatório chega.</p>
+
+<Widget name="k6-pool" title="Compartilhado × separado" hint="O mesmo cenário (pool de 20, relatório entre 20 s e 50 s) com pool único ou 16 + 4: sucesso de cada fluxo na janela e p95, ao lado dos números do k6." />
+
+<p>A leitura é esta. Com o pool único, o relatório (40 conexões pedidas para 20) <strong>expulsa o cliente</strong>: 1 em 3 pedidos do checkout e 1 em 10 consultas de status recebem <code>503</code>. Com o compartimento de 4, o cliente <strong>não perde nada</strong> e o <strong>batch é quem paga</strong>: 86% das consultas dele foram recusadas. O bulkhead não criou capacidade. <strong>Escolheu quem espera.</strong></p>
+
+<p>Um detalhe que parece erro: o checkout perdeu 33% e o status só 10%, e os dois disputam as mesmas vagas. É o jeito de o k6 chegar, em <strong>intervalos regulares</strong>. O POST e o relatório chegam a cada 100 ms, nos mesmos instantes, e brigam pela mesma vaga. Com chegadas aleatórias (de Poisson) as duas taxas seriam iguais.</p>
+
+<h3 class="sec">O que o bulkhead não é</h3>
+
+<p>O módulo 21 já deu quatro ferramentas para uma chamada que vai mal. O <em>timeout</em> limita o <strong>tempo</strong> (W). O <em>retry</em> tenta de novo. O <em>circuit breaker</em> corta a chamada que está falhando. O <em>fallback</em> devolve uma resposta de reserva. Nenhum desses divide o recurso. E o <em>rate limit</em> do módulo 8 também não: ele limita o <strong>total</strong> que entra, sem dizer quem leva a vaga. O bulkhead limita <strong>L</strong>, o máximo de recursos presos por um fluxo, qualquer que seja o W. As duas coisas se somam: o timeout encurta cada espera e o bulkhead garante que, mesmo no pior caso, sobra pool para os outros.</p>
+
+<p>O módulo 21 também já dividiu um pool: o de <strong>saída</strong> do <code>pagamentos</code> para o PSP, em 50 · 30 · 20 (PSP, frete, e-mail). Aqui o recurso é o de <strong>entrada</strong>, o banco. A ideia é a mesma e o caso é outro.</p>
+
+<h3 class="sec">E se der errado: o bulkhead castiga o batch</h3>
+
+<p>O compartimento de 4 conexões deixa o relatório atender <strong>4 ÷ 4 s = 1 consulta por segundo</strong>, em vez de 10. Um job de 6.000 consultas que levava <strong>10 min</strong> passa a levar <strong>100 min</strong>: começa às 23:00 e termina às 00:40. O batch tolera atraso, porque em produção ele <strong>enfileira</strong> (módulo 13) em vez de falhar. O cliente não tolera. A divisão não é de graça: alguém sempre espera.</p>
+
+<WhyItMatters>
+  <li><strong>A falha não precisa ser sua.</strong> O pedido da Lena recebeu <code>503</code> porque outro fluxo ocupou o pool, não porque o checkout tinha erro.</li>
+  <li><strong>A conta avisa antes.</strong> Little já mostrava 40 conexões pedidas para um pool de 20.</li>
+  <li><strong>O bulkhead escolhe quem espera.</strong> Com 16 + 4, o checkout fica com 0% de <code>503</code> e o relatório com 14% de sucesso.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"A essência do bulkhead não está em retry, timeout ou fallback".</strong> Verdade, mas eles <strong>interagem</strong>. O <em>timeout</em> limita W e o bulkhead limita L. Com o <em>timeout</em> de 1 s do módulo 21 e 20 POST/s por pod (a Black Friday de 2027, módulo 23), o pior caso é L = 20 × 1 = <strong>20</strong> workers: o pool inteiro. Só um teto por compartimento garante o resto.</li>
+    <li><strong>O lab é do SDLabs.</strong> O repositório público do autor não tem exemplo de bulkhead. As pastas <code>concurrency-parallelism</code> (o pool de threads do módulo 11) e <code>sharding</code> (a segregação por chave, módulo 16) são a ponte. O pool de 20 conexões é um modelo, e o k6 e as saídas são reais.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Bulkhead Pattern (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Microsoft: padrão Bulkhead", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Wikipédia: Bulkhead (partition)", href: "https://en.wikipedia.org/wiki/Bulkhead_(partition)" },
+    { label: "Google SRE: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe que um pool compartilhado deixa o relatório derrubar quem não tem culpa, e que 16 + 4 resolve esse caso. Falta saber <strong>quais recursos</strong> dividir: só conexões, ou threads, filas, nós e zonas também? É a aula 2.</p>
+
+<Flashcards cards={[
+  { q: "O que o bulkhead faz?",
+    a: "Não evita a falha: limita até onde ela chega. Divide um recurso finito em compartimentos, e um furo alaga só o seu." },
+  { q: "Quantas conexões o relatório das 23:00 pede ao pool de 20?",
+    a: "10 consultas/s × 4 s = 40 conexões (Little). O cliente usa 0,2 + 0,2. O relatório sozinho pede o dobro do pool." },
+  { q: "O que o k6 mostrou com o pool único?",
+    a: "Na janela do relatório, 33% dos pedidos do checkout (83 de 250) e 10% das consultas de status (101 de ~1.000) receberam 503. Fora da janela, 0%." },
+  { q: "E com o pool 16 + 4?",
+    a: "0% de 503 no cliente. O relatório passou a 14% de sucesso (215 recusadas de 250): o bulkhead escolheu quem espera." },
+  { q: "Qual é o preço do compartimento de 4?",
+    a: "O relatório atende 4 ÷ 4 s = 1 consulta/s. O job de 6.000 consultas vai de 10 min para 100 min (23:00 até 00:40)." },
+]} />
