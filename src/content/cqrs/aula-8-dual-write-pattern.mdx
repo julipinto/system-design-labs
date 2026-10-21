@@ -28,7 +28,7 @@ import commandHandler from '../../lab-code/cqrs/sql-commands-handler.go?raw';
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>O comando do 1056.</strong> O <code>pedidos</code> faz o <code>INSERT</code> às <strong>20:12:00.004</strong> (o commit) e, logo depois, o <code>publish PedidoCriado</code> no Kafka. São dois passos, em dois sistemas, sem nada que os amarre.</li>
-  <li><strong>Falha 1: banco ok, broker fora.</strong> O pedido existe, mas o evento nunca sai. O 1056 <strong>não aparece</strong> em "meus pedidos", e o <code>estoque</code> não reserva (o módulo 17 já mostrou o estoque ficando em 36 em vez de 35).</li>
+  <li><strong>Falha 1: banco ok, broker fora.</strong> O pedido existe, mas o evento nunca sai. O 1056 <strong>não aparece</strong> em "meus pedidos", e o <code>estoque</code> não reserva (o módulo 17 já mostrou o mesmo com a caneca do 1055: o estoque ficou em 37 em vez de 36).</li>
   <li><strong>Falha 2: evento publicado, banco falha.</strong> O <code>COMMIT</code> é recusado depois do <code>publish</code>. A tela mostra um <strong>1056 que não existe</strong>, e o <code>pagamentos</code> pode cobrar um pedido que o banco não tem.</li>
   <li><strong>A conta.</strong> Se a publicação falha em <strong>0,1%</strong> das vezes (um soluço do broker), 30 pedidos/s × 3.600 × 0,001 = <strong>108 pedidos por hora</strong> existem no banco sem evento, e <strong>nunca</strong> chegam ao modelo de leitura.</li>
 </ol>

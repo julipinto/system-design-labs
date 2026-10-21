@@ -223,11 +223,11 @@
     '{"pedido_id":1056,"criado_em":"2026-11-27T20:12:00-03:00","status":"criado","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990},{"nome":"caneca azul","qtd":1,"preco_centavos":1990}],"total_centavos":11480,"pagamento":null,"rastreio":null},' +
     '{"pedido_id":1055,"criado_em":"2026-11-27T20:10:00-03:00","status":"pago","itens":[{"nome":"caneca azul","qtd":1,"preco_centavos":1990}],"total_centavos":3490,"pagamento":"cartao_credito","rastreio":null},' +
     '{"pedido_id":1054,"criado_em":"2026-11-27T20:08:00-03:00","status":"pago","itens":[{"nome":"camiseta preta","qtd":1,"preco_centavos":4900}],"total_centavos":6400,"pagamento":"cartao_credito","rastreio":null},' +
-    '{"pedido_id":1051,"criado_em":"2026-11-20T19:40:00-03:00","status":"enviado","itens":[{"nome":"caneca azul","qtd":2,"preco_centavos":1990}],"total_centavos":5480,"pagamento":"pix","rastreio":"LA123456788BR"},' +
+    '{"pedido_id":1051,"criado_em":"2026-11-20T14:19:00-03:00","status":"enviado","itens":[{"nome":"caneca azul","qtd":2,"preco_centavos":1990}],"total_centavos":5480,"pagamento":"pix","rastreio":"LA123456788BR"},' +
     '{"pedido_id":1048,"criado_em":"2026-11-05T10:15:00-03:00","status":"entregue","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990}],"total_centavos":9490,"pagamento":"cartao_credito","rastreio":"LA123456787BR"},' +
-    '{"pedido_id":1047,"criado_em":"2026-11-05T09:40:00-03:00","status":"entregue","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990}],"total_centavos":9490,"pagamento":"boleto","rastreio":"LA123456786BR"},' +
-    '{"pedido_id":1044,"criado_em":"2026-10-18T14:20:00-03:00","status":"entregue","itens":[{"nome":"caneca azul","qtd":1,"preco_centavos":1990}],"total_centavos":3490,"pagamento":"pix","rastreio":"LA123456785BR"},' +
-    '{"pedido_id":1042,"criado_em":"2026-10-02T11:05:00-03:00","status":"entregue","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990}],"total_centavos":8990,"pagamento":"pix","rastreio":"LA123456784BR"}]}';
+    '{"pedido_id":1047,"criado_em":"2026-06-18T14:02:10-03:00","status":"entregue","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990}],"total_centavos":9490,"pagamento":"boleto","rastreio":"LA123456786BR"},' +
+    '{"pedido_id":1044,"criado_em":"2026-04-18T14:20:00-03:00","status":"entregue","itens":[{"nome":"caneca azul","qtd":1,"preco_centavos":1990}],"total_centavos":3490,"pagamento":"pix","rastreio":"LA123456785BR"},' +
+    '{"pedido_id":1042,"criado_em":"2026-03-02T11:05:00-03:00","status":"entregue","itens":[{"nome":"gato de pelúcia","qtd":1,"preco_centavos":7990}],"total_centavos":8990,"pagamento":"pix","rastreio":"LA123456784BR"}]}';
   function nbytes(s) { return new TextEncoder().encode(s).length; }
 
   function wDocumento(root) {

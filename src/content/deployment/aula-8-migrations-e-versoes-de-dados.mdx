@@ -65,7 +65,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p><strong>A segunda é a bomba do módulo 16.</strong> A 2.6.0 troca <code>mod 3</code> por <code>mod 4</code> na função que escolhe o shard. Durante o rolling a 2.6.0 vê 0% → 33% → 67% → 100% dos pedidos (150 pedidos nos 90 s), e <strong>75,2%</strong> das chaves mudam de shard: 4 dos 5 clientes da amostra (<code>lena-77</code> 1 → 0, <code>bia-31</code> 1 → 3, <code>caio-58</code> 2 → 1, <code>mkt-01</code> 2 → 1; só <code>davi-12</code> fica no 0). Cerca de <strong>113</strong> desses pedidos vão para um shard onde a 2.4.0 não procura.</p>
 
-<p>E, <strong>depois</strong> do rolling, a 2.6.0 consulta o <strong>status</strong> dos pedidos da Lena (o endpoint que o app usa por <em>short polling</em>, módulo 12, e que a saga e o estorno também usam) e <strong>não acha</strong> 1042, 1044, 1047, 1048, 1051 e 1054: estão no <code>shard-1</code>, e a 2.6.0 procura no <code>shard-0</code>. A tela "meus pedidos" (módulo 18) lê a projeção e <strong>continua certa</strong>: o erro é de quem lê o <code>pedidos</code>.</p>
+<p>E, <strong>depois</strong> do rolling, a 2.6.0 consulta o <strong>status</strong> dos pedidos da Lena (o endpoint que o app usa por <em>short polling</em>, módulo 12, e que a saga e o estorno também usam) e <strong>não acha</strong> os 8 pedidos dela até aqui (1042, 1044, 1047, 1048, 1051, 1054, 1055 e 1056): estão no <code>shard-1</code>, e a 2.6.0 procura no <code>shard-0</code>. A tela "meus pedidos" (módulo 18) lê a projeção e <strong>continua certa</strong>: o erro é de quem lê o <code>pedidos</code>.</p>
 
 <p>A <strong>função de roteamento é dado versionado</strong> (o mapa de slots com época do módulo 16, aula 8). A mudança segue o mesmo expandir/contrair: copiar com CDC, <strong>ler dos dois</strong> durante a transição, trocar o mapa e só então apagar a origem.</p>
 
@@ -103,5 +103,5 @@ import Flashcards from '../../components/Flashcards.astro';
   { q: "Por que toda migration leva lock_timeout?",
     a: "O ALTER espera o lock e trava a fila: um SELECT que chegou depois esperou 4,0 s. Com lock_timeout de 1 s o ALTER desiste em 1,0 s e o SELECT passa." },
   { q: "O que a bomba do mod 3 para mod 4 causa?",
-    a: "75,2% das chaves mudam de shard: ~113 pedidos vão para onde a 2.4.0 não procura, e a 2.6.0 não acha os 6 pedidos da Lena (1042, 1044, 1047, 1048, 1051, 1054)." },
+    a: "75,2% das chaves mudam de shard: ~113 pedidos vão para onde a 2.4.0 não procura, e a 2.6.0 não acha os 8 pedidos da Lena (1042, 1044, 1047, 1048, 1051, 1054, 1055 e 1056)." },
 ]} />

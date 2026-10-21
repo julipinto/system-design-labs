@@ -241,7 +241,7 @@
     "O pedido existe, o evento nunca sai, e o 1056 não chega a 'meus pedidos'.",
     "O banco desfaz o pedido sozinho.",
     "O broker guarda o evento até voltar."
-  ], 1, "É a Falha 1. O módulo 17 já mostrou o estoque ficando em 36 em vez de 35.");
+  ], 1, "É a Falha 1. O módulo 17 já mostrou o mesmo com o 1055: o estoque da caneca ficou em 37 em vez de 36.");
   choice("t8", 3, 2, "Com 0,1% de falha na publicação e 30 pedidos/s, quantos pedidos por hora ficam no banco sem evento?", [
     "3.",
     "108.",
