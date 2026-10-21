@@ -1,0 +1,126 @@
+---
+title: "Sharding de tabelas"
+order: 4
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import tableSql from '../../lab-code/sharding/table.sql?raw';
+
+<p class="ponte">Na aula passada a chave ficou escolhida e o <code>mkt-01</code> continuou esquentando um shard. Antes de comprar mais servidores, a loja pode arrumar a tabela por dentro: o PostgreSQL parte uma tabela em <strong>partições</strong> na mesma instância, e esse é o degrau da escada que a aula 1 deixou antes do sharding. O repositório do autor tem um arquivo para isso, o <code>partitioning/table.sql</code>, e ele tem um defeito que vale a aula.</p>
+
+<OneLiner><strong>Particionar</strong> é dividir uma tabela em pedaços <em>dentro</em> do mesmo servidor: dá poda de consulta, retenção barata e manutenção por pedaço, mas <strong>não dá capacidade nova</strong>, porque o servidor continua um só.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Partições</strong>, consulte a tabela <code>pedidos</code> só por <strong>id</strong> e conte quantas partições o plano visita. Depois consulte por <strong>id e criado_em</strong> e conte de novo. Anote os dois números.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=particoes&step=3" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: Partições dentro de 1 servidor" alt="Prévia da figura 3D: Partições dentro de 1 servidor" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O arquivo do autor cria uma tabela <code>analytics.sales</code> com <code>PARTITION BY RANGE (sale_date)</code>. O mapa para a loja é direto: <code>sales</code> é <code>pedidos</code>, <code>customer_id</code> é <code>cliente_id</code>, <code>sale_date</code> é <code>criado_em</code> e <code>region</code> é <code>cidade</code>. O código está abaixo, com os números de linha do arquivo.</li>
+  <li>Ele <strong>não roda</strong>, e por dois motivos reais. Num PostgreSQL de verdade, o <code>PRIMARY KEY (id)</code> dá <code>ERROR: unique constraint on partitioned table must include all partitioning columns</code>: a chave de partição tem de estar na chave primária. Com <code>PRIMARY KEY (id, sale_date)</code> a tabela é criada, mas <strong>nenhuma partição</strong> foi criada, e o primeiro <code>INSERT</code> falha com <code>no partition of relation "sales" found for row</code>.</li>
+  <li>A versão da loja, conferida no PostgreSQL 14, particiona <code>pedidos</code> por ano de <code>criado_em</code> (SQL abaixo). A chave de partição entra na chave primária, <code>(id, criado_em)</code>, e cada ano é uma tabela filha com sua faixa.</li>
+  <li>Com isso vem a <strong>poda</strong> (partition pruning). Uma consulta com <code>criado_em</code> entre 1º e 30 de novembro de 2026 lê só a <code>pedidos_2026</code> e ignora as outras duas. Uma consulta só com <code>id = 1042</code> não sabe em que ano o pedido está e faz um <code>Append</code> com um <code>Index Scan</code> em <strong>cada uma</strong> das 3 partições. Com <code>id</code> <em>e</em> <code>criado_em</code>, volta a ser uma só.</li>
+  <li>O PostgreSQL também particiona por <strong>hash</strong> (<code>PARTITION BY HASH (cliente_id)</code>, <code>MODULUS 3</code>). Na amostra de 14 linhas, <code>pedidos_h0</code> fica com <code>lena-77</code>, <code>bia-31</code> e <code>caio-58</code> (<strong>11</strong> linhas), <code>pedidos_h1</code> com <code>davi-12</code> (3) e <code>pedidos_h2</code> fica <strong>vazia</strong>. Ele usa a função hash própria dele, que não dá para refazer à mão com <code>hash % 3</code>, e por isso a figura do módulo usa murmur3.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O lab do autor, linha a linha</h3>
+
+<CodeLab code={tableSql} />
+
+<p>A linha 2 é <code>\c ecommerce;</code>, um comando do <code>psql</code> (conectar ao banco), e não SQL. O arquivo só roda com <code>psql -f</code>. Linhas 7 e 13: a chave primária de <code>id</code> sozinha e a cláusula <code>PARTITION BY</code>. É a combinação das duas que não cria.</p>
+
+<h3 class="sec">A tabela da loja, particionada por ano</h3>
+
+<pre><code>{String.raw`CREATE TABLE pedidos (
+  id bigint NOT NULL, cliente_id text NOT NULL, cidade text NOT NULL,
+  total numeric(10,2) NOT NULL, status text NOT NULL DEFAULT 'criado',
+  criado_em timestamptz NOT NULL,
+  PRIMARY KEY (id, criado_em)            -- a chave de partição TEM de estar na PK
+) PARTITION BY RANGE (criado_em);
+CREATE TABLE pedidos_2024 PARTITION OF pedidos FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+CREATE TABLE pedidos_2025 PARTITION OF pedidos FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+CREATE TABLE pedidos_2026 PARTITION OF pedidos FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');`}</code></pre>
+
+<p>E os dois planos, resumidos. Com a chave de partição na consulta, só uma partição é lida:</p>
+
+<pre><code>{String.raw`-- WHERE criado_em >= '2026-11-01' AND criado_em < '2026-12-01'
+Seq Scan on pedidos_2026          (as partições de 2024 e 2025 foram podadas)
+
+-- WHERE id = 1042   (sem a chave de partição)
+Append
+  -> Index Scan using pedidos_2024_pkey on pedidos_2024
+  -> Index Scan using pedidos_2025_pkey on pedidos_2025
+  -> Index Scan using pedidos_2026_pkey on pedidos_2026`}</code></pre>
+
+<Widget name="particao" title="Partição por data: poda e partição faltando" hint="Escolha o criado_em de um pedido, o tipo de consulta e se a partição de 2027 existe. O widget mostra a partição que recebe a linha, o plano com e sem poda e o erro real quando falta partição." />
+
+<h3 class="sec">E se der errado: três jeitos de tropeçar</h3>
+
+<ol class="flow steps">
+  <li><strong>A chave primária sem a chave de partição.</strong> A tabela nem nasce, com o erro da etapa 2. O conserto é incluir <code>criado_em</code> na chave primária. O preço é que a unicidade do <code>id</code> sozinho deixa de ser garantida pelo banco.</li>
+  <li><strong>A consulta sem a chave.</strong> <code>WHERE id = 1042</code> funciona, mas visita todas as partições. Com 3 é barato; com 3.000 partições, o planejador gasta tempo só para decidir.</li>
+  <li><strong>A partição que não existe.</strong> Um <code>INSERT</code> com <code>criado_em = '2027-01-05'</code> dá <code>ERROR: no partition of relation "pedidos" found for row</code>, com o <code>DETAIL: Partition key of the failing row contains (criado_em) = (2027-01-05 00:00:00-03)</code>. Quem cria a partição do ano que vem é um job, e a aula 5 volta a isso.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Poda:</strong> com a chave na consulta, 1 partição de 3. Sem ela, as 3.</li>
+  <li><strong>Retenção barata:</strong> <code>DETACH</code> 1,1 ms, <code>DROP</code> 7,5 ms e <code>DELETE</code> 62,9 ms para as 105.407 linhas de 2024 (PostgreSQL 14, esta máquina).</li>
+  <li><strong>Não dá capacidade.</strong> Todas as partições moram no mesmo servidor, e o teto de 150 pedidos/s continua.</li>
+  <li><strong>A porta para o sharding.</strong> Cada partição pode virar um shard depois.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Aposentar dados: DELETE, DROP e DETACH</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Comando</th><th>Tempo (105.407 linhas)</th><th>Deixa linhas mortas?</th></tr></thead>
+    <tbody>
+      <tr><th>DELETE FROM pedidos WHERE criado_em &lt; '2025-01-01'</th><td>62,9 ms</td><td>sim: sobra trabalho para o VACUUM</td></tr>
+      <tr><th>DROP TABLE pedidos_2024</th><td>7,5 ms</td><td>não</td></tr>
+      <tr><th>ALTER TABLE pedidos DETACH PARTITION pedidos_2024</th><td>1,1 ms</td><td>não; a tabela solta fica guardada</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A documentação do PostgreSQL diz que <code>DROP</code> e <code>DETACH</code> são "far faster" que uma operação em massa e não pagam o custo do <code>VACUUM</code>. Os tempos são desta máquina, com 105.407 linhas. <strong>Escala linear para 8 milhões de linhas não é garantida</strong>: vale a ordem de grandeza, e o que muda é que o <code>DELETE</code> varre linhas e os outros dois não.</p>
+  <h4 class="deep-h">De partição a shard</h4>
+  <p>Cada partição pode morar em outro servidor. No PostgreSQL isso se faz com uma tabela estrangeira (<code>postgres_fdw</code>) como partição, ou com uma ferramenta que automatiza o trabalho, como o Citus ou, no mundo do MySQL, o Vitess. Nos módulos seguintes a partição passa a ter outro nome: shard.</p>
+  <h4 class="deep-h">Correção ao artigo-base e ao lab</h4>
+  <ul>
+    <li><strong>Particionar não é fazer sharding.</strong> O artigo usa os termos como sinônimos. Particionar dá poda e retenção; só o shard dá capacidade.</li>
+    <li><strong>O <code>table.sql</code> do autor não roda como está.</strong> A chave primária e a chave de partição precisam coincidir, e o arquivo não cria nenhuma partição. Aqui ele é lido, não executado.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Repositório público do autor: exemplos/partitioning", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "PostgreSQL: CREATE TABLE (partições por faixa, lista e hash)", href: "https://www.postgresql.org/docs/current/sql-createtable.html" },
+    { label: "PostgreSQL: postgres_fdw", href: "https://www.postgresql.org/docs/current/postgres-fdw.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A tabela está particionada por ano, e a partição do ano corrente leva todas as escritas. Falta saber quais <strong>faixas</strong> usar e onde cada tipo de faixa costuma pesar demais: iniciais de nome, ids, datas e tiers.</p>
+
+<Flashcards cards={[
+  { q: "O que o particionamento dá e o que não dá?",
+    a: "Dá poda de consulta, retenção barata e manutenção por pedaço. Não dá capacidade, porque o servidor continua um só." },
+  { q: "Por que a PRIMARY KEY (id) do table.sql do autor não cria a tabela?",
+    a: "A chave de partição (sale_date) precisa estar na chave primária: PRIMARY KEY (id, sale_date)." },
+  { q: "O que o plano faz com id = 1042 sem criado_em?",
+    a: "Append com um Index Scan em cada uma das 3 partições. Com id e criado_em, lê só uma." },
+  { q: "Qual o erro ao inserir criado_em de 2027 sem partição?",
+    a: "ERROR: no partition of relation \"pedidos\" found for row, com a chave da linha no DETAIL." },
+  { q: "Como DETACH, DROP e DELETE se comparam nas 105.407 linhas de 2024?",
+    a: "1,1 ms, 7,5 ms e 62,9 ms. O DELETE ainda deixa linhas mortas para o VACUUM." },
+]} />

@@ -1,0 +1,110 @@
+---
+title: "Exemplo"
+order: 10
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import murmurGo from '../../lab-code/sharding/murmur.go?raw';
+import murmurMod from '../../lab-code/sharding/murmur-go.mod?raw';
+
+<p class="ponte">Na aula passada a loja ficou com todas as peças: a chave, as faixas, o hash, o anel, o mapa e o shuffle sharding. O repositório público do autor tem quatro programas pequenos em Go que mostram o hash e o anel com dados reais, mais a tabela do <code>partitioning/</code> que a aula 4 leu. Esta aula roda cada um, confere a saída com a do artigo e diz onde o código não faz o que a aula prometeu.</p>
+
+<OneLiner>Os quatro programas do autor, <code>hashing</code>, <code>hashing-distrib</code>, <code>murmur</code> e <code>consistent-hashing-remove</code>, provam o hash e o anel com poucas chaves: <strong>provam a ideia, não a distribuição</strong>, e a tabela do <code>partitioning/</code> não roda.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Lab</strong>, veja os quatro programas lado a lado com as saídas conferidas. Anote a contagem do <code>hashing/</code> (2 / 4 / 4) e o que muda no anel ao remover o <code>Shard-02</code> (3 de 10) e ao adicionar o <code>Shard-04</code> (1 de 10).</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/anel-3d/?mode=lab" poster="labs/sharding/anel-3d-previa.webp" title="Figura interativa: Os 4 programas do autor" alt="Prévia da figura 3D: Os 4 programas do autor" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Os três programas <code>hashing/</code>, <code>hashing-distrib/</code> e <code>consistent-hashing-remove/</code> usam só a biblioteca padrão do Go e rodam <strong>sem <code>go.mod</code></strong>: <code>go run main.go</code> em cada pasta. O <code>murmur/</code> tem um <code>go.mod</code> (<code>go 1.22.4</code>) e baixa o <code>spaolacci/murmur3 v1.1.0</code>; o repositório dele não está arquivado, e o último push é de 02/2023.</li>
+  <li>O <code>hashing/</code> distribui 10 tenants entre 3 shards com SHA-256 minúsculo: Petshops-Souza <strong>1</strong>, Pizzarias-Carvalho <strong>2</strong>, Mecanica-Dois-Irmaos <strong>1</strong>, Padaria-Estrela-Filial-1 <strong>0</strong>, Filial-2 <strong>2</strong>, Filial-3 <strong>1</strong>, Hortifruti-Oba <strong>2</strong>, Acougue-Zona-Leste <strong>2</strong>, Zona-Oeste <strong>0</strong> e Zona-Norte <strong>1</strong>. Contagem: <strong>2 / 4 / 4</strong>. Com 4 shards, <strong>7 de 10</strong> mudam.</li>
+  <li>O <code>hashing-distrib/</code> compara 5 funções em 41 entradas e 5 shards: SHA-256 <strong>9, 7, 6, 8, 11</strong>; SHA-512 <strong>8, 9, 12, 7, 5</strong>; MD5 <strong>13, 9, 4, 5, 10</strong>; FNV-1a <strong>6, 6, 6, 14, 9</strong>; hash simples <strong>5, 7, 9, 10, 10</strong>. Como a aula 6 mostrou, o desvio esperado é 2,56, então a diferença é ruído.</li>
+  <li>O <code>murmur/</code> faz o mesmo com murmur3 em 39 entradas (38 únicas) e 5 shards: <strong>7, 8, 9, 8, 7</strong>. O código completo, com o laço que conta, está abaixo.</li>
+  <li>O <code>consistent-hashing-remove/</code> monta o anel de 3 pontos por shard (aula 7): inicial <code>Shard-00</code> <strong>0</strong>, <code>Shard-01</code> <strong>4</strong>, <code>Shard-02</code> <strong>3</strong>, <code>Shard-03</code> <strong>3</strong>. Remover o <code>Shard-02</code> muda <strong>3 de 10</strong>, todos para o <code>Shard-00</code>. Adicionar o <code>Shard-04</code> muda <strong>1 de 10</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O murmur, linha a linha</h3>
+
+<p>O <code>go.mod</code>, que fixa a versão da biblioteca:</p>
+
+<CodeLab code={murmurMod} />
+
+<p>E o final do <code>main.go</code>: o mapa <code>shardDistribution</code> é criado na linha 69, incrementado na 75 e impresso nas linhas 80 a 82. É o laço que falta no trecho impresso no artigo, que lista 12 nomes e não conta.</p>
+
+<CodeLab code={murmurGo} from={63} to={83} />
+
+<h3 class="sec">Onde os códigos não fazem o que parecem</h3>
+
+<ol class="flow steps">
+  <li><strong><code>partitioning/table.sql</code>:</strong> <code>PRIMARY KEY (id)</code> não cria a tabela (o erro da aula 4) e, mesmo corrigido, o arquivo não cria nenhuma partição: o primeiro <code>INSERT</code> falha. A linha <code>\c ecommerce;</code> é comando do <code>psql</code>, e só roda com <code>psql -f</code>.</li>
+  <li><strong><code>hashing-distrib/</code>:</strong> são 41 entradas e 38 tenants únicos (Padaria-Estrela-Filial-1, 2 e 3 aparecem duas vezes). O <code>hashSimple</code> itera por runas, e os hashes de 64 bits viram <code>int</code> e podem ser negativos (o <code>getShardByTenant</code> corrige o resto negativo com <code>-shard</code>, que dá o mesmo valor de <code>abs(h) % n</code>).</li>
+  <li><strong><code>murmur/</code>:</strong> não passa para minúsculas (os outros passam), tem 39 entradas e 38 únicas (<code>Padaria-Estrela-Filial-3</code> se repete). O trecho do artigo não é o do repositório.</li>
+  <li><strong><code>hashing/</code>:</strong> o <code>numShards := 3</code> está dentro da função, sem parâmetro. O <code>hashTenant</code> troca o sinal de um <code>int</code> negativo, e o menor valor de <code>int64</code> continua negativo (probabilidade 2<sup>−64</sup>, só se registra).</li>
+  <li><strong><code>consistent-hashing-remove/</code>:</strong> <code>NumReplicas = 3</code> é pouco (o <code>Shard-00</code> nasce vazio). <code>RemoveNode</code> e <code>AddNode</code> só mudam o anel, sem migrar dado, e o <code>// Nova movimentação</code> da saída do artigo é anotação manual.</li>
+</ol>
+
+<p>E nenhum dos labs tem um teste de distribuição com muitas chaves. A aula 6 e a aula 7 refizeram as contas com 100 mil chaves (<code>c-0</code> a <code>c-99999</code>), e é isso que mostra que as 5 funções ficam a menos de 2% do ideal.</p>
+
+<h3 class="sec">E se der errado: o anel vazio</h3>
+
+<p>O <code>GetTenantNode</code> procura o primeiro ponto com hash maior ou igual ao da chave, e, se passar do fim, volta ao índice 0. Num anel <strong>vazio</strong> (todos os shards removidos, ou ainda nenhum adicionado), <code>len(ring.Nodes)</code> é 0, o índice vira 0 e o <code>ring.Nodes[idx]</code> acessa um slice sem elementos: <code>panic: index out of range</code>. A loja real precisa de uma checagem antes: sem shards, a resposta é um erro claro (e um alarme), não um pânico no roteador.</p>
+
+<h3 class="sec">O que conferi, e o que não</h3>
+
+<p>Não há Go nesta máquina, então eu <strong>não rodei</strong> os programas. Reproduzi SHA-256, MD5, FNV-1a, murmur3 e o anel em Python, e as saídas batem, linha por linha, com as impressas no artigo. O murmur3 foi conferido com os vetores <code>""</code> → 0, <code>"hello"</code> → 0x248bfa47 e <code>"The quick brown fox jumps over the lazy dog"</code> → 0x2e4ff723. Quando você rodar o <code>go run</code>, o resultado deve ser o mesmo.</p>
+
+<WhyItMatters>
+  <li><strong>Os labs provam a ideia.</strong> Hash e anel funcionam, e a saída bate com a do artigo.</li>
+  <li><strong>Não provam a distribuição.</strong> 10 a 41 entradas não decidem nada; 100 mil chaves, sim.</li>
+  <li><strong>Não movem dado.</strong> O anel só muda a lista de pontos, e a tabela de partição nem cria partições.</li>
+  <li><strong>Anel vazio é pânico.</strong> Checar antes de procurar.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">As saídas em uma tabela</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Programa</th><th>Entradas</th><th>Saída</th></tr></thead>
+    <tbody>
+      <tr><th>hashing/</th><td>10 tenants, 3 shards</td><td>2 / 4 / 4; com 4 shards, 7 de 10 mudam</td></tr>
+      <tr><th>hashing-distrib/</th><td>41 entradas, 5 shards</td><td>cinco distribuições (SHA-256: 9, 7, 6, 8, 11)</td></tr>
+      <tr><th>murmur/</th><td>39 entradas, 5 shards</td><td>7, 8, 9, 8, 7</td></tr>
+      <tr><th>consistent-hashing-remove/</th><td>10 tenants, 3 pontos</td><td>0 / 4 / 3 / 3; remover: 3 de 10; adicionar: 1 de 10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>As entradas dos programas são os 10 tenants do autor (petshops, padarias, açougues), e não os clientes da loja; a aula 6 e a aula 7 refazem as contas com <code>lena-77</code> e as 100 mil chaves.</p>
+  <Sources items={[
+    { label: "Repositório público do autor: exemplos/sharding", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Repositório público do autor: exemplos/partitioning", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+    { label: "spaolacci/murmur3 (pkg.go.dev)", href: "https://pkg.go.dev/github.com/spaolacci/murmur3" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora parte os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena cai no <code>shard-1</code>. Só que cada shard é <strong>um servidor só</strong>: se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e o sharding não copia nada. Falta saber como <strong>copiar cada shard</strong>: primário em SP, réplicas no Rio e em Recife. É o módulo 17, Replicação de Dados.</p>
+
+<Flashcards cards={[
+  { q: "Quais programas do autor rodam sem go.mod?",
+    a: "hashing/, hashing-distrib/ e consistent-hashing-remove/ (só biblioteca padrão). O murmur/ tem go.mod e baixa spaolacci/murmur3 v1.1.0." },
+  { q: "Qual a contagem do hashing/ e quantos tenants mudam com 4 shards?",
+    a: "2 / 4 / 4 com 3 shards; com 4 shards, 7 de 10 mudam." },
+  { q: "O que o anel do lab faz ao remover o Shard-02 e ao adicionar o Shard-04?",
+    a: "Remover muda 3 de 10 tenants (todos para o Shard-00); adicionar muda 1 de 10 (Hortifruti-Oba para o Shard-04)." },
+  { q: "O que acontece com GetTenantNode num anel vazio?",
+    a: "Panic: o índice vira 0 num slice sem elementos (index out of range)." },
+  { q: "Por que os labs não provam a distribuição?",
+    a: "Usam de 10 a 41 entradas, onde o acaso domina. Com 100 mil chaves todas as funções ficam a menos de 2% do ideal." },
+]} />

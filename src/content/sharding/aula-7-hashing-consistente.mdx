@@ -1,0 +1,117 @@
+---
+title: "Hashing consistente"
+order: 7
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import ringGo from '../../lab-code/sharding/consistent-hashing-remove.go?raw';
+
+<p class="ponte">Na aula passada, trocar 3 shards por 4 com <code>mod</code> mexeu em <strong>75,2%</strong> das linhas: 75 GB para copiar, 25 minutos, e a maior parte indo entre shards antigos. O ideal seria mover só a parte que o shard novo vai guardar, 1 em cada 4 linhas. O <strong>anel</strong> (hash ring) chega perto disso, porque troca a divisão por uma busca numa lista ordenada.</p>
+
+<OneLiner>No hashing consistente, shards e chaves moram no <strong>mesmo círculo</strong> de hash, e cada chave pertence ao primeiro shard que encontra no sentido horário: quando entra um shard novo, <strong>só o dado dele se mexe</strong>, cerca de 1 ÷ N do total.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Reshard</strong>, adicione o <code>shard-3</code> e veja quais clientes mudam: só <code>caio-58</code> e <code>davi-12</code>, os dois <em>para o shard novo</em>. Anote os 25,7% do anel contra os 75,2% do <code>mod</code>. Depois troque para o botão <strong>Pontos virtuais</strong> e compare 1, 3, 10 e 200 pontos por shard.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/anel-3d/?mode=reshard" poster="labs/sharding/anel-3d-previa.webp" title="Figura interativa: Entra o shard-3" alt="Prévia da figura 3D: Entra o shard-3" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O hash de 32 bits vai de 0 a 4.294.967.295. Curve esse intervalo num círculo, com o fim colado no começo. Cada <strong>shard</strong> ganha posições nesse círculo (o hash do nome dele) e cada <strong>chave</strong> também (o hash do <code>cliente_id</code>). Para achar o dono de uma chave, ande no <strong>sentido horário</strong> a partir dela até o primeiro shard.</li>
+  <li>Um ponto por shard deixa as fatias do círculo muito desiguais. A solução são os <strong>pontos virtuais</strong> (vnodes): cada shard aparece em muitos pontos, o hash de <code>shard-S#0</code>, <code>shard-S#1</code> e assim por diante. Com <strong>200 pontos</strong> por shard (o valor deste módulo), 3 shards ficam com <strong>35,5% / 32,2% / 32,3%</strong> das chaves, e a razão máximo ÷ média é <strong>1,07</strong>.</li>
+  <li>Entra o <code>shard-3</code>. Seus 200 pontos caem entre os pontos dos vizinhos e roubam um pouco de cada um. Das 100.000 chaves, <strong>25,7%</strong> mudam (o ideal é 25%), e <strong>todas para o shard novo</strong>. Na tabela de 50 milhões de linhas, são 12,5 milhões, <strong>25 GB, 8 min 20 s</strong> a 50 MB/s, contra 75 GB e 25 min do <code>mod</code>.</li>
+  <li>Com os 5 clientes da loja, só <code>caio-58</code> (shard-0 → shard-3) e <code>davi-12</code> (shard-2 → shard-3) mudam. <code>lena-77</code> fica no shard-0, <code>bia-31</code> e <code>mkt-01</code> no shard-2. Os números de shard do anel não são os do <code>mod 3</code> da aula 6: são outra função de espalhar, com outro mapa.</li>
+  <li>Os pontos virtuais fazem mais que equilibrar: eles espalham o <strong>impacto de uma saída</strong>. Se o shard maior sai do anel de 1 ponto por shard, todas as chaves dele (70,2%) vão para <em>um</em> vizinho, que passa a ter <strong>91,2%</strong>: o efeito dominó. Com 200 pontos, as chaves se dividem entre os dois vizinhos.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="anel" title="O anel: shards, pontos virtuais e o que muda" hint="Escolha os shards (2 a 8) e os pontos por shard (1 a 200). Depois adicione um shard ou remova o maior e veja, nas 100 mil chaves, a parte de cada shard, a razão máx. ÷ média e a fração que muda, lado a lado com o hash mod N." />
+
+<h3 class="sec">O efeito do número de pontos</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Pontos por shard</th><th>3 shards (% por shard)</th><th>Máx. ÷ média</th><th>3 → 4: chaves que mudam</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>70,2 / 8,8 / 21,0</td><td>2,11</td><td>23,2%</td></tr>
+    <tr><th>3 (o do lab)</th><td>59,0 / 17,7 / 23,3</td><td>1,77</td><td>32,1%</td></tr>
+    <tr><th>10</th><td>37,1 / 30,8 / 32,1</td><td>1,11</td><td>15,2%</td></tr>
+    <tr><th>100</th><td>28,3 / 39,2 / 32,5</td><td>1,18</td><td>24,2%</td></tr>
+    <tr><th>200 (o canônico)</th><td>35,5 / 32,2 / 32,3</td><td>1,07</td><td>25,7%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Com poucos pontos a distribuição é torta e a fração que muda sai do ideal (de 15,2% a 32,1%). Com 200, perto de 1/4. Com 100 pontos a razão máx. ÷ média sobe um pouco (1,18) por acaso: a sorte dos pontos importa menos quanto mais pontos há, mas não some. Em todas as linhas, as chaves que mudam vão só para o shard novo.</p>
+
+<h3 class="sec">O lab do autor: 3 pontos e um shard vazio</h3>
+
+<p>O repositório tem o <code>consistent-hashing-remove/main.go</code>, um anel com <strong>3 pontos por shard</strong> e SHA-256. Adicionar um nó cria os pontos e reordena o anel:</p>
+
+<CodeLab code={ringGo} from={32} to={42} />
+
+<p>E achar o dono de uma chave é uma busca binária: o primeiro ponto com hash maior ou igual ao da chave, e, se passar do fim, volta ao primeiro (o "fecha o círculo" da linha 66).</p>
+
+<CodeLab code={ringGo} from={58} to={71} />
+
+<p>Com 4 shards e 10 tenants, o resultado inicial é <code>Shard-00</code> com <strong>0</strong> tenants, <code>Shard-01</code> com 4, <code>Shard-02</code> com 3 e <code>Shard-03</code> com 3. O <code>Shard-00</code> nasce <strong>vazio</strong>: 3 pontos são poucos. Remover o <code>Shard-02</code> muda <strong>3 de 10</strong> tenants, todos os do <code>Shard-02</code>, para o <code>Shard-00</code>. Adicionar o <code>Shard-04</code> muda <strong>1 de 10</strong> (Hortifruti-Oba, do <code>Shard-01</code> para o <code>Shard-04</code>).</p>
+
+<h3 class="sec">Ligações com os módulos 7 e 13</h3>
+
+<p>O módulo 7 já usou essa ideia: quando o <code>catalogo-3</code> sai, o balanceador com <code>% 2</code> muda 2/3 dos clientes de réplica, e o hashing consistente só 1/3. O Kafka do módulo 13 <strong>não</strong> usa anel: usa <code>murmur2 mod N</code>. Por isso, ao passar de 3 para 6 partições, os pedidos <code>1049</code> e <code>1051</code> mudam de p0 para p3, exatamente a conta de "dobrar": cerca de 50%.</p>
+
+<h3 class="sec">E se der errado: poucos pontos e o dominó</h3>
+
+<p>A loja monta o anel com 1 ponto por shard, para economizar memória. A distribuição sai <strong>70,2 / 8,8 / 21,0</strong>: o primeiro shard guarda 7 de cada 10 linhas e o segundo quase nada. Com os 3 pontos do lab, o <code>Shard-00</code> ficou sem nenhum tenant. Aí o shard maior cai e sai do anel. Com 1 ponto, os 70,2% vão <em>todos</em> para um vizinho, que passa a ter <strong>91,2%</strong> e satura: o dominó. Com 3 pontos, 56,7 mil das 59,0 mil chaves vão para o <code>shard-1</code>, que fica com 74,4%. Com 200 pontos, o <code>shard-1</code> fica com 53,1% e o <code>shard-2</code> com 46,9%: dividem.</p>
+
+<WhyItMatters>
+  <li><strong>Só o dado do shard novo se mexe.</strong> 25,7% das chaves (8 min 20 s) em vez de 75,2% (25 min).</li>
+  <li><strong>As chaves vão todas para o shard novo.</strong> Nenhuma troca de lugar entre shards antigos.</li>
+  <li><strong>Pontos virtuais equilibram e protegem.</strong> 1 ponto: razão 2,11; 200 pontos: 1,07. E espalham o impacto de uma saída.</li>
+  <li><strong>O anel não tem estado,</strong> mas precisa de todos os pontos em memória, e o código do roteador tem de ser o mesmo em todo lugar.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Outras formas de chegar ao mesmo lugar</h4>
+  <p>O <strong>Jump Consistent Hash</strong> (Google, 2014) não usa anel nem memória: calcula o shard com um laço curto e só funciona se os shards são numerados de 0 a N − 1 (dá para aumentar N, mas não remover um do meio). O <strong>rendezvous hashing</strong> (HRW) dá a cada chave uma nota para cada shard e escolhe o de maior nota; a aula 9 usa essa ideia para escolher réplicas. O Dynamo, da Amazon, popularizou o anel com nós virtuais.</p>
+  <h4 class="deep-h">Correções ao artigo-base e ao lab</h4>
+  <ul>
+    <li><strong>"Os valores do módulo mudam muito pouco."</strong> O anel não usa módulo: usa posições ordenadas num círculo.</li>
+    <li><strong>3 pontos virtuais.</strong> O código tem 3 por shard (59 / 18 / 23% numa simulação, e o <code>Shard-00</code> nasce vazio). Na prática são dezenas a centenas (200 aqui: 35 / 32 / 32%).</li>
+    <li><strong>"Só os dados entre o novo nó e o próximo mudam."</strong> Vale <em>por ponto virtual</em>: com vários pontos, o shard novo recebe um pouco de cada vizinho (e só ele recebe).</li>
+    <li><strong>O lab não move dado.</strong> <code>RemoveNode</code> e <code>AddNode</code> só mudam o anel; o <code>// Nova movimentação</code> da saída do artigo é anotação manual. Com o anel vazio, <code>GetTenantNode</code> dá <code>panic</code>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Wikipédia: Consistent hashing", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+    { label: "Dynamo: Amazon's Highly Available Key-value Store (SOSP 2007)", href: "https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf" },
+    { label: "Repositório público do autor: exemplos/sharding (consistent-hashing-remove)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "A Fast, Minimal Memory, Consistent Hash Algorithm (Jump Consistent Hash)", href: "https://arxiv.org/abs/1406.2294" },
+    { label: "Wikipédia: Rendezvous hashing", href: "https://en.wikipedia.org/wiki/Rendezvous_hashing" },
+  ]} />
+</Deep>
+
+<p class="gancho">O anel diz onde cada cliente cai e move pouco quando entra um shard, mas a decisão continua presa à função. Falta saber <strong>quem guarda o mapa</strong> e como mover um cliente só, como o <code>mkt-01</code>, sem mexer em ninguém.</p>
+
+<Flashcards cards={[
+  { q: "Como o anel escolhe o shard de uma chave?",
+    a: "Hash da chave no círculo; o dono é o primeiro shard no sentido horário." },
+  { q: "Quantas chaves mudam ao passar de 3 para 4 shards no anel de 200 pontos?",
+    a: "25,7% (ideal 25%), todas para o shard novo: 25 GB e 8 min 20 s. O mod move 75,2%." },
+  { q: "Quais clientes mudam no anel ao entrar o shard-3?",
+    a: "Só caio-58 e davi-12, ambos para o shard-3." },
+  { q: "O que os pontos virtuais fazem além de equilibrar?",
+    a: "Espalham o impacto de uma saída: com 1 ponto, o vizinho do shard maior passa a ter 91,2%; com 200, dois vizinhos dividem." },
+  { q: "Por que o shard-00 do lab nasce vazio?",
+    a: "3 pontos por shard são poucos: a fatia do círculo dele pode não conter nenhum tenant." },
+]} />

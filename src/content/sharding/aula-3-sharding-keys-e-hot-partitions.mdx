@@ -1,0 +1,99 @@
+---
+title: "Sharding keys e hot partitions"
+order: 3
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada, 3 shards prometeram 450 pedidos por segundo, e a promessa só vale se a carga se espalhar por igual. Quem decide como ela se espalha é a <strong>chave de sharding</strong>: a coluna que diz em qual shard cada linha mora. A tabela <code>pedidos</code> tem várias candidatas, e cada uma tem um número.</p>
+
+<OneLiner>A chave decide <strong>o que fica junto</strong> e <strong>onde esquenta</strong>: uma boa chave tem muitos valores diferentes (alta cardinalidade), aparece nas consultas e não concentra o tráfego num shard só.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Chave</strong>, escolha <code>cliente_id</code> e ligue o <code>mkt-01</code>. Veja o <code>shard-2</code> receber 60% das linhas e a eficiência do cluster cair para <strong>55,6%</strong>. Depois passe pelas outras duas chaves, <code>cidade</code> e <code>criado_em</code>, e anote a eficiência de cada uma.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=chave&step=2" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: A chave e o cliente quente" alt="Prévia da figura 3D: A chave e o cliente quente" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A tabela tem <strong>5 clientes de interesse</strong> na história. Quatro são pessoas (Lena com 6 pedidos, Bia com 3, Caio com 2 e Davi com 3, as 14 linhas da amostra) e um é o parceiro <code>mkt-01</code>, o marketplace do módulo 8, com <strong>20 milhões de linhas, 40% da tabela</strong>. Os outros 30 milhões vêm de cerca de 1,5 milhão de clientes espalhados por igual (suposição declarada).</li>
+  <li>Com 3 shards e a chave <code>cliente_id</code> (a função e o <code>mod</code> são da aula 6), o <code>mkt-01</code> cai no <code>shard-2</code>. Esse shard fica com 20 milhões do parceiro mais cerca de 10 milhões do resto: <strong>30 milhões de linhas, 60%</strong>. Os outros dois ficam com cerca de 10 milhões (20%) cada.</li>
+  <li>Se o tráfego acompanha as linhas, o <code>shard-2</code> recebe 60% dos pedidos. A <strong>eficiência do cluster</strong> é 1 ÷ (nº de shards × fração do mais quente) = 1 ÷ (3 × 0,60) = <strong>55,6%</strong>. O <code>shard-2</code> satura quando 0,60 × T = 150, ou seja, em <strong>T = 250 pedidos/s</strong>, e não em 450. A loja paga 3 servidores e aproveita <strong>1,67</strong>.</li>
+  <li>As outras chaves, na mesma conta com 3 shards: <code>cidade</code> (3 valores: SP 55%, Rio 25%, Recife 20%, exemplo) dá 1 ÷ (3 × 0,55) = <strong>60,6%</strong> e nunca passa de 3 shards. <code>criado_em</code> por faixa e <code>id</code> sequencial mandam <strong>100% das escritas</strong> ao shard da faixa mais nova: <strong>33,3%</strong>. <code>hash(cliente_id)</code> sem o parceiro chega perto de <strong>100%</strong>.</li>
+  <li>O artigo tem um exemplo parecido: 300 clientes em 10 partições, e 3 deles respondem por 50% do uso e caem juntos. A partição quente recebe 50% mais 5% do resto, <strong>55%</strong>, e a eficiência é 1 ÷ (10 × 0,55) = <strong>18,2%</strong>. Dez servidores trabalham como menos de dois.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="chavequente" title="Chave quente: a eficiência do cluster" hint="Escolha a parte do mkt-01 nas linhas (0 a 60%), os shards (2 a 8), a capacidade por shard e a chave. O widget calcula a eficiência, a capacidade útil (250/s com os valores da aula) e liga as mitigações: shard dedicado de 2× e sal em 8 sub-chaves." />
+
+<h3 class="sec">As quatro mitigações</h3>
+
+<ol class="flow steps">
+  <li><strong>Shard dedicado.</strong> O <code>mkt-01</code> ganha uma máquina de <strong>2×</strong> (capacidade de 300/s) só dele, e os outros clientes ficam nos 3 shards normais. Os 4 shards saturam juntos em T = 750 (0,4 × 750 = 300 e 0,2 × 750 = 150): a loja passa de 250 para <strong>750 pedidos/s</strong>.</li>
+  <li><strong>Chave composta, o "sal".</strong> O <code>mkt-01</code> vira 8 sub-chaves, <code>mkt-01#0</code> a <code>mkt-01#7</code>, que o hash espalha pelos 3 shards: a eficiência volta a cerca de <strong>100%</strong>. O custo é que "todos os pedidos do <code>mkt-01</code>" passam a ser scatter-gather.</li>
+  <li><strong>Pré-particionar</strong> pelo padrão de uso que já se conhece: se o parceiro é sempre grande, dar a ele o lugar dele antes de ele crescer.</li>
+  <li><strong>Cache</strong> (módulo 5) para aliviar as leituras do shard quente. Não ajuda nas escritas.</li>
+</ol>
+
+<h3 class="sec">E se der errado: a chave de baixa cardinalidade</h3>
+
+<p>Parece natural usar <code>cidade</code>: as consultas da loja já filtram por ela. Mas ela tem 3 valores, e isso fixa o teto em <strong>3 shards</strong>: um quarto servidor ficaria vazio. SP carrega 55% das linhas (27,5 milhões), então o shard de SP satura primeiro. E trocar a chave depois significa migrar os 50 milhões de linhas. Escolher a chave é a decisão mais cara de desfazer em todo o módulo.</p>
+
+<WhyItMatters>
+  <li><strong>A chave decide a eficiência.</strong> <code>cliente_id</code> com o parceiro: 55,6%. <code>cidade</code>: 60,6%. <code>criado_em</code>: 33,3%.</li>
+  <li><strong>O hash espalha chaves, não carga.</strong> O <code>mkt-01</code> cai inteiro num shard, e T cai de 450 para 250.</li>
+  <li><strong>Cada mitigação tem custo.</strong> O shard dedicado custa uma máquina de 2×. O sal custa o scatter-gather do parceiro.</li>
+  <li><strong>Baixa cardinalidade limita o cluster.</strong> Com 3 valores, são 3 shards no máximo.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">As quatro mitigações, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Mitigação</th><th>Capacidade útil</th><th>O que custa</th></tr></thead>
+    <tbody>
+      <tr><th>nenhuma</th><td>250/s</td><td>3 servidores, 1,67 aproveitados</td></tr>
+      <tr><th>shard dedicado 2×</th><td>750/s</td><td>uma máquina maior e uma exceção no mapa</td></tr>
+      <tr><th>sal em 8 sub-chaves</th><td>perto de 450/s</td><td>consulta do parceiro em todos os shards</td></tr>
+      <tr><th>cache</th><td>só leituras</td><td>invalidação (módulo 5)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>As eficiências usam a hipótese de que o tráfego acompanha as linhas. Na vida real, a medida é o tráfego por shard, e quem mede é o módulo 28.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"O hash evita hot partitions."</strong> O hash espalha chaves diferentes, não carga. Uma chave quente cai <em>inteira</em> num shard. O próprio exemplo do artigo (3 clientes com 50%) prova isso, e o artigo já aponta a solução (isolar a chave).</li>
+    <li><strong>"Chaves de particionamento aleatórias."</strong> Espalham, mas perdem a localidade: as linhas de um cliente deixam de morar juntas, e toda consulta por cliente vira scatter-gather. O sal é a versão controlada dessa ideia.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Discord: How Discord Stores Trillions of Messages (hot partitions)", href: "https://discord.com/blog/how-discord-stores-trillions-of-messages" },
+    { label: "DynamoDB: Partitions and data distribution", href: "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.Partitions.html" },
+    { label: "Citus: Choosing a distribution column", href: "https://docs.citusdata.com/en/stable/sharding/data_modeling.html" },
+    { label: "AWS: Shuffle Sharding (a ideia de isolar o cliente que atrapalha)", href: "https://aws.amazon.com/blogs/architecture/shuffle-sharding-massive-and-magical-fault-isolation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A chave está escolhida, e o <code>mkt-01</code> ainda esquenta um shard. Antes de separar servidores, dá para partir a tabela <strong>dentro</strong> de um servidor só, e o PostgreSQL já sabe fazer isso. Falta saber o que essa partição dá à loja, e o que não dá.</p>
+
+<Flashcards cards={[
+  { q: "O que é uma boa chave de sharding?",
+    a: "Alta cardinalidade, presente nas consultas e sem concentrar tráfego num shard." },
+  { q: "Como se calcula a eficiência do cluster?",
+    a: "1 ÷ (nº de shards × fração do shard mais quente). Com o mkt-01 em 3 shards: 1 ÷ (3 × 0,60) = 55,6%." },
+  { q: "Quanto a loja aguenta com o mkt-01 num shard comum?",
+    a: "T = 250 pedidos/s, porque 0,60 × T = 150 satura o shard-2. A capacidade nominal era 450." },
+  { q: "Por que cidade é uma chave ruim aqui?",
+    a: "Tem só 3 valores (teto de 3 shards) e SP carrega 55% das linhas: 60,6% de eficiência." },
+  { q: "Quais são as quatro mitigações da chave quente?",
+    a: "Shard dedicado (2×, 750/s), sal em 8 sub-chaves, pré-particionar e cache." },
+]} />

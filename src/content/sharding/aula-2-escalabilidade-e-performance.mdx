@@ -1,0 +1,88 @@
+---
+title: "Escalabilidade e performance"
+order: 2
+min: 8
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a tabela <code>pedidos</code> virou 3 servidores no papel, e o preço apareceu logo: relatórios em 3 partes e transações que atravessam shards. Vale pagar? A resposta tem um lado bom e um lado ruim, os dois com número. O bom é <strong>capacidade, espaço e isolamento</strong>. O ruim é <strong>consulta sem chave, cauda de latência e mais incidentes</strong>.</p>
+
+<OneLiner>Sharding compra capacidade, espaço e isolamento porque cada servidor cuida de um pedaço; cobra consultas sem chave, latência de cauda e mais chances de algum shard estar fora.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Consulta</strong>, avance até a consulta com a chave <code>cliente_id</code> e conte quantos shards ela lê. Depois troque para uma consulta só por <code>id</code> e conte de novo. Anote os dois números e a chance de cauda que a figura mostra para 3 shards.</p>
+</DoIt>
+
+<Figure3D path="labs/sharding/shards-3d/?mode=consulta&step=2" poster="labs/sharding/shards-3d-previa.webp" title="Figura interativa: Com chave, sem chave e a cauda" alt="Prévia da figura 3D: Com chave, sem chave e a cauda" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>O primeiro ganho é a <strong>capacidade</strong>. Cada shard tem o teto de 150 pedidos por segundo do módulo 14, então 3 shards somam <strong>3 × 150 = 450 pedidos/s</strong>, no papel. A conta só fecha se o tráfego se espalhar por igual, e a aula 3 mostra quando não espalha.</li>
+  <li>O segundo é o <strong>espaço</strong> e o tempo de manutenção. Os 140 GB viram <strong>46,7 GB por shard</strong>. O backup dos três roda em paralelo e leva <strong>15 min 33 s</strong>, contra 47 min do servidor único. O índice de cada shard também é menor, então a busca lê menos disco.</li>
+  <li>Aí vem a consulta. Com a chave, o roteador calcula o shard e pergunta a <strong>um só</strong>. Sem a chave, ele pergunta a <strong>todos</strong> e junta as respostas (o <strong>scatter-gather</strong>), e a resposta vale o tempo do mais lento dos N.</li>
+  <li>Por isso a cauda importa. Em <em>The Tail at Scale</em>, Dean e Barroso mostram que, numa consulta que espera N shards, a chance de pelo menos um responder acima do seu p99 é 1 − 0,99<sup>N</sup>: <strong>2,97%</strong> com 3 shards, <strong>9,56%</strong> com 10, <strong>39,5%</strong> com 50 e <strong>63,4%</strong> com 100. O p99 de cada shard vira o <strong>p97</strong> da consulta com 3.</li>
+  <li>E a disponibilidade desce. Com cada shard a 99,9%, a chance de <strong>algum</strong> estar fora é 1 − 0,999<sup>N</sup>: <strong>0,10%</strong> com 1, <strong>0,2997%</strong> com 3, <strong>0,9955%</strong> com 10 e <strong>4,88%</strong> com 50. Para <em>um cliente</em> a chance continua 0,1%. Para a <em>equipe</em>, os incidentes se multiplicam.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">E se der errado: o relatório com 50 shards</h3>
+
+<p>Imagine a loja daqui a alguns anos, com 50 shards, e um relatório que soma os pedidos do mês sem a chave do cliente. A consulta vai a todos os 50. Em <strong>39,5% das vezes</strong> pelo menos um deles responde acima do seu p99, e o relatório inteiro espera por ele. O relatório fica lento sem que nenhum shard tenha um problema que o alarme pegue.</p>
+
+<p>O que se faz: dar à consulta a chave sempre que possível, mandar relatórios para uma cópia de leitura ou para um armazém de dados, e usar <em>hedged requests</em> (perguntar a uma segunda réplica quando a primeira demora), técnica do mesmo artigo de Dean e Barroso.</p>
+
+<WhyItMatters>
+  <li><strong>Capacidade:</strong> 3 × 150 = 450 pedidos/s no papel, se a carga se espalhar.</li>
+  <li><strong>Espaço:</strong> 46,7 GB por shard e backup de 15 min 33 s em paralelo.</li>
+  <li><strong>Consulta com chave lê 1 shard.</strong> Sem chave lê todos e espera o mais lento.</li>
+  <li><strong>A cauda cresce com N:</strong> 2,97% com 3 shards e 39,5% com 50.</li>
+  <li><strong>Algum shard fora:</strong> 0,30% com 3 e 4,88% com 50 (cada cliente continua com 0,1%).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">As contas, passo a passo</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Shards (N)</th><th>Algum fora (99,9% cada)</th><th>Consulta acima do p99</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>0,10%</td><td>1,00%</td></tr>
+      <tr><th>3</th><td>0,2997%</td><td>2,97%</td></tr>
+      <tr><th>10</th><td>0,9955%</td><td>9,56%</td></tr>
+      <tr><th>50</th><td>4,88%</td><td>39,5%</td></tr>
+      <tr><th>100</th><td></td><td>63,4%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>As duas colunas são a mesma fórmula, 1 − p<sup>N</sup>, com p = 0,999 e p = 0,99. Elas supõem que os shards falham e demoram de modo independente, o que é uma simplificação: um deploy ruim ou um problema de rede derruba vários de uma vez.</p>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Se um nó falhar, os outros shards continuam disponíveis."</strong> O artigo diz isso como vantagem. É verdade só para as chaves que estão nos outros shards, e só se a falha ficar isolada. A chance de <em>algum</em> shard cair cresce com N. E, sem réplicas (módulo 17), os dados do shard que caiu ficam indisponíveis.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre sharding (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Dean e Barroso: The Tail at Scale (Google Research)", href: "https://research.google/pubs/the-tail-at-scale/" },
+    { label: "Azure Architecture Center: Sharding pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding" },
+  ]} />
+</Deep>
+
+<p class="gancho">Todo esse ganho depende de a consulta trazer a chave e de o tráfego se espalhar por igual, e as duas coisas dependem da mesma escolha. Falta saber <strong>partir por quê</strong>: qual coluna da tabela <code>pedidos</code> serve de chave de sharding.</p>
+
+<Flashcards cards={[
+  { q: "Quanto 3 shards de 150 pedidos/s oferecem?",
+    a: "3 × 150 = 450 pedidos/s, no papel, se a carga se espalhar por igual." },
+  { q: "Quanto leva o backup com 3 shards em paralelo?",
+    a: "140 GB ÷ 3 = 46,7 GB por shard, 15 min 33 s a 50 MB/s, contra 47 min no servidor único." },
+  { q: "O que é scatter-gather e por que custa?",
+    a: "Perguntar a todos os shards e juntar as respostas. A consulta vale o tempo do mais lento." },
+  { q: "Qual a chance de uma consulta ficar acima do p99 de um shard, com 3 e com 50 shards?",
+    a: "1 − 0,99^N: 2,97% com 3 e 39,5% com 50." },
+  { q: "A chance de algum shard estar fora cresce ou diminui com N?",
+    a: "Cresce: 0,10% com 1 shard, 0,30% com 3 e 4,88% com 50. Para um cliente, continua 0,1%." },
+]} />
