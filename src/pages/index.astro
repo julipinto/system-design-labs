@@ -41,6 +41,8 @@ const modules: Mod[] = [
     text: 'Partir a tabela pedidos de 50 milhões de linhas: chave de sharding e shard quente, partições do PostgreSQL, ranges, hash, hashing consistente, slots, diretório e shuffle sharding, com os labs do autor lidos linha a linha. Com widgets e quiz de 57 perguntas.' },
   { slug: 'replicacao', n: 17, title: 'Replicação de Dados', lessons: 6, poster: 'labs/replicacao/replicas-3d-previa.webp', alt: 'Prévia da figura 3D dos três sites com a fita do log',
     text: 'O mesmo dado em SP, no Rio e em Recife: Primary/Replica e Primary/Primary, síncrona, assíncrona e semi-síncrona, a Lena sem ver o próprio pedido, ECST, CDC com Debezium e CRDTs, com calculadoras e quiz de 41 perguntas.' },
+  { slug: 'saga', n: 19, title: 'Saga Pattern', lessons: 10, poster: 'labs/saga/saga-3d-previa.webp', alt: 'Prévia da figura 3D do pedido 1057 atravessando os serviços',
+    text: 'Um pedido que atravessa pedidos, pagamentos, estoque e entregas sem transação distribuída: passos locais e compensações, coreografia e orquestração, máquina de estados, log de saga, escrita dupla e o laboratório do autor lido, com o 1057 do Davi, widgets e quiz de 50 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
 ---

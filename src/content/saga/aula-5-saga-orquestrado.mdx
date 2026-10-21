@@ -1,0 +1,99 @@
+---
+title: "Saga orquestrado"
+order: 5
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import orquestradorMain from '../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">Na aula passada a coreografia deixou o 1057 sem dono: o evento se perde e ninguém percebe, e o fluxo não está escrito em lugar nenhum. A outra resposta é botar o mapa inteiro <strong>num lugar só</strong>. Esse lugar é o <strong>orquestrador</strong>: ele manda, espera a resposta e decide quando compensar.</p>
+
+<OneLiner>Na <strong>orquestração</strong>, um <strong>orquestrador</strong> guarda o mapa da saga, manda <strong>comandos</strong> aos serviços e espera <strong>respostas</strong>; é ele quem manda compensar. O fluxo fica <strong>num lugar só</strong> e os serviços não se conhecem, mas o orquestrador é um componente a mais que <strong>todo pedido atravessa</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Orquestrado</strong>, siga as mensagens do 1057 (comando e resposta, passo a passo) até o <code>CANCELADO</code>. Nos dois últimos passos, o orquestrador cai com 200 sagas e, ao voltar, lê <code>COBRANDO</code> no banco e continua.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/saga-3d/?mode=orquestrado" poster="labs/saga/saga-3d-previa.webp" title="Figura interativa: Saga orquestrada" alt="Prévia da figura 3D: Saga orquestrada" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Comando e resposta.</strong> Cada serviço tem um tópico de <strong>comando</strong> e outro de <strong>resposta</strong>. No laboratório do autor são <code>pagamentos-commands</code> e <code>pagamentos-reply</code>, e o mesmo para <code>pedidos</code>, <code>estoque</code> e <code>entregas</code>. O orquestrador escreve nos primeiros e lê dos segundos.</li>
+  <li><strong>O 1057 passo a passo.</strong> O orquestrador manda <code>CobrarPedido</code> e recebe <code>PedidoPago</code>. Manda <code>ReservarEstoque</code> e recebe a falha. Então manda <code>EstornarCobranca</code>, recebe o ok, manda <code>CancelarPedido</code> e grava <code>CANCELADO</code>.</li>
+  <li><strong>Quantas mensagens.</strong> No sucesso são <strong>6</strong> (3 comandos e 3 respostas); na falha, <strong>8</strong> (cobrar e resposta, reservar e resposta de falha, estornar e resposta, cancelar e resposta), mais <strong>1</strong> de início. A coreografia gastou 4 e 5 eventos: o orquestrador custa mais mensagens.</li>
+  <li><strong>O que se ganha.</strong> O fluxo está <strong>num lugar só</strong>: métrica, vigia e pausa saem fáceis. Os serviços <strong>não se conhecem</strong>: o <code>estoque</code> só entende o comando <code>ReservarEstoque</code>.</li>
+  <li><strong>O que se paga.</strong> Um componente que <strong>todo</strong> pedido atravessa (o raio de explosão do módulo 21) e a tentação de pôr <strong>regra de negócio</strong> nele, até virar o "serviço deus" da loja.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="coreo-orq" title="Coreografia × orquestração" hint="Número de passos depois do pedido (2 a 8) e se algum falha: mensagens (4 e 5 na coreografia, 6 e 8 na orquestração), pontos que sabem tudo e dependências para trás." />
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O laboratório do autor (repositório público, só existe <code>orquestrado/</code>) tem o orquestrador em <code>orquestrador/main.go</code>. Este trecho é o centro: a resposta chega por um tópico e o orquestrador manda o próximo comando (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original).</p>
+
+<CodeLab code={orquestradorMain} from={327} to={364} />
+
+<ol class="flow steps">
+  <li>A linha 334 escolhe o próximo passo pelo <strong>tópico</strong> que respondeu: <code>pedidos-reply</code> manda <code>RESERVE_STOCK</code> (linhas 335 a 348).</li>
+  <li>O <code>estoque-reply</code> manda <code>PROCESS_PAYMENT</code> e o <code>pagamentos-reply</code> manda <code>SCHEDULE_DELIVERY</code>. É o mapa da saga, escrito em quatro <code>case</code>.</li>
+  <li>Repare no que <strong>não</strong> está aqui: nenhuma conferência do estado atual antes de avançar. A aula 7 mostra o que isso causa.</li>
+</ol>
+
+<h3 class="sec">E se der errado: o orquestrador cai com 200 sagas no ar</h3>
+
+<p>O orquestrador cai com <strong>200</strong> sagas em andamento (exemplo; no pico da Black Friday, com o Pix esperando 41,2 s, o número de pedidos esperando passa de mil). Se o estado delas morava na <strong>memória</strong> dele, todas se perdem: os serviços fizeram os passos, e ninguém sabe em qual passo cada pedido está. Por isso o estado mora em <strong>banco</strong>: quando o orquestrador volta, lê a tabela, vê o 1057 em <code>COBRANDO</code> e continua de onde parou. A aula 6 mostra que estrutura é essa.</p>
+
+<WhyItMatters>
+  <li><strong>O mapa tem endereço.</strong> Para saber onde está o 1057, pergunta-se ao orquestrador, não a quatro serviços.</li>
+  <li><strong>Os serviços não se conhecem.</strong> Trocar o <code>estoque</code> não mexe no <code>pagamentos</code>.</li>
+  <li><strong>Custa mais mensagens e um componente a mais.</strong> 6 e 8 contra 4 e 5, e um ponto que todo pedido atravessa.</li>
+  <li><strong>Estado fora da memória.</strong> Um orquestrador que guarda tudo na memória perde as sagas quando cai.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Orquestrador síncrono também existe</h4>
+  <p>O orquestrador pode chamar os serviços por requisição e resposta, em vez de tópicos. Fica mais simples de seguir, mas <em>retry</em>, <em>backoff</em> e fila de mensagens mortas (módulo 13) passam a ser <strong>dele</strong>: se o <code>estoque</code> não responde, é o orquestrador que decide o que fazer.</p>
+  <h4 class="deep-h">Coreografia × orquestração, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>coreografia</th><th>orquestração</th></tr></thead>
+    <tbody>
+      <tr><th>quem decide</th><td>cada serviço, pelo evento que escuta</td><td>o orquestrador</td></tr>
+      <tr><th>mensagens (sucesso / falha)</th><td>4 / 5</td><td>6 / 8 (+1 de início)</td></tr>
+      <tr><th>onde está o fluxo</th><td>espalhado, em lugar nenhum</td><td>no orquestrador</td></tr>
+      <tr><th>ponto único</th><td>não há</td><td>o orquestrador</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "AWS Prescriptive Guidance: Saga orchestration pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-orchestration.html" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+    { label: "Repositório público do autor: saga/orquestrado", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+  ]} />
+</Deep>
+
+<p class="gancho">O orquestrador sabe o mapa, mas para sobreviver a uma queda ele precisa guardar <strong>em que passo cada saga está</strong>. Falta saber que estrutura guarda esse "estou aqui" e decide para onde ir.</p>
+
+<Flashcards cards={[
+  { q: "O que o orquestrador faz?",
+    a: "Guarda o mapa da saga, manda comandos aos serviços, espera as respostas e manda compensar quando algo falha." },
+  { q: "Como é o comando/resposta no laboratório do autor?",
+    a: "Cada serviço tem um tópico de comando e um de resposta, por exemplo pagamentos-commands e pagamentos-reply." },
+  { q: "Quantas mensagens a saga do 1057 gasta na orquestração?",
+    a: "6 no sucesso (3 comandos e 3 respostas) e 8 na falha (cobrar, reservar, estornar e cancelar, cada um com a resposta), mais 1 de início." },
+  { q: "Qual é o custo da orquestração?",
+    a: "Um componente a mais que todo pedido atravessa (raio de explosão) e a tentação de pôr regra de negócio nele." },
+  { q: "Por que o estado do orquestrador mora em banco?",
+    a: "Porque se ele cair com as sagas só na memória, todas se perdem. Com o estado em banco, volta e continua do último passo." },
+]} />

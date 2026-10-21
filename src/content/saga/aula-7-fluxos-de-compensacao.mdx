@@ -1,0 +1,108 @@
+---
+title: "Fluxos de compensação"
+order: 7
+min: 17
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import orquestradorMain from '../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">Na aula passada a máquina de estados levou o 1057 de <code>RESERVANDO</code> a <code>COMPENSANDO</code> e depois a <code>ESTORNANDO</code>. Falta ver <strong>o que acontece dentro desses estados</strong>: quais compensações rodam, em que ordem, e o que fazer quando o próprio desfazer falha.</p>
+
+<OneLiner>Cada ação tem um <strong>desfazer</strong> que se pode <strong>repetir</strong>, e a saga os dispara <strong>na ordem inversa</strong> do que já foi feito. A compensação precisa ser <strong>idempotente</strong> (o estorno <code>estorno-c-7732</code> repetido estorna uma vez) e <strong>repetível</strong> até passar. E às vezes ela falha: aí a saga vai para <code>INTERVENCAO</code> e chama gente.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Estorno</strong>, avance: o PSP cai no momento do estorno; acompanhe as <strong>5 repetições</strong>, com a espera dobrando a cada uma, até a saga ir para <code>INTERVENCAO</code>. No widget abaixo, mude as repetições e a base do <em>backoff</em> e veja a soma das esperas.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/compensacao-3d/?mode=estorno-falha" poster="labs/saga/compensacao-3d-previa.webp" title="Figura interativa: O estorno que falha" alt="Prévia da figura 3D: O estorno que falha" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os pares da loja.</strong> <code>CriarPedido</code> / <code>CancelarPedido</code>, <code>CobrarPedido</code> / <code>EstornarCobranca</code>, <code>ReservarEstoque</code> / <code>LiberarEstoque</code> e <code>AgendarEntrega</code> / <code>CancelarEntrega</code>. O artigo dá o exemplo de uma viagem: <code>reservaPassagens()</code> e <code>liberaPassagens()</code>.</li>
+  <li><strong>Qual compensar depende de onde falhou.</strong> Só se desfaz o que já aconteceu, na ordem inversa. A tabela abaixo mostra os três casos.</li>
+  <li><strong>Idempotente.</strong> O estorno usa a chave <code>estorno-c-7732</code>: se o comando chegar duas vezes, o PSP estorna <strong>uma vez</strong>. Sem a chave, repetir por segurança devolveria R$ 116,00 ao Davi.</li>
+  <li><strong>Repetível.</strong> A compensação roda até passar. A Microsoft: "Compensating transactions don't always work", então cada passo deve ser um comando idempotente que se pode repetir.</li>
+  <li><strong>Reiniciar em vez de compensar.</strong> O artigo lembra que a saga também pode <strong>recomeçar</strong>: com a mesma chave de idempotência, ela retoma do passo que ficou sem resposta (aula 9).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Onde falhou</th><th>Compensações, na ordem</th><th>Quantas</th></tr></thead>
+  <tbody>
+    <tr><th>estoque (ordem da loja: cobrou antes)</th><td><code>EstornarCobranca</code>, <code>CancelarPedido</code></td><td>2</td></tr>
+    <tr><th>pagamento (ordem do laboratório: reservou antes)</th><td><code>LiberarEstoque</code>, <code>CancelarPedido</code></td><td>2</td></tr>
+    <tr><th>entrega (ordem do laboratório: reservou e cobrou antes)</th><td><code>EstornarCobranca</code>, <code>LiberarEstoque</code>, <code>CancelarPedido</code></td><td>3</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="compensacao" title="Compensação com retry" hint="Repetições (1 a 8), base do backoff (0,5 a 4 s) e a chance de o PSP responder em cada tentativa: a soma das esperas (31 s com 1, 2, 4, 8 e 16) e a chance de a saga ir para INTERVENCAO." />
+
+<h3 class="sec">E se der errado (a): o estorno falha</h3>
+
+<p>A compensação também falha. O PSP responde <code>503</code> ao <code>EstornarCobranca c-7732</code>. A saga tenta de novo com <em>backoff</em>: espera <strong>1, 2, 4, 8 e 16 s</strong> (5 repetições, soma <strong>31 s</strong>). Se a quinta repetição também falha, a saga vai para <strong><code>INTERVENCAO</code></strong>, com alerta e todos os dados (saga <code>s-1057</code>, cobrança <code>c-7732</code>, R$ 58,00, <code>sem_estoque</code>) para uma pessoa resolver. Como a chave é <code>estorno-c-7732</code>, nenhuma das 6 tentativas estorna duas vezes se o PSP voltar no meio.</p>
+
+<h3 class="sec">E se der errado (b): o que não tem desfazer</h3>
+
+<p>O e-mail "pedido confirmado" já saiu: a compensação é <strong>outro e-mail</strong>. A taxa que o PSP cobrou pelo Pix pode não voltar (a Microsoft: cancelar uma reserva "might not entitle the customer to a complete refund"). Compensar desfaz o efeito de negócio, não apaga a história.</p>
+
+<h3 class="sec">E se der errado (c): o laboratório do autor, lido</h3>
+
+<p>O trecho abaixo é a <code>startCompensation</code> do orquestrador do laboratório (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original):</p>
+
+<CodeLab code={orquestradorMain} from={400} to={448} />
+
+<ol class="flow steps">
+  <li><strong>A saga cancelada pode ressuscitar.</strong> As respostas das compensações (<code>RELEASE_STOCK</code>, <code>CANCEL_ORDER</code>, <code>CANCEL_PAYMENT</code>) voltam com <code>Success: true</code> pelos <strong>mesmos</strong> tópicos <code>*-reply</code>, e o <code>processReply</code> avança pelo tópico. Pela leitura, depois de a saga virar <code>FAILED</code>, a resposta de <code>CANCEL_ORDER</code> em <code>pedidos-reply</code> faz o orquestrador mandar <code>RESERVE_STOCK</code> <strong>de novo</strong>, e a de <code>RELEASE_STOCK</code> em <code>estoque-reply</code> manda <code>PROCESS_PAYMENT</code>. A saga pode chegar a <code>COMPLETED</code>: cobra e agenda entrega de pedido cancelado.</li>
+  <li><strong><code>FAILED</code> não é "compensada".</strong> As linhas 420 a 428 disparam as compensações sem conferir o retorno e a 432 grava <code>FAILED</code> <strong>antes</strong> de qualquer resposta. <code>FAILED</code> quer dizer "pedi para compensar".</li>
+  <li><strong>A entrega nunca é cancelada.</strong> O serviço <code>entregas</code> implementa <code>CANCEL_DELIVERY</code>, mas o orquestrador <strong>nunca</strong> o envia. Como a entrega é o último passo, não faz falta hoje; se entrar um passo depois dela, faltará.</li>
+</ol>
+
+<p>O conserto: a resposta carrega o <strong>tipo do comando</strong> (<code>command_type</code>) e o orquestrador só avança quando o estado atual é o esperado, a transição condicional da aula 6.</p>
+
+<WhyItMatters>
+  <li><strong>Ordem inversa, só do que aconteceu.</strong> Falha no estoque: 2 compensações; na entrega: 3.</li>
+  <li><strong>Idempotente por chave.</strong> <code>estorno-c-7732</code> repetido estorna uma vez só.</li>
+  <li><strong>Repetível, mas finita.</strong> 1, 2, 4, 8 e 16 s somam 31 s; depois disso é <code>INTERVENCAO</code> e gente.</li>
+  <li><strong>Nem tudo se desfaz.</strong> A taxa do PSP e o e-mail enviado ficam, e a compensação é outro ato.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Um estado para cada compensação?</h4>
+  <p>A máquina da loja tem um só <code>ESTORNANDO</code>. Na falha da entrega, três compensações rodam em fila (estornar, liberar, cancelar), e uma máquina mais fina teria um estado para cada uma (<code>LIBERANDO</code>, por exemplo). A loja fica com 11 estados para o texto caber na cabeça.</p>
+  <h4 class="deep-h">Correção ao artigo-base: compensação não é desfazer exato</h4>
+  <ul>
+    <li><strong>Compensação sempre possível?</strong> O artigo a trata assim. Ela pode ser <strong>outra transação</strong>, pode <strong>não devolver tudo</strong>, precisa ser <strong>idempotente e repetível</strong> e às vezes falha, e então é gente quem resolve.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Microsoft Learn: Compensating Transaction pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction" },
+    { label: "Temporal: Compensating Actions, Part of a Complete Breakfast with Sagas", href: "https://temporal.io/blog/compensating-actions-part-of-a-complete-breakfast-with-sagas" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A saga sabe desfazer, repetir e pedir ajuda. Falta saber <strong>onde fica a memória de tudo o que aconteceu</strong>, para que ela volte a andar depois de uma queda e para que alguém possa conferir depois.</p>
+
+<Flashcards cards={[
+  { q: "Em que ordem a saga compensa?",
+    a: "Na ordem inversa do que já foi feito, e só o que aconteceu. Falha no estoque (cobrou antes): estornar e cancelar (2). Falha na entrega, na ordem do laboratório (reservou e cobrou antes): estornar, liberar e cancelar (3)." },
+  { q: "O que torna o estorno idempotente?",
+    a: "A chave estorno-c-7732: repetir o comando estorna uma vez só." },
+  { q: "Quanto tempo o estorno tenta antes de chamar gente?",
+    a: "5 repetições com backoff de 1, 2, 4, 8 e 16 s: 31 s. Depois, a saga vai para INTERVENCAO com alerta e todos os dados." },
+  { q: "Cite algo que a compensação não desfaz.",
+    a: "O e-mail enviado (manda-se outro) e a taxa do PSP, que pode não voltar." },
+  { q: "O que o laboratório do autor faz de errado nas compensações (lido)?",
+    a: "Lê a resposta de uma compensação como avanço (a saga cancelada pode ressuscitar) e grava FAILED antes de as compensações terminarem; e nunca envia CANCEL_DELIVERY." },
+]} />

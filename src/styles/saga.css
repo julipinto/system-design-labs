@@ -1,0 +1,9 @@
+/* SDLabs · Saga Pattern: o que só este módulo usa (tabelas e linhas dos widgets do 1057, da máquina de estados, do retry, das probabilidades e da vigia). Peças comuns em widgets.css */
+.sdl-content table.sr-table.sg-table{min-width:0}
+.sdl-content table.sg-table th,.sdl-content table.sg-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.sg-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content tr.sg-cur th,.sdl-content tr.sg-cur td{background:var(--accent-wash)}
+.sdl-content tr.sg-bad th,.sdl-content tr.sg-bad td{color:var(--bad)}
+.sdl-content .sg-out{margin-top:var(--s-3)}
+.sdl-content .sr-ctl[hidden]{display:none}
+.sdl-content .sg-out .sr-fact b{font-size:17px;overflow-wrap:anywhere}

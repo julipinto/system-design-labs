@@ -1,0 +1,96 @@
+---
+title: "Introdução e motivações"
+order: 1
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No módulo 18 a loja ganhou um modelo para escrever e outro para ler, ligados por eventos que não se perdem. Mas <strong>um pedido passa por vários serviços, cada um com o seu banco</strong>, e o módulo 6 deixou uma dívida: o pagamento é aprovado, a reserva de estoque falha, e não existe mais um <code>ROLLBACK</code> que desfaça tudo. Alguém precisa <strong>compensar</strong>, estornando o pagamento. Esse desenho tem nome: <strong>Saga</strong>.</p>
+
+<OneLiner>A <strong>Saga</strong> faz uma operação que atravessa serviços <strong>terminar inteira ou ser desfeita</strong>. Ela troca a atomicidade de uma transação por <strong>passos locais e compensações</strong>: cada serviço faz o seu pedaço, e se um deles falha, os que já passaram são desfeitos por novas transações.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Sem saga</strong>, avance com a seta →: a avaria zera o estoque às 20:15:10, o Davi paga às 20:15:41.200 e o pedido 1057 fica <code>pago</code>, sem estoque e sem ninguém para chamar. É o estado de hoje da loja. Guarde o relógio da figura: ele volta nas próximas aulas.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/saga-3d/?mode=sem-saga" poster="labs/saga/saga-3d-previa.webp" title="Figura interativa: Sem saga: o pedido preso" alt="Prévia da figura 3D: Sem saga: o pedido preso" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O pedido.</strong> Às <strong>20:15:00.000</strong> da Black Friday o Davi, de SP, cria o pedido <strong>1057</strong>: <strong>1 camiseta preta</strong> (<code>CAMISETA-015</code>, 49,00) mais frete de SP (9,00), <strong>58,00</strong> no total, a pagar por <strong>Pix</strong> num PSP externo (a cobrança é a <code>c-7732</code>). A página do produto dizia "última unidade": era o cache de 60 s do módulo 5.</li>
+  <li><strong>A camiseta some.</strong> Às <strong>20:15:10</strong> a Logística dá baixa por avaria da única camiseta, e o estoque vai de 1 para <strong>0</strong>. O pedido do Davi continua de pé: ele ainda não pagou, e nenhum serviço sabe que o estoque acabou.</li>
+  <li><strong>O Davi paga.</strong> Às <strong>20:15:41.200</strong>, <strong>41,2 s</strong> depois de criar o pedido, ele aprova o Pix no app do banco e o PSP avisa por webhook. É o <code>PedidoPago</code>, <code>e-1902</code>.</li>
+  <li><strong>O estoque falha.</strong> Com o dinheiro na mão, a loja manda reservar a camiseta (<code>ReservarEstoque</code>, 20:15:41.220) e o <code>estoque</code> responde <code>EstoqueIndisponivel</code>, <code>e-1903</code>, às 20:15:41.260. A ordem da loja vem do módulo 6: cobrar, reservar, agendar a entrega.</li>
+  <li><strong>A saga desfaz.</strong> A saga <code>s-1057</code> manda <code>EstornarCobranca c-7732</code>, o PSP devolve os R$ 58,00 e o pedido vira <code>CANCELADO</code> às <strong>20:15:44.950</strong>. O Davi recebe "pedido cancelado, estornamos R$ 58,00". A compensação inteira levou <strong>3,7 s</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O log real da saga s-1057</h3>
+
+<p>A saga guarda cada passo numa linha. São 7 transições, de <code>NOVO</code> a <code>CANCELADO</code>, num total de <strong>44,95 s</strong>, dos quais <strong>41,2 s</strong> são a espera do Davi:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Hora</th><th>Estado</th><th>O que aconteceu</th></tr></thead>
+  <tbody>
+    <tr><th>20:15:00.000</th><td><code>NOVO</code></td><td><code>PedidoCriado</code>, <code>e-1901</code></td></tr>
+    <tr><th>20:15:00.050</th><td><code>COBRANDO</code></td><td>comando de cobrança Pix, <code>c-7732</code></td></tr>
+    <tr><th>20:15:41.200</th><td><code>PAGO</code></td><td><code>PedidoPago</code>, <code>e-1902</code>, 58,00</td></tr>
+    <tr><th>20:15:41.220</th><td><code>RESERVANDO</code></td><td>comando <code>ReservarEstoque</code></td></tr>
+    <tr><th>20:15:41.260</th><td><code>COMPENSANDO</code></td><td><code>EstoqueIndisponivel</code>, <code>e-1903</code>, motivo <code>sem_estoque</code></td></tr>
+    <tr><th>20:15:41.300</th><td><code>ESTORNANDO</code></td><td>comando <code>EstornarCobranca c-7732</code></td></tr>
+    <tr><th>20:15:44.950</th><td><code>CANCELADO</code></td><td><code>PagamentoEstornado</code>, <code>e-1904</code>, 58,00 (depois, <code>e-1905</code> <code>PedidoCancelado</code>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: sem saga</h3>
+
+<p>Tire a saga e o mesmo pedido termina de outro jeito. O <code>PedidoPago</code> chega, o estoque responde que não tem, e <strong>ninguém</strong> sabe o que fazer com isso: o pedido fica <code>pago</code>, o dinheiro está com a loja, a camiseta não existe. O Davi tem R$ 58,00 a menos e nenhuma camiseta. O único que acharia o caso é o relatório de conciliação das 23:00 (módulo 6), <strong>2 h 44 min</strong> depois do pagamento.</p>
+
+<WhyItMatters>
+  <li><strong>O banco não ajuda.</strong> Cada serviço faz o seu <code>COMMIT</code> no seu banco. Nenhum <code>ROLLBACK</code> atravessa os quatro.</li>
+  <li><strong>O erro é de negócio.</strong> Faltar estoque não é um bug: acontece em dia normal, e a loja precisa ter um plano para ele.</li>
+  <li><strong>O plano é a compensação.</strong> Uma transação nova que desfaz o efeito de negócio do passo anterior (aqui, o estorno).</li>
+  <li><strong>Confiabilidade, não velocidade.</strong> O artigo avisa: a Saga garante consistência e controle, não desempenho. O 1057 cancelado levou 44,95 s.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">O nome e a origem</h4>
+  <p>"Saga" é uma aventura contada em capítulos. A ideia vem do artigo <em>SAGAS</em>, de Hector Garcia-Molina e Kenneth Salem (SIGMOD, <strong>1987</strong>), e tratava de <strong>transações longas dentro de um banco</strong>: em vez de uma transação enorme segurando travas por horas, várias transações pequenas, cada uma com a sua desfazedora. Microsserviços não existiam. O padrão voltou quando cada serviço ganhou o seu banco e a transação longa virou transação que atravessa bancos.</p>
+  <h4 class="deep-h">O mapa do módulo</h4>
+  <p>A aula 2 mostra por que a transação ACID não atravessa serviços. A 3 propõe passos locais com compensações. As aulas 4 e 5 decidem quem coordena (coreografia ou orquestração), a 6 dá o estado da saga e a 7 detalha a compensação. A 8 e a 9 cuidam do log e da escrita dupla do coordenador, e a 10 junta tudo no laboratório do autor.</p>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Transação pseudoatômica" e "rollback de todos os passos".</strong> A Saga tem <strong>atomicidade por compensação, não por rollback</strong>, e <strong>não tem isolamento</strong> (a aula 3 mostra o preço). Também não há rollback automático: o desenvolvedor escreve cada compensação.</li>
+    <li><strong>Origem.</strong> O artigo diz que o texto foi publicado para o departamento de computação de Princeton. O que se confere é <strong>1987</strong>, SIGMOD, e transações longas <strong>dentro de um banco</strong>. O link do artigo leva a uma cópia hospedada em Cornell, um PDF escaneado (sem texto pesquisável), e o texto do paper não foi conferido: só se afirma o que o artigo e a Microsoft dizem.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Garcia-Molina e Salem: SAGAS (SIGMOD, 1987; cópia em Cornell, PDF escaneado)", href: "https://www.cs.cornell.edu/andru/cs711/2002fa/reading/sagas.pdf" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Saga distributed transactions pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/saga" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja já sabe o que quer: o 1057 terminar inteiro ou ser desfeito. Falta saber por que um <code>ROLLBACK</code> não resolve, e por que a espera do Davi pelo Pix piora tudo.</p>
+
+<Flashcards cards={[
+  { q: "O que a Saga garante?",
+    a: "Que uma operação que atravessa serviços termine inteira ou seja desfeita, por passos locais e compensações. Garante consistência e controle, não desempenho." },
+  { q: "O que aconteceu com o pedido 1057 do Davi?",
+    a: "Criado às 20:15:00.000 (58,00, Pix, c-7732), pago às 20:15:41.200, estoque indisponível às 20:15:41.260 (avaria às 20:15:10), estornado e CANCELADO às 20:15:44.950: 44,95 s, dos quais 41,2 s de espera." },
+  { q: "O que acontece com o 1057 sem saga?",
+    a: "Fica pago e sem estoque. A conciliação das 23:00 só acharia o caso 2 h 44 min depois." },
+  { q: "De onde vem a Saga?",
+    a: "Do artigo SAGAS de Garcia-Molina e Salem (SIGMOD, 1987), para transações longas dentro de um banco, não para microsserviços." },
+  { q: "A Saga tem rollback automático?",
+    a: "Não. A atomicidade vem de compensações que o desenvolvedor escreve, e ela não tem isolamento." },
+]} />

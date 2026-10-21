@@ -1,0 +1,114 @@
+---
+title: "Logs de saga"
+order: 8
+min: 15
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import orquestradorMain from '../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">Na aula passada a saga aprendeu a desfazer, repetir e pedir ajuda, e cada um desses passos precisou de uma pergunta: o que já aconteceu com o 1057? A resposta está num <strong>log</strong>. Cada transição da saga vira uma linha que só se acrescenta, e essa lista é a memória do orquestrador.</p>
+
+<OneLiner>O <strong>log de saga</strong> grava cada transição numa tabela de <strong>só-acréscimo</strong>. Dá <strong>rastreio</strong> (onde está o 1057?), <strong>retomada</strong> (continua do último passo) e <strong>auditoria</strong> (o que aconteceu e quando). O estado é a <strong>última linha</strong>. O custo aparece a longo prazo: são bilhões de linhas.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Log</strong>, avance e procure o <strong>1057</strong> no log e veja a linha de <code>COMPENSANDO</code>, com o evento <code>e-1903</code> e o motivo <code>sem_estoque</code>. Conte as 7 linhas.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/compensacao-3d/?mode=log" poster="labs/saga/compensacao-3d-previa.webp" title="Figura interativa: O log da saga" alt="Prévia da figura 3D: O log da saga" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Uma transição, uma linha.</strong> Toda vez que a saga muda de estado, a função <code>transitar</code> acrescenta uma linha em <code>saga_log</code> (<code>id</code>, <code>saga_id</code>, <code>de</code>, <code>para</code>, <code>evento_id</code>, <code>dados</code>, <code>em</code>). Ninguém apaga nem altera linha.</li>
+  <li><strong>O log do 1057.</strong> São <strong>7 linhas</strong>, de <code>NOVO</code> às 20:15:00 a <code>CANCELADO</code> às 20:15:44.95 (bloco abaixo, saída real). A tabela <code>saga</code> guarda só o <strong>resumo</strong>: estado <code>CANCELADO</code> e <code>versao = 7</code>, uma versão por transição.</li>
+  <li><strong>Rastreio.</strong> "Onde está o 1057?" é uma consulta por <code>saga_id</code>, em vez de juntar os logs de quatro serviços pelo <code>trace_id</code> (aula 4).</li>
+  <li><strong>Retomada.</strong> Se o orquestrador cai, ele lê a última linha de cada saga em andamento e continua dali. O 1057 estaria em <code>COBRANDO</code> e a saga esperaria o Pix, em vez de recomeçar.</li>
+  <li><strong>Auditoria.</strong> O log diz <strong>quem</strong> (qual evento), <strong>o quê</strong> e <strong>quando</strong>. Para o Davi, a prova do estorno: <code>e-1904</code>, 58,00, 20:15:44.95.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`PostgreSQL 14.24, 20/10/2026: saga_log da saga s-1057 (saída real)
+
+ id |     de      |    para     | evento_id |     em
+  1 |             | NOVO        | e-1901    | 20:15:00
+  2 | NOVO        | COBRANDO    |           | 20:15:00.05
+  3 | COBRANDO    | PAGO        | e-1902    | 20:15:41.2
+  4 | PAGO        | RESERVANDO  |           | 20:15:41.22
+  5 | RESERVANDO  | COMPENSANDO | e-1903    | 20:15:41.26
+  6 | COMPENSANDO | ESTORNANDO  |           | 20:15:41.3
+  7 | ESTORNANDO  | CANCELADO   | e-1904    | 20:15:44.95`}</code></pre>
+
+<h3 class="sec">O que o laboratório do autor faz</h3>
+
+<p>O orquestrador do laboratório grava o log numa tabela, <code>saga_events</code>, criada em <code>initSchema</code> (lido, <strong>não executado</strong>; sem alteração, com os números de linha do original):</p>
+
+<CodeLab code={orquestradorMain} from={147} to={170} />
+
+<ol class="flow steps">
+  <li>As colunas são <code>saga_id</code>, <code>order_id</code>, <code>state</code>, <code>data</code> (JSON), <code>error</code> e <code>created_at</code>. A loja acrescenta <code>de</code>, <code>evento_id</code> e <code>versao</code>.</li>
+  <li>O estado atual é a <strong>última linha</strong>: <code>getCurrentState</code> faz <code>ORDER BY created_at DESC LIMIT 1</code> (linha 518, fora do trecho acima).</li>
+  <li>O README do laboratório chama isso de "Event Sourcing (simplificado)". É um <strong>log de transições</strong>: o estado é lido da última linha, mas ninguém o <strong>reconstrói</strong> a partir dos eventos. Vira <em>event sourcing</em> só quando o estado é <strong>derivado</strong> do log, assunto do módulo 20.</li>
+</ol>
+
+<h3 class="sec">Consultas úteis</h3>
+
+<p>Exemplos da forma das consultas que o log permite (não rodadas):</p>
+
+<pre><code>{String.raw`-- o trajeto do 1057
+SELECT de, para, evento_id, em FROM saga_log WHERE saga_id = 's-1057' ORDER BY id;
+
+-- sagas em COMPENSANDO há mais de 1 minuto
+SELECT saga_id FROM saga
+ WHERE estado = 'COMPENSANDO' AND atualizada_em < now() - interval '1 minute';
+
+-- quantas terminaram CANCELADO por sem_estoque hoje
+SELECT count(*) FROM saga s
+  JOIN saga_log l ON l.saga_id = s.saga_id AND l.para = 'COMPENSANDO'
+ WHERE s.estado = 'CANCELADO' AND l.dados->>'motivo' = 'sem_estoque' AND l.em >= current_date;`}</code></pre>
+
+<h3 class="sec">O custo: o log cresce</h3>
+
+<p>O artigo avisa que o log é caro a longo prazo, e agora há conta. A 30 pedidos por segundo, com 7 linhas por saga e 90 dias de retenção: 30 × 86.400 × 90 × 7 = <strong>1.632.960.000</strong> linhas, <strong>1,6 bilhão</strong>. A uns 200 B por linha, cerca de <strong>300 GB</strong> (326,6 GB na conta exata). A defesa é <strong>arquivar</strong> as sagas finais (<code>FINALIZADO</code> e <code>CANCELADO</code>) e manter quente só o que está em andamento.</p>
+
+<h3 class="sec">E se der errado: o log e a ação divergem</h3>
+
+<p>O orquestrador manda o comando <code>ReservarEstoque</code> e cai <strong>antes</strong> de gravar a linha <code>RESERVANDO</code>. Ou grava a linha e cai antes de mandar o comando. Nos dois casos o log <strong>mente</strong>: diz um estado que não é o do mundo. Gravar o estado e mandar a mensagem são duas escritas que ninguém faz juntas, o assunto da próxima aula.</p>
+
+<WhyItMatters>
+  <li><strong>Uma consulta responde.</strong> "Onde está o 1057?" sai de <code>saga_log</code>, sem juntar quatro serviços.</li>
+  <li><strong>Retoma depois da queda.</strong> A última linha de cada saga diz de onde continuar.</li>
+  <li><strong>É prova.</strong> O estorno <code>e-1904</code> do Davi está registrado, com hora.</li>
+  <li><strong>Tem custo.</strong> 1,6 bilhão de linhas em 90 dias; arquivar as finais é parte do desenho.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Log de transições × event sourcing</h4>
+  <p>No <strong>log de transições</strong>, a tabela <code>saga</code> tem o estado e o log só o registra. Em <em>event sourcing</em> a ordem se inverte: a <strong>fonte da verdade</strong> é a lista de eventos, e o estado é um resumo que se recalcula a partir dela. O log da saga já é metade disso; o módulo 20 fecha a outra metade.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Repositório público do autor: saga/orquestrado (saga_events)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O log registra tudo, mas escrever a linha e mandar o comando são duas escritas separadas, e entre elas o orquestrador pode cair. Falta saber como gravar o estado <strong>e</strong> mandar o comando sem que um dos dois se perca.</p>
+
+<Flashcards cards={[
+  { q: "O que é o log de saga?",
+    a: "Uma tabela de só-acréscimo com uma linha por transição. O estado atual é a última linha." },
+  { q: "Para que o log serve?",
+    a: "Rastreio (onde está o 1057?), retomada (continua do último passo) e auditoria (o que aconteceu e quando)." },
+  { q: "Quantas linhas tem o log do 1057 e como termina?",
+    a: "7 linhas, de NOVO (20:15:00) a CANCELADO (20:15:44.95). A tabela saga termina com CANCELADO e versao = 7." },
+  { q: "Quanto custa guardar 90 dias de log a 30 pedidos/s?",
+    a: "30 × 86.400 × 90 × 7 = 1.632.960.000 linhas (1,6 bilhão), cerca de 300 GB a 200 B. Por isso se arquivam as sagas finais." },
+  { q: "O log do laboratório é event sourcing?",
+    a: "Não: é um log de transições. Vira event sourcing quando o estado é derivado do log (módulo 20)." },
+]} />

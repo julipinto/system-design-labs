@@ -1,0 +1,84 @@
+---
+title: "O problema das transações longas e distribuídas"
+order: 2
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o 1057 ficou <code>pago</code> e sem estoque, e o <code>ROLLBACK</code> não existia para desfazer. Antes de propor outra coisa, vale ver <strong>por que a transação de banco não serve</strong> aqui. São dois problemas diferentes que se somam: o pedido passa por <strong>vários bancos</strong> e demora <strong>muito</strong>.</p>
+
+<OneLiner>A transação ACID <strong>não atravessa</strong> os bancos de serviços diferentes, e a espera <strong>longa</strong> (o Pix do Davi, 41,2 s) impede segurar trava até o fim. O <em>two-phase commit</em> tenta costurar os bancos, mas <strong>bloqueia</strong> se o coordenador cai e exige que todos saibam "preparar": o PSP e o Kafka não sabem.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Sem saga</strong>, avance até o último passo e use os três botões de espera do Pix (41,2 s, 5 min e 30 min): veja a trava de estoque segurada pelo 1057 parar a fila de pedidos atrás dele (1.236, 9.000 e 54.000 pedidos). Os de 5 e 30 min são exemplo.</p>
+</DoIt>
+
+<Figure3D path="labs/saga/saga-3d/?mode=sem-saga&step=7" poster="labs/saga/saga-3d-previa.webp" title="Figura interativa: Sem saga: o pedido preso" alt="Prévia da figura 3D: Sem saga: o pedido preso" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Distribuída.</strong> A loja tem <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> e <code>entregas</code> (módulo 6), cada um dono do seu banco. Quando o <code>estoque</code> faz <code>COMMIT</code>, só o banco dele sabe. Os outros três não enxergam a transação, então não há um <code>ROLLBACK</code> que os alcance.</li>
+  <li><strong>Longa.</strong> O Davi levou <strong>41,2 s</strong> para pagar. Uma cobrança Pix pode expirar em minutos, e o exemplo do artigo vai a <strong>semanas</strong> (parcelas, faturas). Se o <code>estoque</code> segurasse uma trava nesse tempo, a 30 pedidos por segundo seriam 30 × 41,2 = <strong>1.236</strong> transações abertas ao mesmo tempo, cada uma com a sua conexão e a sua trava.</li>
+  <li><strong>Uma tentativa: o <em>two-phase commit</em> (2PC).</strong> Um coordenador pergunta a todos "prepara?"; quando todos respondem "pronto", manda "efetiva" (Fowler). Os bancos ficam com as travas abertas entre as duas fases.</li>
+  <li><strong>Onde o 2PC falha.</strong> Se o coordenador cai entre as fases, os participantes <strong>ficam bloqueados</strong> esperando a decisão. E todos precisam suportar <em>prepare</em>: um PSP externo e o Kafka <strong>não</strong> participam.</li>
+  <li><strong>Dois tipos de falha.</strong> A de <strong>negócio</strong> (sem estoque) é uma resposta válida do serviço e pede <strong>compensação</strong>. A <strong>técnica</strong> (timeout, 503) é o serviço que não respondeu e pede <em>retry</em> (módulo 21). Misturar as duas leva a estornar um pagamento que só demorou.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Falha</th><th>Exemplo da loja</th><th>O que fazer</th></tr></thead>
+  <tbody>
+    <tr><th>de negócio</th><td><code>EstoqueIndisponivel</code> às 20:15:41.260</td><td>compensar (estornar a cobrança)</td></tr>
+    <tr><th>técnica</th><td>o PSP responde <code>503</code> ou não responde</td><td>repetir com <em>backoff</em> (módulo 21)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">E se der errado: o 2PC com o PSP</h3>
+
+<p>A loja tenta o 2PC: pede "prepara" ao <code>estoque</code>, ao <code>entregas</code> e ao PSP. Não existe "prepara o Pix". A cobrança <code>c-7732</code> <strong>já saiu</strong> no momento em que o Davi aprovou no app do banco, e o PSP só conhece "cobrar" e "estornar". O 2PC pressupõe que cada participante consiga prometer "posso efetivar" e desfazer a promessa sem custo. Um sistema externo não promete nada disso.</p>
+
+<WhyItMatters>
+  <li><strong>Dois bancos, dois <code>COMMIT</code>.</strong> A atomicidade acaba na fronteira do serviço.</li>
+  <li><strong>Trava longa derruba a loja.</strong> 1.236 transações abertas a 30 pedidos/s por causa de uma espera do cliente.</li>
+  <li><strong>O 2PC não é a resposta.</strong> Bloqueia se o coordenador cai e não funciona com o PSP nem com o Kafka. A Saga existe para fugir dele.</li>
+  <li><strong>Saber o tipo da falha.</strong> Sem estoque se compensa; timeout se repete.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">O Pix tem prazo, o artigo tem semanas</h4>
+  <p>A cobrança Pix do 1057 expira em minutos (na aula 6 o exemplo é 30 min). O artigo fala de processos que levam de milissegundos a semanas ou meses. Quanto mais longa a espera, menos faz sentido manter qualquer trava aberta, e mais o estado do processo precisa viver num <strong>banco</strong>, e não na memória de quem espera.</p>
+  <h4 class="deep-h">Correção ao artigo-base: o 2PC dentro da saga</h4>
+  <ul>
+    <li><strong>2PC e Saga são alternativas.</strong> O artigo sugere o <em>two-phase commit</em> para sagas síncronas e o chama de "muito bem empregado em estratégias de replicação" (já corrigido no módulo 17). O 2PC <strong>bloqueia</strong> se o coordenador cai e exige <em>prepare</em> em todos os participantes. A Saga existe justamente para fugir dele, e o próprio artigo diz isso na seção "A proposta".</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre Saga (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Fowler: Two-Phase Commit (Patterns of Distributed Systems)", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Saga distributed transactions (arquitetura de referência)", href: "https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga" },
+  ]} />
+</Deep>
+
+<p class="gancho">Se não dá para ter uma transação só, sobra uma pergunta: o que se faz com os passos que <strong>já aconteceram</strong>? Falta saber como quebrar a operação em pedaços que se possam desfazer um a um.</p>
+
+<Flashcards cards={[
+  { q: "Por que a transação ACID não atravessa os serviços da loja?",
+    a: "Cada serviço tem o seu banco e faz o seu COMMIT. Nenhum banco enxerga a transação do outro, então não existe ROLLBACK que alcance os quatro." },
+  { q: "Por que a espera longa do Pix atrapalha?",
+    a: "Segurar trava durante os 41,2 s do Davi, a 30 pedidos/s, deixa 30 × 41,2 = 1.236 transações abertas ao mesmo tempo." },
+  { q: "Como funciona o two-phase commit?",
+    a: "Um coordenador pede 'prepara' a todos; quando todos dizem 'pronto', manda 'efetiva'. Entre as fases as travas ficam abertas." },
+  { q: "Por que o 2PC não serve para a loja?",
+    a: "Bloqueia se o coordenador cai e exige 'prepare' em todos. O PSP e o Kafka não participam: não existe 'prepara o Pix'." },
+  { q: "Falha de negócio ou falha técnica: qual pede compensação?",
+    a: "A de negócio (sem estoque). A técnica (timeout, 503) pede retry, que é o assunto do módulo 21." },
+]} />
