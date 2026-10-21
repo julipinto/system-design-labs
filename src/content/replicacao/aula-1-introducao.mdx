@@ -1,0 +1,87 @@
+---
+title: "Introdução à replicação de dados"
+order: 1
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No módulo 16 a loja partiu os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena caiu no <code>shard-1</code>. Só que cada shard é <strong>um servidor só</strong>: se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e se o disco queimar os dados vão junto (o RAID do módulo 2 protegia o disco, não o servidor). Falta <strong>copiar</strong> cada shard para outro lugar, e essa cópia tem nome: replicação.</p>
+
+<OneLiner>Replicar é ter o <strong>mesmo dado em mais de um lugar</strong> para a loja continuar de pé, ler perto e sobreviver a uma perda. O preço é o <strong>atraso</strong> (a cópia fica para trás) e o <strong>conflito</strong> (duas cópias mudam ao mesmo tempo).</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Réplicas</strong>, aperte <strong>Escrever o 1055 em SP</strong> e avance com a seta →. Acompanhe a fita do log de escrita (o WAL) sair de SP e chegar ao Rio e a Recife, e repare que o cabo de Recife (80 ms) demora mais que o do Rio (10 ms).</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/replicas-3d/?mode=primary-replica" poster="labs/replicacao/replicas-3d-previa.webp" title="Figura interativa: Primário e réplicas" alt="Prévia da figura 3D: Primário e réplicas" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>As chaves de reserva.</strong> Quem anda com uma única chave de casa e a perde no cinema fica trancado do lado de fora. Quem deixou cópias com a família, ou debaixo do tapete da garagem, entra do mesmo jeito. É a ideia do artigo, e é a de um banco: o dado existe em mais de um lugar, e perder um lugar não é perder o dado.</li>
+  <li><strong>Quatro motivos para copiar.</strong> <em>Disponibilidade</em>: o servidor cai e outro atende. <em>Leitura perto</em>: a Lena, em Recife, lê de uma cópia em Recife em cerca de <strong>2 ms</strong>, em vez de pagar <strong>80 ms</strong> de ida e volta até SP. <em>Mais leitura</em>: várias cópias dividem as consultas. <em>Recuperação</em>: uma cópia viva é o ponto de partida quando a primeira se perde.</li>
+  <li><strong>A topologia da loja.</strong> Cada shard terá um <strong>primário</strong> em SP (<code>pg-sp</code>) e réplicas no Rio (<code>pg-rio</code>) e em Recife (<code>pg-recife</code>). O texto fala do "banco do <code>pedidos</code>", que vale para os três shards. O primário lê e escreve; as réplicas <strong>só leem</strong>. As distâncias são exemplos: ida e volta de <strong>10 ms</strong> entre SP e Rio, <strong>80 ms</strong> entre SP e Recife (o mesmo 80 ms do módulo 3). O pedido-estrela do módulo é o <strong>1055</strong>: a Lena compra 1 caneca azul (19,90) mais 15,00 de frete para Recife, <strong>34,90</strong>, às <strong>20:10:00.000</strong> da Black Friday, e o estoque da caneca vai de 37 para 36.</li>
+  <li><strong>Total ou parcial.</strong> Cada site pode guardar <strong>tudo</strong> (replicação total) ou <strong>parte</strong> (parcial). Com 140 GB de pedidos, a total põe 140 GB em cada um dos 3 sites: <strong>3 × 140 = 420 GB</strong>. A parcial põe 2 dos 3 shards em cada site: 93,3 GB × 3 = <strong>280 GB</strong>, dois terços. A parcial só funciona se alguém souber <strong>onde está cada dado</strong>, e esse alguém é o sharding do módulo 16. A total também <strong>multiplica a escrita</strong>: cada escrita vai para todos os sites.</li>
+  <li><strong>O mapa dos eixos.</strong> No Scale Cube do módulo 15, replicar os dados é o <strong>eixo X</strong> aplicado ao banco; partir por cliente é o <strong>eixo Z</strong> do módulo 16. Os dois juntos dão 3 shards × 3 cópias = <strong>9 servidores</strong> de banco. E a conversa do módulo 3, com SP, Rio e Recife, uma partição de rede e o quórum de 2 em 3, volta agora com bancos de verdade.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="quorum" title="Quórum: W + R > N" hint="N = 3 (SP, Rio e Recife). Mude W (quantas cópias confirmam a escrita) e R (quantas respondem à leitura). O widget diz se a leitura sempre cruza com a última escrita e o que se perde em cada escolha." />
+
+<h3 class="sec">E se der errado: réplica não é backup</h3>
+
+<p>Às 20:15 alguém roda <code>DELETE FROM pedidos WHERE status = 'criado'</code> sem olhar o <code>WHERE</code>. O primário apaga, o log leva o apagamento ao Rio e a Recife, e em <strong>60 ms</strong> (o atraso normal de Recife) as três cópias estão vazias. Replicação copia o dado <strong>e copia o erro</strong>. Para voltar a um ponto no tempo, a loja precisa de backup e de recuperação num ponto no tempo, assunto do módulo 27.</p>
+
+<WhyItMatters>
+  <li><strong>O shard deixa de ser um servidor só.</strong> Com primário em SP e réplicas no Rio e em Recife, a queda de um servidor não leva o dado.</li>
+  <li><strong>Leitura perto custa 2 ms.</strong> A Lena lê de Recife em vez de cruzar 80 ms até SP.</li>
+  <li><strong>Copiar tem dois preços.</strong> A cópia fica atrás (atraso) e duas cópias podem mudar juntas (conflito); as próximas aulas medem os dois.</li>
+  <li><strong>Réplica não é backup.</strong> O erro viaja pelo mesmo caminho do dado bom.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A conta dos 9 servidores e dos GB</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Escolha</th><th>Conta</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>Total</th><td>3 sites × 140 GB</td><td>420 GB</td></tr>
+      <tr><th>Parcial (2 de 3 shards)</th><td>(140 ÷ 3) × 2 × 3 sites</td><td>280 GB (2/3)</td></tr>
+      <tr><th>Banco da loja</th><td>3 shards × 3 cópias</td><td>9 servidores</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base: total e parcial, e as referências</h4>
+  <ul>
+    <li><strong>Replicação total.</strong> O artigo diz que replicar em todos os nós "adiciona vários níveis de disponibilidade" e chama a total de <em>Full-Table Replication</em>. Também <strong>multiplica a escrita</strong>: cada escrita é feita em todos os sites. A parcial depende de sharding (módulo 16) para saber onde está cada dado.</li>
+    <li><strong>As referências.</strong> ManageEngine, Triggo, Rivery, Estuary, dev.to e Medium ficam de fora. Entram a documentação do PostgreSQL, do MariaDB e do Debezium, os textos de Fowler e Vogels e os papers de CRDT e de Raft.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: High Availability, Load Balancing, and Replication", href: "https://www.postgresql.org/docs/current/high-availability.html" },
+    { label: "PostgreSQL: Comparison of Different Solutions", href: "https://www.postgresql.org/docs/current/different-replication-solutions.html" },
+    { label: "Werner Vogels: Eventually Consistent", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe por que copiar, onde ficam as cópias (SP, Rio e Recife) e que cópia não substitui backup. Só que três cópias abrem uma pergunta que ainda não tem resposta: se a Lena compra e o primário grava, <strong>quem recebe as escritas</strong>? Falta saber se só o primário escreve ou se qualquer site pode escrever, e o que acontece quando o primário cai.</p>
+
+<Flashcards cards={[
+  { q: "O que é replicar dados?",
+    a: "Ter o mesmo dado em mais de um lugar para continuar de pé, ler perto e sobreviver a uma perda. O preço é o atraso e o conflito." },
+  { q: "Quais são os quatro motivos para copiar?",
+    a: "Disponibilidade, leitura perto (Recife lê em ~2 ms em vez de 80 ms até SP), mais leitura (as cópias dividem as consultas) e recuperação." },
+  { q: "Quanto ocupam 140 GB em replicação total e parcial (2 de 3 shards) nos 3 sites?",
+    a: "Total: 3 × 140 = 420 GB. Parcial: 93,3 GB × 3 = 280 GB, dois terços. A parcial exige sharding para saber onde está cada dado." },
+  { q: "Quantos servidores de banco tem a loja com 3 shards replicados em 3 sites?",
+    a: "9: o eixo Z do módulo 16 (3 shards) vezes o eixo X dos dados (3 cópias)." },
+  { q: "Por que réplica não é backup?",
+    a: "Um DELETE sem cuidado chega às duas réplicas em 60 ms (o atraso normal de Recife): três cópias do erro. Backup e recuperação num ponto no tempo (módulo 27) continuam necessários." },
+]} />

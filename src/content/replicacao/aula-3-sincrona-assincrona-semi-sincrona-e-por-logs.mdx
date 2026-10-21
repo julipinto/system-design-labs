@@ -1,0 +1,125 @@
+---
+title: "Síncrona, assíncrona, semi-síncrona e por logs"
+order: 3
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a loja escolheu um primário em SP e viu o que a queda dele custa: 35 s e, se a replicação for assíncrona, 9 ou 24 pedidos. Falta saber <strong>quando exatamente o primário diz "pronto"</strong> à Lena. Se for antes de a réplica ter o dado, o commit é rápido e a perda é possível. Se for depois, a perda some e o commit fica lento.</p>
+
+<OneLiner>O momento em que o primário confirma o commit decide <strong>o que se perde e quanto se espera</strong>: <strong>assíncrona</strong> confirma em 2 ms e pode perder pedidos, <strong>semi-síncrona</strong> espera uma réplica (12 ms), <strong>síncrona</strong> espera todas (82 ms). Em todas, a réplica recebe o <strong>log</strong>, e não a linha.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Atraso</strong>, aperte <strong>Pausar o replay em Recife</strong> (o <code>pg_wal_replay_pause</code>) e avance: a Lena toca em "meus pedidos" às 20:10:00.300 e o <strong>1055 não aparece</strong>. Depois aperte <strong>Assíncrona</strong>, <strong>Semi</strong> e <strong>Síncrona</strong> e compare o tempo do commit: <strong>2 ms</strong>, <strong>12 ms</strong> e <strong>82 ms</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/replicas-3d/?mode=lag" poster="labs/replicacao/replicas-3d-previa.webp" title="Figura interativa: A Lena e o atraso" alt="Prévia da figura 3D: A Lena e o atraso" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Assíncrona.</strong> O primário grava no seu disco (<strong>2 ms</strong>), responde "pronto" e só então manda o log às réplicas. Uma conexão que só faz commits dá <strong>500 por segundo</strong>. O preço é a janela de atraso: se o primário cair antes de o log chegar, o pedido some. E a Lena pode não ver o próprio pedido (veja os consertos adiante).</li>
+  <li><strong>Síncrona.</strong> O primário espera o <strong>ack</strong> do Rio e de Recife. O tempo é o commit local mais a réplica mais lenta: 2 + máx(10, 80) = <strong>82 ms</strong>, ou 12 commits por segundo por conexão. Em troca, o RPO é <strong>zero</strong>: o pedido confirmado já está nas três cópias. (Medida real no PostgreSQL 14, <strong>sem rede</strong>: o commit com uma réplica síncrona no mesmo computador levou <strong>8,1 ms</strong>; a rede da loja se soma a isso.)</li>
+  <li><strong>Semi-síncrona.</strong> O primário espera <strong>uma</strong> réplica, a mais perto (o Rio): 2 + 10 = <strong>12 ms</strong>, 83 commits por segundo. O RPO é zero enquanto o Rio responder, e Recife recebe de modo assíncrono. No PostgreSQL isso é <code>synchronous_standby_names = 'FIRST 1 (rio, recife)'</code>; com <code>ANY 1 (…)</code> serve qualquer uma das duas.</li>
+  <li><strong>Por logs.</strong> Nas três, a réplica não recebe a <strong>linha</strong>, recebe o <strong>log</strong> das mudanças e o aplica <strong>na ordem</strong>. É o <strong>WAL</strong> (log de escrita antecipada) no PostgreSQL, o binlog no MySQL, o log de cada partição no Kafka (com ISR, módulo 13) e o log do Raft, do Paxos e do Viewstamped Replication. A posição no log é o <strong>LSN</strong>. O ganho principal é a ordem: aplicar o mesmo log na mesma ordem dá o mesmo estado, e o tamanho menor vem de brinde.</li>
+  <li><strong>Os níveis do PostgreSQL.</strong> <code>synchronous_commit</code> aceita <code>off</code>, <code>local</code>, <code>remote_write</code>, <code>on</code> (o padrão: a réplica <strong>gravou em disco</strong>) e <code>remote_apply</code> (a réplica <strong>aplicou</strong>: o dado já é visível lá). Só o <code>remote_apply</code> dá leitura em dia, com "atrasos de commit muito maiores", diz a documentação.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="commit" title="Latência do commit e perda de pedidos" hint="Escolha o modo (assíncrona, semi com o Rio, semi com Recife, síncrona) e mude o RTT do Rio (1 a 50 ms) e de Recife (10 a 200 ms), o commit local (1 a 10 ms), a taxa de pedidos (1 a 60 por segundo) e o atraso (0 a 2.000 ms). O widget mostra a latência do commit, os commits por segundo por conexão e os pedidos perdidos (taxa × atraso)." />
+
+<h3 class="sec">A Lena não vê o próprio pedido</h3>
+
+<p>Às 20:10:00.000 da Black Friday a Lena fecha o <strong>pedido 1055</strong>. O primário em SP confirma às 20:10:00.002. A réplica de Recife está <strong>800 ms</strong> atrás. Às 20:10:00.300 ela toca em "meus pedidos", a tela lê da réplica de Recife e mostra o <strong>1054</strong> (o de 20:08, do módulo 16) como último: o <strong>1055 não aparece</strong>. Só às 20:10:00.802 ele chega. O nome técnico é <em>read-your-writes</em> (Vogels): quem escreve deveria ler o que escreveu. Há três consertos.</p>
+
+<ol class="flow steps">
+  <li><strong>Ler do primário por um tempo.</strong> Depois de escrever, as leituras daquela Lena vão ao primário por N segundos. Funciona, e custa os <strong>80 ms</strong> de ida e volta até SP em cada leitura.</li>
+  <li><strong>Levar um token.</strong> No commit, o primário informa o LSN, e a aplicação só lê da réplica quando ela já passou dele. A prova real, com o replay pausado em Recife depois do <code>INSERT</code> do 1055, está no bloco logo abaixo da lista.</li>
+  <li><strong><code>remote_apply</code> só para esse commit.</strong> O commit espera a réplica aplicar, e a leitura que vem depois já enxerga o pedido: custa cerca de <strong>82 ms</strong> por commit. Num dia comum a conta é essa; com Recife 800 ms atrás, o commit espera esse atraso também, e é o "atrasos de commit muito maiores" da documentação.</li>
+</ol>
+
+<pre><code>{String.raw`-- no primário, ao confirmar o 1055: o token do commit
+SELECT pg_current_wal_lsn();                              -- 0/8004430
+
+-- na réplica de Recife, com pg_wal_replay_pause()
+SELECT id, total, status FROM pedidos
+ WHERE cliente_id = 'lena-77' AND id >= 1051;             -- só o 1051
+SELECT pg_last_wal_receive_lsn();                         -- 0/8004430  (recebido)
+SELECT pg_last_wal_replay_lsn();                          -- 0/8000060  (aplicado, atrás)
+SELECT pg_last_wal_replay_lsn() >= '0/8004430'::pg_lsn;   -- f`}</code></pre>
+
+<p>O laboratório carrega só os pedidos 1041 a 1052, então a consulta devolve só o 1051. O que importa são os dois LSN: o log do 1055 já foi <strong>recebido</strong> (<code>0/8004430</code>) e ainda não foi <strong>aplicado</strong> (<code>0/8000060</code>). O <code>f</code> da última linha diz à aplicação que a réplica não alcançou o commit, e ela manda a leitura ao primário. Na outra réplica, sem pausa, o 1055 já aparece, e depois de <code>pg_wal_replay_resume()</code> aparece também em Recife.</p>
+
+
+<Widget name="lena" title='A Lena e o "meus pedidos"' hint="Mude o atraso da réplica (0 a 2.000 ms), o instante em que a Lena abre a tela (0 a 2.000 ms depois do commit) e a estratégia (réplica, primário por N segundos, token de LSN, remote_apply). O widget diz se o 1055 aparece e quanto custa a leitura em ms." />
+
+<h3 class="sec">A síncrona de verdade, no laboratório</h3>
+
+<p>Depois de <code>ALTER SYSTEM SET synchronous_standby_names = 'FIRST 1 (rio, recife)'</code> e <code>SELECT pg_reload_conf()</code>, o <code>pg_stat_replication</code> mostra <code>rio | sync | 1</code> e <code>recife | potential | 2</code>: o Rio é quem confirma, e Recife é a reserva. Se o <strong>Rio cai</strong>, o <strong>Recife vira <code>sync</code></strong> e o commit segue. Para esperar as duas réplicas seria <code>FIRST 2 (rio, recife)</code>.</p>
+
+<h3 class="sec">E se der errado (a): a síncrona com a réplica fora do ar</h3>
+
+<p>Se as duas réplicas caem, o <code>INSERT</code> do pedido <strong>fica esperando</strong>. O <code>pg_stat_activity</code> mostra <code>wait_event_type = IPC</code> e <code>wait_event = SyncRep</code>, e o pedido <strong>não fica visível</strong> para outras sessões até haver confirmação: no laboratório, um <code>SELECT count(*)</code> dos dois pedidos pendentes devolveu só o que já estava confirmado. Com a replicação exigida para os dois, <strong>a loja para de vender</strong> quando um site fica fora do ar. Ao tirar a exigência (<code>synchronous_standby_names = ''</code>), o pedido aparece.</p>
+
+<h3 class="sec">E se der errado (b): a semi-síncrona que vira assíncrona</h3>
+
+<p>No MariaDB e no MySQL a semi-síncrona tem um prazo: passado o <code>rpl_semi_sync_master_timeout</code> (padrão <strong>10.000 ms</strong>) sem a confirmação da réplica, o primário "reverte para a replicação assíncrona" e <strong>a garantia some sem erro</strong>. A loja acha que tem RPO zero e já tem de novo a janela de perda. O PostgreSQL faz o contrário: espera para sempre, e a loja para.</p>
+
+<WhyItMatters>
+  <li><strong>Cada modo é uma conta.</strong> 2, 12 e 82 ms de commit, contra perdas de 9 a 24 pedidos na assíncrona e perda zero na semi (com o Rio vivo) e na síncrona.</li>
+  <li><strong>A leitura em dia é outra decisão.</strong> A replicação síncrona garante a escrita nas cópias; para a Lena ver o pedido é preciso ler de um nó que já aplicou o log.</li>
+  <li><strong>O LSN dá a prova.</strong> A aplicação consegue saber, com uma comparação, se a réplica já alcançou o commit.</li>
+  <li><strong>Esperar tem dois finais.</strong> O PostgreSQL trava, e o MariaDB volta a ser assíncrono depois de 10 s.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas e os níveis, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Modo</th><th>Espera</th><th>Commit</th><th>Commits/s por conexão</th></tr></thead>
+    <tbody>
+      <tr><th>Assíncrona</th><td>só o disco local</td><td>2 ms</td><td>500</td></tr>
+      <tr><th>Semi (Rio)</th><td>2 + 10</td><td>12 ms</td><td>83</td></tr>
+      <tr><th>Síncrona (Rio e Recife)</th><td>2 + máx(10, 80)</td><td>82 ms</td><td>12</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Na Black Friday, com 30 pedidos por segundo, as perdas da assíncrona são 30 × 0,3 = <strong>9</strong> (Rio) e 30 × 0,8 = <strong>24</strong> (Recife); num dia comum, cerca de 0,3.</p>
+  <h4 class="deep-h">Correções ao artigo-base: síncrona, assíncrona, semi-síncrona e logs</h4>
+  <ul>
+    <li><strong>Síncrona e two-phase commit.</strong> O artigo diz que a síncrona confirma só depois de <strong>todos</strong> os nós e que uma técnica comum é o <a href="https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html"><em>two-phase commit</em></a>. Bancos reais fazem replicação síncrona <strong>sem</strong> 2PC: o PostgreSQL espera o ack de réplicas escolhidas (<code>FIRST n</code> ou <code>ANY n</code>) e o nível é configurável (<code>remote_write</code>, <code>on</code>, <code>remote_apply</code>). O 2PC é outra coisa: coordenar uma <strong>transação</strong> entre vários participantes, e ele bloqueia se o coordenador cai. E "consistência forte" exige que a <strong>leitura</strong> também seja feita num nó em dia (<code>remote_apply</code>), não só a escrita.</li>
+    <li><strong>Assíncrona.</strong> O artigo associa a consistência eventual a CDN, cache e redes sociais, e vale. Falta mostrar o caso que dói numa loja, a Lena sem o próprio pedido (<em>read-your-writes</em>), e <strong>como</strong> consertar: token de LSN, ler do primário por um tempo, <code>remote_apply</code>.</li>
+    <li><strong>Semi-síncrona.</strong> O artigo diz que MySQL e MariaDB confirmam quando uma réplica grava. Falta o detalhe que importa: depois do <code>rpl_semi_sync_master_timeout</code> (10.000 ms), o primário <strong>volta a ser assíncrono</strong> (documentação do MariaDB). O PostgreSQL com <code>synchronous_standby_names</code> não volta: o commit espera.</li>
+    <li><strong>Por logs.</strong> O artigo diz que o log reduz a quantidade de dados trafegados. O ganho principal é a <strong>ordem</strong> e o <strong>determinismo</strong>. Paxos, Raft e Viewstamped Replication replicam um log para chegar a <strong>consenso</strong> (escolher líder e acordar a ordem), o Kafka replica cada partição por ISR e o WAL do PostgreSQL é o mesmo mecanismo em outro papel. O artigo junta tudo em "logs".</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: Write Ahead Log (synchronous_commit)", href: "https://www.postgresql.org/docs/current/runtime-config-wal.html" },
+    { label: "PostgreSQL: funções de administração (recuperação, pg_wal_replay_pause, LSN)", href: "https://www.postgresql.org/docs/current/functions-admin.html" },
+    { label: "MariaDB: Semisynchronous Replication", href: "https://mariadb.com/kb/en/semisynchronous-replication/" },
+    { label: "Werner Vogels: Eventually Consistent (read-your-writes)", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+    { label: "Martin Fowler: Write-Ahead Log", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/write-ahead-log.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora escolhe quando confirmar, e sabe provar com o LSN se a réplica já tem o commit. Só que tudo o que viu até aqui é a cópia entre <strong>bancos</strong>, e ela é cópia de <strong>tudo</strong>. Falta saber o que fazer quando só <strong>um serviço</strong> precisa de um pedaço do dado de <strong>outro</strong>: o <code>entregas</code> quer o endereço da Lena, e ele mora no <code>clientes</code>.</p>
+
+<Flashcards cards={[
+  { q: "Quanto leva o commit nos três modos, e quantos commits por segundo dá uma conexão?",
+    a: "Assíncrona 2 ms (500/s); semi-síncrona esperando o Rio 2 + 10 = 12 ms (83/s); síncrona 2 + máx(10, 80) = 82 ms (12/s)." },
+  { q: "Por que a Lena não vê o pedido 1055 às 20:10:00.300?",
+    a: "A réplica de Recife está 800 ms atrás: o primário confirmou às .002 e o pedido só aparece em Recife às 20:10:00.802. É read-your-writes." },
+  { q: "Quais são os três consertos?",
+    a: "Ler do primário por N segundos (+80 ms de RTT); levar o token (LSN do commit) e só ler da réplica com replay_lsn >= token; remote_apply (82 ms por commit)." },
+  { q: "O que o replay_lsn >= token devolve com o replay pausado em Recife?",
+    a: "f: o log do 1055 foi recebido (0/8004430) mas ainda não aplicado (0/8000060). A aplicação manda a leitura ao primário." },
+  { q: "O que acontece quando a semi-síncrona do MariaDB não recebe o ack?",
+    a: "Depois do rpl_semi_sync_master_timeout (10.000 ms) o primário volta a ser assíncrono, sem erro. O PostgreSQL espera para sempre (SyncRep)." },
+]} />

@@ -1,0 +1,114 @@
+---
+title: "CDC: Change Data Capture"
+order: 5
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import debeziumConnector from '../../lab-code/replicacao/postgres-connector.json?raw';
+
+<p class="ponte">Na aula passada o <code>clientes</code> publicava <code>ClienteAtualizado</code> à mão, e o evento podia nunca sair se o serviço caísse no meio. Mas o banco já guarda, no seu log, <strong>tudo o que mudou, na ordem</strong>. Falta usar esse log: ler o que o banco já escreveu e transformar cada mudança em evento, sem mexer na aplicação.</p>
+
+<OneLiner>O <strong>CDC</strong> (<em>Change Data Capture</em>) lê o <strong>log do banco</strong>, que já é a lista de tudo o que mudou, e o transforma em eventos, <strong>sem mexer na aplicação</strong>. O <strong>Debezium</strong> faz isso com o PostgreSQL, e o padrão <strong>outbox</strong> tira da aplicação o risco da escrita dupla.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>CDC</strong>, avance pelo <code>INSERT</code> e pelo <code>UPDATE</code> do pedido 1055, com 3 s de diferença, e compare as duas colunas: o <strong>polling</strong> a cada 5 s vê <strong>um</strong> evento, o <code>pago</code>, e o leitor do log vê <strong>dois</strong>. Depois aperte <strong>Outbox</strong> e <strong>Slot</strong> para ver os dois "e se der errado" desta aula.</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/fluxo-3d/?mode=cdc" poster="labs/replicacao/fluxo-3d-previa.webp" title="Figura interativa: CDC: o log vira evento" alt="Prévia da figura 3D: CDC: o log vira evento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Três jeitos de capturar.</strong> O <strong>gatilho</strong> (trigger) roda dentro do banco a cada escrita e deixa a escrita mais cara. A <strong>consulta periódica</strong> (polling) pergunta de tempos em tempos "o que mudou?": a cada 5 s, o <code>INSERT</code> <code>criado</code> e o <code>UPDATE</code> <code>pago</code> do 1055, feitos com 3 s de intervalo, viram <strong>um só</strong> registro <code>pago</code>, e um <code>DELETE</code> simplesmente <strong>some</strong>. A <strong>leitura do log</strong> não perde nada, porque o log tem todas as mudanças, na ordem.</li>
+  <li><strong>O log, como o banco o decodifica.</strong> Com <code>wal_level = logical</code> o PostgreSQL consegue traduzir o WAL em linhas lógicas. A saída real do plugin <code>test_decoding</code>, que vem com o PostgreSQL, numa tabela <code>pedidos_cdc</code>, está no bloco logo abaixo da lista.Com a <strong>identidade da réplica</strong> padrão (<code>REPLICA IDENTITY DEFAULT</code>), o <code>UPDATE</code> traz só o valor <strong>novo</strong> e o <code>DELETE</code> traz <strong>só a chave</strong>. Com <code>ALTER TABLE pedidos_cdc REPLICA IDENTITY FULL</code>, o <code>UPDATE</code> traz <code>old-key:</code> (a linha <strong>antiga</strong> inteira) e <code>new-tuple:</code>, e o <code>DELETE</code> traz a linha inteira. Numa tabela <strong>particionada</strong>, o registro aparece com o nome da <strong>partição</strong> (<code>public.pedidos_2026</code>).</li>
+  <li><strong>O Debezium.</strong> Fazer essa leitura à mão dá trabalho, então o Debezium roda dentro do Kafka Connect e publica cada mudança num tópico. O conector abaixo é do repositório público do autor (o lab de CQRS, módulo 18) e lê um banco de hospital; a ideia é a mesma para a loja.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`BEGIN 759
+table public.pedidos_cdc: INSERT: id[bigint]:1055 cliente_id[text]:'lena-77' cidade[text]:'Recife' total[numeric]:34.90 status[text]:'criado' criado_em[timestamp with time zone]:'2026-11-27 20:10:00-03'
+table public.pedidos_cdc: UPDATE: id[bigint]:1055 cliente_id[text]:'lena-77' cidade[text]:'Recife' total[numeric]:34.90 status[text]:'pago' criado_em[...]:'2026-11-27 20:10:00-03'
+COMMIT 759
+BEGIN 760
+table public.pedidos_cdc: DELETE: id[bigint]:1055
+COMMIT 760`}</code></pre>
+
+<CodeLab code={debeziumConnector} />
+
+<ol class="flow steps">
+  <li>A linha 5 escolhe o plugin <code>pgoutput</code>, o formato nativo do PostgreSQL, e a linha 20 dá nome ao <strong>slot de replicação</strong> (<code>hospital_cdc_slot</code>): é por ele que o Postgres guarda o log até o Debezium o ler. A <code>database.server.name</code> da linha 11 é um resto de versões antigas; hoje o nome do tópico vem do <code>topic.prefix</code> (linha 13).</li>
+  <li>O <code>snapshot.mode: initial</code> (linha 18) faz uma leitura inicial de toda a tabela antes de seguir o log, e cada linha dessa leitura sai com <code>op</code> igual a <code>r</code>. A <code>publication.autocreate.mode: filtered</code> (linha 19) cria a publicação só com as tabelas da <code>table.include.list</code> (linha 12).</li>
+  <li>As linhas 23 a 27 ligam o <em>transform</em> <code>ExtractNewRecordState</code> (o "unwrap"): em vez do envelope completo, sai só o estado novo da linha, e o <code>delete.handling.mode: rewrite</code> transforma o apagamento em um registro marcado. O <code>add.fields: op,source.ts_ms</code> mantém o tipo da operação e o carimbo de tempo. Sem o unwrap, o evento sai inteiro, com o envelope.</li>
+</ol>
+
+<ol class="flow steps">
+  <li><strong>O envelope</strong> tem <code>before</code> (a linha antes), <code>after</code> (depois), <code>source</code> (de onde veio), <code>op</code> (<code>c</code> criar, <code>u</code> atualizar, <code>d</code> apagar, <code>r</code> leitura do <em>snapshot</em>), <code>ts_ms</code> e <code>transaction</code>. Com a identidade padrão, o <code>before</code> de um <code>UPDATE</code> só traz a <strong>chave</strong> (a documentação do Debezium). O tópico se chama <code>topic.prefix.schema.tabela</code>: na loja, <code>loja.public.pedidos</code>.</li>
+  <li><strong>O outbox.</strong> Para o <code>pedidos</code> avisar o mundo sem escrita dupla, ele grava a tabela <code>pedidos</code> e uma tabela <code>outbox</code> na <strong>mesma transação</strong>, e o CDC publica o que entra no <code>outbox</code>. Ou as duas linhas existem, ou nenhuma.</li>
+</ol>
+
+<h3 class="sec">E se der errado (a): a escrita dupla</h3>
+
+<p>O <code>pedidos</code> grava o 1055 às 20:10:00.000, e às 20:10:00.004 o serviço cai <strong>antes de publicar</strong> o <code>PedidoCriado</code>. O pedido existe no banco, ninguém baixa o estoque, e o <code>estoque</code> da caneca fica em <strong>37</strong>, quando deveria ser <strong>36</strong>. Gravar no banco e publicar no Kafka são duas escritas em dois lugares, e a falha pode cair entre elas. Com outbox e CDC, a gravação do 1055 e a linha do <code>outbox</code> estão na mesma transação, e o evento sai do log: se o banco confirmou, o evento existe.</p>
+
+<h3 class="sec">E se der errado (b): o slot esquecido</h3>
+
+<p>O slot de replicação segura o log até alguém o ler. Se o Debezium para e ninguém desliga o slot, o PostgreSQL <strong>guarda tudo</strong>. Medido com 20.000 pedidos (cada um com 1 <code>INSERT</code>, 1 <code>UPDATE</code> e 1 <code>COMMIT</code> numa tabela simples com chave primária): <strong>6.709.592 bytes de WAL, 335 por pedido</strong>. A 30 pedidos por segundo, são <strong>10 KB/s</strong>, ou <strong>36 MB/h</strong>. Com 1 KB por pedido (itens e índices, exemplo), <strong>108 MB/h</strong>. No <code>pg_replication_slots</code> o slot sem consumidor mostrou <code>wal_status = reserved</code> e <strong>6.552 kB retidos</strong> depois dessa carga.</p>
+
+<p>Com 60 GB livres (módulo 16) e 108 MB/h, o disco acaba em 60.000 ÷ 108 = <strong>555 h, cerca de 23 dias</strong>. O slot esquecido é um problema <strong>lento</strong>, não um incêndio, e por isso passa despercebido. A defesa é monitorar <code>pg_replication_slots</code> (<code>wal_status</code> e os bytes retidos) e limitar o estrago com <code>max_slot_wal_keep_size</code>, que por padrão vale <code>-1</code>, ilimitado. A documentação do Debezium tem uma seção "WAL disk space consumption" sobre isso.</p>
+
+<WhyItMatters>
+  <li><strong>O log já tem tudo.</strong> O CDC por log não perde o <code>UPDATE</code> intermediário nem o <code>DELETE</code>, que o polling perde.</li>
+  <li><strong>A aplicação não muda.</strong> O Debezium lê o log do banco e publica em <code>loja.public.pedidos</code>.</li>
+  <li><strong>O outbox fecha a escrita dupla.</strong> O pedido e o aviso nascem na mesma transação, e o estoque da caneca vai a 36.</li>
+  <li><strong>O slot tem um custo escondido.</strong> 108 MB/h enchem 60 GB em 23 dias se ninguém consumir.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas do WAL, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Conta</th><th>Valores</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>WAL por pedido (medido)</th><td>6.709.592 B ÷ 20.000</td><td>335 B</td></tr>
+      <tr><th>Taxa de WAL</th><td>335 B × 30 pedidos/s</td><td>~10 KB/s, 36 MB/h</td></tr>
+      <tr><th>Com 1 KB por pedido (exemplo)</th><td>1 KB × 30 × 3.600 s</td><td>108 MB/h</td></tr>
+      <tr><th>Tempo para encher 60 GB</th><td>60.000 MB ÷ 108 MB/h</td><td>555 h ≈ 23 dias</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: CDC "em tempo real"</h4>
+  <ul>
+    <li><strong>Técnicas diferentes tratadas como uma.</strong> O CDC por <strong>log</strong> tem latência de milissegundos a segundos, mas o CDC por <strong>consulta periódica</strong> perde mudanças intermediárias e <strong>deleções</strong>. O artigo as trata como uma só. Faltam <code>REPLICA IDENTITY</code>, o <strong>slot</strong> (e o risco de encher o disco) e o <strong>outbox</strong>.</li>
+    <li><strong>Aviso do lab do autor.</strong> A pasta <code>exemplos/cqrs/hospital-cqrs-cdc</code> é o laboratório do módulo 18; aqui entra só o conector. O laboratório com a tabela <code>pedidos_cdc</code> e o <code>test_decoding</code> é do SDLabs, rodado no PostgreSQL 14.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: test_decoding", href: "https://www.postgresql.org/docs/current/test-decoding.html" },
+    { label: "PostgreSQL: Replication (max_slot_wal_keep_size, synchronous_standby_names)", href: "https://www.postgresql.org/docs/current/runtime-config-replication.html" },
+    { label: "Debezium: conector do PostgreSQL", href: "https://debezium.io/documentation/reference/stable/connectors/postgresql.html" },
+    { label: "Repositório público do autor: exemplos/cqrs/hospital-cqrs-cdc", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-cdc" },
+    { label: "microservices.io: Transactional Outbox", href: "https://microservices.io/patterns/data/transactional-outbox.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora copia dado entre serviços lendo o log, sem mexer na aplicação, e fecha a escrita dupla com o outbox. Tudo isso supõe <strong>um</strong> dono por dado. Falta saber o que fazer quando <strong>dois primários</strong> aceitam escrita e as cópias <strong>precisam</strong> convergir sem ninguém decidir: é o trabalho dos CRDTs.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três jeitos de fazer CDC?",
+    a: "Gatilho (trigger), consulta periódica (polling) e leitura do log. O polling a cada 5 s junta o INSERT criado e o UPDATE pago do 1055 num só pago, e o DELETE some; o log vê tudo." },
+  { q: "O que o REPLICA IDENTITY muda no registro do log?",
+    a: "Com DEFAULT, o UPDATE traz só o valor novo e o DELETE só a chave. Com FULL, o UPDATE traz old-key (a linha antiga inteira) e o DELETE traz a linha inteira." },
+  { q: "O que o conector Debezium do autor configura?",
+    a: "pgoutput, o slot hospital_cdc_slot, snapshot.mode initial, publication.autocreate.mode filtered, o topic.prefix e o transform ExtractNewRecordState (unwrap) com delete.handling.mode rewrite." },
+  { q: "Como o outbox evita a escrita dupla?",
+    a: "O pedidos grava pedidos e outbox na mesma transação e o CDC publica o outbox. Se o serviço cai às 20:10:00.004, ou as duas linhas existem ou nenhuma: o estoque não fica em 37." },
+  { q: "Por que o slot esquecido é perigoso e como se defende?",
+    a: "Retém o WAL sem consumidor: 335 B por pedido, 108 MB/h a 1 KB, 60 GB em ~23 dias. Monitore pg_replication_slots (wal_status) e limite com max_slot_wal_keep_size (padrão -1, ilimitado)." },
+]} />

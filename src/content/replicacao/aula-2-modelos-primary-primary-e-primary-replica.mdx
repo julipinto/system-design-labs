@@ -1,0 +1,137 @@
+---
+title: "Modelos: Primary/Replica e Primary/Primary"
+order: 2
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import CodeLab from '../../components/CodeLab.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+import replicacaoLab from '../../lab-code/replicacao/replicacao-lab.sh?raw';
+
+<p class="ponte">Na aula passada a loja decidiu ter o banco do <code>pedidos</code> em SP, no Rio e em Recife. Falta decidir <strong>quem recebe as escritas</strong>. Se só um site escreve, o desenho é simples e esse site é o ponto único de falha. Se todos escrevem, nenhum é ponto único, mas dois sites podem mudar o mesmo dado ao mesmo tempo.</p>
+
+<OneLiner>Com <strong>um escritor</strong> (Primary/Replica) tudo é simples e o primário é o ponto de falha até alguém ser eleito. Com <strong>vários escritores</strong> (Primary/Primary) não há ponto único, e os escritores <strong>brigam</strong>: ids repetidos, o mesmo registro escrito por dois e o estoque que desce abaixo de zero.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Queda</strong>, avance: o primário de SP cai o primário de SP com 30 pedidos por segundo chegando na Black Friday e conte os pedidos perdidos: <strong>9</strong> se o Rio for promovido, <strong>24</strong> se fosse Recife. Avance até o fim e veja a linha do tempo passar de 1 para 2. Depois aperte <strong>Primary/Primary</strong> e veja SP e Recife escreverem o endereço da Lena ao mesmo tempo.</p>
+</DoIt>
+
+<Figure3D path="labs/replicacao/replicas-3d/?mode=queda" poster="labs/replicacao/replicas-3d-previa.webp" title="Figura interativa: A queda do primário" alt="Prévia da figura 3D: A queda do primário" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Primary/Replica.</strong> Um nó, o <strong>primário</strong>, recebe todas as escritas e as repassa às <strong>réplicas</strong>, que só leem. Como as leituras se espalham pelas réplicas, a loja ganha capacidade de leitura sem mudar nada nas escritas. O custo é que o primário é o <strong>ponto único de falha</strong> enquanto nenhuma réplica for promovida.</li>
+  <li><strong>O laboratório.</strong> O SDLabs sobe três instâncias de PostgreSQL 14 na mesma máquina, em três portas: <code>55432</code> é o primário "SP", <code>55433</code> é o "Rio" e <code>55434</code> é o "Recife". Os comandos abaixo foram rodados em 20/10/2026. O <code>trust</code> serve só ao laboratório: produção usa senha e TLS.</li>
+</ol>
+</HowItWorks>
+
+<CodeLab code={replicacaoLab} />
+
+<ol class="flow steps">
+  <li>O <code>pg_basebackup</code> (linha 9) copia o primário inteiro para o diretório <code>rio</code>. O <code>-R</code> cria o arquivo <code>standby.signal</code> e a configuração <code>primary_conninfo</code>, que diz de onde buscar o log. O <code>-C -S slot_rio</code> cria um slot de replicação, para o primário não jogar fora o log que o Rio ainda não leu.</li>
+  <li>Com <code>wal_level = replica</code>, o padrão, a replicação em streaming já funciona. O <code>wal_level = logical</code> da linha 4 serve à decodificação lógica da aula 5 e exige reiniciar o primário.</li>
+  <li>A réplica só lê. Um <code>INSERT INTO pedidos …</code> na porta 55433 devolve <code>ERROR: cannot execute INSERT in a read-only transaction</code>; <code>SHOW transaction_read_only</code> responde <code>on</code> e <code>pg_is_in_recovery()</code> responde <code>t</code>.</li>
+  <li>No primário, <code>pg_stat_replication</code> (linha 15) mostra uma linha por réplica. Saída real, em que só os LSN mudam a cada execução:</li>
+</ol>
+
+<pre><code>{String.raw`application_name | recife              application_name | rio
+state            | streaming           state            | streaming
+sync_state       | async               sync_state       | async
+sent_lsn         | 0/8000000           sent_lsn         | 0/8000000
+write_lsn        | 0/8000000           write_lsn        | 0/8000000
+flush_lsn        | 0/8000000           flush_lsn        | 0/8000000
+replay_lsn       | 0/8000000           replay_lsn       | 0/8000000
+write_lag        | 00:00:00.100378     write_lag        | 00:00:00.024312`}</code></pre>
+
+<p><code>write_lag</code>, <code>flush_lag</code> e <code>replay_lag</code> são o atraso até a réplica <strong>escrever</strong>, <strong>gravar em disco</strong> e <strong>aplicar</strong> o log. Esses 100 ms e 24 ms vêm do laboratório, sem rede; os 15 e 60 ms da loja num dia comum são o exemplo da aula.</p>
+
+<h3 class="sec">Quando o primário cai</h3>
+
+<ol class="flow steps">
+  <li><strong>Promover.</strong> Para o primário com <code>pg_ctl -m immediate stop</code> e roda <code>pg_ctl -D rio promote</code> na réplica do Rio. <code>pg_is_in_recovery()</code> passa a <code>f</code> e a <strong>linha do tempo</strong> (timeline) vai de 1 para <strong>2</strong>: o <code>pg_controldata</code> mostra <code>Latest checkpoint's TimeLineID: 2</code>. O primário antigo só volta como réplica depois de um <code>pg_rewind</code>.</li>
+  <li><strong>Quem vira líder.</strong> A réplica <strong>mais à frente no log</strong>. Na Black Friday o Rio está 300 ms atrás e Recife 800 ms, então o Rio vence. No Raft a regra é a mesma: o voto só vai para quem tem o log igual ou mais atualizado, e o tempo de espera da eleição é sorteado entre <strong>150 e 300 ms</strong> para os candidatos não empatarem. A escolha precisa de <strong>quórum</strong>: 2 de 3 nós.</li>
+  <li><strong>Quanto tempo sem primário (RTO).</strong> O Patroni, que automatiza a promoção, usa por padrão <code>ttl: 30</code> segundos (o líder precisa renovar uma chave; é o tempo até começar o failover). Somando uns 5 s para promover e reconectar, são <strong>35 s</strong>. A 30 pedidos por segundo, <strong>30 × 35 = 1.050</strong> tentativas de compra sem primário.</li>
+  <li><strong>Quanto dado se perde (RPO).</strong> Com replicação assíncrona se perde o que a réplica promovida ainda não tinha: taxa × atraso. Na Black Friday, 30 × 0,3 = <strong>9 pedidos</strong> se o Rio for promovido e 30 × 0,8 = <strong>24</strong> se fosse Recife. Num dia comum, 5 pedidos por segundo × 0,06 s = cerca de <strong>0,3</strong>: praticamente zero.</li>
+</ol>
+
+<Widget name="failover" title="Failover: RTO, tentativas e líder" hint="Mude o ttl (10 a 60 s), o tempo de promoção (1 a 30 s) e a taxa de pedidos. O widget mostra o RTO (35 s), as tentativas sem primário (1.050), quem vira líder (a de menor atraso) e o quórum de 2 em 3." />
+
+<h3 class="sec">Primary/Primary: dois donos</h3>
+
+<ol class="flow steps">
+  <li><strong>O que muda.</strong> SP e Recife aceitam escrita, e cada um repassa ao outro. Não existe um ponto único de falha, mas existe <strong>conflito</strong>, e há três jeitos de ele aparecer na loja.</li>
+  <li><strong>Ids que colidem.</strong> Os dois sites criam um pedido "novo" sem se falar e dão o mesmo número, o <strong>1056</strong> (a colisão é hipotética: o número 1056 não é um pedido da história). A chave primária bate. Saídas: faixas intercaladas (SP usa os ímpares, Recife os pares) ou ids que não precisam de coordenação, como UUID e ULID.</li>
+  <li><strong>O mesmo registro.</strong> O endereço da Lena é escrito ao mesmo tempo em SP, pelo atendente ("Rua do Sol, 200", carimbo <strong>20:20:00.100</strong>), e em Recife, por ela no app ("Rua da Aurora, 100", escrito de verdade às 20:20:00.150). O relógio de Recife está <strong>120 ms atrasado</strong> e carimba 20:20:00.<strong>030</strong>. A regra <em>last write wins</em> (LWW, o último carimbo vence) escolhe SP, embora o mais recente de verdade seja o de Recife: LWW <strong>depende de relógio</strong> e perde uma escrita. Um <strong>vetor de versão</strong> (<code>{"{SP:2, Rec:0}"}</code> contra <code>{"{SP:1, Rec:1}"}</code>) vê que nenhum dos dois vetores domina o outro: as escritas são <strong>concorrentes</strong>, e a aplicação decide.</li>
+  <li><strong>O estoque.</strong> Se o estoque da caneca tem 1 unidade e SP vende 1 enquanto Recife vende 1, cada site vê 0, e ao juntar sobra <strong>−1</strong>. É a corrida do módulo 11 com um oceano no meio, e a aula 6 volta a ela.</li>
+</ol>
+
+<Widget name="conflito" title="Conflito: relógio e versão" hint="Duas escritas do endereço da Lena. Mude o desvio do relógio de Recife (−500 a +500 ms) e escolha a política (LWW ou vetor de versão). O widget mostra quem ganha e se o vetor detecta que as escritas foram concorrentes." />
+
+<p>Com a rede entre SP e Recife cortada, os dois modelos escolhem lados diferentes do CAP (módulo 3). O Primary/Replica <strong>recusa</strong> a escrita em Recife (consistente: CP para escrita), e a réplica de Recife continua lendo, com dado velho. O Primary/Primary <strong>aceita</strong> escrita nos dois lados (AP) e concilia depois. Sem partição, o PACELC do módulo 3 mostra o outro preço: assíncrona tem 2 ms de commit e leitura que pode ficar para trás, síncrona tem 82 ms e leitura em dia.</p>
+
+<h3 class="sec">E se der errado: split brain</h3>
+
+<p>O cabo de SP falha, mas o primário <strong>continua vivo</strong> e continua aceitando escritas dos clientes que ainda o alcançam. Do outro lado, o Rio foi promovido. Agora há <strong>duas verdades</strong>: dois primários, dois 1056 diferentes, a mesma caneca vendida duas vezes. Isso é o <em>split brain</em>.</p>
+
+<p>Há duas contenções. A primeira é o <strong>fencing</strong>: o Patroni derruba o líder que não renova a chave em 30 s, de modo que o primário isolado se desliga. A segunda é a <strong>replicação síncrona</strong>: sem confirmação de nenhuma réplica, o primário isolado <strong>trava</strong> no commit, em <code>wait_event = SyncRep</code>, como na aula 3, e deixa de aceitar pedido que nunca chegaria a ninguém.</p>
+
+<WhyItMatters>
+  <li><strong>Um escritor é simples.</strong> O custo é o primário como ponto único de falha, e a queda custa 35 s e 1.050 tentativas de compra.</li>
+  <li><strong>A promoção escolhe a réplica mais à frente.</strong> Na Black Friday, o Rio com 300 ms de atraso, não Recife com 800 ms.</li>
+  <li><strong>Vários escritores trocam o ponto de falha por conflito.</strong> O relógio de 120 ms atrasado faz o LWW perder o endereço certo.</li>
+  <li><strong>Dois primários vivos são o pior caso.</strong> Fencing e replicação síncrona existem para isso não acontecer.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">As contas, lado a lado</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Cenário</th><th>Conta</th><th>Resultado</th></tr></thead>
+    <tbody>
+      <tr><th>Perda, Rio promovido (Black Friday)</th><td>30 pedidos/s × 0,3 s</td><td>9 pedidos</td></tr>
+      <tr><th>Perda, Recife promovido</th><td>30 pedidos/s × 0,8 s</td><td>24 pedidos</td></tr>
+      <tr><th>Perda, dia comum</th><td>5 pedidos/s × 0,06 s</td><td>~0,3</td></tr>
+      <tr><th>RTO</th><td>30 s (ttl) + 5 s</td><td>35 s</td></tr>
+      <tr><th>Sem primário</th><td>30 pedidos/s × 35 s</td><td>1.050 tentativas</td></tr>
+      <tr><th>Quórum</th><td>3 nós, maioria</td><td>2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correções ao artigo-base: modelos</h4>
+  <ul>
+    <li><strong>Primary/Replica "garante a consistência em todas as réplicas".</strong> O artigo diz que o primário é responsável por garantir a consistência dos dados em todas as réplicas. Na replicação assíncrona a réplica <strong>fica atrás</strong>: a consistência é eventual. E o primário é ponto único de falha só enquanto não houver <strong>eleição</strong> (promoção automática com quórum, como no Patroni e no Raft). O artigo diz que pode exigir "engenharia manual" e não cita fencing nem split brain.</li>
+    <li><strong>Primary/Primary "elimina o ponto único de falha".</strong> Troca esse problema por <strong>conflito de escrita</strong>. O artigo cita timestamps para resolver, mas <em>last write wins</em> perde escritas e depende de relógio (o 120 ms desta aula). As alternativas são o vetor de versão (detecta a concorrência), os CRDTs da aula 6 ou <strong>evitar</strong> o conflito dando a cada registro um só dono, que é sharding.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre replicação de dados (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: Log-Shipping Standby Servers (streaming, promoção, pg_basebackup)", href: "https://www.postgresql.org/docs/current/warm-standby.html" },
+    { label: "PostgreSQL: Hot Standby (a réplica só lê)", href: "https://www.postgresql.org/docs/current/hot-standby.html" },
+    { label: "PostgreSQL: pg_rewind", href: "https://www.postgresql.org/docs/current/app-pgrewind.html" },
+    { label: "Patroni: configuração dinâmica (ttl, loop_wait, retry_timeout)", href: "https://patroni.readthedocs.io/en/latest/dynamic_configuration.html" },
+    { label: "Ongaro e Ousterhout: In Search of an Understandable Consensus Algorithm (Raft)", href: "https://raft.github.io/raft.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja agora sabe quem escreve e o que fazer quando o primário cai. Falta saber <strong>quando exatamente o primário diz "pronto" para a Lena</strong>: antes de a réplica ter o dado, ou depois? A resposta decide quanto a loja perde e quanto a Lena espera.</p>
+
+<Flashcards cards={[
+  { q: "O que a réplica faz com um INSERT?",
+    a: "Recusa: ERROR: cannot execute INSERT in a read-only transaction. SHOW transaction_read_only dá on e pg_is_in_recovery() dá t." },
+  { q: "O que acontece com a linha do tempo ao promover o Rio?",
+    a: "Passa de 1 para 2 (Latest checkpoint's TimeLineID: 2 no pg_controldata). O primário antigo só volta como réplica depois de um pg_rewind." },
+  { q: "Quem vira líder, e por quê?",
+    a: "A réplica mais à frente no log: o Rio (300 ms de atraso) vence Recife (800 ms). No Raft o voto só vai para quem tem o log igual ou mais atualizado, com espera sorteada entre 150 e 300 ms, e o quórum é 2 de 3." },
+  { q: "Quanto custa a queda do primário na Black Friday?",
+    a: "RTO de 35 s (ttl 30 s + 5 s): 30 × 35 = 1.050 tentativas sem primário. Perda de 9 pedidos (Rio) ou 24 (Recife) com assíncrona." },
+  { q: "Por que o LWW escolheu o endereço de SP?",
+    a: "O relógio de Recife estava 120 ms atrasado: o carimbo de Recife (20:20:00.030) perdeu para o de SP (.100), embora a escrita de Recife tenha sido a última (.150). O vetor de versão detecta a concorrência." },
+  { q: "O que é split brain e como se contém?",
+    a: "Dois primários vivos aceitando escrita. Contenção: fencing (o Patroni derruba o líder que não renova a chave em 30 s) e replicação síncrona (o primário isolado trava em SyncRep)." },
+]} />

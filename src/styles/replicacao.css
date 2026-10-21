@@ -1,0 +1,16 @@
+/* SDLabs · Replicação de Dados: o que só este módulo usa (tabelas e linhas dos widgets de commit, "meus pedidos", failover, conflito, ECST, CRDT e quórum). Peças comuns em widgets.css */
+.sdl-content table.sr-table.rp-table{min-width:0}
+.sdl-content table.rp-table th,.sdl-content table.rp-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.rp-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.rp-table td.rp-cell{font:700 14px var(--mono)}
+.sdl-content table.rp-table td.rp-cell.bad{color:var(--bad)}
+.sdl-content tr.rp-cur th,.sdl-content tr.rp-cur td{background:var(--accent-wash)}
+.sdl-content tr.rp-bad td,.sdl-content tr.rp-bad th{color:var(--bad)}
+.sdl-content .rp-out{margin-top:var(--s-3)}
+.sdl-content .rp-site{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;margin:var(--s-2) 0}
+.sdl-content .rp-site .btn{min-height:44px}
+.sdl-content .rp-state{font:600 14px/1.4 var(--mono);overflow-wrap:anywhere}
+.sdl-content .rp-queue{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:var(--s-2) 0;padding:0;list-style:none}
+.sdl-content .rp-queue li{padding:6px 10px;border:var(--hair) solid var(--line);border-radius:var(--r-2);font:600 14px var(--mono)}
+.sdl-content .rp-queue li.on{border-color:var(--accent-ink);color:var(--accent-ink)}
+.sdl-content .sr-ctl[hidden]{display:none}
