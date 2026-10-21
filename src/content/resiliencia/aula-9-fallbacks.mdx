@@ -1,0 +1,93 @@
+---
+title: "Fallbacks"
+order: 9
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o disjuntor do PSP-A abriu e o <code>pagamentos</code> passou a responder na hora que não ia chamar. Mas a Lena ainda quer pagar. O disjuntor só <strong>decide parar</strong>; quem oferece outro caminho é o <em>fallback</em>.</p>
+
+<OneLiner>O <strong><em>fallback</em></strong> é o caminho alternativo para o <strong>mesmo objetivo</strong>, e sempre sacrifica algo: custo, precisão ou consistência. Um fallback que ninguém usa tem defeito escondido.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Fallback</strong>, abra o breaker do PSP-A e acompanhe o pedido <strong>1058</strong> do Caio indo para o <strong>PSP-B</strong>. Depois ative o <strong>1% proativo</strong> e veja as chamadas de aquecimento.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=fallback" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Fallback" alt="Prévia da figura 3D: Fallback" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Reativo: o PSP-B.</strong> Quando o PSP-A falha, o <code>pagamentos</code> manda a cobrança ao PSP-B (p50 de 300 ms, contra 180 ms do A). Foi o desenho do módulo 12.</li>
+  <li><strong>Valor de reserva.</strong> A cotação de frete da transportadora cai para o <strong>frete de tabela</strong> quando falha: Recife <strong>15,00</strong>, SP <strong>9,00</strong>, Rio <strong>12,00</strong>. O 1058 do Caio paga os 12,00 do Rio.</li>
+  <li><strong>Snapshot e fila.</strong> Um <em>snapshot</em> (o limite de crédito do último valor conhecido) responde quando o serviço está fora. Um <strong>fluxo assíncrono</strong> manda o e-mail para uma fila e entrega depois.</li>
+  <li><strong>Contratual.</strong> O segundo parceiro de cotação custa mais: A a <strong>R$ 0,03</strong> e B a <strong>R$ 0,10</strong> por consulta (os números do artigo). Em 10 min a 30/s são 18.000 consultas: <strong>R$ 540</strong> contra <strong>R$ 1.800</strong>, um custo extra de <strong>R$ 1.260</strong>.</li>
+  <li><strong>Proativo.</strong> Manda <strong>1%</strong> do tráfego ao fallback o tempo todo: 30 × 1% = <strong>0,3/s = 18 por minuto</strong>. Assim se descobre antes do incidente se ele funciona.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O fio 3: <code>"recomendado": []</code></h3>
+
+<p>No módulo 9 o <code>bff-app</code> respondeu sem recomendações em 100 ms. Aquilo era um fallback: o objetivo (mostrar a página) foi cumprido com menos conteúdo. Agora o fallback do <code>pagamentos</code> faz o mesmo para o pagamento, só que o sacrifício aqui é dinheiro (o PSP-B é mais lento) e não conteúdo.</p>
+
+<h3 class="sec">Por que o proativo vale a pena</h3>
+
+<p>A AWS avisa que fallback <strong>raramente exercitado</strong> tem defeito latente: o código que só roda na falha é o que menos foi testado. A empresa prefere "caminhos de código exercitados continuamente". Mandar 1% do tráfego ao PSP-B custa 18 chamadas por minuto, e o preço compra a certeza de que a credencial não venceu.</p>
+
+<h3 class="sec">E se der errado: três fallbacks que pioram a falha</h3>
+
+<p>O primeiro é o <strong>fallback quebrado que ninguém testou</strong>: o PSP-B com credencial vencida só se descobre às 20:20, com 100% do tráfego em cima dele. O segundo é o <strong>fallback que derruba o fallback</strong>: todo o tráfego cai no PSP-B, que tem capacidade menor, e o PSP-B cai também. Limite o fallback com um breaker próprio e uma fila. O terceiro é o <strong>fallback inconsistente</strong>: o <em>snapshot</em> de limite de crédito aprova além do limite real. Isso é decisão de negócio, e precisa estar registrada.</p>
+
+<Widget name="fallback" title="Custo do fallback" hint="Custo por consulta dos parceiros A e B, consultas por segundo, duração e % de tráfego proativo. Mostra o custo extra (+R$ 1.260) e as chamadas proativas (18 por minuto)." />
+
+<WhyItMatters>
+  <li><strong>Todo fallback sacrifica algo.</strong> O PSP-B é 120 ms mais lento, o parceiro B custa R$ 1.260 a mais em 10 min e o frete de tabela pode não ser o preço real.</li>
+  <li><strong>Fallback que não roda apodrece.</strong> O proativo de 1% é o teste contínuo.</li>
+  <li><strong>O fallback também precisa de limite.</strong> Senão a falha do primário vira a falha do segundo.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os cinco tipos do artigo</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Tipo</th><th>Na loja</th><th>O que sacrifica</th></tr></thead>
+    <tbody>
+      <tr><th>sistêmico (redundância)</th><td>PSP-B quando o A falha</td><td>latência e custo</td></tr>
+      <tr><th>com <em>snapshot</em></th><td>limite de crédito do último valor conhecido</td><td>consistência</td></tr>
+      <tr><th>assíncrono</th><td>e-mail vai para a fila</td><td>imediatismo</td></tr>
+      <tr><th>contratual</th><td>parceiro de cotação B (R$ 0,10)</td><td>custo</td></tr>
+      <tr><th>proativo</th><td>1% do tráfego no PSP-B</td><td>um pouco do tráfego em um caminho mais lento</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o lado que ele não vê</h4>
+  <ul>
+    <li><strong>O fallback proativo é correto e útil.</strong> A mesma AWS que o inspira alerta que fallback raramente usado tem defeito latente e pode <strong>piorar</strong> a falha. O artigo só mostra o lado bom.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Avoiding fallback in distributed systems", href: "https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja tem um segundo PSP e um frete de reserva. Falta saber o que fazer quando não existe um fallback bom, e a saída é desligar de propósito o que não é essencial.</p>
+
+<Flashcards cards={[
+  { q: "O que é um fallback?",
+    a: "Um caminho alternativo para o mesmo objetivo, que sacrifica algo: custo, precisão ou consistência." },
+  { q: "Qual é o frete de tabela?",
+    a: "O valor de reserva se a cotação da transportadora falha: Recife 15,00, SP 9,00 e Rio 12,00." },
+  { q: "Quanto custa a mais o parceiro B em 10 minutos?",
+    a: "18.000 consultas: R$ 540 (A a R$ 0,03) contra R$ 1.800 (B a R$ 0,10), um custo extra de R$ 1.260." },
+  { q: "O que é o fallback proativo e quanto trafega?",
+    a: "Mandar 1% ao fallback o tempo todo: 30 × 1% = 0,3/s, ou 18 por minuto no PSP-B. Mostra se ele funciona antes da hora." },
+  { q: "Como um fallback pode piorar a falha?",
+    a: "Se ninguém o testou, está quebrado (credencial vencida). Se recebe 100% do tráfego, derruba o PSP-B de menor capacidade." },
+]} />

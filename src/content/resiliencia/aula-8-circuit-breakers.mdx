@@ -1,0 +1,112 @@
+---
+title: "Circuit breakers"
+order: 8
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o retry tinha freio, mas ainda acreditava que o PSP-A ia voltar. Ele fica 90 s em 8 s e, enquanto isso, cada chamada gasta uma conexão e um timeout inteiro para falhar. Quem tem de decidir <strong>parar de chamar</strong> é um disjuntor.</p>
+
+<OneLiner>O <strong><em>circuit breaker</em></strong> <strong>para de chamar</strong> uma dependência que está falhando, <strong>falha rápido</strong> e a testa de vez em quando para saber se voltou.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Breaker</strong>, deixe o PSP-A em <strong>8 s</strong> e leia a linha do tempo: abre em <strong>1,3 s</strong>, sondas em 31,3 e 62,47 s, fecha em <strong>93,91 s</strong>. Compare as chamadas ao PSP: <strong>237</strong> contra 3.000 sem o breaker.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=breaker" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Circuit breaker" alt="Prévia da figura 3D: Circuit breaker" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Fechado.</strong> A chamada passa e o disjuntor conta o resultado numa janela. Aqui a janela é de <strong>20</strong> chamadas e o mínimo para decidir é <strong>10</strong>.</li>
+  <li><strong>Abre.</strong> Com <strong>50% ou mais</strong> de falhas, o disjuntor abre. Chamada <strong>lenta</strong> (mais de 1 s) conta como falha. Aberto, nada passa por <strong>30 s</strong>: a resposta vem na hora, é a falha rápida (<em>fast fail</em>).</li>
+  <li><strong>Meio-aberto.</strong> Depois de 30 s ele deixa passar <strong>5 sondas</strong>. Se as sondas voltam bem, fecha. Se falham, abre de novo por mais 30 s.</li>
+  <li><strong>Um por dependência.</strong> O PSP-A e o PSP-B têm cada um o seu disjuntor. O estado do disjuntor do PSP-A é o que <strong>dispara o fallback</strong> para o PSP-B (aula 9).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A simulação da Black Friday</h3>
+
+<p>Trinta pedidos por segundo durante 100 s, o PSP-A em 8 s até <code>t = 90 s</code>, pool de 50 e timeout de 1 s:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Instante</th><th>O que acontece</th></tr></thead>
+  <tbody>
+    <tr><th>1,3 s</th><td>As 10 primeiras chamadas falham por timeout (entre 1,0 e 1,3 s). O disjuntor <strong>abre</strong>.</td></tr>
+    <tr><th>31,3 s</th><td>Meio-aberto. As 5 sondas falham.</td></tr>
+    <tr><th>32,43 s</th><td><strong>Reabre.</strong></td></tr>
+    <tr><th>62,47 → 63,6 s</th><td>De novo: meio-aberto, sondas falhando e reabre.</td></tr>
+    <tr><th>93,6 s</th><td>Meio-aberto. O PSP voltou em 90 s e as sondas passam.</td></tr>
+    <tr><th>93,91 s</th><td><strong>Fecha.</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Em 100 s o PSP-A recebeu <strong>237 chamadas</strong> (<strong>54</strong> até o disjuntor fechar e <strong>183</strong> depois) <strong>contra 3.000</strong> sem breaker, das quais 2.700 inúteis. As <strong>2.763</strong> restantes foram falhas rápidas. Sem breaker, com timeout de 1 s o pool chega a no máximo 31 em voo; com timeout de 2 s, <strong>484</strong> chamadas são recusadas pelo pool (pico de 50); com 8 s, <strong>2.260</strong>.</p>
+
+<h3 class="sec">Os padrões da biblioteca e a configuração da loja</h3>
+
+<p>O Resilience4j define os padrões <code>failureRateThreshold</code> de 50, <code>slidingWindowSize</code> de 100, <code>minimumNumberOfCalls</code> de 100, <code>waitDurationInOpenState</code> de 60 s, <code>permittedNumberOfCallsInHalfOpenState</code> de 10 e <code>slowCallDurationThreshold</code> de 60 s. O <code>pagamentos</code> usa uma janela bem menor (20, mínimo 10), aberto por 30 s, 5 sondas e lento = mais de 1 s, porque uma janela de 100 chamadas a 30/s só decide depois de 3,3 s de falha.</p>
+
+<h3 class="sec">E se der errado: três jeitos de o disjuntor não ajudar</h3>
+
+<p>O primeiro é <strong>contar só falha, não lentidão</strong>: o PSP responde em 8 s "com sucesso", o breaker nunca vê erro e nunca abre. Por isso chamada lenta conta como falha. O segundo é o <strong>timeout longo que atrasa o breaker</strong>: com timeout de 2 s ele só abre em 2,3 s e 11 chamadas ainda são recusadas pelo pool. O terceiro é a <strong>janela pequena demais</strong>, que abre por ruído: 5 chamadas, 2 falhas, 40%, e basta mais uma para abrir sem motivo.</p>
+
+<Widget name="breaker" title="Circuit breaker" hint="Janela, mínimo, limiar, tempo aberto, sondas e timeout. A linha do tempo mostra os estados; os números comparam com o cenário sem breaker (abre em 1,3 s; 237 × 3.000 chamadas)." />
+
+<WhyItMatters>
+  <li><strong>O disjuntor falha rápido.</strong> 2.763 chamadas voltam na hora em vez de segurar uma conexão por 1 s.</li>
+  <li><strong>O pool agradece.</strong> 237 chamadas ao PSP em vez de 3.000: o pool nunca passa de 31 em voo.</li>
+  <li><strong>Lento é falha.</strong> Um breaker que só conta erro não protege contra um PSP que demora.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os padrões do Resilience4j × a loja</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Parâmetro</th><th>Padrão</th><th><code>pagamentos</code></th></tr></thead>
+    <tbody>
+      <tr><th><code>failureRateThreshold</code></th><td>50</td><td>50</td></tr>
+      <tr><th><code>slidingWindowSize</code></th><td>100</td><td>20</td></tr>
+      <tr><th><code>minimumNumberOfCalls</code></th><td>100</td><td>10</td></tr>
+      <tr><th><code>waitDurationInOpenState</code></th><td>60 s</td><td>30 s</td></tr>
+      <tr><th><code>permittedNumberOfCallsInHalfOpenState</code></th><td>10</td><td>5</td></tr>
+      <tr><th><code>slowCallDurationThreshold</code></th><td>60 s</td><td>1 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o que conta como falha</h4>
+  <ul>
+    <li><strong>O artigo descreve os três estados.</strong> Faltam o que conta como falha (inclusive a chamada lenta), a janela e o mínimo de chamadas, as sondas do meio-aberto e o aviso de que cada dependência precisa do seu próprio breaker.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Martin Fowler: CircuitBreaker", href: "https://martinfowler.com/bliki/CircuitBreaker.html" },
+    { label: "Resilience4j: CircuitBreaker", href: "https://resilience4j.readme.io/docs/circuitbreaker" },
+    { label: "microservices.io: Circuit Breaker", href: "https://microservices.io/patterns/reliability/circuit-breaker.html" },
+    { label: "Microsoft: padrão Circuit Breaker", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o disjuntor aberto, o <code>pagamentos</code> responde na hora que não vai chamar o PSP-A. Falta saber o que a Lena vê nesse momento: um erro, ou um outro caminho para pagar.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os estados do circuit breaker?",
+    a: "Fechado (passa e conta), aberto (30 s: nada passa, falha rápida) e meio-aberto (5 sondas decidem)." },
+  { q: "Qual é a configuração do pagamentos?",
+    a: "Janela de 20, mínimo de 10 chamadas, abre com 50% de falhas ou chamadas lentas (mais de 1 s), aberto por 30 s, 5 sondas." },
+  { q: "Quantas chamadas o PSP-A recebe com e sem o breaker?",
+    a: "237 com o breaker (54 até fechar, 183 depois) e 3.000 sem (2.700 inúteis). Abre em 1,3 s e fecha em 93,91 s." },
+  { q: "Por que a chamada lenta tem de contar como falha?",
+    a: "Porque o PSP responde em 8 s com sucesso e o breaker nunca abriria. A lentidão esgota o pool igual a um erro." },
+  { q: "O timeout longo atrapalha o breaker?",
+    a: "Sim: com 2 s ele só abre em 2,3 s e 11 chamadas ainda são recusadas pelo pool." },
+]} />

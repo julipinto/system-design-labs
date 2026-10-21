@@ -1,0 +1,96 @@
+---
+title: "Blast radius"
+order: 3
+min: 9
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o incidente de 90 s queimou 20,8% do orçamento de erro. Mas o número não diz <strong>o que parou</strong>: foi a loja inteira ou só uma parte? É essa pergunta que dá o tamanho do estrago antes de ele acontecer, e o nome é <strong>blast radius</strong>, o raio de explosão.</p>
+
+<OneLiner>O <strong>raio de explosão</strong> é o tanto da loja que <strong>para</strong> quando um componente falha. Projetar é fazê-lo <strong>pequeno</strong> e <strong>conhecido</strong>: dá para dizer, antes do incidente, o que some.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Blast</strong>, derrube o <code>shard-2</code> e depois o <code>recomendacoes</code>. Compare a mancha: um apaga uma seção da tela, o outro apaga <strong>60% das linhas</strong> do banco, e repare que o <code>shard-2</code> é o que guarda o <code>mkt-01</code>.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/isolamento-3d/?mode=blast" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Figura interativa: O raio de explosão" alt="Prévia da figura 3D: O raio de explosão" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Pergunte "e se parar?".</strong> O artigo sugere quatro perguntas para cada componente: o que deixa de funcionar, o que funciona em parte, em quanto tempo volto e se gero inconsistência.</li>
+  <li><strong>Responda com a loja.</strong> A tabela abaixo aplica as quatro aos componentes que já existem: cada linha tem um raio diferente.</li>
+  <li><strong>Divida por N.</strong> Com N compartimentos iguais, cada um leva 1/N: <strong>33,3%</strong> para N = 3, <strong>10%</strong> para 10, <strong>1%</strong> para 100 e <strong>0,1%</strong> para 1.000.</li>
+  <li><strong>Confira a carga.</strong> A conta supõe que todos pesam igual. Com o <code>mkt-01</code> a 40% das linhas (módulo 16), o <code>shard-2</code> leva <strong>0,4 + 0,6 ÷ 3 = 60%</strong> das linhas e os outros dois, <strong>20%</strong> cada.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As quatro perguntas, aplicadas à loja</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Se parar…</th><th>O que acontece</th><th>Raio</th></tr></thead>
+  <tbody>
+    <tr><th><code>recomendacoes</code></th><td>Só a seção some (módulo 9: <code>"recomendado": []</code>).</td><td>uma seção da tela</td></tr>
+    <tr><th><code>pagamentos</code></th><td><strong>Todo</strong> checkout para; a navegação segue.</td><td>toda a receita</td></tr>
+    <tr><th><code>catalogo</code> (1 de 10 réplicas)</th><td>10% da capacidade, sem erro visível.</td><td>10% da capacidade</td></tr>
+    <tr><th><code>shard-2</code></th><td>Fora do ar para 1/3 dos clientes, mas é onde mora o <code>mkt-01</code>.</td><td>1/3 dos clientes, <strong>60% das linhas</strong></td></tr>
+    <tr><th>primário de SP</th><td>35 s sem escrita e 9 a 24 pedidos que a réplica não viu (aula 12).</td><td>toda a escrita, por 35 s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Duas respostas pedem mais atenção. O <code>catalogo</code> parece isolado, mas o mesmo serviço atende o <code>bff-app</code> e o <code>bff-web</code> (módulo 9): uma dependência escondida cuja queda apaga os dois canais de uma vez. E a linha do primário de SP é a única que gera <strong>inconsistência</strong>, a quarta pergunta.</p>
+
+<h3 class="sec">E se der errado: a conta que supõe carga igual</h3>
+
+<p>Três <em>shards</em> "dão 33%". Dão, se os clientes pesassem igual. Com o <code>mkt-01</code> concentrando 40% das linhas, derrubar o <code>shard-2</code> apaga 60% delas, para os mesmos 1/3 dos clientes. Um <em>shard</em> fora afeta <strong>1/3 dos clientes</strong>, mas <strong>20% ou 60% das linhas</strong>, dependendo de qual. O artigo supõe carga uniforme e a conta 1/N é só o melhor caso.</p>
+
+<p>O segundo jeito de errar é o <strong>raio compartilhado</strong>. Duas dependências que usam o mesmo pool de conexões estão no mesmo raio, mesmo que pareçam separadas no diagrama. A aula 13 mostra isso com o <code>pagamentos</code>.</p>
+
+<Widget name="blast" title="Raio de explosão por compartimento" hint="Escolha o número de compartimentos (3, 5, 10, 100, 1.000) e a distribuição da carga (uniforme ou com o mkt-01 a 40%). O widget mostra a % de clientes e de linhas afetadas." />
+
+<WhyItMatters>
+  <li><strong>O raio é uma decisão de projeto.</strong> Dá para listar, antes do incidente, o que cada queda apaga.</li>
+  <li><strong>1/N é o melhor caso.</strong> Com o <code>mkt-01</code> a 40%, o raio do <code>shard-2</code> passa de 33,3% para 60% das linhas.</li>
+  <li><strong>Dependência escondida soma raios.</strong> O <code>catalogo</code> compartilhado e o pool único de conexões põem tudo dentro do mesmo círculo.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Quanto custa cada compartimento a mais</h4>
+  <ul>
+    <li><strong>Mais compartimentos, raio menor, mais peças.</strong> De 3 para 100 <em>shards</em> o raio cai de 33,3% para 1%, mas é preciso rotear, migrar e operar 100 coisas. O ponto de equilíbrio depende do que o raio custa por minuto.</li>
+    <li><strong>Células.</strong> Isolar a loja por região, cada uma com a sua pilha completa, é o limite dessa ideia (módulo 26).</li>
+  </ul>
+  <h4 class="deep-h">Correção ao artigo-base: 1/N só com carga uniforme</h4>
+  <ul>
+    <li><strong>"Quanto mais compartimentos, menor o raio".</strong> Vale quando a carga é uniforme. O artigo não discute a carga desigual, e é ela que decide qual <em>shard</em> é perigoso.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o raio desenhado, a defesa mais simples é ter mais de uma cópia do que pode cair. Falta saber como as réplicas sabem quem está vivo, e o que acontece quando esse aviso erra.</p>
+
+<Flashcards cards={[
+  { q: "O que é o blast radius?",
+    a: "O tanto da loja que para quando um componente falha. Projetar é fazê-lo pequeno e conhecido." },
+  { q: "Quais são as quatro perguntas do artigo?",
+    a: "O que deixa de funcionar, o que funciona em parte, em quanto tempo volto e se gero inconsistência." },
+  { q: "Quanto vale 1/N para N = 3, 10, 100 e 1.000?",
+    a: "33,3%, 10%, 1% e 0,1%, com carga uniforme." },
+  { q: "Quanto das linhas some se o shard-2 cai?",
+    a: "60% (0,4 do mkt-01 + 0,6 ÷ 3), para 1/3 dos clientes. Os shards 0 e 1 levam 20% cada." },
+  { q: "Por que o pool único de conexões é um problema de raio?",
+    a: "Porque põe dependências diferentes no mesmo compartimento: quando uma esgota o pool, todas ficam de fora (aula 13)." },
+]} />

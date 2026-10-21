@@ -1,0 +1,83 @@
+---
+title: "Resiliência na camada de dados"
+order: 12
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o excesso ganhou limite e sinal. Mas todas as defesas até aqui protegem serviços, e serviço se reinicia. O <strong>dado</strong> não: o que o primário de SP perdeu, a réplica não tem. Falta ver como a camada de dados aguenta o dia em que o banco cai.</p>
+
+<OneLiner>O dado é a camada <strong>mais difícil</strong> de tornar resiliente. As ferramentas são <strong>cópias</strong>, <strong>separar leitura de escrita</strong> e um <strong>cache que sobrevive à origem</strong>, cada uma trocando um pouco de consistência por disponibilidade.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Dados</strong>, derrube o primário de SP e acompanhe os <strong>35 s</strong> até a promoção. Leia o <strong>RPO</strong>: 9 pedidos perdidos se a réplica for a do Rio, 24 se for a de Recife.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/isolamento-3d/?mode=dados" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Figura interativa: A camada de dados" alt="Prévia da figura 3D: A camada de dados" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Separar leitura e escrita.</strong> A leitura vai para as réplicas (módulo 17), e a queda de uma réplica de leitura é fallback trivial: manda-se para outra.</li>
+  <li><strong>A promoção.</strong> Se o primário de SP cai, uma réplica vira primária. O <strong>RTO</strong> (o tempo até voltar) é de <strong>35 s</strong>. Sem primário, a 30 pedidos/s são 30 × 35 = <strong>1.050</strong> tentativas de escrita sem lugar para ir.</li>
+  <li><strong>O que se perde.</strong> O <strong>RPO</strong> mede o dado que a réplica ainda não tinha: <strong>9</strong> pedidos se a promovida for a do Rio, <strong>24</strong> se for a de Recife, a 30/s (as réplicas assíncronas do módulo 17 ficam atrás do primário).</li>
+  <li><strong>O cache segura a origem.</strong> O catálogo, com TTL de 60 s (módulo 5), 80% de acerto e 640 req/s, manda só <strong>128 req/s</strong> ao banco: 640 × 20%.</li>
+  <li><strong>O cache sobrevive à origem.</strong> Com <code>stale-if-error</code> (RFC 5861) o cache <strong>serve o velho</strong> por um prazo quando a origem falha. A CDN, com <code>max-age</code> (módulo 5), também segura a origem fora.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Resiliência × consistência</h3>
+
+<p>Servir o preço de 79,90 "velho" por 10 min é aceitável <strong>porque o comando do pedido revalida o preço vigente</strong> (módulo 18). A leitura pode estar atrasada; o dinheiro, não. Um <em>snapshot</em> de dado para fallback (aula 9) segue a mesma regra: decide-se de antemão quanto atraso é tolerável, e onde o dado atrasado nunca é aceito.</p>
+
+<h3 class="sec">E se der errado: o cache que esfria junto com o banco</h3>
+
+<p>O banco cai por 5 min. As chaves do catálogo têm TTL de 60 s: expiram e o acerto despenca. Quando o banco volta, <strong>todas as chaves expiraram juntas</strong> e os <strong>640 req/s</strong> caem na origem de uma vez, em vez dos 128 de sempre. É o <strong>estouro de cache</strong> (<em>cache stampede</em>): um pico que o banco, recém-promovido, não aguenta, e que o derruba de novo. O conserto está em duas partes: TTL com <strong>jitter</strong> (cada chave expira num instante diferente) e <code>stale-while-revalidate</code> (servir o velho enquanto uma única requisição busca o novo).</p>
+
+<WhyItMatters>
+  <li><strong>Banco não reinicia.</strong> RTO de 35 s e RPO de 9 a 24 pedidos são o preço que a loja aceita, e precisam estar escritos.</li>
+  <li><strong>O cache é um escudo.</strong> De 640 req/s sobram 128 na origem, e com <code>stale-if-error</code> ele continua servindo mesmo com o banco fora.</li>
+  <li><strong>O mesmo TTL em tudo é uma bomba.</strong> Chaves que expiram juntas voltam juntas.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os números da camada de dados</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Medida</th><th>Valor</th><th>Origem</th></tr></thead>
+    <tbody>
+      <tr><th>RTO da promoção</th><td>35 s</td><td>módulo 17</td></tr>
+      <tr><th>RPO (Rio · Recife)</th><td>9 · 24 pedidos a 30/s</td><td>módulo 17</td></tr>
+      <tr><th>tentativas sem primário</th><td>1.050 (30 × 35)</td><td>conta desta aula</td></tr>
+      <tr><th>catálogo na origem</th><td>128 req/s (80% de acerto)</td><td>módulo 5</td></tr>
+      <tr><th>catálogo se o cache esfria</th><td>640 req/s</td><td>conta desta aula</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "RFC 5861: HTTP Cache-Control Extensions for Stale Content", href: "https://www.rfc-editor.org/rfc/rfc5861" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">O dado agora tem cópias e um cache que aguenta a origem fora. Mas e se o dado ruim for só de uma <strong>fatia</strong> de clientes? Falta saber como isolar a fatia para ela não derrubar os outros.</p>
+
+<Flashcards cards={[
+  { q: "Qual é o RTO e o RPO da promoção do primário de SP?",
+    a: "RTO de 35 s. RPO de 9 pedidos (réplica do Rio) ou 24 (Recife), a 30 pedidos/s." },
+  { q: "Quantas tentativas de escrita ficam sem primário?",
+    a: "30 × 35 = 1.050." },
+  { q: "Quanto o catálogo manda à origem com 80% de acerto?",
+    a: "128 req/s de 640. Se o cache esfria, os 640 caem de uma vez." },
+  { q: "O que o stale-if-error faz?",
+    a: "Deixa o cache servir o conteúdo velho por um prazo quando a origem falha (RFC 5861)." },
+  { q: "Por que servir o preço velho é seguro?",
+    a: "Porque o comando do pedido revalida o preço vigente (módulo 18). A leitura atrasa; o dinheiro não." },
+]} />

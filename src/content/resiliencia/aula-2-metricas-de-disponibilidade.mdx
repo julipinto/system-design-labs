@@ -1,0 +1,94 @@
+---
+title: "Métricas de disponibilidade"
+order: 2
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o PSP-A ficou 90 segundos em 8 s e a loja ficou sem defesa. Agora o time quer um número para o incidente: "ficamos em quanto?". A resposta depende de <strong>o que se conta</strong>. O mesmo incidente dá 99,979% de um jeito e 99,9965% do outro.</p>
+
+<OneLiner>Disponibilidade se mede <strong>por uso</strong> (erros ÷ tentativas) ou <strong>por tempo</strong> (<em>uptime</em>), e os dois contam histórias diferentes. O número só serve com um <strong>limite de latência</strong> e com um <strong>orçamento de erro</strong> ao lado.</OneLiner>
+
+<DoIt>
+  <p>No widget abaixo, ponha <strong>4 saltos a 99,9%</strong> e leia 99,6006% (172,5 min por mês). Depois escolha <strong>"É o PSP-A a 99,5%"</strong> e ligue o <strong>PSP-B em paralelo</strong> e veja a cadeia subir de 99,2018% para 99,6978%.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Por uso.</strong> Divide os erros pelas tentativas. O artigo dá 40 erros em 1.000 requisições: <strong>4%</strong> de erro, <strong>96%</strong> de disponibilidade. Quem conta o que é "erro" decide o número (veja o fim da aula).</li>
+  <li><strong>Por tempo.</strong> Subtrai o <em>downtime</em> do período. Em 30 dias são <strong>43.200 min</strong>; com 180 min fora sobram <strong>43.020</strong>, ou <strong>99,58%</strong>.</li>
+  <li><strong>Os noves.</strong> 99% deixa <strong>432 min</strong> por mês fora do ar; 99,5%, 216; <strong>99,9%, 43,2 min (2.592 s)</strong>; 99,95%, 21,6; <strong>99,99%, 4,32 min (259 s)</strong>; 99,999%, <strong>25,9 s</strong>. Cada nove a mais divide o tempo de erro por dez.</li>
+  <li><strong>Série e paralelo.</strong> Em série a conta multiplica: 0,999³ = <strong>99,7003%</strong> (129,5 min) e 0,999⁴ = <strong>99,6006%</strong> (172,5 min). Em paralelo a falha só conta se <strong>todos</strong> caem: dois PSPs a 99,5% dão 1 − 0,005² = <strong>99,9975%</strong> (1,08 min, contra 216).</li>
+  <li><strong>Orçamento de erro.</strong> Um SLO de 99,9% por uso sobre 12.960.000 tentativas do mês (5 pedidos/s) permite 0,1% de falha: <strong>12.960</strong>. O incidente de 90 s queimou 2.700: <strong>20,8%</strong> do mês.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O mesmo incidente, dois números</h3>
+
+<p>Às 20:20 foram 30 pedidos/s por 90 s: <strong>2.700 tentativas</strong>, todas falhas. Por uso, o mês tem 12.960.000 tentativas e a disponibilidade cai para 1 − 2.700 ÷ 12.960.000 = <strong>99,979%</strong>. Por tempo, foram 90 s ou 1,5 min de 43.200, e o número é <strong>99,9965%</strong>. O número por tempo parece melhor porque conta o relógio e esquece que a Black Friday tem muito mais gente por segundo que a madrugada. Os dois estão certos; respondem a perguntas diferentes.</p>
+
+<p>Sem proteção o estrago cresce: o pool esgotado derruba o checkout inteiro e a tempestade de retries segura o <code>pagamentos</code> fora por mais tempo. Num exemplo de <strong>5 minutos</strong>, 30 × 300 = 9.000 falhas, <strong>69,4%</strong> do orçamento do mês queimado por um único incidente.</p>
+
+<h3 class="sec">Latência também é disponibilidade</h3>
+
+<p>Uma resposta que chega em 8 s com status <code>200</code> é sucesso para o servidor e falha para o cliente: ele já fechou o app. Por isso o SLI (o indicador) precisa de um limite, como "respondeu em até 1 s". Sem ele, a loja pode estar em 100% de sucesso por status enquanto ninguém consegue pagar. O <strong>SLO</strong> é a meta sobre esse indicador (99,9% das tentativas boas no mês) e o orçamento de erro é o que sobra dela.</p>
+
+<h3 class="sec">E se der errado: três jeitos de medir mal</h3>
+
+<p>O primeiro é <strong>contar só <code>5xx</code></strong>. O PSP lento gera <em>timeouts</em> do cliente que nunca viram status no servidor, e o número fica bonito. O segundo é a <strong>média que mente</strong>: 99,9% no mês pode esconder uma hora a 0% na Black Friday, porque o uso é concentrado e o mês é longo. O terceiro é usar <strong>série e paralelo com falhas dependentes</strong>: a conta de 99,9975% só vale se os dois PSPs falham de forma independente. Dois PSPs na mesma nuvem, com a mesma credencial, não são.</p>
+
+<Widget name="disponibilidade" title="Disponibilidade da cadeia" hint="Saltos em série (1 a 8), disponibilidade de cada um, o último salto como o PSP-A a 99,5%, o PSP-B em paralelo e o SLO. O widget mostra a % e os minutos por mês (172,5 × 130,5), a tabela de noves, o orçamento de erro (12.960) e o incidente de 90 s (20,8%)." />
+
+<WhyItMatters>
+  <li><strong>"Quanto ficou no ar" tem dois sentidos.</strong> Por uso conta pedidos; por tempo conta relógio. Diga qual dos dois ao falar o número.</li>
+  <li><strong>Série multiplica e paralelo protege.</strong> Quatro saltos a 99,9% ficam em 99,6006%; o PSP-B em paralelo recupera mais de 200 min por mês, desde que falhe de forma independente.</li>
+  <li><strong>O orçamento de erro vira decisão.</strong> Um incidente de 90 s gasta 20,8%; um de 5 min sem proteção gasta 69,4%. Dá para dizer quando parar de lançar e consertar.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A conta da cadeia da loja</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Cadeia</th><th>Disponibilidade</th><th>Fora por mês</th></tr></thead>
+    <tbody>
+      <tr><th><code>bff</code> × <code>pedidos</code> × <code>pagamentos</code> × PSP-A (99,9%, 99,9%, 99,9%, 99,5%)</th><td>99,2018%</td><td>344,8 min</td></tr>
+      <tr><th>a mesma, com o PSP-B em paralelo</th><td>99,6978%</td><td>130,5 min</td></tr>
+      <tr><th>3 serviços a 99,9% em série</th><td>99,7003%</td><td>129,5 min</td></tr>
+      <tr><th>4 serviços a 99,9% em série</th><td>99,6006%</td><td>172,5 min</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o que "erro" quer dizer e o que o <em>uptime</em> subtrai</h4>
+  <ul>
+    <li><strong>No <em>uptime</em> o artigo diz que o tempo de incidente "é desconsiderado no cálculo".</strong> A frase confunde: a fórmula <strong>subtrai</strong> o <em>downtime</em> do período (43.200 − 180 = 43.020, 99,58%).</li>
+    <li><strong>"Erros ÷ tentativas" sem dizer o que é erro.</strong> Falta incluir o <em>timeout</em> do cliente e a resposta lenta. Faltam ainda o SLO e o orçamento de erro, a tabela de noves, a disponibilidade em série e em paralelo, e a latência no SLI.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Google SRE book: Service Level Objectives", href: "https://sre.google/sre-book/service-level-objectives/" },
+    { label: "Google SRE workbook: Implementing SLOs", href: "https://sre.google/workbook/implementing-slos/" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora a loja sabe medir quanto perdeu. Falta saber quanto um componente que cai leva junto, e como projetar para que esse tanto seja pequeno e conhecido.</p>
+
+<Flashcards cards={[
+  { q: "Como se calcula a disponibilidade por uso?",
+    a: "1 − erros ÷ tentativas. Com 40 erros em 1.000: 4% de erro e 96% de disponibilidade." },
+  { q: "E por tempo?",
+    a: "Subtrai o downtime do período. 180 min em 43.200 dão 43.020 no ar: 99,58%." },
+  { q: "Quanto é 99,9% por mês?",
+    a: "43,2 min (2.592 s) fora do ar em 30 dias. 99,99% são 4,32 min e 99,999%, 25,9 s." },
+  { q: "Em série ou em paralelo, o que muda?",
+    a: "Em série multiplica (0,999⁴ = 99,6006%). Em paralelo só conta quando todos caem (dois PSPs a 99,5%: 99,9975%), se as falhas forem independentes." },
+  { q: "Quanto do orçamento de erro o incidente de 90 s queimou?",
+    a: "2.700 de 12.960 falhas permitidas pelo SLO de 99,9%: 20,8%. Sem proteção, 5 min seriam 9.000, ou 69,4%." },
+]} />

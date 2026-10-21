@@ -1,0 +1,92 @@
+---
+title: "Replicação, balanceamento e healthchecks"
+order: 4
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o raio de uma peça ficou sendo o tanto de loja que depende dela. A defesa mais barata é <strong>não ter uma peça só</strong>. A loja já tem 10 réplicas do <code>catalogo</code> atrás do <code>lb-loja</code> e 2 do <code>pagamentos</code> (módulos 7 e 14). Falta ver o que o balanceador faz quando <strong>uma delas trava</strong>.</p>
+
+<OneLiner><strong>Várias réplicas atrás de um balanceador que sabe quem está vivo</strong> é a defesa mais barata. Quem diz quem está vivo é o <strong>healthcheck</strong>, e um healthcheck mal escrito derruba a loja que ele deveria proteger.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Healthcheck</strong>, trave uma réplica do <code>pagamentos</code> e conte as <strong>225 falhas</strong> até ela sair do pool. Depois ligue a variante com o <strong>healthcheck profundo</strong> e veja o que acontece com as duas réplicas.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/isolamento-3d/?mode=healthcheck" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Figura interativa: Réplicas e healthcheck" alt="Prévia da figura 3D: Réplicas e healthcheck" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A URL de saúde.</strong> A aplicação expõe um endereço, e o balanceador pergunta nele em intervalos. A réplica que responde fica no pool; a que falha deixa de receber tráfego.</li>
+  <li><strong>O tempo até sair.</strong> O módulo 7 configura intervalo de <strong>5 s</strong> e <strong>3 falhas</strong> seguidas: a réplica travada leva <strong>15 s</strong> para sair.</li>
+  <li><strong>O que se perde nesses 15 s.</strong> Uma das 10 réplicas do catálogo trava a 640 req/s: recebia 64 req/s e, em 15 s, perde <strong>960</strong> requisições. Uma das 2 do <code>pagamentos</code> trava a 30/s: recebia 15/s e perde <strong>225</strong>.</li>
+  <li><strong>Outlier detection.</strong> O Envoy também tira da rotação quem erra em sequência, sem esperar o intervalo do healthcheck. Os dois mecanismos se somam.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Raso e profundo</h3>
+
+<p>O healthcheck <strong>raso</strong> confere "o processo responde": abre a porta, devolve <code>200</code>. O <strong>profundo</strong> vai além e confere dependências, por exemplo faz uma consulta ao banco ou um ping no PSP. O profundo parece mais honesto e é onde mora o perigo.</p>
+
+<h3 class="sec">E se der errado: o healthcheck profundo que consulta o PSP</h3>
+
+<p>O PSP-A passa a responder em 8 s. O healthcheck do <code>pagamentos</code> consulta o PSP, estoura o tempo e diz "doente". <strong>As duas</strong> réplicas ficam doentes ao mesmo tempo, porque o problema não é de nenhuma delas. O balanceador tira <strong>todas</strong>: a loja fica sem <code>pagamentos</code> mesmo que as réplicas estivessem perfeitas.</p>
+
+<p>O Envoy tem uma trava contra isso, o <strong><em>panic threshold</em></strong>: abaixo de <strong>50%</strong> de réplicas saudáveis (o padrão) ele <strong>ignora a saúde</strong> e balanceia entre todas. Mas contar com o pânico é conta de azar. Ejetar quem não tem culpa não ajuda e pode causar o apagão.</p>
+
+<p>A regra é simples: o healthcheck que <strong>tira do pool</strong> confere só o que <strong>a réplica controla</strong> (memória, fila, processo vivo). A dependência ruim se trata com <em>circuit breaker</em> (aula 8) e <em>fallback</em> (aula 9), não ejetando as réplicas.</p>
+
+<WhyItMatters>
+  <li><strong>Réplica é a defesa barata.</strong> Duas cópias atrás do balanceador transformam "serviço fora" em "metade da capacidade".</li>
+  <li><strong>15 s é muito tempo.</strong> 960 requisições no catálogo e 225 no <code>pagamentos</code> passam por uma réplica morta antes de ela sair do pool.</li>
+  <li><strong>O profundo ejeta quem não tem culpa.</strong> Dependência lenta não é doença da réplica.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que cada healthcheck deve conferir</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Confere</th><th>Tira do pool?</th><th>Por quê</th></tr></thead>
+    <tbody>
+      <tr><th>processo responde</th><td>sim</td><td>a réplica controla</td></tr>
+      <tr><th>fila interna e memória</th><td>sim</td><td>a réplica controla</td></tr>
+      <tr><th>banco responde</th><td>com cuidado</td><td>todas as réplicas falham juntas</td></tr>
+      <tr><th>PSP responde</th><td>não</td><td>a dependência é compartilhada; use breaker e fallback</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: raso × profundo</h4>
+  <ul>
+    <li><strong>"A URL deve refletir o estado do serviço" e o balanceador tira a réplica do pool.</strong> O artigo não separa o raso do profundo. O profundo que consulta uma dependência ejeta <strong>todas</strong> as réplicas, e abaixo de 50% o Envoy entra em pânico.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Implementing health checks", href: "https://aws.amazon.com/builders-library/implementing-health-checks/" },
+    { label: "Envoy: health checking", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking" },
+    { label: "Envoy: outlier detection", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier" },
+    { label: "Envoy: panic threshold", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold" },
+    { label: "Microsoft: padrão Health Endpoint Monitoring", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring" },
+  ]} />
+</Deep>
+
+<p class="gancho">Cópias e um balanceador que as tira do pool com cuidado resolvem a peça travada. Mas a mesma chamada pode chegar duas vezes a elas, por retry, por falha de rede, por app impaciente. Falta saber o que acontece quando a mesma chamada é repetida.</p>
+
+<Flashcards cards={[
+  { q: "Por que 15 s?",
+    a: "O healthcheck pergunta a cada 5 s e exige 3 falhas seguidas. Nesse tempo, uma réplica travada ainda recebe tráfego." },
+  { q: "Quantas requisições se perdem com uma réplica travada?",
+    a: "960 no catálogo (64 req/s × 15 s) e 225 no pagamentos (15/s × 15 s)." },
+  { q: "Qual é a diferença entre healthcheck raso e profundo?",
+    a: "O raso confere que o processo responde. O profundo confere dependências, como o PSP." },
+  { q: "O que acontece com o healthcheck profundo que consulta o PSP lento?",
+    a: "As duas réplicas do pagamentos ficam doentes juntas e saem do pool. Abaixo de 50% o Envoy entra em pânico e manda para todas." },
+  { q: "O que o healthcheck de tirar do pool deve conferir?",
+    a: "Só o que a réplica controla. A dependência ruim se trata com circuit breaker e fallback." },
+]} />

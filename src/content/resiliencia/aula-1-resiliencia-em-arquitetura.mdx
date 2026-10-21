@@ -1,0 +1,108 @@
+---
+title: "Resiliência em arquitetura"
+order: 1
+min: 10
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No fim do módulo 20 a loja guardava fatos, separava leitura de escrita e compensava o que dava errado. Tudo isso supõe uma coisa que ninguém conferiu: que as <strong>dependências respondem</strong>. O PSP não responde. Às <strong>20:20:00</strong> da Black Friday ele passa de 180 ms para <strong>8 s</strong> e fica assim por 90 segundos. Falta ver o que acontece com a loja quando uma peça ruim aparece.</p>
+
+<OneLiner><strong>Resiliência</strong> é continuar funcionando, <strong>total ou parcialmente</strong>, quando uma peça falha. Nada aqui é conceito novo: é <strong>olhar de novo</strong> para o que o curso já mostrou, agora pelo que cada peça faz quando o vizinho está ruim.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Timeout</strong>, deixe o PSP-A em <strong>8 s</strong> e avance. Repare no pool de <strong>50 conexões</strong> do <code>pagamentos</code> enchendo e leia o instante em que ele esgota: <strong>1,67 s</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=timeout" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Timeout, prazos e chave" alt="Prévia da figura 3D: Timeout, prazos e chave" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O caminho.</strong> Um clique do app atravessa <code>app → gw-loja → bff-app → pedidos → pagamentos → PSP</code>. Em condições normais ele leva <strong>5 + 20 + 5 + 180 = 210 ms</strong> (módulo 12). Cada seta é um lugar onde a chamada pode demorar, repetir ou falhar.</li>
+  <li><strong>O incidente.</strong> Às 20:20:00 o <strong>PSP-A</strong> passa a responder em 8 s. O <code>pagamentos</code> chama o PSP-A com um <strong>pool de 50 conexões</strong> e recebe <strong>30 pedidos/s</strong>, e tem <strong>2 réplicas</strong> de 20/s (capacidade de <strong>40/s</strong>, módulo 14). Um segundo PSP, o <strong>PSP-B</strong>, responde em p50 de 300 ms.</li>
+  <li><strong>O pedido-estrela.</strong> Às <strong>20:20:04</strong> o Caio, do Rio, paga o <strong>1058</strong>: 3 canecas azuis (19,90 cada = 59,70) + frete do Rio (12,00) = <strong>71,70</strong>, no cartão. O estoque da caneca vai de <strong>35 para 32</strong>. Os eventos são <code>e-2101</code> <code>PedidoCriado</code>, <code>e-2102</code> <code>PedidoPago</code> e <code>e-2103</code> <code>EstoqueReservado</code>.</li>
+  <li><strong>As defesas.</strong> Réplicas e healthchecks, idempotência, timeout, retry, circuit breaker, fallback, degradação e backpressure, e depois a camada de dados e o isolamento. Cada uma vai no seu elo do caminho e as próximas aulas põem uma por vez.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Quatro fios que a loja deixou soltos</h3>
+
+<p>O curso já cruzou o assunto sem parar nele. Quatro momentos ficaram sem resposta, e este módulo amarra os quatro.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Fio</th><th>O que aconteceu</th><th>Onde fecha</th></tr></thead>
+  <tbody>
+    <tr><th>1 · evento duplicado</th><td>No módulo 6 o <code>PedidoPago</code> <code>e-502</code> chegou duas vezes e o estoque foi de 3 para 2 e para <strong>1</strong>.</td><td>aula 5, idempotência</td></tr>
+    <tr><th>2 · tempestade de retries</th><td>No módulo 10, 3 camadas × 3 tentativas fizeram <strong>27</strong> chamadas ao <code>pagamentos</code> por clique.</td><td>aula 7, retry</td></tr>
+    <tr><th>3 · fallback</th><td>No módulo 9 o <code>bff-app</code> respondeu sem recomendações em 100 ms: <code>"recomendado": []</code>.</td><td>aulas 9 e 10</td></tr>
+    <tr><th>4 · timeout</th><td>No módulo 12 o PSP demorou 8 s, o <code>pagamentos</code> desistiu em 2 s e a cobrança <code>c-7731</code> já existia no PSP.</td><td>aulas 5 e 6</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">Resiliência e disponibilidade não são a mesma coisa</h3>
+
+<p>A <strong>disponibilidade</strong> mede: quantas respostas boas a loja deu, ou quanto tempo ficou no ar. A <strong>resiliência</strong> é o conjunto de estratégias que mantém esse número alto quando algo falha. Uma é o placar, a outra é o treino. A aula 2 ensina a ler o placar; as outras onze, o treino.</p>
+
+<h3 class="sec">E se der errado: a loja sem nenhuma defesa</h3>
+
+<p>O PSP lento dura 90 s, mas sem defesa o estrago dura mais. Com cada chamada presa por 8 s e 30 pedidos/s entrando, o pool de 50 esgota em <strong>50 ÷ 30 = 1,67 s</strong>. Sem conexão livre, o checkout inteiro para, não só quem pagaria no PSP-A. As três camadas ainda repetem a chamada e a conta vira <strong>27 por clique</strong>: 30 × 27 = <strong>810/s</strong> sobre um <code>pagamentos</code> que aguenta <strong>40/s</strong>. A tempestade segura o serviço fora do ar mesmo depois de o PSP voltar. Num exemplo de <strong>5 minutos</strong> de checkout fora, são 9.000 falhas, quase 70% do orçamento de erro do mês (aula 2).</p>
+
+<WhyItMatters>
+  <li><strong>Resiliência é um conjunto de decisões, não uma peça.</strong> Cada defesa cobre um elo do caminho e nenhuma cobre sozinha.</li>
+  <li><strong>O pior incidente é o que a defesa piora.</strong> Repetir sem freio, esperar sem limite e ejetar réplica boa transformam 90 s de PSP lento em 5 min de loja fora.</li>
+  <li><strong>Disponibilidade é o resultado.</strong> Se não dá para medir (aula 2), não dá para dizer se a defesa funcionou.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Onde cada defesa mora no caminho</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Elo</th><th>Defesa</th><th>Aula</th></tr></thead>
+    <tbody>
+      <tr><th>réplicas atrás do <code>lb-loja</code></th><td>healthcheck raso, outlier detection</td><td>4</td></tr>
+      <tr><th>todo <code>POST</code></th><td>chave de idempotência</td><td>5</td></tr>
+      <tr><th>cada chamada</th><td>timeout e prazo em cadeia</td><td>6</td></tr>
+      <tr><th>cada repetição</th><td>backoff, jitter, orçamento</td><td>7</td></tr>
+      <tr><th><code>pagamentos → PSP-A</code></th><td>circuit breaker</td><td>8</td></tr>
+      <tr><th>quando o breaker abre</th><td>fallback para o PSP-B, frete de tabela</td><td>9</td></tr>
+      <tr><th>catálogo e recomendações</th><td>degradação por nível</td><td>10</td></tr>
+      <tr><th>projetores e filas</th><td>fila limitada, <code>429</code>, descartar</td><td>11</td></tr>
+      <tr><th>banco e cache</th><td>réplicas, <code>stale-if-error</code></td><td>12</td></tr>
+      <tr><th>pools e shards</th><td>bulkhead, shuffle sharding</td><td>13</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: o que ele não diz sobre o PSP lento</h4>
+  <ul>
+    <li><strong>O artigo é uma lista de padrões.</strong> Ele avisa, com razão, que revisita os capítulos anteriores por outra ótica. Falta a conta que liga um padrão ao outro: o pool que esgota em 1,67 s, o retry que multiplica por 27 e o breaker que só abre depois do timeout. É essa conta que as próximas aulas fazem.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+    { label: "Google SRE book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja já sabe o que quer proteger e onde cada defesa mora. Falta saber como dizer "ficamos em 99,9%" e provar com uma conta, e não com um palpite.</p>
+
+<Flashcards cards={[
+  { q: "O que é resiliência?",
+    a: "Continuar funcionando, total ou parcialmente, quando uma peça falha. É o conjunto de estratégias que mantém a disponibilidade." },
+  { q: "Qual é a diferença entre resiliência e disponibilidade?",
+    a: "A disponibilidade mede (quantas respostas boas, quanto tempo no ar). A resiliência é o que se faz para mantê-la." },
+  { q: "O que aconteceu às 20:20:00?",
+    a: "O PSP-A passou de 180 ms para 8 s e ficou assim por 90 s (até 20:21:30). O pool de 50 do pagamentos esgota em 1,67 s a 30 pedidos/s." },
+  { q: "Quais são os quatro fios soltos que este módulo amarra?",
+    a: "O evento duplicado e-502 (aula 5), as 27 chamadas por clique (aula 7), o fallback sem recomendações (aulas 9 e 10) e o timeout com a cobrança c-7731 já feita (aulas 5 e 6)." },
+  { q: "Por que a loja sem defesa fica pior que o PSP lento?",
+    a: "O pool esgota e derruba o checkout todo, e as três camadas repetem 27 vezes: 30 × 27 = 810/s sobre 40/s. A tempestade segura o pagamentos fora mesmo depois de o PSP voltar." },
+]} />

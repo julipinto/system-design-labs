@@ -1,0 +1,102 @@
+---
+title: "Timeouts"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada a chamada repetida ficou segura. Resta saber <strong>quando repetir</strong>, e para isso é preciso decidir quando <strong>desistir de esperar</strong>. Sem limite, uma chamada presa por 8 s ocupa uma conexão do pool de 50 do <code>pagamentos</code> por 8 s. Com 30 pedidos por segundo, o pool esgota antes de a primeira resposta chegar.</p>
+
+<OneLiner>Um <strong>timeout</strong> é o limite que impede uma chamada lenta de <strong>ficar presa</strong> e esgotar o pool. O valor certo vem de um <strong>percentil</strong> e de uma <strong>conta de capacidade</strong>, não de um número redondo.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Timeout</strong>, mude o timeout de <strong>8 s</strong> para <strong>2 s</strong> e depois para <strong>1 s</strong>, e leia o "em voo" a cada vez: 240, 60 e 30. Só o último cabe no pool de 50.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=timeout" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Timeout, prazos e chave" alt="Prévia da figura 3D: Timeout, prazos e chave" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os tipos.</strong> O timeout de <strong>conexão</strong> limita abrir o canal; o de <strong>leitura/escrita</strong> limita esperar os bytes; o <strong>ocioso</strong> derruba uma conexão parada.</li>
+  <li><strong>Escolher pelo percentil.</strong> A AWS manda aceitar uma fração pequena de falsos timeouts e olhar o percentil correspondente. O PSP-A tem p50 de <strong>180 ms</strong>, p99 de <strong>400 ms</strong> e p99,9 de <strong>700 ms</strong>. Aceitando 0,1% de falsos timeouts, o timeout é o p99,9 mais uma folga: <strong>1 s</strong>.</li>
+  <li><strong>Conferir com Little.</strong> O número de chamadas em voo é <strong>taxa × tempo</strong>. Com o pool de 50 e 30 req/s, o timeout crítico é <strong>50 ÷ 30 = 1,67 s</strong>: acima disso o pool satura.</li>
+  <li><strong>Encadear os prazos.</strong> Cada elo de fora espera <strong>mais</strong> que o de dentro: app <strong>5 s</strong> › <code>gw-loja</code> <strong>3 s</strong> › <code>bff-app</code> <strong>2,8 s</strong> › <code>pedidos</code> <strong>2,5 s</strong> › <code>pagamentos</code> <strong>2,0 s</strong> › PSP <strong>1,0 s por tentativa</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A conta de Little, com o pool da loja</h3>
+
+<p>Com o pool de 50 e 30 req/s, o tempo de cada chamada decide tudo. Em condições normais (180 ms), 5,4 chamadas estão em voo. Com 0,6 s, 18. Com <strong>1,0 s</strong>, 30: cabe. Com <strong>2,0 s</strong>, 60: <strong>satura</strong>. Com <strong>8,0 s</strong>, 240. A vazão máxima do pool de 50 é 277/s a 180 ms, <strong>50/s</strong> a 1 s, <strong>25/s</strong> a 2 s e <strong>6,25/s</strong> a 8 s. Com 8 s o pool esgota em <strong>1,67 s</strong>, e com 2 s também: 60 é mais que 50.</p>
+
+<h3 class="sec">Por que o timeout do módulo 10 mudou de 2 s para 1 s</h3>
+
+<p>No módulo 10 o <code>pagamentos</code> usava <strong>2 s</strong> de timeout. Parecia folgado: 11 vezes a latência normal. A conta de Little mostra que não era. Com 30 pedidos por segundo, um timeout de 2 s mantém <strong>60</strong> chamadas em voo num pool de <strong>50</strong>: o pool enche e a fila cresce. Aquele valor foi escolhido sem a conta de capacidade. O novo, <strong>1 s</strong>, vem do p99,9 do PSP (700 ms) mais folga e mantém 30 em voo, dentro do pool. O mesmo vale para o <code>pagamentos</code> inteiro: o PSP pode usar até 1 s <strong>por tentativa</strong>, e o <code>pagamentos</code> ainda tem 2,0 s de prazo total.</p>
+
+<h3 class="sec">O timeout não cancela o trabalho do outro lado</h3>
+
+<p>No módulo 12 o PSP demorou 8 s, o <code>pagamentos</code> desistiu em 2 s e a cobrança <code>c-7731</code> <strong>já existia</strong> no PSP. O timeout só diz "parei de esperar", não "não aconteceu". É por isso que a idempotência (aula 5) vem antes e que a saga (módulo 19) existe depois: quem desiste precisa de um jeito de descobrir o que ficou feito.</p>
+
+<h3 class="sec">E se der errado: o de fora desiste e o de dentro continua</h3>
+
+<p>A soma dos prazos de uma sequência de tentativas pode passar o prazo de quem chamou. Três tentativas de 1 s mais as esperas de 0,1 s e 0,2 s dão <strong>3,3 s</strong>, mais que os <strong>3 s</strong> do <code>gw-loja</code>. O <code>gw-loja</code> desiste, o <code>pagamentos</code> segue trabalhando e o resultado não vai para ninguém: é o <strong>trabalho órfão</strong>. O conserto é a segunda tentativa receber só o que sobrou do prazo: 2,0 − 1,0 − 0,1 = <strong>0,9 s</strong>.</p>
+
+<p>O segundo erro é um timeout <strong>longo demais para o pool</strong>, que é o caso do 2 s do módulo 10: o pool enche e a fila cresce sem a loja ter uma única falha de negócio.</p>
+
+<Widget name="little" title="Little e pool" hint="Pool (10 a 200), pedidos por segundo (5 a 100) e tempo da chamada (0,1 a 10 s). O widget mostra o em voo, a vazão máxima, se satura e o timeout crítico (50 ÷ 30 = 1,67 s)." />
+
+<Widget name="prazos" title="Cadeia de prazos" hint="Seis timeouts editáveis (app, gw-loja, bff-app, pedidos, pagamentos e PSP por tentativa), tentativas e base do backoff. Avisa quando um elo de fora espera menos que o de dentro e soma as tentativas e esperas (3,3 s)." />
+
+<WhyItMatters>
+  <li><strong>Timeout vem de uma conta.</strong> Percentil dá o valor sensato; Little diz se o pool aguenta.</li>
+  <li><strong>O de fora espera mais que o de dentro.</strong> Quando inverte, o de fora desiste e o de dentro trabalha para ninguém.</li>
+  <li><strong>Desistir não é desfazer.</strong> Depois do timeout a operação pode ter acontecido: a c-7731 já existia.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Os valores da loja numa tabela</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Elo</th><th>Prazo</th></tr></thead>
+    <tbody>
+      <tr><th>app</th><td>5 s</td></tr>
+      <tr><th><code>gw-loja</code></th><td>3 s</td></tr>
+      <tr><th><code>bff-app</code></th><td>2,8 s</td></tr>
+      <tr><th><code>pedidos</code></th><td>2,5 s</td></tr>
+      <tr><th><code>pagamentos</code></th><td>2,0 s</td></tr>
+      <tr><th>PSP, por tentativa</th><td>1,0 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correção ao artigo-base: faltou "como escolher"</h4>
+  <ul>
+    <li><strong>O artigo lista os tipos de timeout.</strong> Faltam como escolher o valor (percentil e conta de capacidade, como a AWS e a Lei de Little), o prazo em cadeia (de fora maior que de dentro) e o aviso de que o timeout <strong>não cancela</strong> o trabalho do outro lado.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Timeouts, retries, and backoff with jitter", href: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" },
+    { label: "Google SRE book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o timeout de 1 s o pool aguenta e o prazo fecha. Falta saber se, depois de um timeout, vale tentar de novo, e como fazer isso sem virar o próprio incidente.</p>
+
+<Flashcards cards={[
+  { q: "Qual é o timeout certo para o PSP-A e por quê?",
+    a: "1 s: o p99,9 (700 ms) mais folga. Aceita 0,1% de falsos timeouts, como a AWS recomenda." },
+  { q: "O que é a Lei de Little?",
+    a: "Em voo = taxa × tempo. Com 30 req/s: 1 s dá 30 (cabe no pool de 50), 2 s dá 60 (satura), 8 s dá 240." },
+  { q: "Qual é o timeout crítico do pagamentos?",
+    a: "Pool ÷ taxa = 50 ÷ 30 = 1,67 s. Acima disso o pool satura." },
+  { q: "Por que o timeout de 2 s do módulo 10 mudou para 1 s?",
+    a: "Porque 2 s mantém 60 chamadas em voo num pool de 50 a 30/s: satura. O valor tinha sido escolhido sem a conta de capacidade." },
+  { q: "Por que o timeout não resolve a c-7731?",
+    a: "Porque só diz 'parei de esperar'. O PSP já tinha a cobrança. Por isso vêm a idempotência e a saga." },
+]} />

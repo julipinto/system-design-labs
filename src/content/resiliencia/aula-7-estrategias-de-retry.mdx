@@ -1,0 +1,101 @@
+---
+title: "Estratégias de retry"
+order: 7
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o timeout estourou e a chamada é segura de repetir. Falta decidir <strong>como</strong>. Tentar de novo vence a falha passageira, mas foi ele que fez 27 chamadas por clique no módulo 10. Sem freio, o retry vira o próprio incidente.</p>
+
+<OneLiner><strong>Tentar de novo</strong> vence falhas passageiras, mas <strong>sem freio vira o incidente</strong>. O freio é <em>backoff</em> exponencial, <em>jitter</em>, um orçamento e um prazo, e só em operação idempotente.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Jitter</strong>, rode as <strong>5 estratégias</strong> uma a uma e compare o pico de chamadas por janela: de 1.000 caiu para 84. Para ver o clique virar 27 chamadas, troque para o cenário <strong>Retry</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/resiliencia/chamadas-3d/?mode=jitter" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Figura interativa: Backoff e jitter" alt="Prévia da figura 3D: Backoff e jitter" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Imediato, em memória.</strong> Simples: a mesma <em>thread</em> tenta de novo. Resolve a maior parte das falhas passageiras e é o que gera a tempestade quando a dependência cai.</li>
+  <li><strong>Assíncrono.</strong> Responde <code>202 Accepted</code> em vez de <code>201</code> e termina depois, ou usa fila com <em>ack</em> e DLQ (módulo 13). O cliente não espera a retentativa.</li>
+  <li><strong><em>Backoff</em> exponencial.</strong> A espera dobra a cada falha, com base de 100 ms: <strong>100, 200, 400, 800, 1.600 ms</strong>, com instantes acumulados em 0,1 · 0,3 · 0,7 · 1,5 · 3,1 s. O artigo usa 1, 2, 4, 8, 16 s; o teto da loja é 2 s.</li>
+  <li><strong><em>Jitter</em>.</strong> A espera é sorteada, para os clientes não voltarem juntos. <em>Full</em>: de 0 até o teto da vez. <em>Equal</em>: metade fixa mais metade sorteada. <em>Decorrelated</em>: sorteio entre a base e três vezes a espera anterior.</li>
+  <li><strong>A política da loja.</strong> Até <strong>3 tentativas</strong> (1 + 2 retentativas), só em <code>503</code>, <code>504</code>, timeout e conexão recusada, só em operação com <code>Idempotency-Key</code>, <em>backoff</em> de base 100 ms com <em>full jitter</em> e teto de 2 s, e um <strong>orçamento de 10%</strong> das chamadas. Só tenta se sobrar prazo.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A tempestade em números</h3>
+
+<p>Mil clientes chamam ao mesmo tempo. O PSP fica fora até <strong>2,0 s</strong>, depois atende <strong>200/s</strong> e recusa o resto. Cada cliente tenta até um prazo de 10 s (base 100 ms, teto 5 s, semente 7):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Estratégia</th><th>Chamadas</th><th>Pico por 100 ms</th><th>Recusadas com o PSP de pé</th><th>Concluídos</th></tr></thead>
+  <tbody>
+    <tr><th>intervalo fixo de 100 ms</th><td><strong>45.500</strong></td><td>1.000</td><td><strong>24.500</strong></td><td>1.000 (o último em 6,9 s)</td></tr>
+    <tr><th>exponencial sem jitter</th><td>6.980</td><td><strong>1.000</strong></td><td>1.940</td><td><strong>40</strong></td></tr>
+    <tr><th>exponencial + full jitter</th><td>7.540</td><td><strong>84</strong></td><td>687</td><td><strong>1.000</strong></td></tr>
+    <tr><th>exponencial + equal jitter</th><td>7.162</td><td>130</td><td>1.085</td><td>993</td></tr>
+    <tr><th><em>decorrelated jitter</em></th><td>7.590</td><td>125</td><td>1.397</td><td>999</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O intervalo fixo fecha todo mundo, mas com <strong>45,5 chamadas por cliente</strong>. O exponencial <strong>sem</strong> jitter manda ondas sincronizadas de 1.000 e só <strong>4%</strong> concluem no prazo. O jitter espalha (pico de 84 a 130) e conclui quase todos. A ordem bate com a da AWS: o sem jitter é "o claro perdedor". A diferença entre <em>full</em> e <em>equal</em> vale só neste cenário.</p>
+
+<h3 class="sec">A amplificação entre camadas</h3>
+
+<p>Cada camada repete por conta própria e as tentativas se multiplicam. <strong>3 camadas × 3 tentativas = 27</strong> chamadas ao <code>pagamentos</code> por clique (o fio 2); 3 camadas × 2 tentativas, 8; uma camada × 3, 3. A 30 pedidos por segundo são <strong>810/s</strong> sobre um <code>pagamentos</code> de capacidade <strong>40/s</strong>: <strong>20,2 vezes</strong> o que aguenta. Com orçamento de 10%, são 30 × 1,1 = <strong>33/s</strong>. As defesas são quatro: repetir <strong>em uma camada só</strong> (na loja, a do <code>pagamentos</code>, que repete o PSP dentro do prazo de 2,0 s: a 2ª tentativa sai em 0,9 s), limitar com um <strong>orçamento</strong> (o SRE book dá o exemplo de 60 retentativas por minuto por processo), respeitar o <strong>prazo</strong> e repetir <strong>só o que é idempotente</strong>.</p>
+
+<h3 class="sec">E se der errado: o retry que segura o incêndio</h3>
+
+<p>Sem <em>backoff</em> nem <em>jitter</em>, as retentativas chegam <strong>antes</strong> de o PSP se recuperar e <strong>depois</strong> em ondas de 1.000. O PSP volta em 90 s, mas o <code>pagamentos</code> continua sobrecarregado por retentativas atrasadas e não sai do buraco: é uma falha <strong>metaestável</strong>, em que a carga extra de recuperação mantém o sistema quebrado mesmo sem a causa original (descrita por Bronson e outros no HotOS de 2021; o PDF não abriu na conferência, então não há link).</p>
+
+<Widget name="tempestade" title="Tempestade de retry" hint="Estratégia (fixo, exponencial, full, equal, decorrelated), clientes (100 a 5.000), duração da falha (0 a 10 s), capacidade (100 a 500/s) e prazo. Mostra chamadas, pico por 100 ms, recusadas com o PSP de pé e concluídos." />
+
+<Widget name="amplificacao" title="Amplificação entre camadas" hint="Camadas que repetem (1 a 5) e tentativas por camada (1 a 5). Mostra as N chamadas por clique, 30/s × N contra os 40/s e o efeito do orçamento de 10%." />
+
+<WhyItMatters>
+  <li><strong>O retry imediato é a causa da tempestade.</strong> 1.000 clientes viram 45.500 chamadas.</li>
+  <li><strong>Backoff sozinho não basta.</strong> Sem jitter as ondas voltam juntas e só 4% concluem no prazo.</li>
+  <li><strong>O número de camadas multiplica.</strong> 3 × 3 = 27: repita em uma camada, com orçamento e prazo.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correção ao artigo-base: jitter, teto e retry imediato</h4>
+  <ul>
+    <li><strong>"Jitter incremental" (0–4 s, 2–6 s, 6–10 s).</strong> Não é nenhum dos três algoritmos da AWS (<em>full</em>, <em>equal</em>, <em>decorrelated</em>). Faltam o <strong>teto</strong> da espera e o aviso de que o <em>backoff</em> sem jitter gera ondas sincronizadas (simulado acima: 4% concluem).</li>
+    <li><strong>"O retry imediato resolve a maior parte dos casos".</strong> Na falha de uma dependência ele é a <strong>causa</strong> da tempestade (45.500 chamadas para 1.000 clientes). Faltam a amplificação entre camadas (27), o orçamento, o prazo e o "só idempotente".</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre padrões de resiliência (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Architecture Blog: Exponential Backoff And Jitter", href: "https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" },
+    { label: "AWS Builders' Library: Timeouts, retries, and backoff with jitter", href: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" },
+    { label: "Google SRE book: Addressing Cascading Failures (orçamento de retry)", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+    { label: "Microsoft: padrão Retry", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/retry" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com backoff, jitter e orçamento, o retry deixou de ser a tempestade. Mas ele ainda acredita que o PSP vai voltar. Falta saber o que fazer se não voltar: continuar chamando é piorar.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as esperas do backoff exponencial da loja?",
+    a: "100, 200, 400, 800 e 1.600 ms (base 100 ms, teto de 2 s). Instantes acumulados: 0,1 · 0,3 · 0,7 · 1,5 · 3,1 s." },
+  { q: "O que o jitter muda na tempestade?",
+    a: "O pico por 100 ms cai de 1.000 (exponencial sem jitter) para 84 (full jitter), e concluem 1.000 em vez de 40." },
+  { q: "Quanto vale a amplificação da loja?",
+    a: "3 camadas × 3 tentativas = 27 chamadas por clique: 30 × 27 = 810/s sobre 40/s (20,2×). Com orçamento de 10%: 33/s." },
+  { q: "Quais são as quatro defesas contra a amplificação?",
+    a: "Repetir em uma camada só, orçamento de retry (10%), respeitar o prazo (só tenta se sobrar) e repetir só o que é idempotente." },
+  { q: "O que é uma falha metaestável?",
+    a: "A causa some (o PSP volta em 90 s), mas a carga das retentativas mantém o pagamentos fora do ar." },
+]} />
