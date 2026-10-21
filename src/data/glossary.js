@@ -18,6 +18,7 @@ import { replicacao } from './glossary-replicacao.js';
 import { cqrs } from './glossary-cqrs.js';
 import { eventSourcing } from './glossary-event-sourcing.js';
 import { resiliencia } from './glossary-resiliencia.js';
+import { capacityPlanning } from './glossary-capacity-planning.js';
 // Glossário por módulo. Cada termo: term (nome na ficha), aliases (como aparece no texto, a primeira
 // ocorrência por aula vira tocável), short (1 frase simples), layer (camada OSI, quando faz sentido)
 // e lesson (id da aula onde é explicado). Plural com "s" simples é aceito sozinho pelo script.
@@ -98,5 +99,6 @@ export const glossaries = {
   cqrs,
   saga,
   'event-sourcing': eventSourcing,
-  resiliencia
+  resiliencia,
+  'capacity-planning': capacityPlanning
 };

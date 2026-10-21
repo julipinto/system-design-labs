@@ -1,0 +1,93 @@
+---
+title: "A curva do joelho"
+order: 4
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Little deu o L(alvo) e deixou uma pergunta: até que utilização o pod do <code>pagamentos</code> fica dentro dele? A tabela da aula 2 já mostrava que o tempo de resposta não cresce em linha reta. Falta dizer <strong>onde</strong> o crescimento deixa de ser aceitável.</p>
+
+<OneLiner>A resposta <strong>não é linear</strong>: cada ponto de utilização custa mais que o anterior. O <strong>joelho</strong> é onde o custo de mais 1 ponto passa de um limite que o <strong>time escolhe</strong>; não é uma quina da curva.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Joelho</strong>, arraste a utilização de <strong>70%</strong> até <strong>95%</strong> e leia o custo do ponto a cada parada: de 5,6 ms a 200 ms.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/ponto-3d/?mode=joelho" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Figura interativa: A curva do joelho" alt="Prévia da figura 3D: A curva do joelho" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A curva.</strong> No M/M/1, W = S ÷ (1 − ρ). Não existe um ponto em que a curva "quebra": ela só fica cada vez mais inclinada.</li>
+  <li><strong>O custo do ponto.</strong> Quanto custa <strong>mais 1 ponto</strong> de utilização no <code>pagamentos</code> (S = 50 ms): a <strong>50%</strong>, 2 ms; a <strong>70%</strong>, 5,6 ms; a <strong>80%</strong>, 12,5 ms; a <strong>90%</strong>, 50 ms; a <strong>95%</strong>, 200 ms; a <strong>99%</strong>, 5.000 ms.</li>
+  <li><strong>Escolher o limite.</strong> O time decide quanto está disposto a pagar por ponto. A loja escolheu zonas, e o joelho é a região em que o custo vira inaceitável.</li>
+  <li><strong>Operar atrás do joelho.</strong> O alvo operacional fica antes dele, para deixar margem à variabilidade e à rajada.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">As zonas da loja</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Zona</th><th>Utilização</th><th>W do <code>pagamentos</code></th><th>O que significa</th></tr></thead>
+  <tbody>
+    <tr><th>Saudável</th><td>até <strong>70%</strong></td><td>até 167 ms</td><td>O alvo do HPA e o "seguro até 700" do catálogo (módulo 14). Sobra margem para a rajada.</td></tr>
+    <tr><th>Atenção</th><td>70–80%</td><td>167–250 ms</td><td>Funciona, mas a margem encolhe.</td></tr>
+    <tr><th>Joelho</th><td><strong>80–85%</strong></td><td>250–333 ms</td><td>O do artigo. W = 5 × S ou mais.</td></tr>
+    <tr><th>Máximo</th><td><strong>95%</strong></td><td>1.000 ms</td><td>O limite em que ainda atende, com W = 20 × S e erros.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Isso reconcilia o artigo (joelho a 80–85%) com o módulo 14 (70%): <strong>o joelho é onde a resposta sai do aceitável; 70% é o alvo operacional que deixa margem para a variabilidade</strong>. A conta dos dois cabe na mesma curva.</p>
+
+<Widget name="joelho" title="Joelho" hint="Deslizador de utilização (0 a 99%). Mostra W, L, o custo de mais 1 ponto e a zona. Compare o pagamentos (S = 50 ms) com o catálogo (R = 10 ms + 10 ms ÷ (1 − ρ))." />
+
+<h3 class="sec">O joelho em outras métricas</h3>
+
+<p>A CPU não é a única métrica com joelho. A <strong>memória</strong>, o <strong>pool de conexões</strong> (módulo 11), a <strong>fila do Kafka</strong> (o lag) e a <strong>concorrência</strong> (L) têm uma curva cada uma, e o joelho de cada um é o <strong>seu</strong>. O que cair primeiro manda: um <code>pagamentos</code> a 40% de CPU pode ter o pool no joelho (aula 3).</p>
+
+<h3 class="sec">E se der errado: "ainda não deu erro, vamos operar a 95%"</h3>
+
+<p>A 95%, W do <code>pagamentos</code> é <strong>1 s</strong>, vinte vezes o tempo de serviço, e cada ponto a mais custa <strong>200 ms</strong>. Qualquer rajada, como a newsletter das 20:00 do módulo 13, joga o p95 em cerca de 3 s (o p95 exponencial a 95% é 2.996 ms). O timeout de 2 s do <code>lb-loja</code> vira <strong>504</strong> para o cliente. Sem nenhum erro no dia anterior, a loja descobre o joelho no pior minuto.</p>
+
+<WhyItMatters>
+  <li><strong>Cada ponto custa mais que o anterior.</strong> A 70% custa 5,6 ms; a 90% já custa 9 vezes mais.</li>
+  <li><strong>O joelho é uma escolha.</strong> Ele depende do que o negócio aceita pagar em milissegundos.</li>
+  <li><strong>Cada métrica tem o seu.</strong> O plano precisa olhar CPU, pool, fila e concorrência juntas.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correção ao artigo-base e o que a curva diz</h4>
+  <ul>
+    <li><strong>"A latência cresce de forma linear."</strong> O artigo escreve que, em termos normais, a latência cresce de forma linear até a saturação. Na fila o crescimento já é <strong>convexo desde o início</strong> (W = S ÷ (1 − ρ)); só <em>parece</em> linear até uns 50%. O joelho é <strong>uma escolha de limite</strong> sobre uma curva suave: no M/M/1 não há quina.</li>
+    <li><strong>As margens de saturação.</strong> O artigo sugere 80–85% de limite. O plano da loja usa 70% como alvo operacional, e o joelho de 80–85% como o ponto de alerta.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipédia: Knee of a curve", href: "https://en.wikipedia.org/wiki/Knee_of_a_curve" },
+    { label: "Brendan Gregg: o método USE", href: "https://www.brendangregg.com/usemethod.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com o joelho em 80–85% e o alvo em 70%, o plano já sabe onde parar. Falta saber quanta carga há de verdade, e por que a média esconde tanto dela.</p>
+
+<Flashcards cards={[
+  { q: "A latência cresce de forma linear com a utilização?",
+    a: "Não. W = S ÷ (1 − ρ) é convexa desde o início; só parece linear até uns 50%." },
+  { q: "Quanto custa mais 1 ponto de utilização no pagamentos?",
+    a: "2 ms a 50%, 5,6 ms a 70%, 12,5 ms a 80%, 50 ms a 90%, 200 ms a 95%, 5.000 ms a 99%." },
+  { q: "O que é o joelho no M/M/1?",
+    a: "Uma escolha de limite sobre uma curva suave: onde o custo do ponto passa do que o time aceita." },
+  { q: "Por que o alvo é 70% e o joelho 80–85%?",
+    a: "O joelho é onde a resposta sai do aceitável; 70% é o alvo que deixa margem para variabilidade e rajada." },
+  { q: "O que acontece operando a 95%?",
+    a: "W = 1 s e cada ponto custa 200 ms. Uma rajada leva o p95 a ~3 s e o timeout de 2 s do lb-loja vira 504." },
+]} />

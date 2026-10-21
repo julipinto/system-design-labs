@@ -1,0 +1,94 @@
+---
+title: "Modelagem de carga"
+order: 5
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Com o joelho em 80–85% e o alvo em 70%, o plano já sabe <strong>onde parar</strong>. Para saber quanta carga cabe antes disso, é preciso medir a carga de verdade. "640 req/s" é um número só, e dentro dele cabem muitas cargas diferentes.</p>
+
+<OneLiner>A carga tem <strong>três dimensões</strong>: <strong>TPS</strong>, <strong>concorrência</strong> e <strong>payload</strong>. A <strong>média</strong> esconde o <strong>mix</strong> de requisições, a <strong>rajada</strong> dentro do segundo e a <strong>cauda</strong> do payload.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Carga</strong>, ligue <strong>5% de busca</strong> na carga do catálogo e veja as réplicas necessárias passarem de <strong>14</strong> para <strong>19</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/bf-3d/?mode=carga" poster="labs/capacity-planning/bf-3d-previa.webp" title="Figura interativa: Modelagem de carga" alt="Prévia da figura 3D: Modelagem de carga" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>TPS.</strong> Trabalho dividido por segundos. O pico de 2026 foi 640 req/s: 38.400 requisições em 60 s.</li>
+  <li><strong>Concorrência.</strong> Pela Lei de Little, L = 640 × 0,0378 s = <strong>24,2</strong> em voo nas réplicas saudáveis (no módulo 14, 86,4 na frota com a réplica quente).</li>
+  <li><strong>Payload.</strong> O <code>GET /produtos/42</code> leva <strong>1 KB</strong> de requisição e <strong>19 KB</strong> de resposta (exemplo): <strong>20 KB</strong> por transação.</li>
+  <li><strong>Banda.</strong> <strong>TPS × payload</strong>: 640 × 20 KB = <strong>13,1 MB/s = 105 Mbit/s</strong>. Com 950 req/s sobe a 19,5 MB/s (<strong>156 Mbit/s</strong>) e com 10% de retries a <strong>171 Mbit/s</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que a média esconde (1): o mix</h3>
+
+<p>Nem toda requisição custa o mesmo de CPU. A página custa <strong>10 ms</strong>; a busca pesada (módulo 7), <strong>80 ms</strong> (exemplo). Com <strong>5%</strong> de buscas, o CPU médio é 0,95 × 10 + 0,05 × 80 = <strong>13,5 ms</strong> e cada réplica atende <strong>74,1 req/s</strong>, não 100. Para 950 req/s a 70%, a conta é ⌈ 950 ÷ (0,7 × 74,1) ⌉ = <strong>19 réplicas</strong>, e não 14. Com 10% de buscas, o CPU médio vai a 17 ms, a 58,8 req/s por réplica e a <strong>24 réplicas</strong>. Capacidade se mede <strong>por tipo de requisição</strong> (módulo 24).</p>
+
+<h3 class="sec">O que a média esconde (2): a rajada dentro do segundo</h3>
+
+<p>Os 640 req/s <strong>espalhados</strong> pelo segundo deixam cada réplica a 64% (R = 37,8 ms). Os <strong>mesmos</strong> 640 chegando numa rajada de <strong>10 ms</strong>, como a newsletter das 20:00, são <strong>64 por réplica de uma vez</strong>. A réplica atende 1 a cada 10 ms (100/s), e a última da fila espera 64 × 10 ms = <strong>640 ms</strong> (a média, cerca de 320 ms). O TPS médio é o mesmo, e a experiência é outra.</p>
+
+<Widget name="mix" title="Mix, rajada e banda" hint="% de busca (0 a 20%), CPU da página e da busca: mostra o CPU médio, os req/s por réplica e as réplicas necessárias (14 · 19 · 24). A rajada de 10 ms e a espera da última requisição. Banda: KB × TPS × retries." />
+
+<h3 class="sec">O que a média esconde (3): a dispersão do payload</h3>
+
+<p>Um <code>GET</code> de 19 KB e um de 2 MB (a foto sem CDN, módulo 5) são o "mesmo TPS" com 100 vezes a banda. O risco está <strong>na cauda</strong>, não na média.</p>
+
+<p>Para o sistema inteiro, a conta é a do artigo: <strong>TPS sistêmico = mín. (TPS app, TPS banco, TPS cache, …)</strong>. A aula 8 aplica essa conta à cadeia do checkout.</p>
+
+<h3 class="sec">E se der errado: "100 req/s por réplica" com busca no tráfego</h3>
+
+<p>O time planeja com os 100 req/s da página e ignora que 5% do tráfego é busca. Para 950 req/s calcula <strong>14 réplicas</strong> onde eram necessárias <strong>19</strong>. A frota nasce a <strong>91,6%</strong> de CPU (950 ÷ (14 × 74,1)), já acima da faixa segura, e passa de 95% no dia em que a busca estiver em promoção.</p>
+
+<WhyItMatters>
+  <li><strong>TPS sozinho não dimensiona.</strong> O mix muda o CPU por requisição, e com ele o número de réplicas.</li>
+  <li><strong>A rajada vive dentro do segundo.</strong> A média por segundo não mostra a fila de 640 ms.</li>
+  <li><strong>O payload decide a banda.</strong> E a cauda do payload decide quando a banda acaba.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>"Nenhuma métrica é mais importante que o TPS."</strong> O artigo põe o TPS como a métrica central. O TPS sozinho não dimensiona: o <strong>mix</strong> e a <strong>rajada</strong> dominam a conta, como a aula mostra.</li>
+  </ul>
+  <h4 class="deep-h">As equações de estimativa, com a loja</h4>
+  <ul>
+    <li><strong>TPS</strong> = trabalho ÷ segundos (38.400 ÷ 60 = 640).</li>
+    <li><strong>Concorrência</strong> = TPS × tempo de resposta (640 × 0,0378 = 24,2).</li>
+    <li><strong>Bytes por transação</strong> = requisição + resposta (1 + 19 = 20 KB).</li>
+    <li><strong>Banda</strong> = TPS × bytes por transação (640 × 20 KB = 105 Mbit/s).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipédia: Erlang (unit)", href: "https://en.wikipedia.org/wiki/Erlang_(unit)" },
+    { label: "Wikipédia: Neil J. Gunther (Universal Scalability Law)", href: "https://en.wikipedia.org/wiki/Neil_J._Gunther" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Agora a carga tem três dimensões, mas ainda é um instante. Falta saber como ela <strong>se distribui no tempo</strong>: ao longo do dia, da semana e do ano.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as três dimensões da carga?",
+    a: "TPS, concorrência (L = λ × W) e payload. A banda é TPS × payload: 640 × 20 KB = 105 Mbit/s." },
+  { q: "Como 5% de busca muda o plano do catálogo?",
+    a: "CPU médio 13,5 ms, 74,1 req/s por réplica e 19 réplicas para 950 req/s a 70%, em vez de 14." },
+  { q: "O que a rajada de 10 ms faz com os 640 req/s?",
+    a: "64 requisições por réplica de uma vez: a última espera 64 × 10 ms = 640 ms (média ~320 ms), contra 37,8 ms espalhados." },
+  { q: "Por que o payload tem risco na cauda?",
+    a: "Um GET de 19 KB e um de 2 MB são o mesmo TPS com 100× a banda." },
+  { q: "Qual é a equação do TPS sistêmico?",
+    a: "O mínimo entre os TPS dos componentes (app, banco, cache…). A aula 8 aplica." },
+]} />

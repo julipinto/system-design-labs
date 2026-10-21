@@ -1,0 +1,24 @@
+/* SDLabs · Capacity Planning: o que só este módulo usa (tabelas, campos numéricos, gráfico de perfis). Peças comuns em widgets.css */
+.sdl-content table.sr-table.cp-table{min-width:0}
+.sdl-content table.cp-table th,.sdl-content table.cp-table td{padding-right:var(--s-3)}
+.sdl-content table.sr-table.cp-table td{white-space:normal;overflow-wrap:break-word}
+.sdl-content table.cp-table td.cp-bad{color:var(--bad);font-weight:700}
+.sdl-content tr.cp-cur th,.sdl-content tr.cp-cur td{background:var(--accent-wash)}
+.sdl-content .cp-out{margin-top:var(--s-3)}
+.sdl-content .sr-fact.cp-badfact b{color:var(--bad)}
+.sdl-content .cp-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .cp-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+/* perfis: barras e as marcas da Black Friday */
+.sdl-content .cp-check{display:flex;align-items:center;gap:var(--s-2);min-height:44px;margin:var(--s-2) 0;font:600 13.5px var(--mono);color:var(--ink);cursor:pointer}
+.sdl-content .cp-check input{width:20px;height:20px;accent-color:var(--accent-ink)}
+.sdl-content .cp-chart{margin-top:var(--s-3)}
+.sdl-content .cp-plot{position:relative;height:160px;border-bottom:var(--hair) solid var(--line-strong)}
+.sdl-content .cp-bars{display:flex;align-items:flex-end;gap:2px;height:100%}
+.sdl-content .cp-bars i{flex:1 1 0;min-width:2px;display:block;background:var(--muted);border-radius:var(--r-1) var(--r-1) 0 0}
+.sdl-content .cp-bars i.pk{background:var(--accent-ink)}
+.sdl-content .cp-ref{position:absolute;left:0;right:0;height:0;border-top:var(--hair) dashed var(--bad);font:600 12px var(--mono);color:var(--bad);text-align:right;pointer-events:none}
+.sdl-content .cp-ref::after{content:"";position:absolute}
+.sdl-content .cp-axis{display:flex;justify-content:space-between;gap:var(--s-2);margin:4px 0 var(--s-3);font:600 12px var(--mono);color:var(--muted)}
+@media (max-width:480px){.sdl-content .cp-axis span:nth-child(2){display:none}}
+/* ρ, λ e μ em maiúsculas viram Ρ, Λ e Μ (outra grandeza): rótulos e cabeçalhos deste módulo ficam como escritos */
+.sdl-content .sr-fact small,.sdl-content table.sr-table thead th,.sdl-content p.sr-sub{text-transform:none;letter-spacing:.02em}

@@ -1,0 +1,93 @@
+---
+title: "Projeção de crescimento"
+order: 7
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o plano ficou com o pico de 2026 na mão: <strong>640 req/s</strong> às 20:03. A Black Friday de 2027 é a mesma noite um ano depois, e a pergunta é com que carga ela chega. A resposta tem duas fontes: o que a série mostra e o que o negócio vai mudar.</p>
+
+<OneLiner>A projeção combina <strong>a história</strong> (linear <strong>750</strong> e composta <strong>824</strong>) e <strong>os eventos</strong> (a nova tela, +15% = <strong>950</strong>). Ela se conversa com o negócio, e a faixa que o plano cobre é <strong>750 – 950 – 1.140</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Projeção</strong>, escolha a tendência e depois o evento, e veja o catálogo com 10 réplicas passar de <strong>75%</strong> para <strong>95%</strong>.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/bf-3d/?mode=projecao" poster="labs/capacity-planning/bf-3d-previa.webp" title="Figura interativa: Projeção de crescimento" alt="Prévia da figura 3D: Projeção de crescimento" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A série.</strong> O pico do catálogo nos últimos 4 anos (exemplo): <strong>2023: 300 · 2024: 410 · 2025: 520 · 2026: 640</strong>.</li>
+  <li><strong>Linear.</strong> A reta de mínimos quadrados cresce <strong>113 por ano</strong> e dá <strong>750</strong> em 2027.</li>
+  <li><strong>Não linear (composta).</strong> A taxa é (640 ÷ 300)^(1/3) = <strong>28,7% ao ano</strong> e a extrapolação dá <strong>824</strong>. Os saltos reais (1,37 · 1,27 · 1,23) estão <strong>caindo</strong>, e mesmo assim a composta fica em 824.</li>
+  <li><strong>Por evento de negócio.</strong> A nova tela inicial do módulo 9 faz <strong>15% mais requisições</strong> ao catálogo por visita (exemplo): 824 × 1,15 = 947,5 ≈ <strong>950</strong>, o número do módulo 14.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A faixa e o checkout</h3>
+
+<p>A faixa de planejamento é <strong>750 – 950 – 1.140</strong>, sendo 1.140 = 950 × 1,2 a margem de erro. No checkout, a conta é outra. Hoje são <strong>30 pedidos/s</strong>. A tendência dos clientes pessoa física dá 30 × 1,484 (950 ÷ 640) = <strong>44,5 ≈ 45/s</strong>. A <strong>meta do comercial é 200/s</strong>, e a diferença de <strong>155/s</strong> só existe se parceiros pela API venderem sem navegar no catálogo.</p>
+
+<p>Por isso 200 ÷ 950 = <strong>21%</strong> de pedidos por requisição ao catálogo, contra 30 ÷ 640 = <strong>4,7%</strong> de hoje. O planejador <strong>pergunta ao negócio</strong> de onde vêm os 155/s, e a resposta é a API de parceiros. Capacity planning não prevê: calcula o que custa carregar cada cenário.</p>
+
+<h3 class="sec">O custo do erro</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Demanda</th><th>10 réplicas (1.000 req/s)</th><th>14 réplicas (1.400 req/s)</th></tr></thead>
+  <tbody>
+    <tr><th>750 · reta</th><td>75% (R = 50 ms)</td><td>53,6%</td></tr>
+    <tr><th>824 · composta</th><td>82%</td><td>—</td></tr>
+    <tr><th>950 · evento</th><td><strong>95%</strong> (R = 210 ms)</td><td><strong>67,9%</strong></td></tr>
+    <tr><th>1.140 · margem</th><td>—</td><td><strong>81,4%</strong> (o joelho)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="projecao" title="Projeção" hint="Série 2023–2026 editável, reta e composta, o evento (+%), a faixa e a utilização do catálogo com N réplicas (a tabela de 10 e 14). O bloco do checkout mostra 45 · 200 · 300 pedidos/s." />
+
+<h3 class="sec">E se der errado: a reta e o evento</h3>
+
+<p>O plano usa a <strong>reta</strong> (750) e o evento chega (950). As 10 réplicas ficam a <strong>95%</strong> e o p95 volta a 800 ms (o módulo 14). Pior que isso é um crescimento <strong>não linear não planejado</strong>, como a meta de 200 pedidos/s: é o mais perigoso para um sistema que opera perto do máximo.</p>
+
+<WhyItMatters>
+  <li><strong>A história é um piso, não o plano.</strong> A reta e a composta dizem o que acontece se nada mudar.</li>
+  <li><strong>O evento tem data e dono.</strong> A nova tela, a API de parceiros e a campanha entram no plano com data.</li>
+  <li><strong>A faixa mostra o risco.</strong> 750 a 1.140 deixa claro quanto cada escolha de réplicas cobre.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o artigo-base deixa de fora</h4>
+  <ul>
+    <li><strong>O custo da meta.</strong> A distância entre a tendência (45/s) e a meta (200/s) é uma decisão de negócio, não uma extrapolação. O artigo trata a projeção como só crescimento orgânico.</li>
+    <li><strong>As taxas estão caindo.</strong> Os saltos de 1,37 · 1,27 · 1,23 mostram uma curva que desacelera, e a composta (28,7%) é otimista para a história sozinha. Por isso a reta e a composta aparecem as duas.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE Workbook: Non-Abstract Large System Design", href: "https://sre.google/workbook/non-abstract-design/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A projeção deu a demanda de 2027, mas cada serviço do checkout tem o seu limite. Falta saber quanto o <strong>fluxo inteiro</strong> aguenta.</p>
+
+<Flashcards cards={[
+  { q: "Quais são as projeções do catálogo para 2027?",
+    a: "Linear 750, composta 824 (28,7%/ano), com o evento da nova tela (+15%) 950. Faixa 750 – 950 – 1.140." },
+  { q: "Quais são os três cenários do checkout?",
+    a: "Tendência 45/s, meta do comercial 200/s e estresse 300/s (1,5 × a meta)." },
+  { q: "De onde vêm os 155 pedidos/s a mais?",
+    a: "De parceiros pela API, que vendem sem navegar no catálogo. A conversão sobe de 4,7% para 21% dos pedidos por requisição." },
+  { q: "O que acontece se o plano usar a reta (750) e chegar o evento (950)?",
+    a: "As 10 réplicas passam a 95% e o p95 volta a 800 ms." },
+  { q: "Com 14 réplicas, quanto cada demanda ocupa?",
+    a: "750: 53,6%. 950: 67,9%. 1.140: 81,4%, no joelho." },
+]} />

@@ -1,0 +1,100 @@
+---
+title: "Capacidade end to end"
+order: 8
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A projeção entregou a demanda: <strong>950 req/s</strong> no catálogo e <strong>200 pedidos/s</strong> no checkout. O catálogo tem um elo só. O checkout atravessa quatro serviços e um banco, e a pergunta vira <strong>quanto a cadeia inteira aguenta</strong>.</p>
+
+<OneLiner>A capacidade que o cliente vê é a do <strong>elo mais fraco</strong>: <strong>TPS sistêmico = mín. (…)</strong>. E o <strong>gargalo anda</strong>: quando um elo é resolvido, o próximo aparece.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Cadeia</strong>, escale o <code>pagamentos</code> de 2 para 15 pods e acompanhe o gargalo andar: da capacidade de <strong>40/s</strong> para a de <strong>90/s</strong>, onde o <code>pedidos</code> passa a ser o mais fraco.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/bf-3d/?mode=cadeia" poster="labs/capacity-planning/bf-3d-previa.webp" title="Figura interativa: Capacidade end to end" alt="Prévia da figura 3D: Capacidade end to end" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Individual.</strong> Cada elo tem o seu limite: <code>pedidos</code> 90/s, <code>pagamentos</code> 40/s, <code>estoque</code> 1.000/s, banco 250/s efetivos.</li>
+  <li><strong>Sistêmico.</strong> O mínimo da cadeia: <strong>40/s</strong>, o <code>pagamentos</code>.</li>
+  <li><strong>Resolver um elo.</strong> Subir o <code>pagamentos</code> faz o mínimo passar para o próximo elo mais fraco.</li>
+  <li><strong>Repetir.</strong> A sequência acaba quando o mínimo chega à demanda, ou quando o próximo elo custa mais do que vale.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O gargalo anda</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Passo</th><th><code>pedidos</code></th><th><code>pagamentos</code></th><th><code>estoque</code></th><th>Banco</th><th>Mínimo</th><th>Elo</th></tr></thead>
+  <tbody>
+    <tr><th>Hoje (3 / 2 / 2 / 3 shards)</th><td>90</td><td><strong>40</strong></td><td>1.000</td><td>250</td><td><strong>40</strong></td><td><code>pagamentos</code></td></tr>
+    <tr><th><code>pagamentos</code> 2 → 15 pods</th><td>90</td><td>300</td><td>1.000</td><td>250</td><td><strong>90</strong></td><td><code>pedidos</code></td></tr>
+    <tr><th><code>pedidos</code> 3 → 10 pods</th><td>300</td><td>300</td><td>1.000</td><td><strong>250</strong></td><td><strong>250</strong></td><td>banco</td></tr>
+    <tr><th>Shard dedicado 2× para o <code>mkt-01</code></th><td>300</td><td>300</td><td>1.000</td><td><strong>750</strong></td><td><strong>300</strong></td><td><code>pedidos</code> e <code>pagamentos</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Os números são de <strong>capacidade nominal</strong>. A <strong>sustentável</strong> é 70% dela: 70% de 300 = <strong>210/s</strong> contra a meta de <strong>200/s</strong>. O plano cabe com cerca de <strong>5%</strong> de folga. No cenário de estresse (300/s) a cadeia vai a 100%.</p>
+
+<h3 class="sec">O banco e o shard quente</h3>
+
+<p>Com o <code>mkt-01</code> (60% do tráfego no <code>shard-2</code>), 200 × 0,6 = <strong>120/s num shard de 150</strong>: 80%, no joelho. Os outros dois shards ficam a 40/s (26,7%). Com o <strong>shard dedicado 2×</strong> (capacidade de 300/s) para o <code>mkt-01</code> (40% = 80/s), ele fica a <strong>26,7%</strong>, e os três normais, com (200 − 80) ÷ 3 = 40/s cada, também a <strong>26,7%</strong>. É a conta de T = 750 do módulo 16.</p>
+
+<Widget name="cadeia" title="Cadeia do checkout" hint="Pods de cada elo, demanda (1 a 400/s) e ρ alvo (50 a 90%). Calcula o mínimo, o gargalo, os pods necessários, o shard quente e o lag do entregas (partições de 3 a 12)." />
+
+<h3 class="sec">O elo assíncrono: o <code>entregas</code></h3>
+
+<p>O tópico <code>pedidos</code> do Kafka (módulo 13) tem 3 partições e cada consumidor do <code>entregas</code> processa <strong>40 eventos/s</strong> (exemplo): <strong>120/s</strong> contra <strong>200/s</strong> de chegada. O lag cresce <strong>80/s</strong>. Em 4 horas, as do evento, são <strong>1.152.000</strong> eventos atrasados. Depois do pico (5/s), a 115/s líquidos, leva <strong>10.017 s ≈ 2,8 h</strong> para drenar. Não derruba o checkout, mas atrasa o rastreio.</p>
+
+<p>O plano leva o tópico de <strong>3 para 8 partições</strong>: 8 × 40 = 320/s, ρ = <strong>62,5%</strong>. Cuidado com o módulo 16: mudar o número de partições muda <code>murmur2 mod N</code>, e ir de 3 para 6 mexe em cerca de 50% das chaves.</p>
+
+<h3 class="sec">E se der errado: escalar o elo mais caro</h3>
+
+<p>O time escala o <code>estoque</code> (de 2 para 4 pods) porque "estoque é crítico". A capacidade dele vai a 2.000/s e a <strong>saída da cadeia não muda</strong>: 40/s. O gargalo é o <strong>mínimo</strong>, não o mais caro nem o mais importante.</p>
+
+<WhyItMatters>
+  <li><strong>A cadeia vale o seu elo mais fraco.</strong> Escalar outro elo gasta dinheiro sem mover a saída.</li>
+  <li><strong>O gargalo muda de lugar.</strong> Cada passo do plano descobre o próximo.</li>
+  <li><strong>Sustentável não é nominal.</strong> A meta de 200/s precisa caber em 70% da capacidade, e cabe com 5% de folga.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correção ao artigo-base</h4>
+  <ul>
+    <li><strong>Capacidade nominal × operacional.</strong> O artigo calcula a capacidade a partir do throughput de cada componente. Isso é a capacidade <strong>nominal</strong> (CPU de cada pod, banco por primário). Pool de conexões, fila do Kafka e limite do PSP também têm teto e ficam fora da conta; o módulo 24 mede a capacidade operacional.</li>
+  </ul>
+  <h4 class="deep-h">Percentis não se somam</h4>
+  <p>Para olhar a latência da cadeia inteira, não vale somar nem tirar a média dos percentis dos elos: o p99 de cada elo não dá o p99 do todo. A agregação certa é pelos histogramas (Prometheus).</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Prometheus: histogramas e sumários (agregar percentis)", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Google SRE book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A cadeia mostrou que 300/s exige 10 pods no <code>pedidos</code>, 15 no <code>pagamentos</code>, 4 shards e 8 partições. Falta saber juntar tudo num plano, com custo.</p>
+
+<Flashcards cards={[
+  { q: "Qual é a capacidade sistêmica da cadeia?",
+    a: "O mínimo entre os elos. Hoje 40/s (pagamentos); depois dos passos do plano, 300/s." },
+  { q: "Em que ordem o gargalo anda?",
+    a: "40 (pagamentos) → 90 (pedidos) → 250 (banco) → 300 (pedidos e pagamentos, com o shard dedicado)." },
+  { q: "Quanto cabe de forma sustentável com a meta de 200/s?",
+    a: "70% de 300 = 210/s, cerca de 5% de folga. A 300/s a cadeia vai a 100%." },
+  { q: "Quanto o shard quente do mkt-01 trabalha?",
+    a: "120/s num shard de 150 (80%, no joelho). Com o dedicado 2×: 26,7%." },
+  { q: "O que o lag do entregas mostra?",
+    a: "3 partições × 40/s = 120/s contra 200/s: 1.152.000 eventos em 4 h e 2,8 h para drenar. Com 8 partições: ρ = 62,5%." },
+]} />

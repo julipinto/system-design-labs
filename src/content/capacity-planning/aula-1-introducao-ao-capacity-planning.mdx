@@ -1,0 +1,124 @@
+---
+title: "Introdução ao capacity planning"
+order: 1
+min: 11
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">No fim do módulo 22 a loja já sabia <strong>publicar</strong> sem derrubar a si mesma: rolling, blue/green, canary, shadow, flags e anéis. Só que toda primavera o comercial faz uma pergunta que nenhum deploy responde: <strong>"a Black Friday do ano que vem aguenta?"</strong> Ninguém calculou. A de 2026 foi medida no módulo 14; a de 2027 (sexta, <strong>26/11/2027</strong>) ainda é uma incógnita.</p>
+
+<OneLiner><strong>Capacity planning</strong> não prevê o futuro. Ele <strong>transforma o que foi medido em limites e em um plano</strong>, antes do incidente: quanto cada serviço precisa ter, em que ordem os elos quebram, quanto custa e o que ainda não se sabe.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Fila</strong>, mova a chegada de <strong>8</strong> a <strong>19,8 pedidos/s</strong> num pod do <code>pagamentos</code> e veja a fila crescer. É a pergunta da próxima aula, adiantada: por que 70% é saudável e 95% não?</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/ponto-3d/?mode=fila" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Figura interativa: A fila do pagamentos" alt="Prévia da figura 3D: A fila do pagamentos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os números herdados.</strong> A Black Friday de 2026 deixou uma tabela, medida às <strong>20:03</strong> (módulo 14). Ela é o ponto de partida e <strong>não muda</strong> neste módulo.</li>
+  <li><strong>A pergunta vira cenários.</strong> O comercial não dá um número, dá uma intenção. O planejador responde com três hipóteses por serviço, da mais provável à mais ambiciosa.</li>
+  <li><strong>Cada cenário vira carga.</strong> As aulas 2 a 6 ensinam a medir e a distribuir a carga no tempo; a 7 a projeta para 2027.</li>
+  <li><strong>A carga encontra os limites.</strong> A 8 mede o que o fluxo inteiro aguenta e a 9 fecha com a <strong>ficha de limites</strong>, o custo e os gatilhos de reavaliação.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O que a loja mediu em 2026</h3>
+
+<p>Antes de projetar, a loja precisa dizer o que já sabe. Todos os números abaixo vêm do módulo 14, medidos na Black Friday de 2026, às 20:03.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>O quê</th><th>Valor medido</th></tr></thead>
+  <tbody>
+    <tr><th>Pico do catálogo</th><td><strong>640 req/s</strong> (média do dia 400; dia comum 40)</td></tr>
+    <tr><th>Tempo de resposta</th><td>p50 <strong>32 ms</strong> · p95 <strong>800 ms</strong> · p99 <strong>2.000 ms</strong> · erros <strong>1%</strong> (meta: p95 ≤ 300 ms, erros ≤ 0,1%)</td></tr>
+    <tr><th>Catálogo</th><td>10 réplicas × <strong>100 req/s</strong> = 1.000 req/s; seguro até <strong>700</strong> (70%); a réplica <code>catalogo-3</code> a 99%, a frota a 67,5%</td></tr>
+    <tr><th>Checkout hoje</th><td><strong>30 pedidos/s</strong>. <code>pedidos</code> 3 pods × 30 = <strong>90/s</strong>; <code>pagamentos</code> 2 pods × 20 = <strong>40/s</strong> (o elo mais fraco); <code>estoque</code> 2 × 500 = <strong>1.000/s</strong>; banco do <code>pedidos</code> <strong>150/s</strong> por primário</td></tr>
+    <tr><th>Depois do módulo 16</th><td>3 shards × 150 = 450/s nominal, mas com o <code>mkt-01</code> no <code>shard-2</code> só <strong>250/s úteis</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">As três respostas para 2027</h3>
+
+<p>Com essa tabela na mão, o planejador não responde "aguenta" ou "não aguenta". Responde com um <strong>cenário</strong> por serviço, e cada cenário tem um dono: a história, o evento de negócio ou o pior caso.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Catálogo (req/s)</th><th>Checkout (pedidos/s)</th></tr></thead>
+  <tbody>
+    <tr><th>Tendência</th><td><strong>750</strong> (a reta da série)</td><td><strong>45</strong> (30 × 950 ÷ 640)</td></tr>
+    <tr><th>Com o evento / a meta</th><td><strong>950</strong> (a nova tela inicial, +15%)</td><td><strong>200</strong> (a meta do comercial)</td></tr>
+    <tr><th>Estresse</th><td><strong>1.140</strong> (950 × 1,2)</td><td><strong>300</strong> (1,5 × a meta)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A diferença entre <strong>45</strong> e <strong>200</strong> pedidos por segundo é de <strong>155</strong>, e a tendência dos clientes não a explica. Ela só existe se <strong>parceiros pela API</strong> (o <code>mkt-01</code> e outros 3, módulo 8) venderem sem navegar no catálogo; por isso o catálogo continua em 950. O planejador faz essa pergunta ao negócio em vez de adivinhar a resposta.</p>
+
+<h3 class="sec">Reativo × preventivo</h3>
+
+<p>Sem plano, a capacidade se descobre no incidente: a frota enche, o p95 sobe, alguém sobe réplicas às pressas. Com plano, o mesmo número aparece em outubro, num documento, com custo. O trabalho é o mesmo; muda <strong>quando</strong> se paga por ele.</p>
+
+<p>O roteiro que o resto do módulo percorre tem <strong>8 passos</strong>, e a aula 9 aplica todos à loja:</p>
+
+<ol class="flow steps">
+  <li><strong>Delimitar o fluxo</strong> que será dimensionado.</li>
+  <li><strong>Estimar a carga</strong> (TPS, concorrência, payload).</li>
+  <li><strong>Medir o throughput individual</strong> de cada componente.</li>
+  <li><strong>Derivar o sistêmico</strong>: o mínimo da cadeia.</li>
+  <li><strong>Projetar o crescimento</strong>.</li>
+  <li><strong>Avaliar o custo</strong> e as margens.</li>
+  <li><strong>Definir os limites operacionais</strong>.</li>
+  <li><strong>Testar</strong> com carga (módulo 24).</li>
+</ol>
+
+<h3 class="sec">E se der errado: dimensionar para o que já aconteceu</h3>
+
+<p>O erro mais comum é planejar com o número que já se viu: <strong>640 req/s</strong> e 10 réplicas, "que deu conta em 2026". Em 2027 o evento da nova tela chega e a demanda vai a <strong>950</strong>. As 10 réplicas passam a <strong>95%</strong> de uso, e a fórmula do módulo 14, R = 10 ms + 10 ms ÷ (1 − ρ), dá <strong>210 ms</strong> em média. O p95 volta aos 800 ms do módulo 14, e o problema aparece às 20:03, no minuto da newsletter, com o comercial olhando.</p>
+
+<WhyItMatters>
+  <li><strong>O plano é um modelo.</strong> Ele é útil porque dá um número a discutir antes do incidente, não porque acerta o futuro.</li>
+  <li><strong>Cenários, não adivinhação.</strong> Tendência, meta e estresse deixam claro quem decide o quê: a engenharia calcula o custo, o negócio escolhe a meta.</li>
+  <li><strong>A pergunta ao negócio faz parte.</strong> Os 155 pedidos por segundo a mais não saem de nenhum gráfico, saem da API de parceiros.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o artigo-base deixa de fora</h4>
+  <ul>
+    <li><strong>O custo da meta.</strong> A diferença entre a tendência e a meta do comercial é uma decisão de negócio, com preço em vCPU. Planejar só pela tendência esconde a conta.</li>
+    <li><strong>O gatilho de reavaliação.</strong> Um plano sem a regra "se a demanda passar de X, refaça a conta" envelhece em silêncio (aula 9).</li>
+    <li><strong>O congelamento e a pré-escala.</strong> O plano inclui parar mudanças antes do evento e subir réplicas antes da newsletter (aula 9).</li>
+    <li><strong>Capacidade nominal × operacional.</strong> O módulo 24 mede a segunda; este módulo calcula a primeira.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE book: Software Engineering in SRE", href: "https://sre.google/sre-book/software-engineering-in-sre/" },
+    { label: "Google SRE Workbook: Non-Abstract Large System Design", href: "https://sre.google/workbook/non-abstract-design/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+  ]} />
+</Deep>
+
+<p class="gancho">A loja a 70% responde bem e a 95% não, mas a conta de 950 req/s depende dessa diferença. Falta saber por que um sistema a 70% responde bem e a 95% não.</p>
+
+<Flashcards cards={[
+  { q: "O que é capacity planning, em uma frase?",
+    a: "Transformar o que foi medido em limites e em um plano, antes do incidente. Não é prever o futuro." },
+  { q: "Quais são os três cenários de 2027 para o catálogo e para o checkout?",
+    a: "Catálogo 750 · 950 · 1.140 req/s (tendência, evento, estresse). Checkout 45 · 200 · 300 pedidos/s (tendência, meta, estresse)." },
+  { q: "De onde vêm os 155 pedidos por segundo a mais?",
+    a: "De parceiros pela API (o mkt-01 e outros 3), que vendem sem navegar no catálogo. Por isso o catálogo continua em 950." },
+  { q: "O que acontece se a loja dimensionar para 640 req/s?",
+    a: "Com 950 a demanda, as 10 réplicas vão a 95% e a resposta média a 210 ms. O plano precisa partir da demanda esperada, não da vista." },
+  { q: "Quais são os 8 passos do roteiro?",
+    a: "Fluxo, carga, throughput individual, sistêmico, projeção, custo e margens, limites operacionais, testes de carga." },
+]} />

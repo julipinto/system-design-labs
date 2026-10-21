@@ -1,0 +1,99 @@
+---
+title: "Planejamento de capacidade"
+order: 9
+min: 14
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A aula passada deixou o gargalo andando e uma lista de peças: 10 pods no <code>pedidos</code>, 15 no <code>pagamentos</code>, 4 shards e 8 partições. Falta juntar isso num <strong>plano</strong> que o comercial leia: com o que se compra, o que custa e o que fazer se a demanda passar do previsto.</p>
+
+<OneLiner>O plano é um <strong>roteiro de 8 passos</strong> cujo resultado é uma <strong>ficha de limites</strong>, não "um número": com custo, margens e <strong>gatilhos de reavaliação</strong>.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Plano</strong>, passe pelas peças de 2027 (14 · 10 · 15 · 2 · 4 shards · 8 partições) e leia o total: <strong>41 vCPU</strong>, contra 17 em 2026.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/bf-3d/?mode=plano" poster="labs/capacity-planning/bf-3d-previa.webp" title="Figura interativa: O plano da BF 2027" alt="Prévia da figura 3D: O plano da BF 2027" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Delimitar o fluxo.</strong> <code>GET /produtos/{'{id}'}</code> (catálogo) e o checkout: <code>carrinho → pedidos → pagamentos → estoque → banco</code>, mais o <code>entregas</code> por evento.</li>
+  <li><strong>Carga.</strong> Catálogo <strong>950 req/s</strong>; checkout <strong>200 pedidos/s</strong> (60% no <code>shard-2</code>); payload de 20 KB (156 Mbit/s).</li>
+  <li><strong>Throughput individual.</strong> 100 req/s por réplica de catálogo (74 com 5% de busca), 30/s <code>pedidos</code>, 20/s <code>pagamentos</code>, 500/s <code>estoque</code>, 150/s por shard, 40/s por partição do <code>entregas</code>.</li>
+  <li><strong>Sistêmico.</strong> O mínimo da cadeia (aula 8): 300/s nominais, 210/s sustentáveis.</li>
+  <li><strong>Projeção.</strong> Catálogo 750 – <strong>950</strong> – 1.140; checkout 45 – <strong>200</strong> – 300.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Passo 6: custo e margens</h3>
+
+<p>Uma réplica é 1 vCPU. A Black Friday de 2026 usou catálogo 10 + <code>pedidos</code> 3 + <code>pagamentos</code> 2 + <code>estoque</code> 2 = <strong>17 vCPU</strong>. O plano de 2027 pede catálogo <strong>14</strong> (ou 19, com a busca) + <code>pedidos</code> <strong>10</strong> + <code>pagamentos</code> <strong>15</strong> + <code>estoque</code> <strong>2</strong> = <strong>41 vCPU</strong>, isto é, <strong>+24</strong>. O dia comum é 2 + 3 + 2 + 2 = <strong>9</strong>.</p>
+
+<p>Em <strong>réplica-horas por dia</strong>, uma frota fixa de 24 h × 41 dá <strong>984</strong>. Uma frota <strong>elástica</strong>, com 41 nas 4 horas do pico e 9 no resto, dá 4 × 41 + 20 × 9 = <strong>344</strong>: <strong>35%</strong> do fixo, na mesma ordem dos 33% do módulo 14.</p>
+
+<p>O HPA reage em cerca de 60 s, e a newsletter das 20:00 é <strong>conhecida</strong>. Por isso o plano manda <strong>pré-escalar às 19:50</strong> (escala agendada) em vez de esperar a métrica. A <strong>capacidade de emergência</strong> do módulo 21 também entra na conta: os níveis de degradação do catálogo (7,5 ms → 133 req/s por réplica; 6 ms → 167) dão 14 × 133 = <strong>1.867</strong> e 14 × 167 = <strong>2.333 req/s</strong> sem uma réplica a mais. O plano <strong>conta</strong> essa folga, mas <strong>não depende dela</strong>: degradar é o último recurso.</p>
+
+<Widget name="custo" title="Custo do plano" hint="Pods de cada serviço no dia comum e em 2027, horas de pico: calcula vCPU, réplica-horas da frota fixa × elástica (984 × 344) e a diferença para a Black Friday de 2026 (17 vCPU)." />
+
+<h3 class="sec">Passo 7: a ficha de limites</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Catálogo</th><th>Checkout</th></tr></thead>
+  <tbody>
+    <tr><th>Sustentável</th><td><strong>980 req/s</strong> (14 × 100 × 0,7)</td><td><strong>210 pedidos/s</strong></td></tr>
+    <tr><th>Metas</th><td>p95 ≤ 300 ms · erros ≤ 0,1% · ρ ≤ 70%</td><td>p95 ≤ 800 ms · erros ≤ 0,1% · L(alvo) do <code>pagamentos</code> = 4 por pod</td></tr>
+    <tr><th>Dependências</th><td>—</td><td>Pool do PSP: <strong>150</strong> conexões</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O <strong>gatilho de reavaliação</strong> é: demanda acima de <strong>210 pedidos/s</strong> ou <strong>980 req/s</strong>, ou o <code>pagamentos</code> com L &gt; 4. Passou, refaz-se a conta. Passo 8: o plano é um modelo, e a validação é <strong>medir</strong> (módulo 24).</p>
+
+<p>E há um <strong>congelamento</strong>: mudanças de código (módulo 22) param <strong>3 dias</strong> antes da Black Friday, com exceção das flags de operação.</p>
+
+<h3 class="sec">E se der errado: o plano é nominal</h3>
+
+<p>O plano diz <strong>300/s</strong> e a conta é de <strong>capacidade nominal</strong>: a CPU de cada pod, o banco por primário. Ninguém mediu o pool de conexões (<code>max_connections</code>), a fila do Kafka, o limite do PSP nem a diferença entre o mix do dia comum e o da Black Friday. Um plano sem teste é uma <strong>hipótese</strong>, e o teste de <em>breakpoint</em> pode achar o limite <strong>antes</strong> de 300.</p>
+
+<WhyItMatters>
+  <li><strong>A ficha é o entregável.</strong> Sustentável, metas, pool e gatilhos: o comercial e o plantão leem o mesmo papel.</li>
+  <li><strong>O custo é parte do plano.</strong> 41 vCPU no pico e 344 réplica-horas por dia com a frota elástica.</li>
+  <li><strong>O plano precisa de teste.</strong> Cada número foi calculado, e o módulo 24 diz quais deles resistem.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">O que o artigo-base deixa de fora e as referências</h4>
+  <ul>
+    <li><strong>Faltam no artigo:</strong> o custo da meta (tendência × meta do comercial), o gatilho de reavaliação, o congelamento pré-evento, a pré-escala agendada e a capacidade nominal × operacional.</li>
+    <li><strong>Referências:</strong> o texto da ACM Queue e o da SciELO respondem 403 a robôs e não são citados; o do Medium também. A "Little's law" via <code>translate.goog</code> é a Wikipédia (a fonte original é a citada).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+    { label: "Repositório público do autor: exemplo load-test (sem vínculo)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">O plano diz que 300/s é o limite nominal, e ninguém mediu. Falta saber quanto a loja aguenta <strong>de verdade</strong>, e como achar o ponto de quebra sem derrubar a produção: é o módulo 24, Testes de Carga e Estresse, com o k6 no checkout.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os 8 passos do roteiro?",
+    a: "Fluxo, carga, throughput individual, sistêmico, projeção, custo e margens, limites operacionais, testes de carga." },
+  { q: "Qual é o plano de 2027 em pods e vCPU?",
+    a: "Catálogo 14 + pedidos 10 + pagamentos 15 + estoque 2 = 41 vCPU (17 em 2026, 9 no dia comum), mais 4 shards e 8 partições." },
+  { q: "Quanto a frota elástica economiza?",
+    a: "344 réplica-horas contra 984 da frota fixa: 35% do fixo. Pré-escala às 19:50." },
+  { q: "O que tem na ficha de limites?",
+    a: "Sustentável 980 req/s e 210 pedidos/s; p95 ≤ 300 ms (catálogo) e ≤ 800 ms (checkout); erros ≤ 0,1%; ρ ≤ 70%; L(alvo) 4; pool 150." },
+  { q: "Quais são os gatilhos de reavaliação?",
+    a: "Demanda acima de 210 pedidos/s ou 980 req/s, ou o pagamentos com L > 4." },
+]} />

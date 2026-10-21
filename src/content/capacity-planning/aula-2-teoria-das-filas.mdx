@@ -1,0 +1,123 @@
+---
+title: "Teoria das filas"
+order: 2
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada o plano ficou com uma pergunta de fundo: por que 70% de uso é saudável e 95% não é? A resposta está numa coisa que o <code>pagamentos</code> tem e o módulo 14 já usou sem dar nome: uma <strong>fila</strong>. Cada pod atende um pedido por vez, e os que chegam enquanto ele trabalha esperam.</p>
+
+<OneLiner>Toda fila tem <strong>chegada (λ)</strong>, <strong>atendimento (μ)</strong> e <strong>ordem</strong>. O tempo de espera depende da <strong>utilização (ρ = λ ÷ μ)</strong> e da <strong>variabilidade</strong> do serviço, não só da média.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Fila</strong>, troque a variabilidade de <strong>0</strong> para <strong>2</strong>, com o pod a <strong>80%</strong>, e leia o tempo de resposta: de <strong>150 ms</strong> a <strong>550 ms</strong>, com a mesma capacidade e a mesma utilização.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/ponto-3d/?mode=fila" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Figura interativa: A fila do pagamentos" alt="Prévia da figura 3D: A fila do pagamentos" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Os dois números.</strong> Um pod do <code>pagamentos</code> gasta <strong>50 ms</strong> por pedido (S = 50 ms), então atende <strong>μ = 1 ÷ 0,05 = 20 pedidos/s</strong>. A taxa de chegada é λ. A utilização é <strong>ρ = λ ÷ μ</strong>.</li>
+  <li><strong>A espera cresce com ρ.</strong> No modelo mais simples (M/M/1: chegadas e serviços aleatórios, um servidor), o tempo de resposta é <strong>W = S ÷ (1 − ρ)</strong>. A 50% é o dobro de S; a 90%, dez vezes; a 99%, cem.</li>
+  <li><strong>A variabilidade empurra a curva.</strong> Dois serviços com a mesma taxa média podem ter curvas muito diferentes: quanto mais irregular o tempo de serviço, mais espera. A fórmula de Pollaczek–Khinchine mede isso com o <strong>CV</strong> (coeficiente de variação).</li>
+  <li><strong>Cada salto é uma fila.</strong> O pool de conexões, o lock, a conexão do banco e o retry também formam filas. O <code>pagamentos</code> tem uma fila de CPU e outra de pool.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">A tabela do pod do <code>pagamentos</code></h3>
+
+<p>Com S = 50 ms e μ = 20/s, cada nível de utilização tem um tempo de resposta fixo. A Black Friday de 2026 está na linha de 75%: 30 pedidos/s repartidos em 2 pods dão 15/s cada.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>ρ</th><th>λ por pod</th><th>W (ms)</th><th>L</th><th>p95 (ms)</th><th>W ÷ S</th></tr></thead>
+  <tbody>
+    <tr><th>50%</th><td>10/s</td><td>100</td><td>1,0</td><td>300</td><td>2,0</td></tr>
+    <tr><th>60%</th><td>12/s</td><td>125</td><td>1,5</td><td>374</td><td>2,5</td></tr>
+    <tr><th>70%</th><td>14/s</td><td><strong>167</strong></td><td>2,33</td><td>499</td><td>3,3</td></tr>
+    <tr><th>75% · BF 2026</th><td>15/s</td><td><strong>200</strong></td><td>3,0</td><td>599</td><td>4,0</td></tr>
+    <tr><th>80%</th><td>16/s</td><td>250</td><td>4,0</td><td>749</td><td>5,0</td></tr>
+    <tr><th>85%</th><td>17/s</td><td>333</td><td>5,7</td><td>999</td><td>6,7</td></tr>
+    <tr><th>90%</th><td>18/s</td><td>500</td><td>9,0</td><td>1.498</td><td>10</td></tr>
+    <tr><th>95%</th><td>19/s</td><td>1.000</td><td>19</td><td>2.996</td><td>20</td></tr>
+    <tr><th>99%</th><td>19,8/s</td><td>5.000</td><td>99</td><td>14.979</td><td>100</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>O p95 usa a distribuição exponencial: <strong>W × ln 20</strong>. Entre 50% e 95% a média passa de 100 ms para 1 s sem que o pod aceite um único pedido a mais por segundo do que consegue atender. O que cresce é a espera.</p>
+
+<Widget name="fila" title="Fila: M/M/1 e variabilidade" hint="Tempo de serviço, servidores, chegada (λ) e CV (0 · 0,5 · 1 · 2). Mostra ρ, W, L, o p95 e a tabela por utilização. Presets do pagamentos (75% → 200 ms) e do catálogo (10 ms + 10 ms ÷ (1 − ρ))." />
+
+<h3 class="sec">A variabilidade: a mesma média, outra experiência</h3>
+
+<p>O M/M/1 supõe que o tempo de serviço varia como uma exponencial (CV = 1). Na prática o <code>pagamentos</code> mistura pedidos leves e pesados. A fórmula de <strong>Pollaczek–Khinchine</strong> (M/G/1) é <strong>W = S + ρ ÷ (1 − ρ) × (1 + CV²) ÷ 2 × S</strong>. A 80%, com S = 50 ms:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Serviço</th><th>CV</th><th>W a 80%</th></tr></thead>
+  <tbody>
+    <tr><th>Constante</th><td>0</td><td><strong>150 ms</strong></td></tr>
+    <tr><th>Pouco irregular</th><td>0,5</td><td><strong>175 ms</strong></td></tr>
+    <tr><th>Exponencial (o M/M/1)</th><td>1</td><td><strong>250 ms</strong></td></tr>
+    <tr><th>Mistura de leves e pesados</th><td>2</td><td><strong>550 ms</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>É a mesma capacidade e a mesma utilização, com um tempo médio <strong>3,7 vezes maior</strong> (550 ÷ 150). O painel que só olha "CPU a 80%" não vê a diferença.</p>
+
+<h3 class="sec">O M/M/1 é pessimista para a loja</h3>
+
+<p>O <code>lb-loja</code> faz <strong>round robin</strong> (módulo 7), que deixa as chegadas de cada pod mais regulares que as de um sorteio. No k6 do módulo 24, 30 pedidos/s (2 pods do <code>pagamentos</code> a 75%) deram média de <strong>157 ms em toda a cadeia</strong>, abaixo dos cerca de 259 ms que o M/M/1 sugere. Planejar com o M/M/1 sobra folga; só medir diz quanto.</p>
+
+<p>O <strong>autoscaling</strong> também não corrige a variabilidade. O HPA (módulo 14) reage em cerca de 60 s e aumenta o <strong>número de servidores</strong>, não a regularidade; a rajada de curto prazo é o que a fila sente antes dele.</p>
+
+<h3 class="sec">E se der errado: o painel diz 80% e a fila diz 550 ms</h3>
+
+<p>O <code>pagamentos</code> a 80% com CV = 2 responde em <strong>550 ms</strong>, 3,7 vezes o de CV = 0. O dono do serviço olha "CPU 80%" e a utilização parece saudável; nada ali explica por que o p95 está tão alto. A causa é a variabilidade dos pedidos (leves e pesados misturados), e o conserto está em separar os dois tipos, não em subir réplicas.</p>
+
+<WhyItMatters>
+  <li><strong>O tempo de espera depende de ρ e do CV.</strong> Utilização igual não quer dizer experiência igual.</li>
+  <li><strong>Cada salto é uma fila.</strong> Pool, lock, conexão e retry têm o mesmo comportamento: tudo acima de ~80% sobe a espera de forma brusca.</li>
+  <li><strong>O M/M/1 é um limite, não uma previsão.</strong> Serve para planejar com folga e para saber o que medir no módulo 24.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"Variabilidade em vez de percentis."</strong> O artigo apresenta o CV e o desvio padrão como métricas que substituem os percentis. Na fila a variabilidade é o <strong>fator</strong> (Pollaczek–Khinchine) e os percentis continuam sendo o que o cliente sente. As duas coisas se somam: média, CV e p99.</li>
+    <li><strong>O M/M/1 é conservador.</strong> O round robin do balanceador e serviços com CV &lt; 1 deixam a fila real mais curta. Faltam no artigo o <strong>M/G/1</strong> (Pollaczek–Khinchine) e o <strong>M/M/c</strong> (Erlang C): um pool compartilhado é mais eficiente que vários pequenos (módulo 25).</li>
+    <li><strong>O autoscaling não "aumenta μ temporariamente".</strong> Ele aumenta a <strong>capacidade</strong> (o número de servidores) com atraso de cerca de 60 s (módulo 14). A variabilidade de curto prazo não passa por ele. Falta no artigo a opção de escalar por <strong>concorrência (L)</strong> ou por fila, e não só por CPU.</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipédia: M/M/1 queue", href: "https://en.wikipedia.org/wiki/M/M/1_queue" },
+    { label: "Wikipédia: Pollaczek–Khinchine formula", href: "https://en.wikipedia.org/wiki/Pollaczek%E2%80%93Khinchine_formula" },
+    { label: "Wikipédia: Kingman's formula", href: "https://en.wikipedia.org/wiki/Kingman%27s_formula" },
+    { label: "Wikipédia: Teoria das filas", href: "https://pt.wikipedia.org/wiki/Teoria_das_filas" },
+  ]} />
+</Deep>
+
+<p class="gancho">Com λ, μ e CV sabemos quanto cada pedido espera na fila. Falta saber quanto trabalho há <strong>dentro</strong> do sistema ao mesmo tempo, e quanto desse trabalho cada pod aguenta.</p>
+
+<Flashcards cards={[
+  { q: "Quais são os três elementos de toda fila?",
+    a: "Chegada (λ), atendimento (μ) e ordem. A utilização é ρ = λ ÷ μ." },
+  { q: "Qual é o tempo de resposta do M/M/1?",
+    a: "W = S ÷ (1 − ρ). No pod do pagamentos (S = 50 ms): 100 ms a 50%, 200 ms a 75%, 500 ms a 90%, 5.000 ms a 99%." },
+  { q: "O que a variabilidade muda?",
+    a: "A 80% e S = 50 ms: CV 0 dá 150 ms, CV 1 dá 250 ms e CV 2 dá 550 ms. Mesma capacidade, tempo 3,7× maior." },
+  { q: "Por que o M/M/1 é pessimista para a loja?",
+    a: "O lb-loja faz round robin, que regulariza as chegadas. No k6, 30 pedidos/s deram média de 157 ms em toda a cadeia, abaixo dos ~259 ms do modelo." },
+  { q: "O que o autoscaling aumenta?",
+    a: "A capacidade (servidores), com atraso de ~60 s. Não reduz a variabilidade de curto prazo." },
+]} />

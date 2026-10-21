@@ -1,0 +1,78 @@
+---
+title: "Perfis de tráfego"
+order: 6
+min: 12
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">A aula passada mostrou que "640 req/s" esconde o mix e a rajada. Falta a terceira coisa que a média esconde: <strong>quando</strong> a carga chega. O catálogo tem 40 req/s em média num dia comum, e o número que importa para o plano é o do <strong>pior minuto</strong>.</p>
+
+<OneLiner>O perfil <strong>diário, semanal e sazonal</strong> mostra quando o sistema aperta e quando fica ocioso. O que se planeja é o <strong>pico da janela que importa</strong>, não a média do mês.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Perfis</strong>, troque a escala de <strong>dia</strong> para <strong>mês</strong> e veja a Black Friday sumir: de <strong>640</strong> no minuto das 20:03 para <strong>58</strong> na média de novembro.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/bf-3d/?mode=perfis" poster="labs/capacity-planning/bf-3d-previa.webp" title="Figura interativa: Perfis de tráfego" alt="Prévia da figura 3D: Perfis de tráfego" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>O dia.</strong> A série do catálogo em um dia comum (exemplo, média de 40 req/s) tem mínimo de <strong>4,1</strong> às 2h, almoço entre 12h e 13h e <strong>pico de 81,5 às 21h</strong>: 2,04 × a média.</li>
+  <li><strong>A semana.</strong> Fator sobre a média da semana: seg 1,05 · ter 1,00 · qua 1,00 · qui 1,05 · <strong>sex 1,15</strong> · sáb 0,90 · dom 0,85.</li>
+  <li><strong>O ano.</strong> Índice do mês: jan 0,85 · fev 0,80 · mar 0,90 · abr 0,90 · mai 1,00 · jun 0,95 · jul 0,90 · ago 0,95 · set 1,00 · out 1,10 · <strong>nov 1,45</strong> · dez 1,20. Novembro tem 1,45 × 40 = <strong>58 req/s</strong> de média.</li>
+  <li><strong>A janela.</strong> Quanto maior a janela de agregação, menor o pico: 1 a 10 minutos para o dia, 1 a 5 horas para a semana, dias para o ano.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O dia que quebra o padrão</h3>
+
+<p>A Black Friday não segue o perfil. A <strong>média do dia</strong> foi de <strong>400 req/s</strong> (10 vezes a média anual) e o <strong>pico das 20:03</strong>, de <strong>640</strong>. É o minuto da newsletter, que a loja <strong>conhece</strong> (20:00). A conta: 640 ÷ 81,5 = <strong>7,9 vezes</strong> o pico de um dia comum.</p>
+
+<p>No módulo 21 a mesma noite aparece com <strong>1.300 req/s às 20:20</strong>. Não é outro pico: é uma <strong>rajada de segundos</strong>. Na janela de 1 minuto a mesma noite aparece como cerca de 650. A agregação esconde a rajada, e é por isso que a janela escolhida faz parte do plano.</p>
+
+<Widget name="perfis" title="Perfis de tráfego" hint="Três séries (dia, semana, mês) e a Black Friday. O deslizador de agregação mostra o pico sumindo: 640 req/s no minuto, 400 na média do dia, 58 na média do mês." />
+
+<h3 class="sec">E se der errado: planejar pelo mês ou pelo pico comum</h3>
+
+<p>O plano usa o <strong>índice mensal</strong> (novembro, 58 req/s) ou o pico de um dia comum (81,5). A Black Friday é <strong>11 vezes</strong> a média do mês e <strong>7,9 vezes</strong> o pico comum. A média do mês <strong>esconde o dia</strong> e o dia <strong>esconde o minuto</strong>. O que se planeja é o pico da janela que importa: o minuto das 20:03.</p>
+
+<WhyItMatters>
+  <li><strong>A média muda com a janela.</strong> Um minuto, um dia e um mês dão números diferentes para a mesma loja.</li>
+  <li><strong>Eventos conhecidos entram no plano.</strong> A newsletter das 20:00 tem hora marcada, e por isso pode ter pré-escala (aula 9).</li>
+  <li><strong>O perfil diz quando a capacidade sobra.</strong> No dia comum o catálogo usa 4 req/s às 2h, e a frota elástica tira proveito disso.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">A série diária, hora a hora (exemplo)</h4>
+  <p>Req/s do catálogo, de 00h a 23h, em um dia comum. A média é <strong>40,0</strong>:</p>
+  <p><code>8,2 · 6,1 · 4,1 · 4,1 · 4,1 · 8,2 · 16,3 · 28,5 · 40,8 · 48,9 · 53,0 · 57,1 · 61,1 · 53,0 · 48,9 · 48,9 · 53,0 · 57,1 · 61,1 · 69,3 · 77,5 · 81,5 · 48,9 · 20,4</code></p>
+  <p>Os fatores semanais somam 7,00 e os índices mensais somam 12,00, então a média da semana e a do ano continuam sendo 40.</p>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE book: Software Engineering in SRE", href: "https://sre.google/sre-book/software-engineering-in-sre/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+  ]} />
+</Deep>
+
+<p class="gancho">O perfil mostra quando a carga aperta hoje. Falta saber como ela vai estar <strong>no ano que vem</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Qual é o pico de um dia comum do catálogo?",
+    a: "81,5 req/s às 21h, 2,04 × a média de 40 req/s (exemplo)." },
+  { q: "Qual é o fator da sexta e o índice de novembro?",
+    a: "Sexta 1,15 da média da semana. Novembro 1,45: 58 req/s de média." },
+  { q: "Quanto a Black Friday de 2026 passou do dia comum?",
+    a: "A média do dia foi 400 req/s (10× a anual) e o pico das 20:03 foi 640, 7,9× o pico comum de 81,5." },
+  { q: "Por que a rajada de 1.300 req/s não está no pico de 640?",
+    a: "É uma rajada de segundos; na janela de 1 minuto a mesma noite aparece como cerca de 650. A agregação esconde a rajada." },
+  { q: "O que se planeja: a média do mês ou o pico?",
+    a: "O pico da janela que importa, o minuto das 20:03. A média do mês esconde o dia e o dia esconde o minuto." },
+]} />

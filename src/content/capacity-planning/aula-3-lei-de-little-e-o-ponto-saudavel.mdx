@@ -1,0 +1,86 @@
+---
+title: "Lei de Little e o ponto saudável"
+order: 3
+min: 13
+---
+import OneLiner from '../../components/OneLiner.astro';
+import DoIt from '../../components/DoIt.astro';
+import HowItWorks from '../../components/HowItWorks.astro';
+import WhyItMatters from '../../components/WhyItMatters.astro';
+import Widget from '../../components/Widget.astro';
+import Deep from '../../components/Deep.astro';
+import Sources from '../../components/Sources.astro';
+import Figure3D from '../../components/Figure3D.astro';
+import Flashcards from '../../components/Flashcards.astro';
+
+<p class="ponte">Na aula passada cada pod do <code>pagamentos</code> ganhou uma fila e um tempo de resposta. Ficou sem resposta quanto trabalho existe <strong>dentro</strong> do sistema num instante qualquer. É o que a Lei de Little conta, e é o número que diz quando um serviço fica sem workers livres.</p>
+
+<OneLiner>A <strong>Lei de Little</strong> diz que o trabalho em voo é <strong>L = λ × W</strong>. Fixando o <strong>L(alvo)</strong> que o serviço aguenta, sai o contrato do <strong>ponto saudável</strong>: a taxa e o tempo que cabem nele.</OneLiner>
+
+<DoIt>
+  <p>Na figura, no cenário <strong>Little</strong>, vá ao último passo e, no seletor "W do PSP-A", estique o tempo de resposta de <strong>0,18 s</strong> até <strong>0,5 s</strong> e veja os workers do <code>pagamentos</code> acabarem com a CPU parada em 33%.</p>
+</DoIt>
+
+<Figure3D path="labs/capacity-planning/ponto-3d/?mode=little" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Figura interativa: Lei de Little" alt="Prévia da figura 3D: Lei de Little" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>A conta.</strong> Se chegam λ pedidos por segundo e cada um fica W segundos no sistema, há <strong>L = λ × W</strong> pedidos dentro, em média. Vale para qualquer fila estável, sem supor distribuição.</li>
+  <li><strong>O exemplo do artigo.</strong> <strong>1.500 msg/s × 0,050 s = 75</strong> mensagens em voo. Com <strong>85 ms</strong> sobe a <strong>127,5</strong> (o artigo escreve 127; o aumento é de 52,5, não 52).</li>
+  <li><strong>Fixar o L(alvo).</strong> Uma API REST aguenta 150 requisições em voo. A <strong>500 req/s</strong> e 0,3 s, L é 150. A <strong>1.000 req/s</strong> o L vai a 300. O <strong>W(alvo)</strong> que mantém L = 150 a 1.000 req/s é <strong>150 ÷ 1.000 = 150 ms</strong>.</li>
+  <li><strong>Ver na loja.</strong> O <code>pedidos</code> espera o <code>pagamentos</code> por 200 ms. Com <strong>10 pedidos/s</strong> por pod, L = 10 × 0,2 = <strong>2 workers</strong> ocupados.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">O L(alvo) do <code>pagamentos</code></h3>
+
+<p>Pela fila da aula passada, L = ρ ÷ (1 − ρ). A <strong>70%</strong> de utilização (o ponto saudável), L vale <strong>2,33</strong> por pod. A <strong>80%</strong> vale <strong>4,0</strong>. O plano escolhe <strong>L(alvo) = 4 por pod</strong>: acima disso, o pod passa do limite que o plano aceita.</p>
+
+<p>Com a Black Friday de 2027 (200 pedidos/s em 10 pods do <code>pedidos</code>, 20/s por pod) o <code>pagamentos</code> trabalha a 66,7%, com W = 150 ms. Little confere: L = 20 × 0,15 = <strong>3 por pod</strong>, abaixo do alvo de 4.</p>
+
+<h3 class="sec">Pool = λ × W × folga</h3>
+
+<p>A mesma conta dimensiona o pool de conexões ao PSP. O módulo 21 fechou o pool a <strong>30 pedidos/s</strong>: 50 conexões, L = 30 × 0,18 = 5,4 no normal e <strong>timeout crítico de 50 ÷ 30 = 1,67 s</strong>. Por isso o timeout ficou em 1 s.</p>
+
+<p>A <strong>200 pedidos/s</strong> o mesmo pool não serve. No normal, L = 200 × 0,18 = <strong>36</strong> (72% do pool). No pior caso que o timeout de 1 s permite, L = 200 × 1 = <strong>200</strong>. O timeout crítico cai para 50 ÷ 200 = <strong>0,25 s</strong>, menor que o p99,9 do PSP-A (700 ms). O plano leva o pool de <strong>50 para 150</strong> (36 × folga de 4 = 144): ele tolera um W do PSP de até 150 ÷ 200 = <strong>0,75 s</strong> antes de saturar. Acima disso quem assume é o circuit breaker (módulo 21).</p>
+
+<Widget name="little" title="Little e pool" hint="Chegada, tempo de resposta e L(alvo). Calcula L = λ × W, o W(alvo), a capacidade com W pela metade e o pool (λ × W × folga). Preset do PSP: 200 pedidos/s com W = 0,18 s (36 em voo) e 0,5 s (100 em voo contra 50)." />
+
+<h3 class="sec">E se der errado: réplicas sobem, o pool não</h3>
+
+<p>O dono do <code>pagamentos</code> aprende a aula 8 e leva as réplicas de 2 para 15. Esquece o pool. Com o PSP-A em <strong>0,5 s</strong>, L = 200 × 0,5 = <strong>100 em voo</strong> contra <strong>50</strong> conexões: o <code>pagamentos</code> <strong>satura com a CPU a 33% (100 cobranças/s × 50 ms ÷ 15 vCPU)</strong>. A utilização de CPU não vê o problema; a <strong>concorrência</strong> vê. Escalar por CPU não resolve. É preciso uma métrica de concorrência (ou de fila) no HPA, e o pool entra na ficha de limites da aula 9.</p>
+
+<WhyItMatters>
+  <li><strong>L conta o trabalho em voo.</strong> Cada worker, conexão e thread ocupada é uma unidade de L.</li>
+  <li><strong>O L(alvo) é um contrato.</strong> O serviço promete aguentar até L = 4 por pod; o plano mede se isso cabe.</li>
+  <li><strong>CPU baixa com L alto é uma dependência lenta.</strong> O sintoma é fila com o processador ocioso.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correções ao artigo-base</h4>
+  <ul>
+    <li><strong>"50% mais requisições."</strong> O artigo diz que reduzir W de 300 para 150 ms faz o sistema processar 50% mais requisições. A mesma concorrência L com W pela metade sustenta o <strong>dobro</strong>: de 500 para 1.000 req/s, <strong>+100%</strong>.</li>
+    <li><strong>"127".</strong> O produto 1.500 × 0,085 é <strong>127,5</strong>, e o aumento é de <strong>52,5</strong>. O artigo arredonda para baixo.</li>
+    <li><strong>"Quanto menor o L, melhor."</strong> L pequeno significa pouco trabalho em voo, mas L alto com pool grande e CPU baixa é o sinal de uma dependência lenta. O que importa é L comparado com o <strong>L(alvo)</strong> (os workers disponíveis).</li>
+  </ul>
+  <Sources items={[
+    { label: "Artigo público de Matheus Fidelis sobre capacity planning (fidelissauro.dev, sem vínculo)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipédia: Little's law", href: "https://en.wikipedia.org/wiki/Little%27s_law" },
+    { label: "Marc Brooker: Telling Stories About Little's Law", href: "https://brooker.co.za/blog/2018/06/20/littles-law.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Little mostrou que o L(alvo) limita o tempo e a taxa. Falta saber onde exatamente a resposta dispara quando a utilização sobe.</p>
+
+<Flashcards cards={[
+  { q: "O que diz a Lei de Little?",
+    a: "L = λ × W: o trabalho em voo é a taxa de chegada vezes o tempo no sistema. 1.500 msg/s × 50 ms = 75." },
+  { q: "Qual é o W(alvo) de uma API com L(alvo) 150 a 1.000 req/s?",
+    a: "W = L ÷ λ = 150 ÷ 1.000 = 150 ms. Com W pela metade a capacidade dobra (+100%), não cresce 50%." },
+  { q: "Qual é o L(alvo) do pagamentos?",
+    a: "4 por pod (ρ = 80%). O ponto saudável, a 70%, é L = 2,33." },
+  { q: "Qual pool o pagamentos precisa a 200 pedidos/s?",
+    a: "150 conexões: 36 em voo × folga de 4. O pool de 50 tem timeout crítico de 0,25 s, menor que o p99,9 do PSP-A." },
+  { q: "Como escalar por CPU falha com o PSP lento?",
+    a: "A 0,5 s, L = 100 contra 50 conexões: o pagamentos satura com a CPU a 33% (100 cobranças/s × 50 ms ÷ 15 vCPU). É preciso métrica de concorrência." },
+]} />
