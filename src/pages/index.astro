@@ -35,15 +35,13 @@ const modules: Mod[] = [
     text: 'Mensagens, comandos e eventos, filas e DLQ, streaming, Kafka com partições, grupos e replicação, MQTT para o caminhão e AMQP no RabbitMQ para os e-mails, com widgets e quiz de 63 perguntas.' },
   { slug: 'performance', title: 'Performance, Capacidade e Escalabilidade', lessons: 6, poster: 'labs/performance/latencia-3d-previa.webp', alt: 'Prévia da figura 3D da frota de réplicas e dos 100 pedidos',
     text: 'A Black Friday em números: tempo de resposta, quatro sinais e percentis, capacidade e gargalo, escalabilidade vertical e horizontal e a fórmula do HPA, com calculadoras e quiz de 41 perguntas.' },
-  { slug: 'cqrs', n: 18, title: 'CQRS', lessons: 10, poster: 'labs/cqrs/cqrs-3d-previa.webp', alt: 'Prévia da figura 3D dos dois modelos, o de comando e o de consulta',
-    text: 'Um modelo para escrever e outro para ler: comandos e consultas, view materializada, réplicas de leitura, consistência eventual, SQL e NoSQL, modelos que juntam serviços, escrita dupla, CDC e outbox, com calculadoras e quiz de 50 perguntas.' },
   { slug: 'scale-cube', title: 'Scale Cube', lessons: 6, poster: 'labs/scale-cube/cubo-3d-previa.webp', alt: 'Prévia da figura 3D do cubo da escalabilidade',
     text: 'Três perguntas para decidir por onde crescer: clonar (X), separar por função (Y) ou separar por dados (Z). A loja em coordenadas, a tabela de sintomas, o roteador do Z e a conta de pods, com widgets e quiz de 37 perguntas.' },
   { slug: 'sharding', title: 'Sharding e Particionamento', lessons: 10, poster: 'labs/sharding/shards-3d-previa.webp', alt: 'Prévia da figura 3D da tabela pedidos partida em shards',
     text: 'Partir a tabela pedidos de 50 milhões de linhas: chave de sharding e shard quente, partições do PostgreSQL, ranges, hash, hashing consistente, slots, diretório e shuffle sharding, com os labs do autor lidos linha a linha. Com widgets e quiz de 57 perguntas.' },
-  { slug: 'replicacao', n: 17, title: 'Replicação de Dados', lessons: 6, poster: 'labs/replicacao/replicas-3d-previa.webp', alt: 'Prévia da figura 3D dos três sites com a fita do log',
+  { slug: 'replicacao', title: 'Replicação de Dados', lessons: 6, poster: 'labs/replicacao/replicas-3d-previa.webp', alt: 'Prévia da figura 3D dos três sites com a fita do log',
     text: 'O mesmo dado em SP, no Rio e em Recife: Primary/Replica e Primary/Primary, síncrona, assíncrona e semi-síncrona, a Lena sem ver o próprio pedido, ECST, CDC com Debezium e CRDTs, com calculadoras e quiz de 41 perguntas.' },
-  { slug: 'cqrs', n: 18, title: 'CQRS', lessons: 10, poster: 'labs/cqrs/cqrs-3d-previa.webp', alt: 'Prévia da figura 3D dos dois modelos, o de comando e o de consulta',
+  { slug: 'cqrs', title: 'CQRS', lessons: 10, poster: 'labs/cqrs/cqrs-3d-previa.webp', alt: 'Prévia da figura 3D dos dois modelos, o de comando e o de consulta',
     text: 'Um modelo para escrever e outro para ler: comandos e consultas, view materializada, réplicas de leitura, consistência eventual, SQL e NoSQL, modelos que juntam serviços, escrita dupla, CDC e outbox, com calculadoras e quiz de 50 perguntas.' },
 ];
 const pad = (n: number) => String(n).padStart(2, '0');
