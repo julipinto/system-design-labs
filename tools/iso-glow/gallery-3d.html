@@ -7,7 +7,7 @@
 <style>
   :root { --bg:#121314; --panel:rgba(22,23,24,.85); --line:#26292b; --ink:#c9d0db; --dim:#7d8796; --accent:#ff9d3c; }
 :root { color-scheme:dark; }
-  :root[data-theme="light"] { color-scheme:light; --bg:#e9eaea; --panel:rgba(246,246,245,.9); --line:#d6d8d8; --ink:#2b2e30; --dim:#6b7075; }
+  :root[data-theme="light"] { color-scheme:light; --bg:#e9eaea; --panel:rgba(246,246,245,.9); --line:#d6d8d8; --ink:#2b2e30; --dim:#5c6166; }
   * { box-sizing:border-box; }
   @media (max-width:900px) { .build { display:none; } }
   .tops { display:flex; gap:8px; align-items:center; min-width:0; max-width:100%; }
@@ -58,6 +58,8 @@
   #load { left:50%; top:50%; transform:translate(-50%,-50%); color:var(--dim); letter-spacing:.12em; text-transform:uppercase; }
   @media (max-width:1100px) { #hint { display:none; } #info { bottom:56px; } #credit { bottom:auto; top:44px; right:16px; } #ctl { top:72px; } }
   @media (max-width:640px) { #ctl { top:auto; bottom:170px; width:150px; max-height:40vh; } #info { bottom:92px; max-width:calc(100vw - 190px); } #credit, #hint { display:none; } }
+  /* SDLabs: no tema claro, o laranja do painel escurece para passar de 4,5:1 (o brilho da cena segue o seletor de cor) */
+  :root[data-theme="light"] #info, :root[data-theme="light"] .ctl { --accent:#8a4500; }
   /* SDLabs: alvo de toque de 44 px no celular e em tela de toque (tema, revolve, cores e botões do painel) */
   @media (pointer:coarse), (max-width:900px) {
     #theme { width:44px; height:44px; }
