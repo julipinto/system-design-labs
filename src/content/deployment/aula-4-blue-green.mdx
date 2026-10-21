@@ -38,7 +38,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <h3 class="sec">E se der errado: o green frio</h3>
 
-<p>O green nasce com o cache local <strong>vazio</strong>. A primeira requisição leva <strong>200 ms</strong> em vez de 20 ms (exemplo). Pela Lei de Little (módulo 23), a 640 req/s: 640 × 0,2 s = <strong>128</strong> requisições em voo, contra 640 × 0,02 = 12,8. Se cada pod tem <strong>10 workers</strong> (o <em>thread pool</em> do módulo 11), 10 pods suportam <strong>100</strong> em voo. O green <strong>forma fila</strong>, com a CPU a 64%, no instante em que recebe 100% do tráfego.</p>
+<p>O green nasce com o cache local <strong>vazio</strong>. A primeira requisição leva <strong>200 ms</strong> em vez de 20 ms (exemplo). Pela Lei de Little (módulo 14), a 640 req/s: 640 × 0,2 s = <strong>128</strong> requisições em voo, contra 640 × 0,02 = 12,8. Se cada pod tem <strong>10 workers</strong> (o <em>thread pool</em> do módulo 11), 10 pods suportam <strong>100</strong> em voo. O green <strong>forma fila</strong>, com a CPU a 64%, no instante em que recebe 100% do tráfego.</p>
 
 <p>O conserto é o <em>warm-up</em> antes da virada: tráfego sintético ou espelhado (aula 9) até o cache esquentar.</p>
 

@@ -28,7 +28,7 @@ import lojaSimJs from '../../../public/labs/testes-de-carga/lab/loja-sim.js?raw'
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>Testar do build à maturidade.</strong> O <strong>smoke</strong> roda em todo <em>deploy</em> (<em>build</em>); o <strong>breakpoint</strong> roda antes do evento (<em>run</em>). Cada fase faz uma pergunta diferente.</li>
-  <li><strong>Escolher a meta antes da carga.</strong> As do módulo 14: <strong>p95 ≤ 800 ms</strong> e <strong>erros ≤ 0,1%</strong>. O k6 as recebe como <em>thresholds</em>.</li>
+  <li><strong>Escolher a meta antes da carga.</strong> As do checkout no módulo 23 (o p95 de 300 ms do módulo 14 era a meta do catálogo): <strong>p95 ≤ 800 ms</strong> e <strong>erros ≤ 0,1%</strong>. O k6 as recebe como <em>thresholds</em>.</li>
   <li><strong>Escolher o alvo.</strong> O <strong>checkout</strong>: <code>POST /pedidos</code> passa por <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> e o banco. O <code>lb-loja</code> desiste em <strong>2 s</strong> (<code>504</code>).</li>
   <li><strong>Escolher o ambiente.</strong> "Hoje" é a Black Friday de 2026 (3 pods no <code>pedidos</code>, 2 no <code>pagamentos</code>); "plano" é o do módulo 23; "plano 2" é o plano com o shard dedicado ao <code>mkt-01</code>.</li>
   <li><strong>Rodar e ler.</strong> O script injeta a carga e o k6 devolve uma tabela e um <strong>código de saída</strong>: <code>0</code> passou, <code>99</code> uma meta falhou.</li>
@@ -86,7 +86,7 @@ import lojaSimJs from '../../../public/labs/testes-de-carga/lab/loja-sim.js?raw'
   { q: "Por que um plano sem teste é uma hipótese?",
     a: "Porque a conta (300/s nominais, 210 sustentáveis) nunca foi medida: ninguém viu o pool, o PSP, o mix nem o shard quente. O teste refuta ou confirma com número." },
   { q: "Quais são as metas do checkout?",
-    a: "p95 ≤ 800 ms e erros ≤ 0,1%, as do módulo 14, escritas como thresholds do k6. O lb-loja desiste em 2 s (504)." },
+    a: "p95 ≤ 800 ms e erros ≤ 0,1%, as do checkout no módulo 23, escritas como thresholds do k6. O lb-loja desiste em 2 s (504)." },
   { q: "O que é o simulador e o que não é?",
     a: "Um modelo de filas em Node (45 linhas): pod = fila FIFO com tempo exponencial. O k6 e as saídas são reais; o sistema é a conta dos módulos 14 a 23." },
   { q: "O que o smoke de 2 pedidos/s mostrou?",

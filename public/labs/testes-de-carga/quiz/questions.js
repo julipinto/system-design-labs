@@ -42,7 +42,7 @@
   ], 1, "O plano do módulo 23 (300/s nominais, 210 sustentáveis) é uma conta. O teste de carga é o jeito de refutá-la com número.");
   choice("t1", 2, 1, "Quais são as metas do checkout neste módulo?", [
     "p95 ≤ 300 ms e erros ≤ 1%.", "p95 ≤ 800 ms e erros ≤ 0,1%.", "Média ≤ 800 ms e erros ≤ 0%.", "p99 ≤ 2 s e erros ≤ 5%."
-  ], 1, "São as do módulo 14, escritas como thresholds do k6: http_req_duration p(95)<800 e http_req_failed rate<0.001.");
+  ], 1, "São as do checkout no módulo 23, escritas como thresholds do k6: http_req_duration p(95)<800 e http_req_failed rate<0.001.");
   choice("t1", 3, 2, "O que é o sistema testado neste módulo?", [
     "A loja de produção.", "Uma pré-produção com 1 pod por serviço.", "Um simulador de filas do checkout, em Node.", "Um banco PostgreSQL."
   ], 2, "O k6 e as saídas são reais; o sistema é um modelo: cada pod é uma fila FIFO com tempo exponencial.");
