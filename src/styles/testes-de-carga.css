@@ -20,4 +20,4 @@
 .sdl-content .tc-prof .ln{fill:none;stroke:var(--accent-ink);stroke-width:3;stroke-linejoin:round}
 .sdl-content .tc-prof .ar{fill:var(--accent-wash);stroke:none}
 .sdl-content .tc-prof text{fill:var(--muted);font:600 12px var(--mono)}
-.sdl-content .tc-mark{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:var(--s-2) 0 0;font:600 13px var(--mono);color:var(--ink)}
+.sdl-content .tc-mark{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:var(--s-2) 0 0;font:500 14px var(--sans);color:var(--ink)}

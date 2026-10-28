@@ -19,7 +19,7 @@ const css = `
 .o3-dv summary{cursor:pointer;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:4px 0}
 .o3-mode{display:flex;gap:6px;margin:10px 0 2px}.o3-mode button{all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font:600 11.5px ui-monospace,monospace;color:var(--dim)}.o3-mode button[aria-pressed="true"]{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.o3-mode button:focus-visible{outline:2px solid var(--accent)}
 .o3-story{font-size:14px;line-height:1.6;color:var(--ink)}
-.o3-key{display:grid;gap:2px;padding:8px 10px;border-left:3px solid var(--accent);background:rgba(127,127,127,.06);border-radius:0 8px 8px 0}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.o3-key{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);background:rgba(127,127,127,.06);border-radius:8px}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .h3-now{margin:4px 0 0;padding-left:18px;font:12px/1.6 ui-monospace,monospace;color:var(--dim)}.h3-now b{color:var(--ink);font-weight:600}.h3-dim{color:var(--dim)}
 .h3-sum{width:100%;border-collapse:collapse;font:12px/1.4 ui-monospace,monospace;margin:4px 0 10px}.h3-sum th,.h3-sum td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}.h3-sum th{color:var(--accent);font-weight:600}.h3-sum td:first-child{color:var(--dim)}
 .d3-msg{border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin:6px 0 8px -18px;font:12px/1.45 ui-monospace,monospace;list-style:none}
@@ -29,7 +29,7 @@ const css = `
 .d3-f small{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .d3-dora{display:flex;gap:5px;margin:8px 0 0}.d3-dora span{flex:1;text-align:center;padding:4px 2px;border:1px solid var(--line);border-radius:7px;font:11px ui-monospace,monospace;color:var(--dim)}
 .d3-dora b{font-size:13px}.d3-dora .done{color:var(--ink)}.d3-dora .on{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.d3-dora .on b,.d3-dora .done b{color:var(--accent)}
-.s3-cmd{margin:8px 0 8px;padding:8px 10px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:rgba(127,127,127,.06)}
+.s3-cmd{margin:8px 0 8px;padding:8px 10px;border:1px solid var(--line);border:1px solid var(--line);border-radius:8px;background:rgba(127,127,127,.06)}
 .s3-cmd b{display:block;font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
 .s3-cmd i{display:block;font:normal 11px/1.3 ui-monospace,monospace;color:var(--dim);margin-bottom:2px}
 .s3-cmd code{display:block;font:12.5px/1.45 ui-monospace,monospace;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -62,7 +62,7 @@ const reps = [
   ["<i></i>Iso 3D</div>", "<i></i>Storage · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-3-das">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-3-das">Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read("fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

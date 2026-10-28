@@ -23,7 +23,7 @@
 .sdl-content .rs-tl i.open{background:var(--bad)}
 .sdl-content .rs-tl i.half{background:var(--accent-ink)}
 .sdl-content .rs-tl i.psp{position:absolute;top:0;bottom:0;width:2px;background:var(--ink-hi)}
-.sdl-content .rs-legend{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:0 0 var(--s-3);font:600 12px var(--mono);color:var(--ink)}
+.sdl-content .rs-legend{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);margin:0 0 var(--s-3);font:500 14px var(--sans);color:var(--ink)}
 .sdl-content .rs-legend span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:-1px;border-radius:2px;background:var(--ok)}
 .sdl-content .rs-legend span.open::before{background:var(--bad)}
 .sdl-content .rs-legend span.half::before{background:var(--accent-ink)}

@@ -615,7 +615,7 @@ FIGS3D.push({ id: 'cache', name: 'Cache', mod: (() => {
       <li>Encher: 3 misses × (0,05 + 40) = <b>120,15 ms</b> · cada hit local: <b>0,05 ms</b></li><li>Com Redis compartilhado: 1 ms por leitura, <b>uma cópia</b> para as 3 réplicas</li>${EX}`,
   };
   function countHtml() { const o = SP || spec(), n = o.hits + o.misses;
-    return `<b>${fmt(o.ms)} ms</b><span>${o.msLab.toLowerCase()}</span><i>· ${o.hits} ${o.hits === 1 ? 'hit' : 'hits'} / ${o.misses} ${o.misses === 1 ? 'miss' : 'misses'} / hit rate ${n ? Math.round(100 * o.hits / n) + '%' : '—'}</i>`; }
+    return `<b>${fmt(o.ms)} ms</b><span>${o.msLab.toLowerCase()}</span><i>${o.hits} ${o.hits === 1 ? 'hit' : 'hits'} / ${o.misses} ${o.misses === 1 ? 'miss' : 'misses'} / hit rate ${n ? Math.round(100 * o.hits / n) + '%' : '—'}</i>`; }
   function panelHtml() {
     const s = cur(), o = SP || spec();
     return `<div class="o3-head"><span>Passo ${step + 1} de ${N()}</span><span>${SCFULL[sc]}${sc === 'evict' ? ' · ' + POLNAME[pol] : ''}</span></div>

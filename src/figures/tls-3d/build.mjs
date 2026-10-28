@@ -19,7 +19,7 @@ const css = `
 .o3-dv summary{cursor:pointer;font:600 11px/1.4 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:4px 0}
 .o3-mode{display:flex;gap:6px;margin:10px 0 2px}.o3-mode button{all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font:600 11.5px ui-monospace,monospace;color:var(--dim)}.o3-mode button[aria-pressed="true"]{color:var(--ink);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.o3-mode button:focus-visible{outline:2px solid var(--accent)}
 .o3-story{font-size:14px;line-height:1.6;color:var(--ink)}
-.o3-key{display:grid;gap:2px;padding:8px 10px;border-left:3px solid var(--accent);background:rgba(127,127,127,.06);border-radius:0 8px 8px 0}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.o3-key{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);background:rgba(127,127,127,.06);border-radius:8px}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .h3-now{margin:4px 0 0;padding-left:18px;font:12px/1.6 ui-monospace,monospace;color:var(--dim)}.h3-now b{color:var(--ink);font-weight:600}.h3-dim{color:var(--dim)}
 .h3-sum{width:100%;border-collapse:collapse;font:12px/1.4 ui-monospace,monospace;margin:4px 0 10px}.h3-sum th,.h3-sum td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}.h3-sum th{color:var(--accent);font-weight:600}.h3-sum td:first-child{color:var(--dim)}
 .o3-back{position:fixed;left:16px;top:58px;z-index:5;font:12px ui-monospace,monospace;color:var(--dim);text-decoration:none;pointer-events:auto}
@@ -48,7 +48,7 @@ const reps = [
   ["<i></i>Iso 3D</div>", "<i></i>TLS · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-5-ssl-e-tls">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-5-ssl-e-tls">Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read("fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

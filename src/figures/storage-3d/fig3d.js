@@ -15,7 +15,7 @@ FIGS3D.push({ id: 'storage', name: 'Storage', mod: (() => {
   const SC = ['das', 'nas', 'block', 'file', 'object'];
   const SCBTN = { das: 'DAS', nas: 'NAS', block: 'Bloco', file: 'Arquivo', object: 'Objeto' };
   const SCNAME = { das: 'DAS · disco direto', nas: 'NAS · storage na rede', block: 'Block storage', file: 'File storage', object: 'Object storage' };
-  // âncora da aula de cada modo (link "← Voltar ao módulo")
+  // âncora da aula de cada modo (link "Voltar ao módulo")
   const LESSON = { das: 'aula-3-das', nas: 'aula-4-nas', block: 'aula-5-block-storage', file: 'aula-6-file-storage', object: 'aula-7-object-storage' };
   const SIZE = '2\u00a0457\u00a0600', MIME = 'image/jpeg', URL = 'https://loja-fotos.s3.amazonaws.com/produtos/gatos/gato.jpg';
   const ETAG1 = '"9b2cf535f27731c974343645a3985328"', ETAG2 = '"e4d909c290d0fb1ca068ffaddf22cbd0"';

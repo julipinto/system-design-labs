@@ -21,7 +21,7 @@ const css = `
 .o3-mode button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:6px 4px;box-sizing:border-box;line-height:1.2}
 .o3-mode[role=group] button{flex:1 1 30%}
 .o3-story{font-size:14px;line-height:1.6;color:var(--ink)}
-.o3-key{display:grid;gap:2px;padding:8px 10px;border-left:3px solid var(--accent);background:rgba(127,127,127,.06);border-radius:0 8px 8px 0}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.o3-key{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);background:rgba(127,127,127,.06);border-radius:8px}.o3-key b{font:600 10.5px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
 .o3-modl{display:inline-block;margin:0 0 8px;font:600 12px/1.4 ui-monospace,monospace;color:var(--accent);text-decoration:none}.o3-modl:hover{text-decoration:underline}
 .h3-now code{word-break:break-all}
 .h3-now{margin:4px 0 0;padding-left:18px;font:12px/1.6 ui-monospace,monospace;color:var(--dim)}.h3-now b{color:var(--ink);font-weight:600}
@@ -63,7 +63,7 @@ const reps = [
   ["<i></i>Iso 3D</div>", "<i></i>O mapa da loja · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-7-celulas-desastre-e-sinais">← Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-7-celulas-desastre-e-sinais">Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read("fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

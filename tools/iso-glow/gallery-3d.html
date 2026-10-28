@@ -82,6 +82,18 @@
   /* botão centralizado (figura embutida, celular): a tecla grudava no texto ("Voltar←"); o texto basta */
   html.embedded .ctl button kbd { display:none; }
   @media (max-width:900px) { html .ctl button kbd { display:none; } }
+  /* a linha do passo ("No Redis: 89.90, faltam 40 s") é a âncora do passo: tinta, não apoio nem laranja */
+  html #info h2 { color:var(--ink); font-size:16px; }
+  /* o botão de avançar é o controle principal da figura: tinta, traço forte e um chevron desenhado.
+     Todas as figuras listam "Próximo passo" primeiro no painel. */
+  html .ctl button:first-of-type { color:var(--ink); border-color:var(--dim); }
+  html .ctl button:first-of-type::after { content:""; flex:none; align-self:center; width:6px; height:6px; margin-left:8px;
+    border-top:1.5px solid currentColor; border-right:1.5px solid currentColor; transform:rotate(45deg); }
+  html:not(.embedded) .ctl button:first-of-type::after { display:none; }
+  @media (max-width:900px) { html .ctl button:first-of-type::after { display:block; } }
+  #spin svg, #theme svg { display:block; }
+  html .o3-back { display:inline-flex; align-items:center; gap:8px; }
+  html .o3-back::before { content:""; width:6px; height:6px; border-left:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); }
 </style>
 <script>
   // SDLabs: desfaz o rótulo "técnico" (mono + caixa alta + entreletra larga) e a borda grossa colorida à esquerda.
@@ -97,7 +109,9 @@
           if (/--accent/.test(st.color)) st.color = "var(--dim)"; }
         // botões de escolha (modo, cenário) são palavras, não dado: sans
         if (/button/.test(r.selectorText || "") && /mono/i.test(st.fontFamily)) st.fontFamily = SANS;
-        if (parseFloat(st.borderLeftWidth) > 1) st.borderLeftWidth = "1px"; } };
+        // número de destaque: sans leve em tinta (o laranja fica na aba ativa e na cena)
+        if (parseFloat(st.fontSize) >= 20 && /mono/i.test(st.fontFamily)) { st.fontFamily = SANS; st.fontWeight = "400"; st.letterSpacing = "-0.01em";
+          if (/--accent/.test(st.color)) st.color = "var(--ink)"; } } };
       walk(rules); }
   });
 </script>
@@ -111,7 +125,7 @@
 <body>
 <div class="ui" id="top">
   <div class="tops"><div class="brand"><i></i>Iso 3D</div><div class="seg" role="tablist" aria-label="Figure"><button data-fig="tw" role="tab">Typewriter</button><button data-fig="dr" role="tab">Drum machine</button><button data-fig="cs" role="tab">Cassette</button><button data-fig="tm" role="tab">Timer</button><button data-fig="vm" role="tab">Vending</button></div></div>
-  <div class="tops"><div class="swatches" id="swatches" role="radiogroup" aria-label="Glow colour"></div><button id="spin" title="Slowly turn the camera around the object" aria-label="Auto revolve around the object" aria-pressed="false">⟳<span>Revolve</span></button><button id="theme" title="Light / dark (T)" aria-label="Switch light or dark theme">◐</button></div>
+  <div class="tops"><div class="swatches" id="swatches" role="radiogroup" aria-label="Cor do brilho"></div><button id="spin" title="Girar a câmera devagar em volta do objeto" aria-label="Girar a câmera em volta do objeto" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.8-4.1"/><path d="M12.2 1.6v2.6H9.6"/></svg><span>Girar</span></button><button id="theme" title="Tema claro ou escuro (T)" aria-label="Alternar tema claro ou escuro"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="5.75"/><path d="M8 2.25v11.5A5.75 5.75 0 0 0 8 2.25Z" fill="currentColor" stroke="none"/></svg></button></div>
 </div>
 <div class="ui ctl" id="ctl">
   <button data-act="lights">Lights<kbd>L</kbd></button>
