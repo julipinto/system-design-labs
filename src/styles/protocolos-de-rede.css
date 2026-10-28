@@ -16,7 +16,7 @@
 .sdl-content .mnemonic{border:var(--hair) solid var(--accent-ink);border-radius:var(--r-3);padding:18px 18px 14px;background:var(--surface);box-shadow:var(--ring);margin:var(--s-6) 0 0}
 .sdl-content .mnemonic h3{margin:0 0 10px;color:var(--accent-ink);font-size:18px}
 .sdl-content .mn-line{margin-bottom:14px}
-.sdl-content .mn-dir{display:block;font:600 var(--fs-label) var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);margin-bottom:var(--s-1)}
+.sdl-content .mn-dir{display:block;font:600 var(--fs-label) var(--sans);color:var(--muted);margin-bottom:var(--s-1)}
 .sdl-content .mn-phrase{font-size:21px;line-height:1.5;color:var(--ink-hi)}
 .sdl-content .mn-phrase b{color:var(--accent-ink);font-size:1.15em}
 .sdl-content .mn-key{font-size:16px;color:var(--muted);margin:0}
@@ -36,7 +36,7 @@
 .sdl-content .rtt-table-wrap{max-width:720px;overflow-x:auto;margin-bottom:14px}
 .sdl-content .rtt-table{width:100%;font-size:14px}
 .sdl-content .rtt-table th,.sdl-content .rtt-table td{border-bottom:var(--hair) solid var(--line);padding:var(--s-2) 10px;text-align:left}
-.sdl-content .rtt-table th{color:var(--muted);font:700 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;border-bottom-color:var(--line-strong)}
+.sdl-content .rtt-table th{color:var(--muted);font:600 12px var(--sans);border-bottom-color:var(--line-strong)}
 
 /* ===== widgets ===== */
 /* ip */
@@ -51,7 +51,7 @@
 .sdl-content .tag{font:600 12px var(--mono);border-radius:999px;padding:2px 10px;border:1px solid currentColor;white-space:nowrap}
 .sdl-content .v6{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .sdl-content .v6g{font:13px var(--mono);border:1px solid var(--accent-ink);color:var(--accent-ink);border-radius:6px;padding:3px 6px}
-.sdl-content .sub-h{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px}
+.sdl-content .sub-h{font:600 12px var(--sans);color:var(--muted);margin:16px 0 4px}
 .sdl-content .dots{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;margin:8px 0}
 .sdl-content .dot{aspect-ratio:1;border-radius:2px;background:var(--line)}
 .sdl-content .dot.on{background:var(--accent-2)}
@@ -83,7 +83,7 @@
 .sdl-content .arrow.lost.r::after{display:none}
 .sdl-content .arrow.lost.l{margin-left:auto}
 .sdl-content .arrow.lost.l::after{display:none}
-.sdl-content .arrow.lost::before{content:"\2715";position:absolute;right:-18px;top:-10px;color:var(--bad);font:700 16px var(--mono)}
+.sdl-content .arrow.lost::before{content:"\2715";position:absolute;right:-18px;top:-10px;color:var(--bad);font:600 16px var(--sans)}
 .sdl-content .arrow.lost.l::before{left:-18px;right:auto}
 .sdl-content .msg.lostmsg .lab{color:var(--bad)}
 .sdl-content .msg.note-msg{opacity:1;font-size:14px;color:var(--fg);background:var(--bg);border-radius:6px;padding:8px 10px;border:1px solid var(--accent-ink)}
@@ -149,7 +149,7 @@
 .sdl-content .opts .dis{opacity:.45;cursor:default}
 .sdl-content .stack{display:flex;height:40px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
 .sdl-content .seg{height:100%;min-width:0;transition:flex-basis .35s ease}
-.sdl-content .seg-total{font:700 22px var(--mono);margin:0 0 8px}
+.sdl-content .seg-total{font:600 22px var(--sans);margin:0 0 8px}
 .sdl-content .seg-total small{font-size:13px;color:var(--muted);font-weight:400}
 .sdl-content .legend-l{display:grid;gap:6px;margin-top:12px;padding:0;list-style:none}
 .sdl-content .legend-l li{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:baseline;font-size:14px;margin:0}
@@ -179,7 +179,7 @@
 /* aula 4: "o segmento agora" */
 .sdl-content .tcp-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-top:12px}
 .sdl-content .seg{display:grid;gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
-.sdl-content .seg-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font:600 12px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.sdl-content .seg-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font:600 12px/1.4 var(--sans);color:var(--muted)}
 .sdl-content .seg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .sdl-content .seg-grid.is-lost{opacity:.5;border-radius:8px;outline:1px dashed var(--bad);outline-offset:3px}
 .sdl-content .seg-f{display:grid;gap:2px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);min-width:0}
@@ -225,7 +225,7 @@
 .sdl-content .eq-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);font-size:14px;line-height:1.4}
 .sdl-content .eq-n{flex:none;min-width:34px;font:700 12px var(--mono);color:var(--muted)}
 .sdl-content .eq-what{flex:1 1 150px;min-width:0}
-.sdl-content .eq-tag{flex:none;margin-left:auto;font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.sdl-content .eq-tag{flex:none;margin-left:auto;font:600 12px var(--sans);color:var(--muted)}
 .sdl-content .eq-row.is-skip{border-style:dashed}
 .sdl-content .eq-row.is-skip .eq-what{color:var(--muted)}
 .sdl-content .eq-row.is-read{border-color:var(--accent-2)}

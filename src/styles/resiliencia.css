@@ -7,7 +7,7 @@
 .sdl-content tr.rs-badrow td:nth-child(n+2){font-family:var(--mono)}
 .sdl-content .rs-out{margin-top:var(--s-3)}
 .sdl-content .sr-fact.rs-badfact b{color:var(--bad)}
-.sdl-content .rs-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .rs-num{width:100%;min-height:44px;padding:0 var(--s-2);font:600 15px var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
 .sdl-content .rs-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 .sdl-content .rs-json{margin:var(--s-3) 0 0;max-height:220px;overflow:auto;white-space:pre;font:12.5px/1.5 var(--mono)}
 .sdl-content .rs-json code{font:inherit;background:none;padding:0;border:0}

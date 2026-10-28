@@ -68,7 +68,39 @@
     .ctl button { min-height:44px; box-sizing:border-box; align-items:center; }
     #info button, .ui button { min-height:44px !important; box-sizing:border-box; align-items:center; }
   }
+  /* SDLabs: o painel fala a mesma língua do site. Atkinson no texto (mono só em dado e código), rótulos em caixa
+     normal, sem pontinho brilhando na marca. Os rótulos em caixa alta de cada figura são desfeitos pelo script
+     logo abaixo, regra a regra, para não precisar mexer nas 55 figuras. */
+  @font-face { font-family:"Atkinson Hyperlegible Next"; src:url("../../../shared/fonts/atkinson-next.woff2") format("woff2"); font-weight:200 800; font-display:swap; }
+  html #info, html .ctl, html #top, html .rng, html #hint, html #read, html #credit, html .o3-back { font-family:"Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  html #info { font-size:14px; line-height:1.5; }
+  html #info h2 { font-size:14px; font-weight:600; }
+  html .brand { font-size:13px; font-weight:600; color:var(--ink); }
+  html .brand i { display:none; }
+  html #spin span { font-size:12.5px; }
+  html .seg button { font-size:12.5px; }
+  /* botão centralizado (figura embutida, celular): a tecla grudava no texto ("Voltar←"); o texto basta */
+  html.embedded .ctl button kbd { display:none; }
+  @media (max-width:900px) { html .ctl button kbd { display:none; } }
 </style>
+<script>
+  // SDLabs: desfaz o rótulo "técnico" (mono + caixa alta + entreletra larga) e a borda grossa colorida à esquerda.
+  // Atua nas regras de CSS da página, então vale para o CSS que cada figura injeta.
+  addEventListener("DOMContentLoaded", () => {
+    const SANS = '"Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif';
+    for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      const walk = list => { for (const r of list) { if (r.cssRules) walk(r.cssRules); const st = r.style; if (!st) continue;
+        if (st.textTransform === "uppercase") { st.textTransform = "none"; st.letterSpacing = "normal";
+          if (/mono/i.test(st.fontFamily)) st.fontFamily = SANS;
+          // rótulo pequeno e laranja vira rótulo de apoio legível: o laranja fica para o que está ativo
+          if (parseFloat(st.fontSize) < 12.5) st.fontSize = "12.5px";
+          if (/--accent/.test(st.color)) st.color = "var(--dim)"; }
+        // botões de escolha (modo, cenário) são palavras, não dado: sans
+        if (/button/.test(r.selectorText || "") && /mono/i.test(st.fontFamily)) st.fontFamily = SANS;
+        if (parseFloat(st.borderLeftWidth) > 1) st.borderLeftWidth = "1px"; } };
+      walk(rules); }
+  });
+</script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",

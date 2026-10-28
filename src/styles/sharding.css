@@ -1,7 +1,7 @@
 /* SDLabs · Sharding e Particionamento: o que só este módulo usa (tabelas e plano de consulta dos widgets). Peças comuns em widgets.css */
 .sdl-content table.sr-table.sh-table{min-width:0}
 .sdl-content table.sh-table th,.sdl-content table.sh-table td{padding-right:var(--s-3)}
-.sdl-content table.sh-table td.sh-cell{font:700 14px var(--mono)}
+.sdl-content table.sh-table td.sh-cell{font:600 14px var(--sans)}
 .sdl-content table.sh-table td.bad{color:var(--bad);font-weight:700}
 .sdl-content table.sr-table.sh-table td{white-space:normal;overflow-wrap:break-word}
 .sdl-content table.sh-table.sh-wide{min-width:520px}

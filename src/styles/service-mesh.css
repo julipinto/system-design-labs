@@ -4,7 +4,7 @@
 /* matriz origem x chamada: 200 aceito, 403 barrado */
 .sdl-content table.az-table{min-width:0}
 .sdl-content table.az-table th,.sdl-content table.az-table td{padding-right:var(--s-3)}
-.sdl-content table.az-table td.az-cell{font:700 14px var(--mono)}
+.sdl-content table.az-table td.az-cell{font:600 14px var(--sans)}
 .sdl-content table.az-table td.az-cell.ok{color:var(--ok)}
 .sdl-content table.az-table td.az-cell.bad{color:var(--bad)}
 /* "a loja precisa de malha?": cada sinal ganha um peso e uma frase */

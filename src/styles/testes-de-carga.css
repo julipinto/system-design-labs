@@ -9,10 +9,10 @@
 .sdl-content .tc-out{margin-top:var(--s-3)}
 .sdl-content .sr-fact.tc-badfact b{color:var(--bad)}
 .sdl-content .sr-fact.tc-okfact b{color:var(--ok)}
-.sdl-content .tc-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .tc-num{width:100%;min-height:44px;padding:0 var(--s-2);font:600 15px var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
 .sdl-content .tc-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 .sdl-content .tc-two{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));margin-top:var(--s-3)}
-.sdl-content .tc-two h4{margin:0 0 var(--s-1);font:700 13px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sdl-content .tc-two h4{margin:0 0 var(--s-1);font:600 13px var(--sans);color:var(--muted)}
 .sdl-content .tc-two .sr-facts{margin:0}
 .sdl-content .tc-prof{width:100%;height:auto;display:block;margin-top:var(--s-3)}
 .sdl-content .tc-prof .ax{stroke:var(--line-strong);stroke-width:1}

@@ -9,7 +9,7 @@
 .lesson .gl-term:hover,.lesson .gl-term[aria-expanded="true"]{color:var(--accent-ink);text-decoration-color:var(--accent-fill);text-decoration-style:solid}
 .lesson .gl-term:focus-visible{color:var(--accent-ink);outline:2px solid var(--accent-fill);outline-offset:2px}
 
-/* a ficha: painel de traço fino com o nome aceso */
+/* a ficha: painel de traço fino */
 .gl-card{position:absolute;z-index:60;width:min(340px,calc(100vw - 16px));background:var(--surface);color:var(--ink);
   border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:14px var(--s-4) var(--s-3);box-shadow:var(--shadow-pop);
   visibility:hidden;opacity:0;transform:translateY(4px);
@@ -18,15 +18,14 @@
 .gl-card:focus{outline:none}
 .gl-card:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
 .gl-card p{margin:0}
-.gl-name{display:flex;align-items:center;gap:var(--s-2);font:800 17px/1.3 var(--sans);letter-spacing:-.01em;color:var(--ink-hi)}
-.gl-name::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent-fill);box-shadow:var(--glow)}
+.gl-name{display:block;font:600 18px/1.3 var(--sans);letter-spacing:-.01em;color:var(--ink-hi)}
 .gl-def{margin-top:6px!important;font-size:16px;line-height:1.5}
-.gl-meta{margin-top:10px!important;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font:600 12px/1.4 var(--mono);color:var(--muted)}
+.gl-meta{margin-top:10px!important;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font:500 14px/1.4 var(--sans);color:var(--muted)}
 .gl-meta:empty{display:none}
 .gl-layer{border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:2px 9px;color:var(--ink)}
-.gl-seen a{color:var(--ink-hi);font-weight:700;text-decoration-color:var(--accent-fill);text-underline-offset:.22em;padding:6px 0;display:inline-block}
+.gl-seen a{color:var(--ink-hi);font-weight:600;text-decoration-color:var(--accent-fill);text-underline-offset:.22em;padding:6px 0;display:inline-block}
 .gl-seen a:hover{color:var(--accent-ink)}
-.gl-close{margin-top:var(--s-2);font:650 14px var(--sans);color:var(--ink-hi);background:var(--bg);border:var(--hair) solid var(--line-strong);
+.gl-close{margin-top:var(--s-2);font:600 14px var(--sans);color:var(--ink-hi);background:var(--bg);border:var(--hair) solid var(--line-strong);
   border-radius:var(--r-2);padding:var(--s-2) 14px;min-height:44px;cursor:pointer}
 .gl-close:hover{border-color:var(--accent-ink)}
 .gl-close:focus-visible,.gl-seen a:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
@@ -46,7 +45,7 @@
 
 /* glossário completo, no fim do módulo */
 .gl-all{margin:var(--s-7) 0 var(--s-2);border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line)}
-.gl-all summary{cursor:pointer;display:flex;align-items:center;gap:var(--s-3);font:800 18px var(--sans);color:var(--ink-hi);padding:var(--s-4) 0;min-height:var(--tap);scroll-margin-top:96px;list-style:none}
+.gl-all summary{cursor:pointer;display:flex;align-items:center;gap:var(--s-3);font:600 18px var(--sans);color:var(--ink-hi);padding:var(--s-4) 0;min-height:var(--tap);scroll-margin-top:96px;list-style:none}
 .gl-all summary::-webkit-details-marker{display:none}
 .gl-all summary::before{content:"";flex:none;width:22px;height:22px;border:var(--hair) solid var(--line-strong);border-radius:50%;
   background:linear-gradient(var(--ink-hi),var(--ink-hi)) center/10px 1.5px no-repeat,linear-gradient(var(--ink-hi),var(--ink-hi)) center/1.5px 10px no-repeat}
@@ -55,10 +54,10 @@
 .gl-all-hint{margin:0 0 var(--s-1);color:var(--muted);font-size:var(--fs-sm)}
 .gl-list{margin:0;padding:0 0 var(--s-2);display:grid;grid-template-columns:1fr}
 .gl-item{padding:var(--s-3) 0;border-top:var(--hair) solid var(--line)}
-.gl-item dt{font-weight:800;color:var(--ink-hi);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;overflow-wrap:anywhere}
-.gl-item dt .gl-layer{font:600 12px var(--mono);color:var(--muted)}
+.gl-item dt{font-weight:600;color:var(--ink-hi);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;overflow-wrap:anywhere}
+.gl-item dt .gl-layer{font:500 13px var(--sans);color:var(--muted)}
 .gl-item dd{margin:4px 0 0;color:var(--ink);overflow-wrap:anywhere}
-.gl-item dd a{white-space:nowrap;font:700 13px var(--mono);display:inline-flex;align-items:center;min-height:44px;margin:-10px 0 -10px 4px;vertical-align:middle}
+.gl-item dd a{white-space:nowrap;font:600 14px var(--sans);display:inline-flex;align-items:center;min-height:44px;margin:-10px 0 -10px 4px;vertical-align:middle}
 @media (min-width:900px){.gl-list{grid-template-columns:1fr 1fr;column-gap:var(--s-6)}}
 
 @media (prefers-reduced-motion:reduce){.gl-card{transition:none}}

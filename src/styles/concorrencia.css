@@ -2,12 +2,12 @@
 /* tabelas dos widgets: 200/−1 colorido e linhas de evento */
 .sdl-content table.cc-table{min-width:0}
 .sdl-content table.cc-table th,.sdl-content table.cc-table td{padding-right:var(--s-3)}
-.sdl-content table.cc-table td.cc-cell{font:700 14px var(--mono)}
+.sdl-content table.cc-table td.cc-cell{font:600 14px var(--sans)}
 .sdl-content table.cc-table td.cc-cell.ok{color:var(--ok)}
 .sdl-content table.cc-table td.cc-cell.bad{color:var(--bad)}
 /* corrida: a ordem montada e a linha da ordem que está em jogo */
 .sdl-content .cr-say{margin:0 0 var(--s-1);font-size:14.5px;line-height:1.5}
-.sdl-content .cr-seq{margin:0 0 6px;font:700 14px var(--mono);color:var(--accent-ink)}
+.sdl-content .cr-seq{margin:0 0 6px;font:600 14px var(--sans);color:var(--accent-ink)}
 .sdl-content .cr-list{margin-top:var(--s-3)}
 .sdl-content tr.cr-cur th,.sdl-content tr.cr-cur td{background:var(--accent-wash)}
 .sdl-content .cr-out ol.ls-list li{margin-bottom:2px}

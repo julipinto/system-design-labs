@@ -1,7 +1,7 @@
 /* SDLabs · Comunicação Assíncrona: o que só este módulo usa (tabelas dos widgets de partição, acks e QoS). Peças comuns em widgets.css */
 .sdl-content table.sr-table.ca-table{min-width:0}
 .sdl-content table.ca-table th,.sdl-content table.ca-table td{padding-right:var(--s-3)}
-.sdl-content table.ca-table td.ca-cell{font:700 14px var(--mono)}
+.sdl-content table.ca-table td.ca-cell{font:600 14px var(--sans)}
 .sdl-content table.ca-table td.ca-cell.bad{color:var(--bad)}
 .sdl-content table.sr-table.ca-table td{white-space:normal;overflow-wrap:break-word}
 .sdl-content tr.cr-cur th,.sdl-content tr.cr-cur td{background:var(--accent-wash)}

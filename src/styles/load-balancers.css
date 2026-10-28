@@ -12,7 +12,7 @@
 .sdl-content .lb-out .btn,.sdl-content [data-widget] > .btn{min-height:44px;margin:0 0 var(--s-2)}
 .sdl-content .lb-table{min-width:0}
 /* relógio do healthcheck */
-.sdl-content .lb-read{margin:var(--s-2) 0 6px;font:700 14px var(--mono);color:var(--ink-hi)}
+.sdl-content .lb-read{margin:var(--s-2) 0 6px;font:600 14px var(--sans);color:var(--ink-hi)}
 .sdl-content .hc-ticks{list-style:none;margin:0 0 var(--s-2);padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .sdl-content .hc-tick{font:700 12.5px var(--mono);color:var(--bad);border:var(--hair) solid var(--bad);border-radius:var(--r-1);padding:4px 8px;background:var(--surface)}
 .sdl-content .sr-fact .lb-sub{text-transform:none;letter-spacing:0;font-weight:600}

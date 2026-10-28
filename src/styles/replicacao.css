@@ -2,7 +2,7 @@
 .sdl-content table.sr-table.rp-table{min-width:0}
 .sdl-content table.rp-table th,.sdl-content table.rp-table td{padding-right:var(--s-3)}
 .sdl-content table.sr-table.rp-table td{white-space:normal;overflow-wrap:break-word}
-.sdl-content table.rp-table td.rp-cell{font:700 14px var(--mono)}
+.sdl-content table.rp-table td.rp-cell{font:600 14px var(--sans)}
 .sdl-content table.rp-table td.rp-cell.bad{color:var(--bad)}
 .sdl-content tr.rp-cur th,.sdl-content tr.rp-cur td{background:var(--accent-wash)}
 .sdl-content tr.rp-bad td,.sdl-content tr.rp-bad th{color:var(--bad)}

@@ -32,9 +32,9 @@ O objetivo é **inesquecível**: depois de mexer, ela tem que conseguir explicar
 19. Conteúdo com palavras próprias, fontes primárias citadas e sem marca de curso.
 
 ## Visual do site (sistema de design, ver docs/design/SISTEMA.md)
-18b. **O site fala a língua das figuras 3D**: chão grafite (claro: cinza frio), traço fino de 1px, rótulos e números em mono, e **uma cor só, o sódio das figuras, que acende no que está ativo** (aula atual na régua, "Faça agora", flashcard aberto, figura em foco). Selecionado ganha contorno; aceso com halo, só o "Faça agora" e a figura.
-18c. **Réguas em vez de caixas.** Caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa, borda colorida grossa na lateral, degradê roxo/azul, ícone em quadradinho sobre título, rótulo pequeno em cima do título nem Inter em tudo.
-18d. **Fonte feita para ler**: Atkinson Hyperlegible Next no texto e Atkinson Hyperlegible Mono nos rótulos e dados, servidas pelo próprio site. Todo texto passa de 4,5:1 nos dois temas.
+18b. **O site é a moldura quieta das figuras 3D**: chão grafite (claro: cinza frio), traço fino de 1px e **uma cor só, o sódio das figuras, no que está ativo** (aula atual na régua, "Faça agora", botão principal, figura em foco), como cor e traço, **nunca como halo de brilho**.
+18c. **Réguas em vez de caixas, e nenhum sinal de "feito por IA".** Caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa, borda colorida grossa na lateral, degradê roxo/azul, ícone em quadradinho sobre título, rótulo pequeno em cima do título, Inter em tudo, **rótulo em caixa alta com entreletra larga, pontinho antes do rótulo, tracinho embaixo do título, cantos de mira, numeração 01/02/03 nem título em peso 800** (lista completa em docs/design/SISTEMA.md).
+18d. **Fonte feita para ler**: Atkinson Hyperlegible Next no texto, nos títulos (600) e nos rótulos (caixa normal); Atkinson Hyperlegible Mono só em dado e código. Servidas pelo próprio site. Todo texto passa de 4,5:1 nos dois temas.
 18e. **CSS em um lugar**: tokens em `public/shared/sdlabs.css`, peças de widget comuns em `src/styles/widgets.css`, quiz em `public/shared/quiz.css`. O CSS de um módulo só tem o que é dele. Usar `--accent-ink` (a figura embutida reescreve `--accent`). A página `/sistema-de-design/` mostra tudo em uso.
 
 ## Material que a Juliana passa (busca em profundidade)

@@ -1,9 +1,7 @@
 /* Home: cabeçalho e índice de módulos (uma linha por módulo). A página do sistema de design também usa o .mods */
 .home{max-width:var(--page);margin:0 auto;padding:18px var(--gutter) var(--s-8)}
-.home-head{padding:var(--s-7) 0 var(--s-6);border-bottom:var(--hair) solid var(--line-strong);position:relative}
-.home-head::after{content:"";position:absolute;left:0;bottom:-1px;width:64px;height:var(--stroke);background:var(--accent-fill);box-shadow:var(--glow)}
-.home-head h1 .lit{width:.16em;height:.16em;margin-right:.08em;vertical-align:.62em}
-.home-head h1{margin:0 0 var(--s-4);font-size:clamp(40px,11vw,76px);font-weight:800;line-height:1;letter-spacing:-.035em}
+.home-head{padding:var(--s-7) 0 var(--s-6);border-bottom:var(--hair) solid var(--line-strong)}
+.home-head h1{margin:0 0 var(--s-4);font-size:clamp(40px,11vw,76px);font-weight:var(--fw-display);line-height:1;letter-spacing:-.03em}
 .home-head .lead{margin:0 0 var(--s-3);max-width:34ch;font-size:clamp(20px,4.6vw,24px);line-height:1.4;color:var(--ink-hi)}
 .home-head .story{margin:0;max-width:56ch;color:var(--muted)}
 
@@ -11,7 +9,7 @@
 .mods{list-style:none;margin:0;padding:0;counter-reset:m}
 .mod{border-bottom:var(--hair) solid var(--line)}
 .mod-link{display:grid;grid-template-columns:44px 1fr;gap:var(--s-2) var(--s-4);padding:var(--s-5) 0;color:var(--ink);text-decoration:none;position:relative}
-.mod-n{font:700 15px/1.7 var(--mono);color:var(--faint);font-variant-numeric:tabular-nums;transition:color var(--dur-2)}
+.mod-n{font:500 17px/1.6 var(--sans);color:var(--faint);font-variant-numeric:tabular-nums;transition:color var(--dur-2)}
 /* celular: o número entra na linha do título e o texto usa a largura toda (a coluna de 60px espremia o texto) */
 @media (max-width:759.98px){
   .mod-link{grid-template-columns:auto 1fr;column-gap:var(--s-3);row-gap:0;align-items:baseline}
@@ -21,7 +19,7 @@
   .mod p,.mod-meta{grid-column:1/-1}
 }
 .mod-body{min-width:0}
-.mod h2{margin:0 0 var(--s-2);font-size:clamp(22px,5.4vw,28px);font-weight:800;line-height:1.15;letter-spacing:-.015em;transition:color var(--dur-2)}
+.mod h2{margin:0 0 var(--s-2);font-size:clamp(22px,5.4vw,28px);font-weight:var(--fw-title);line-height:1.15;letter-spacing:-.015em;transition:color var(--dur-2)}
 .mod p{margin:0;max-width:56ch;color:var(--muted);font-size:16px;line-height:1.55}
 .mod-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px var(--s-4);margin-top:var(--s-3)}
 .mod-meta .label{display:inline-flex;align-items:center;gap:var(--s-2)}
@@ -32,18 +30,18 @@
 .mod-bar i.done{background:var(--ok);opacity:1}
 .mod-fig{display:none}
 a.mod-link:hover h2,a.mod-link:focus-visible h2{color:var(--accent-ink)}
-a.mod-link:hover .mod-n,a.mod-link:focus-visible .mod-n{color:var(--accent-ink)}
+a.mod-link:hover .mod-n,a.mod-link:focus-visible .mod-n{color:var(--muted)}
 a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px;border-radius:var(--r-2)}
 .mod.soon h2,.mod.soon .mod-n{color:var(--faint)}
 @media (min-width:760px){
   .mod-link{grid-template-columns:64px 1fr 220px;align-items:start}
-  .mod-n{font-size:18px;line-height:1.5}
+  .mod-n{font-size:20px;line-height:1.4}
   .mod-fig{display:block;position:relative;border:var(--hair) solid var(--line);border-radius:var(--r-2);overflow:hidden;background:var(--plate);aspect-ratio:8/5;transition:border-color var(--dur-2),box-shadow var(--dur-3) var(--ease-out)}
   .mod-fig img{display:block;width:100%;height:100%;object-fit:cover;opacity:.82;transition:opacity var(--dur-3) var(--ease-out)}
-  a.mod-link:hover .mod-fig,a.mod-link:focus-visible .mod-fig{border-color:var(--accent-ink);box-shadow:0 0 0 1px var(--accent-ink),0 0 30px -10px rgba(255,157,60,.7)}
+  a.mod-link:hover .mod-fig,a.mod-link:focus-visible .mod-fig{border-color:var(--line-strong)}
   a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img{opacity:1}
 }
-.home-foot{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line);display:grid;gap:var(--s-3);font:13px/1.6 var(--mono);color:var(--muted)}
+.home-foot{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line);display:grid;gap:var(--s-3);font:14px/1.6 var(--sans);color:var(--muted)}
 .home-foot p{margin:0;max-width:72ch}
 .home-foot a{color:var(--ink)}
 @media (max-width:480px){

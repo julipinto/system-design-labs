@@ -19,7 +19,7 @@ const sections = [
   { id: 'principios', title: 'Princípios', min: 2 },
   { id: 'cor', title: 'Cor', min: 3 },
   { id: 'tipografia', title: 'Tipografia', min: 2 },
-  { id: 'espaco-forma-movimento', title: 'Espaço, forma, traço, brilho e movimento', min: 2 },
+  { id: 'espaco-forma-movimento', title: 'Espaço, forma, traço, estado e movimento', min: 2 },
   { id: 'aula', title: 'Componentes da aula', min: 4 },
   { id: 'figura-widget', title: 'Figura 3D, widget e glossário', min: 3 },
   { id: 'navegacao', title: 'Barra, navegação, home e quiz', min: 2 },
@@ -54,7 +54,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
 ---
 <ModuleLayout
   title="Sistema de design · SDLabs"
-  description="O sistema de design do SDLabs: tokens de cor, tipo, espaço, traço, brilho e movimento, e cada componente das aulas em uso."
+  description="O sistema de design do SDLabs: tokens de cor, tipo, espaço, traço, estado e movimento, e cada componente das aulas em uso."
   module="sistema-de-design"
   heading="Sistema de design"
   lead="As peças do site, uma por vez, com a mesma história das aulas: a Lena, de Recife, e o gato de pelúcia da loja (o produto 42)."
@@ -87,20 +87,20 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
 </style>
 
   <Lesson {...at(0)}>
-    <p class="ponte">O site é a moldura de uma prancha técnica. As figuras 3D já tinham uma linguagem: chão grafite, traço fino, rótulo em mono e uma cor só que acende no que está vivo. O resto do site agora fala a mesma língua.</p>
-    <OneLiner>o que está ativo acende na cor de sódio; o resto fica quieto, em traço fino.</OneLiner>
-    <DoIt><p>Abra o índice na barra lá em cima e veja qual aula acende. Depois toque em <strong>Ver resposta</strong> num flashcard da seção 5: a pergunta aberta ganha o ponto aceso.</p></DoIt>
+    <p class="ponte">O site é a moldura das figuras 3D: chão grafite, traço fino e uma cor só para o que está vivo. Em volta da figura, a página fica quieta, como um livro bem impresso: nada de brilho, pontinho ou rótulo em caixa alta disputando a atenção com a aula.</p>
+    <OneLiner>o que está ativo leva a cor de sódio, sem brilho; o resto fica quieto, em traço fino e texto comum.</OneLiner>
+    <DoIt><p>Abra o índice na barra lá em cima e veja qual aula está em sódio. Depois toque em <strong>Ver resposta</strong> num flashcard da seção 5: o link vira <strong>Esconder</strong>, em sódio.</p></DoIt>
     <HowItWorks title="As cinco regras">
       <ol class="flow steps">
-        <li><strong>Uma cor que acende.</strong> O sódio (laranja) marca só o que está ativo: a aula atual na régua, o "Faça agora", o flashcard aberto, a figura em foco. Se tudo acende, nada acende.</li>
-        <li><strong>Traço fino em vez de caixa.</strong> Seções se separam por réguas de 1px; caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa.</li>
-        <li><strong>Mono para rótulo, número e dado.</strong> "Aula 10 de 13", o contador, o IP, o SQL. O texto corrido fica na Atkinson Hyperlegible, feita para ler sem esforço.</li>
+        <li><strong>Uma cor, sem brilho.</strong> O sódio (laranja) marca só o que está ativo: a aula atual na régua, o "Faça agora", o botão principal, a figura em foco. É cor e traço de 1px, nunca halo. Se tudo é laranja, nada é.</li>
+        <li><strong>Traço fino em vez de caixa e de enfeite.</strong> Seções se separam por réguas de 1px; caixa só para o que se manipula (widget, figura, ficha). Nada de caixa dentro de caixa, cantos de mira, tracinho embaixo do título ou pontinho antes do rótulo.</li>
+        <li><strong>Texto comum para rótulo, mono para dado.</strong> "Aula 10 de 13", "Em uma frase", "Faça agora" são texto em caixa normal. Mono fica para o que é dado de verdade: o IP, o SQL, o comando, o contador.</li>
         <li><strong>Celular primeiro.</strong> Alvo de toque de 48px, uma aula por vez, nada importante escondido atrás da barra.</li>
         <li><strong>Mesmos dados da história.</strong> Os exemplos daqui usam a Lena, a loja e o produto 42, como as aulas.</li>
       </ol>
     </HowItWorks>
     <WhyItMatters>
-      <li>Com TDAH, cada elemento que pisca disputa a atenção. Uma cor só, num lugar só, diz onde olhar.</li>
+      <li>Com TDAH, cada elemento que brilha ou grita em caixa alta disputa a atenção. Uma cor só, num lugar só, diz onde olhar.</li>
       <li>A figura 3D e a página parecem a mesma peça, então trocar de uma para a outra não exige reaprender o visual.</li>
     </WhyItMatters>
     <p class="gancho">Para a regra da cor única funcionar, a paleta precisa ser contida. Falta ver quais cores existem e onde cada uma entra.</p>
@@ -130,19 +130,20 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
   </Lesson>
 
   <Lesson {...at(2)}>
-    <OneLiner>Atkinson Hyperlegible Next para ler e Atkinson Hyperlegible Mono para rotular; as duas são da mesma família e ficam no próprio site.</OneLiner>
-    <div class="ds-spec"><span class="label">--fs-h1 · 800</span><p style="font:800 var(--fs-h1)/1.04 var(--sans);letter-spacing:-.028em;color:var(--ink-hi);margin:0">Gato de pelúcia</p></div>
-    <div class="ds-spec"><span class="label">--fs-h2 · 800</span><p style="font:800 var(--fs-h2)/1.15 var(--sans);letter-spacing:-.018em;color:var(--ink-hi);margin:0">O pedido 1042 da Lena</p></div>
-    <div class="ds-spec"><span class="label">--fs-h3 · 750</span><p style="font:750 var(--fs-h3)/1.25 var(--sans);color:var(--ink-hi);margin:0">Como funciona</p></div>
+    <OneLiner>Atkinson Hyperlegible Next para ler e rotular, em peso médio nos títulos; Atkinson Hyperlegible Mono só para dado e código. As duas ficam no próprio site.</OneLiner>
+    <div class="ds-spec"><span class="label">--fs-h1 · 600</span><p style="font:600 var(--fs-h1)/1.04 var(--sans);letter-spacing:-.025em;color:var(--ink-hi);margin:0">Gato de pelúcia</p></div>
+    <div class="ds-spec"><span class="label">--fs-h2 · 600</span><p style="font:600 var(--fs-h2)/1.15 var(--sans);letter-spacing:-.02em;color:var(--ink-hi);margin:0">O pedido 1042 da Lena</p></div>
+    <div class="ds-spec"><span class="label">--fs-h3 · 600</span><p style="font:600 var(--fs-h3)/1.25 var(--sans);color:var(--ink-hi);margin:0">Como funciona</p></div>
     <div class="ds-spec"><span class="label">--fs-lead</span><p style="font-size:var(--fs-lead);margin:0;color:var(--ink-hi)">A Lena abre a página do produto 42 em Recife.</p></div>
     <div class="ds-spec"><span class="label">--fs-body · 17,5px / 1,65</span><p style="margin:0">O cache guarda uma cópia do produto 42 perto de quem pergunta. A primeira leitura vai ao banco e leva 40 ms; as seguintes saem do cache em 1 ms.</p></div>
-    <div class="ds-spec"><span class="label">.label · mono 12,5px caixa alta</span><p class="label" style="margin:0">Aula 4 de 7 · leitura ~5 min</p></div>
+    <div class="ds-spec"><span class="label">.label · sans 600 14px, caixa normal</span><p class="label" style="margin:0">Aula 4 de 7 · Leitura ~5 min</p></div>
+    <div class="ds-spec"><span class="label">número de destaque · sans 400, unidade pequena</span><p style="margin:0;font:400 40px/1 var(--sans);letter-spacing:-.02em;color:var(--ink-hi);font-variant-numeric:tabular-nums">1 <span style="font-size:17px;color:var(--muted);letter-spacing:0">ms no hit</span></p></div>
     <div class="ds-spec"><span class="label">dado em mono</span><p style="margin:0"><code>GET produto:42</code> → <code>{'{"nome":"gato de pelúcia","preco":79.90}'}</code></p></div>
     <WhyItMatters>
       <li>A Atkinson foi desenhada para quem tem baixa visão: letras que não se confundem (I, l, 1; O, 0). Isso ajuda a ler rápido no celular.</li>
       <li>São 52 KB no total (texto + mono), com <code>font-display: swap</code>: o texto aparece na hora com a fonte do sistema e troca quando a fonte chega. O itálico só baixa se a página usar.</li>
     </WhyItMatters>
-    <p class="gancho">Tipo e cor definidos. Falta o ritmo: o espaço entre as coisas, os cantos, a espessura do traço e como o brilho se move.</p>
+    <p class="gancho">Tipo e cor definidos. Falta o ritmo: o espaço entre as coisas, os cantos, a espessura do traço e como o estado muda.</p>
   </Lesson>
 
   <Lesson {...at(3)}>
@@ -157,16 +158,17 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
       <div class="ds-shape" style="border-radius:var(--r-pill)">--r-pill<br>chip</div>
       <div class="ds-shape" style="border-width:var(--stroke);border-color:var(--accent-ink)">--stroke 1,5px<br>ativo</div>
     </div>
-    <h3 class="sec">Brilho</h3>
+    <h3 class="sec">Estado</h3>
+    <p>Ativo é cor e traço, não brilho. O ponto só aparece onde marca estado de verdade (escolhido, entendido), nunca antes de um rótulo.</p>
     <div class="ds-row">
-      <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit"></i>.lit aceso</span>
+      <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit"></i>.lit ativo</span>
       <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit off"></i>.lit.off apagado</span>
       <span class="label" style="display:inline-flex;gap:8px;align-items:center"><i class="lit ok"></i>.lit.ok entendido</span>
       <button type="button" class="btn" aria-pressed="true">--ring: selecionado</button>
-      <span class="label" style="display:inline-block;padding:10px 14px;border:1px solid var(--accent-ink);border-radius:var(--r-3);box-shadow:var(--glow-ring);color:var(--accent-ink)">--glow-ring: aceso</span>
+      <span class="label" style="display:inline-block;padding:10px 14px;border:1px solid color-mix(in srgb,var(--accent-ink) 70%,var(--line));border-radius:var(--r-3);background:var(--surface);color:var(--accent-ink)">"Faça agora": traço de 1px</span>
     </div>
     <h3 class="sec">Movimento</h3>
-    <p>Saída exponencial (<code>--ease-out</code>), 120 a 320 ms, e nada além de estado: a régua cresce, o ponto acende, a ficha sobe. Com <code>prefers-reduced-motion</code>, tudo para.</p>
+    <p>Saída exponencial (<code>--ease-out</code>), 120 a 320 ms, e nada além de estado: a régua cresce, o traço assenta em verde, a ficha sobe. Nada pulsa. Com <code>prefers-reduced-motion</code>, tudo para.</p>
     <div class="ds-row">
       <div class="sdl-content-demo ds-demo-track pg-track" data-ds-track>{Array.from({ length: 7 }, (_, i) => <span class={'pg-seg' + (i < 2 ? ' done' : '') + (i === 2 ? ' cur' : '')}></span>)}</div>
       <button type="button" class="btn" data-ds-step>Próxima aula</button>
@@ -178,7 +180,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
     <p class="ponte">Toda aula segue a mesma ordem, e cada componente responde a uma pergunta que o anterior deixou. Abaixo, uma aula de mentira sobre o cache do produto 42.</p>
     <h3 class="sec" style="margin-top:0">OneLiner · "Em uma frase"</h3>
     <OneLiner>o cache guarda uma cópia do gato de pelúcia perto da Lena, e a página abre em 1 ms em vez de 40 ms.</OneLiner>
-    <h3 class="sec">DoIt · "Faça agora" (a única caixa acesa)</h3>
+    <h3 class="sec">DoIt · "Faça agora" (a única caixa com a cor de sódio)</h3>
     <DoIt><p>Na figura, peça o produto 42 duas vezes e compare o tempo da primeira resposta com o da segunda.</p></DoIt>
     <HowItWorks>
       <ol class="flow steps">
@@ -212,14 +214,14 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
   </Lesson>
 
   <Lesson {...at(5)}>
-    <p class="ponte">Figura e widget são pranchas: caixa de traço fino com marcas de registro nos cantos. Quando estão em uso, as marcas e o ponto do rótulo acendem.</p>
+    <p class="ponte">Figura e widget são pranchas: caixa de traço fino, cantos de 10px, título em texto comum. Quando estão em uso, a borda esquenta: a figura passa a sódio e o widget, a traço forte.</p>
     <h3 class="sec" style="margin-top:0">Figure3D</h3>
     <p class="muted">No desktop, a figura carrega embutida e recebe o foco com o mouse em cima (as setas passam a funcionar). No celular, aparece a prévia com o botão de tela cheia.</p>
     <Figure3D path="labs/cache/cache-3d/" poster="labs/cache/cache-3d-previa.webp" title="Figura interativa: o cache do produto 42" alt="Prévia da figura 3D do cache da loja" hint="Arraste para girar · Próximo passo ou setas do teclado para avançar" />
     <h3 class="sec">Widget</h3>
     <div class="widget">
       <p class="widget-title">Cache do produto 42</p>
-      <p class="widget-hint">Toque num botão: a moldura acende enquanto o widget está em uso.</p>
+      <p class="widget-hint">Toque num botão: a borda esquenta enquanto o widget está em uso.</p>
       <div class="w-row"><button type="button" class="btn primary">Pedir produto 42</button><button type="button" class="btn" aria-pressed="true">TTL 60 s</button><button type="button" class="btn" disabled>Limpar cache</button><span class="counter">3 pedidos</span></div>
       <div class="sr-chips"><button type="button" class="chip" aria-pressed="true">Lena · Recife</button><button type="button" class="chip">Caio · SP</button><button type="button" class="chip">Bia · Rio</button></div>
       <div class="sr-bars">
@@ -238,10 +240,10 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
 
   <Lesson {...at(6)} final={{ href: withBase(''), label: 'Voltar para os módulos' }}>
     <h3 class="sec" style="margin-top:0">Barra fixa</h3>
-    <p>É a barra no topo desta página: anterior, aula atual (abre o índice), próxima e quiz. A régua tem um traço por aula: o atual acende e cresce, o entendido fica verde, o contador em mono mostra quantos já foram.</p>
+    <p>É a barra no topo desta página: anterior, aula atual (abre o índice), próxima e quiz. A régua tem um traço por aula: o atual fica em sódio e mais alto, o entendido fica verde, o contador em mono mostra quantos já foram.</p>
     <h3 class="sec">Home: índice de capítulos</h3>
     <ol class="ds-home mods">
-      <li class="mod"><a class="mod-link" href={withBase('labs/cache/')}><span class="mod-n" aria-hidden="true">05</span><div class="mod-body"><h2>Estratégias de Cache</h2><p>Uma linha por módulo, na ordem da história, com a prévia da figura no desktop.</p><div class="mod-meta"><span class="label">7 aulas</span><span class="label mod-prog" style="color:var(--ok)">3 de 7 entendidas</span></div></div></a></li>
+      <li class="mod"><a class="mod-link" href={withBase('labs/cache/')}><span class="mod-n" aria-hidden="true">5</span><div class="mod-body"><h2>Estratégias de Cache</h2><p>Uma linha por módulo, na ordem da história, com a prévia da figura no desktop.</p><div class="mod-meta"><span class="label">7 aulas</span><span class="label mod-prog" style="color:var(--ok)">3 de 7 entendidas</span></div></div></a></li>
     </ol>
     <h3 class="sec">Quiz</h3>
     <div class="ds-quiz">
@@ -265,7 +267,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
         document.querySelectorAll('[data-ds-theme]').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
       });
     });
-    // régua de demonstração: a aula atual vira entendida e o brilho passa para a próxima
+    // régua de demonstração: a aula atual vira entendida e o sódio passa para a próxima
     var track = document.querySelector('[data-ds-track]'), step = document.querySelector('[data-ds-step]');
     if (track && step) step.addEventListener('click', function () {
       var segs = track.children, cur = Array.prototype.findIndex.call(segs, function (s) { return s.classList.contains('cur'); });

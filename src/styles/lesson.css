@@ -1,6 +1,7 @@
 /* SDLabs · base das aulas: texto, "Em uma frase", "Faça agora", passos, aprofundar, fontes, flashcards,
    fim da aula, barra fixa, índice, botões e a moldura dos widgets. Só usa os tokens de public/shared/sdlabs.css.
-   Regra da casa: o que está ativo acende na cor de sódio (--accent); o resto fica em traço fino. */
+   Regra da casa: o que está ativo leva a cor de sódio (--accent-ink), sem halo; o resto fica em traço fino.
+   Rótulos são sans em caixa normal; mono só para dado, código e medida. */
 
 .sdl-content{max-width:var(--page);margin:0 auto;padding:0 var(--gutter) 96px;color:var(--ink);font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);overflow-wrap:break-word}
 .sdl-content *{box-sizing:border-box}
@@ -22,16 +23,15 @@
 .sdl-content .lesson>*:not(.widget):not(.osi-wrap):not(.f3d-wrap):not(details.deep){max-width:var(--measure)}
 .sdl-content .deep>*:not(.layers):not(.versions):not(.map):not(.rtt-table-wrap):not(.hdr-pair):not(.sr-tablewrap){max-width:var(--measure)}
 .sdl-content .lesson{padding-top:var(--s-6);scroll-margin-top:104px}
-@media (max-width:560px){.sdl-content .lesson{padding-top:var(--s-5);scroll-margin-top:84px}.sdl-content .lm-word{display:none}}
+@media (max-width:560px){.sdl-content .lesson{padding-top:var(--s-5);scroll-margin-top:84px}.sdl-content .lm-word{display:none}.sdl-content .widget{padding:var(--s-4)}}
 .sdl-content .lesson[hidden]{display:none}
 
 /* cabeçalho da aula: título primeiro, depois a linha de estado em mono */
 .sdl-content .lesson>header{margin-bottom:var(--s-5);padding-bottom:var(--s-4);border-bottom:var(--hair) solid var(--line);position:relative}
-.sdl-content .lesson>header::after{content:"";position:absolute;left:0;bottom:-1px;width:48px;height:var(--stroke);background:var(--accent-fill);box-shadow:var(--glow)}
-.sdl-content .lesson>header h2{font-size:var(--fs-h2);line-height:var(--lh-tight);letter-spacing:-.018em;font-weight:800;margin-bottom:var(--s-3)}
-.sdl-content .lesson-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;font:600 var(--fs-label)/1.4 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted)}
+.sdl-content .lesson>header h2{font-size:var(--fs-h2);line-height:var(--lh-tight);letter-spacing:-.02em;font-weight:var(--fw-title);margin-bottom:var(--s-2)}
+.sdl-content .lesson-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;font:500 15px/1.4 var(--sans);color:var(--muted);font-variant-numeric:tabular-nums}
 .sdl-content .lesson-meta>span+span::before{content:"";display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--faint);margin-right:10px;vertical-align:middle}
-.sdl-content .lesson-n{color:var(--ink-hi)}
+.sdl-content .lesson-n{color:var(--ink)}
 .sdl-content .lesson-done-tag{display:none;color:var(--ok)}
 .sdl-content .lesson.is-done .lesson-done-tag{display:inline}
 .sdl-content .lesson-done-tag .ico-check{margin-left:.4em}
@@ -41,23 +41,20 @@
 .sdl-content .gancho{margin-top:var(--s-6);padding-top:var(--s-4);border-top:var(--hair) solid var(--line);color:var(--ink-hi)}
 
 /* títulos de seção: mais espaço em cima do que embaixo */
-.sdl-content .lesson h3{font-size:var(--fs-h3);font-weight:750;letter-spacing:-.01em;margin:0 0 var(--s-3)}
+.sdl-content .lesson h3{font-size:var(--fs-h3);font-weight:var(--fw-title);letter-spacing:-.01em;margin:0 0 var(--s-3)}
 .sdl-content .lesson h3.sec{margin-top:var(--s-7)}
-.sdl-content .deep-h{font-size:18px;font-weight:750;margin:var(--s-6) 0 10px}
+.sdl-content .deep-h{font-size:18px;font-weight:var(--fw-title);margin:var(--s-6) 0 10px}
 .sdl-content .deep-h:first-child{margin-top:0}
 
 /* em uma frase: a frase para guardar, entre duas réguas */
-.sdl-content .oneliner{margin:var(--s-5) 0 var(--s-6);padding:var(--s-4) 0;border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line-strong);font-size:var(--fs-lead);line-height:1.55;font-weight:600;color:var(--ink-hi)}
-.sdl-content .oneliner>strong:first-child{display:flex;align-items:center;gap:var(--s-2);margin-bottom:6px;font:700 var(--fs-label)/1.3 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--accent-ink)}
-.sdl-content .oneliner>strong:first-child::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-fill);box-shadow:var(--glow)}
+.sdl-content .oneliner{margin:var(--s-5) 0 var(--s-6);padding:var(--s-4) 0;border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line-strong);font-size:var(--fs-lead);line-height:1.55;font-weight:550;color:var(--ink-hi)}
+.sdl-content .oneliner>strong:first-child{display:block;margin-bottom:var(--s-1);font:600 var(--fs-label)/1.35 var(--sans);color:var(--muted)}
 
-/* faça agora: a única caixa acesa da aula */
-.sdl-content .doit{position:relative;border:var(--hair) solid var(--accent-ink);border-radius:var(--r-3);padding:var(--s-4) var(--s-4) var(--s-4);background:linear-gradient(var(--accent-wash),var(--accent-wash)),var(--surface);box-shadow:var(--glow-ring);margin-bottom:0}
-.sdl-content .doit h3{display:flex;align-items:center;gap:var(--s-2);font:700 var(--fs-label)/1.3 var(--mono)!important;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--accent-ink)!important;margin:0 0 var(--s-2)!important}
-.sdl-content .doit h3::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-fill);box-shadow:var(--glow);animation:sdl-pulse 2.4s var(--ease-io) infinite}
+/* faça agora: a única caixa com a cor da aula; um traço de 1px, sem brilho */
+.sdl-content .doit{position:relative;border:var(--hair) solid color-mix(in srgb,var(--accent-ink) 70%,var(--line));border-radius:var(--r-3);padding:var(--s-4) var(--s-4) var(--s-4) var(--s-4);background:var(--surface);margin-bottom:0}
+.sdl-content .doit h3{font:600 var(--fs-label)/1.35 var(--sans)!important;letter-spacing:0!important;color:var(--accent-ink)!important;margin:0 0 var(--s-2)!important}
 .sdl-content .doit p{margin:0;font-size:var(--fs-lead);line-height:1.55;color:var(--ink-hi)}
 .sdl-content .doit p+p{margin-top:var(--s-2)}
-@keyframes sdl-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .sdl-content .lesson>.widget,.sdl-content .lesson>.osi-wrap{margin-top:var(--s-4)}
 
 /* passos numerados: o número em mono, dentro de um anel de traço fino */
@@ -84,19 +81,16 @@
 /* o parágrafo que segue o Aprofundar (o "Falta saber…") não encosta na régua */
 .sdl-content details.deep+p:not(.gancho){margin-top:var(--s-5)}
 
-/* chamadas: caixa de traço fino com o rótulo aceso na cor do papel */
+/* chamadas: caixa de traço fino; o rótulo leva a cor do papel (sinal ou verde), sem ponto */
 .sdl-content .callout{border:var(--hair) solid var(--line);border-radius:var(--r-3);padding:var(--s-4);margin:var(--s-5) 0 0;background:var(--surface)}
-.sdl-content .callout h3{display:flex;align-items:center;gap:var(--s-2);margin:0 0 6px!important;font:700 var(--fs-label)/1.3 var(--mono)!important;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted)!important}
-.sdl-content .callout h3::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.sdl-content .callout h3{margin:0 0 var(--s-1)!important;font:600 var(--fs-label)/1.35 var(--sans)!important;letter-spacing:0!important;color:var(--muted)!important}
 .sdl-content .callout p,.sdl-content .callout ul{margin-bottom:0}
 .sdl-content .callout.why h3{color:var(--signal)!important}
-.sdl-content .callout.why h3::before{background:var(--signal)}
 .sdl-content .callout.remember h3{color:var(--ok)!important}
-.sdl-content .callout.remember h3::before{background:var(--ok)}
 
 /* fontes */
-.sdl-content .sources{margin-top:var(--s-5);padding-top:var(--s-3);border-top:var(--hair) dashed var(--line-strong)}
-.sdl-content .sources h4{font:700 var(--fs-label)/1.3 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);margin:0 0 var(--s-2)}
+.sdl-content .sources{margin-top:var(--s-5);padding-top:var(--s-3);border-top:var(--hair) solid var(--line)}
+.sdl-content .sources h4{font:600 var(--fs-label)/1.35 var(--sans);color:var(--muted);margin:0 0 var(--s-2)}
 .sdl-content .sources ul{list-style:none;margin:0;padding:0;font-size:var(--fs-sm);line-height:1.5}
 .sdl-content .sources li{margin:0;overflow-wrap:anywhere}
 .sdl-content .sources a{display:flex;gap:var(--s-2);align-items:baseline;padding:10px 0;min-height:44px;text-decoration:none;color:var(--ink)}
@@ -104,21 +98,19 @@
 .sdl-content .sources a:hover{color:var(--accent-ink)}
 .sdl-content .sources a span{text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:.22em}
 
-/* flashcards: a pergunta é uma linha tocável; a aberta acende */
+/* flashcards: a pergunta é uma linha tocável; "Ver resposta" é um link de texto */
 .sdl-content .cards{margin-top:var(--s-7)}
 .sdl-content .cards h3.sec{margin-top:0}
 .sdl-content .fc-hint{color:var(--muted);font-size:16px;margin-bottom:var(--s-3)}
 .sdl-content .fc-list{list-style:none;padding:0;margin:0;border-top:var(--hair) solid var(--line)}
 .sdl-content .fc-list li{margin:0;border-bottom:var(--hair) solid var(--line)}
-.sdl-content .fc-q{display:flex;width:100%;gap:var(--s-3);align-items:flex-start;text-align:left;font:650 var(--fs-body)/1.45 var(--sans);color:var(--ink-hi);background:none;border:0;padding:14px 0;min-height:56px;cursor:pointer}
-.sdl-content .fc-q::before{content:"";flex:none;width:7px;height:7px;margin-top:.62em;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-strong);transition:background var(--dur-2),box-shadow var(--dur-2)}
-.sdl-content .fc-q::after{content:"Ver resposta";margin-left:auto;flex:none;font:700 12px/1.3 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:4px 8px;margin-top:2px;border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill)}
-.sdl-content .fc-q:hover::after{color:var(--accent-ink);border-color:var(--accent-ink)}
-.sdl-content .fc-q[aria-expanded="true"]::before{background:var(--accent-fill);box-shadow:var(--glow)}
-.sdl-content .fc-q[aria-expanded="true"]::after{content:"Esconder";color:var(--accent-ink);border-color:var(--accent-ink)}
+.sdl-content .fc-q{display:flex;width:100%;gap:var(--s-3);align-items:flex-start;text-align:left;font:600 var(--fs-body)/1.45 var(--sans);color:var(--ink-hi);background:none;border:0;padding:14px 0;min-height:56px;cursor:pointer}
+.sdl-content .fc-q::after{content:"Ver resposta";margin-left:auto;flex:none;font:500 14px/1.3 var(--sans);color:var(--muted);padding:3px 0;margin-top:1px;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:.25em}
+.sdl-content .fc-q:hover::after{color:var(--ink-hi);text-decoration-color:currentColor}
+.sdl-content .fc-q[aria-expanded="true"]::after{content:"Esconder";color:var(--accent-ink);text-decoration-color:currentColor}
 .sdl-content .fc-q:focus-visible{outline-offset:-2px;border-radius:var(--r-2)}
 .sdl-content .fc-qt{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
-.sdl-content .fc-a{margin:0 0 var(--s-4) 19px;padding:var(--s-3) var(--s-4);background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-2);color:var(--ink)}
+.sdl-content .fc-a{margin:0 0 var(--s-4);padding:var(--s-3) var(--s-4);background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-2);color:var(--ink)}
 .sdl-content .fc-a[hidden]{display:none}
 
 /* fim da aula */
@@ -128,22 +120,22 @@
 .sdl-content .done-btn{width:100%;max-width:var(--measure)}
 .sdl-content:not(.js) .done-btn{display:none}
 .sdl-content .btn.primary.done-btn[aria-pressed="true"]{background:var(--surface);color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
-.sdl-content .done-msg{margin:var(--s-3) 0 0;font:700 14px/1.5 var(--mono);color:var(--ok);min-height:1.5em;max-width:var(--measure)}
+.sdl-content .done-msg{margin:var(--s-3) 0 0;font:600 15px/1.5 var(--sans);color:var(--ok);min-height:1.5em;max-width:var(--measure)}
 .sdl-content .done-msg:empty{min-height:0;margin:0}
 .sdl-content .lesson-nav{display:flex;flex-wrap:wrap;gap:var(--s-3);margin-top:var(--s-5);max-width:var(--measure)}
 .sdl-content .lesson-nav .btn{flex:1 1 220px}
 
 /* ===== botões e controles (os widgets usam estes) ===== */
-.sdl-content .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);font:650 15px/1.2 var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:8px 14px;min-height:44px;cursor:pointer;text-decoration:none;transition:border-color var(--dur-1),color var(--dur-1),box-shadow var(--dur-2)}
+.sdl-content .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);font:600 15px/1.2 var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);padding:8px 14px;min-height:44px;cursor:pointer;text-decoration:none;transition:border-color var(--dur-1),color var(--dur-1),box-shadow var(--dur-2)}
 .sdl-content .btn:hover:not(:disabled){border-color:var(--accent-ink);color:var(--ink-hi)}
 .sdl-content .btn:active:not(:disabled){transform:translateY(1px)}
 .sdl-content .btn:disabled{opacity:.42;cursor:default}
 .sdl-content .btn.primary{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill)}
-.sdl-content .btn.primary:hover:not(:disabled){color:var(--on-accent);box-shadow:var(--glow)}
+.sdl-content .btn.primary:hover:not(:disabled){color:var(--on-accent);background:color-mix(in srgb,var(--accent-fill) 88%,var(--ink-hi))}
 .sdl-content .btn[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .btn.primary[aria-pressed="true"]{color:var(--on-accent)}
 .sdl-content .btn.big{font-size:17px;min-height:56px;padding:12px 22px;border-radius:var(--r-3);text-align:center}
-.sdl-content .chip{font:600 13px/1.2 var(--mono);color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;min-width:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)}
+.sdl-content .chip{font:600 14px/1.2 var(--sans);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;min-width:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)}
 .sdl-content .chip:hover{border-color:var(--accent-ink)}
 .sdl-content .chip[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .counter{font:600 13px var(--mono);color:var(--muted);margin-left:auto;font-variant-numeric:tabular-nums}
@@ -162,15 +154,10 @@
 .sdl-content .muted{color:var(--muted)}
 .sdl-content .mono{font-family:var(--mono)}
 
-/* ===== widget: prancha com marcas de registro nos cantos; acende quando está em uso ===== */
-.sdl-content .widget{--tick:var(--line-strong);position:relative;background:var(--bg);border:var(--hair) solid var(--line);border-radius:var(--r-1);padding:var(--s-5) var(--s-4) var(--s-4);margin:var(--s-5) 0;max-width:var(--page);overflow:hidden;
-  background-image:linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick));
-  background-size:12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px,12px 1.5px,1.5px 12px;
-  background-position:0 0,0 0,100% 0,100% 0,0 100%,0 100%,100% 100%,100% 100%;background-repeat:no-repeat;transition:border-color var(--dur-2)}
-.sdl-content .widget:focus-within{--tick:var(--accent-fill);border-color:color-mix(in srgb,var(--accent-ink) 45%,var(--line))}
-.sdl-content .widget-title{display:flex;align-items:center;gap:var(--s-2);font:700 var(--fs-label)/1.3 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--ink-hi);margin:0 0 6px}
-.sdl-content .widget-title::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-strong);transition:background var(--dur-2),box-shadow var(--dur-2)}
-.sdl-content .widget:focus-within .widget-title::before{background:var(--accent-fill);box-shadow:var(--glow)}
+/* ===== widget: prancha de traço fino; a borda esquenta quando está em uso ===== */
+.sdl-content .widget{position:relative;background:var(--bg);border:var(--hair) solid var(--line);border-radius:var(--r-3);padding:var(--s-5) var(--s-5) var(--s-4);margin:var(--s-5) 0;max-width:var(--page);overflow:hidden;transition:border-color var(--dur-2)}
+.sdl-content .widget:focus-within{border-color:var(--line-strong)}
+.sdl-content .widget-title{font:600 18px/1.3 var(--sans);letter-spacing:-.005em;color:var(--ink-hi);margin:0 0 var(--s-1)}
 .sdl-content .widget-hint{color:var(--muted);font-size:var(--fs-sm);margin:0 0 var(--s-4);max-width:var(--measure)}
 .sdl-content .w-row{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;margin:0 0 var(--s-3)}
 
@@ -179,7 +166,7 @@
 .sdl-content:not(.js) .sdl-progress{position:static}
 .sdl-content:not(.js) .pg-row,.sdl-content:not(.js) .pg-meter,.sdl-content:not(.js) .pg-switch{display:none}
 .sdl-content .pg-row{display:flex;gap:var(--s-2);align-items:stretch}
-.sdl-content .pg-status{flex:1 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font:650 15px/1.35 var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:8px 12px;min-height:var(--tap);cursor:pointer;transition:border-color var(--dur-1)}
+.sdl-content .pg-status{flex:1 1 auto;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font:600 15px/1.35 var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:8px 12px;min-height:var(--tap);cursor:pointer;transition:border-color var(--dur-1)}
 .sdl-content .pg-status:hover{border-color:var(--line-strong)}
 .sdl-content .pg-status[aria-expanded="true"]{border-color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .pg-text{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -190,7 +177,7 @@
 .sdl-content .pg-step[data-pg="next"]::before{transform:translateX(-2px) rotate(-135deg)}
 .sdl-content .pg-step:hover:not(:disabled){border-color:var(--accent-ink)}
 .sdl-content .pg-step:disabled{opacity:.35;cursor:default}
-.sdl-content .pg-quizbtn{flex:none;display:grid;place-items:center;min-width:60px;min-height:var(--tap);padding:0 12px;border-radius:var(--r-2);border:var(--hair) solid var(--line-strong);background:var(--surface);color:var(--ink-hi);font:700 13px/1 var(--mono);letter-spacing:var(--track-label);text-transform:uppercase;text-decoration:none;transition:border-color var(--dur-1),color var(--dur-1)}
+.sdl-content .pg-quizbtn{flex:none;display:grid;place-items:center;min-width:60px;min-height:var(--tap);padding:0 12px;border-radius:var(--r-2);border:var(--hair) solid var(--line-strong);background:var(--surface);color:var(--ink-hi);font:600 15px/1 var(--sans);text-decoration:none;transition:border-color var(--dur-1),color var(--dur-1)}
 .sdl-content .pg-quizbtn:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
 /* régua: um traço por aula; o atual acende, o entendido fica verde */
 .sdl-content .pg-meter{display:flex;align-items:center;gap:var(--s-3);margin-top:10px}
@@ -198,26 +185,26 @@
 /* três estados e só três: não lida = traço baixo e apagado; entendida = traço baixo verde; atual = traço alto em sódio */
 .sdl-content .pg-seg{position:relative;height:4px;border-radius:1px;background:color-mix(in srgb,var(--line-strong) 55%,transparent);transition:height var(--dur-2) var(--ease-out),background var(--dur-2)}
 .sdl-content .pg-seg.done{background:var(--ok)}
-.sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill);box-shadow:var(--glow)}
+.sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill)}
 .sdl-content .pg-seg.cur.done{background:var(--ok);box-shadow:0 0 0 1.5px var(--bg),0 0 0 3px var(--accent-fill)}
 /* marco a cada 5 aulas: um risco de escala no vão, não um traço mais alto (que parecia a aula atual) */
 .sdl-content .pg-seg.major::after{content:"";position:absolute;right:-2px;bottom:0;width:1px;height:10px;background:var(--line-strong)}
 .sdl-content .pg-seg.major:last-child::after{display:none}
-/* o momento da aula: o traço vira verde com um brilho que assenta */
+/* o momento da aula: o traço cresce e assenta de sódio para verde */
 .sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
-@keyframes sdl-settle{0%{background:var(--accent-fill);box-shadow:0 0 14px var(--accent-fill);transform:scaleY(2.2)}100%{box-shadow:0 0 0 transparent;transform:none}}
+@keyframes sdl-settle{0%{background:var(--accent-fill);transform:scaleY(2.2)}100%{transform:none}}
 .sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;order:2;font-size:15px}
-.sdl-content .pg-count{font:700 13px/1 var(--mono);color:var(--ok);flex:none;font-variant-numeric:tabular-nums}
+.sdl-content .pg-count{font:600 13px/1 var(--mono);color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 /* painel do índice */
 .sdl-content .pg-panel{margin-top:10px;background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:var(--s-3) var(--s-4)}
 .sdl-content.js .pg-panel{position:absolute;left:var(--gutter);right:var(--gutter);top:100%;margin-top:6px;max-height:min(75vh,560px);overflow:auto;box-shadow:var(--shadow-pop);overscroll-behavior:contain}
 .sdl-content .pg-panel[hidden]{display:none}
 .sdl-content .pg-quiz{display:flex;justify-content:center;width:100%;margin-bottom:10px}
-.sdl-content .pg-switch,.sdl-content .pg-glossary{display:flex;width:100%;align-items:center;justify-content:space-between;gap:var(--s-3);font:650 16px var(--sans);color:var(--ink-hi);background:var(--bg);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px 14px;min-height:var(--tap);cursor:pointer;margin-bottom:10px;text-align:left}
+.sdl-content .pg-switch,.sdl-content .pg-glossary{display:flex;width:100%;align-items:center;justify-content:space-between;gap:var(--s-3);font:600 16px var(--sans);color:var(--ink-hi);background:var(--bg);border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px 14px;min-height:var(--tap);cursor:pointer;margin-bottom:10px;text-align:left}
 .sdl-content .pg-switch:hover,.sdl-content .pg-glossary:hover{border-color:var(--line-strong)}
 .sdl-content .pg-switch i{flex:none;width:44px;height:24px;border-radius:12px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line-strong);position:relative;transition:background var(--dur-2)}
 .sdl-content .pg-switch i::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:left var(--dur-2) var(--ease-out),background var(--dur-2)}
-.sdl-content .pg-switch[aria-checked="true"] i{background:var(--accent-fill);box-shadow:var(--glow)}
+.sdl-content .pg-switch[aria-checked="true"] i{background:var(--accent-fill);box-shadow:none}
 .sdl-content .pg-switch[aria-checked="true"] i::after{left:23px;background:var(--on-accent)}
 .sdl-content .pg-glossary span{font-family:var(--mono);color:var(--muted)}
 .sdl-content:not(.js) .pg-glossary{display:none}
@@ -231,7 +218,7 @@
 .sdl-content .toc a{display:flex;gap:var(--s-3);align-items:baseline;padding:11px 0;min-height:var(--tap);color:var(--ink);text-decoration:none;border-top:var(--hair) solid var(--line);font-size:16px;line-height:1.4}
 .sdl-content .toc li:first-child a{border-top:0}
 .sdl-content .toc a>span:first-child{font:700 13px var(--mono);color:var(--faint);width:20px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
-.sdl-content .toc a[aria-current="true"]{font-weight:750;color:var(--accent-ink)}
+.sdl-content .toc a[aria-current="true"]{font-weight:600;color:var(--accent-ink)}
 .sdl-content .toc a[aria-current="true"]>span:first-child{color:var(--accent-ink)}
 .sdl-content .toc a:hover,.sdl-content .toc a:focus-visible{color:var(--accent-ink)}
 
@@ -249,4 +236,4 @@
   .sdl-content .pg-count{font-size:14px}
   .sdl-content pre{font-size:14px}
 }
-@media (prefers-reduced-motion:reduce){.sdl-content .doit h3::before,.sdl-content .pg-seg.just{animation:none}}
+@media (prefers-reduced-motion:reduce){.sdl-content .pg-seg.just{animation:none}}

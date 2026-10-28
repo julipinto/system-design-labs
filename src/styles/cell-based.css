@@ -6,7 +6,7 @@
 .sdl-content tr.cb-cur th,.sdl-content tr.cb-cur td{background:var(--accent-wash)}
 .sdl-content .cb-out{margin-top:var(--s-3)}
 .sdl-content .sr-fact.cb-badfact b{color:var(--bad)}
-.sdl-content .cb-num{width:100%;min-height:44px;padding:0 var(--s-2);font:700 15px var(--mono);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
+.sdl-content .cb-num{width:100%;min-height:44px;padding:0 var(--s-2);font:600 15px var(--sans);color:var(--ink-hi);background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-2)}
 .sdl-content .cb-num:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 .sdl-content .cb-check{display:flex;align-items:center;gap:var(--s-2);min-height:44px;margin:var(--s-2) 0;font:600 13.5px var(--mono);color:var(--ink);cursor:pointer}
 .sdl-content .cb-check input{width:20px;height:20px;accent-color:var(--accent-ink)}
