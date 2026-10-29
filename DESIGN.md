@@ -322,6 +322,17 @@ Dois mostradores desenhados em SVG por `public/shared/readouts.js`, por cima do 
 - **Pontos de LED** só na nota do quiz (`.q-score`): "38/46" em matriz 5×7, sódio, pontos apagados a 9%. É o placar; não aparece em outro lugar.
 - Quando o mesmo número muda, os segmentos acesos entram em varredura (260ms, coluna por coluna).
 
+### Ficha da aula
+Logo abaixo do título de cada aula, uma faixa de dados (`<dl class="lesson-spec">`): minutos de leitura, termos novos, figuras 3D e laboratórios, contados do próprio conteúdo; o que dá zero não aparece. Número em sans 300 a 30px (24px no celular), rótulo em sans 600 a 13px na cor de apoio embaixo, colunas separadas por régua vertical de 1px. Sem caixa, sem cor.
+
+### Mapa da história (home, signature)
+A lista de módulos é uma trilha vertical: uma estação redonda de 12px por módulo, trilha pontilhada, e os 7 blocos da história como paradas (rótulo em sans 600 na cor de apoio, tracinho de 16px na trilha). Estação cheia em tinta = módulo completo; contorno sódio = em andamento. O trecho percorrido acende em tinta e o pacote (8×14, sódio) desce com mola até o módulo onde a pessoa parou; ao pousar, a estação dá um respiro. No fim da linha, o gato de pelúcia e "Fim da linha: o gato de pelúcia chega em Recife."
+
+### Gato de pelúcia (mascote)
+O gato da Lena (`public/shared/cat.svg`), em traço fino na tinta, com o laço como único ponto sódio (`--cat-accent`). Aparece só como recompensa: ao completar um módulo (na aula atual, some se desmarcar), ao gabaritar o quiz (`window.sdlCat`) e no fim do mapa da home. Entra com um pulinho de 720ms; nunca decora cabeçalho, botão ou estado vazio.
+
+**A Regra do Gato.** O gato de pelúcia é recompensa, não enfeite: aparece só quando a pessoa conclui algo.
+
 ### Prancha do widget (signature)
 Fundo de chão, traço fino, cantos de 10px, 24px de respiro (16px no celular). Título em sans 600 a 18px, sem ponto. Com o foco dentro, a borda passa a traço forte.
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-29T00:11:43+00:00",
+  "generatedAt": "2026-10-29T12:22:15+00:00",
   "title": "Design System: SDLabs",
   "extensions": {
     "colorMeta": {
@@ -539,6 +539,36 @@
         "name": "settle",
         "value": "sdl-settle 900ms ease-out",
         "purpose": "Segmento da régua passando de sódio a verde ao marcar \"Entendi\"."
+      },
+      {
+        "name": "spring-packet",
+        "value": "Motion spring · stiffness 170 · damping 24",
+        "purpose": "O pacote da trilha andando até a próxima aula (~700ms), só em transform."
+      },
+      {
+        "name": "spring-map",
+        "value": "Motion spring · stiffness 60 · damping 16 · delay 250ms",
+        "purpose": "Na home, o pacote descendo até o módulo onde a pessoa parou; a estação respira ao pousar."
+      },
+      {
+        "name": "lesson-swap",
+        "value": "saída 110ms · entrada 300ms ease-out",
+        "purpose": "Troca de aula no modo foco, entrando pelo lado da navegação."
+      },
+      {
+        "name": "press",
+        "value": "scale(.97) 120ms",
+        "purpose": "Botão afundando no toque."
+      },
+      {
+        "name": "cat-up",
+        "value": "sdl-cat-up 720ms (mola em linear())",
+        "purpose": "O gato entrando com um pulinho."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "troca instantânea ou fade de 120ms",
+        "purpose": "Com prefers-reduced-motion: reduce, tudo."
       }
     ],
     "breakpoints": [
@@ -660,6 +690,54 @@
       "description": "Pergunta como linha tocável entre réguas; \"Ver resposta\" é link de texto que vira \"Esconder\" em sódio; a resposta aparece num poço.",
       "html": "<ul class=\"ds-fc\"><li><button class=\"ds-fq\" aria-expanded=\"true\">O que é um cache hit?</button><p class=\"ds-fa\">Quando a resposta já está no cache e o banco nem é consultado.</p></li><li><button class=\"ds-fq\" aria-expanded=\"false\">Por que um TTL?</button></li></ul>",
       "css": ".ds-fc{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);max-width:46rem} .ds-fc li{border-bottom:1px solid var(--line)} .ds-fq{display:flex;width:100%;gap:12px;align-items:flex-start;text-align:left;font:600 17.5px/1.45 var(--sans);color:var(--ink-hi);background:none;border:0;padding:14px 0;min-height:56px;cursor:pointer} .ds-fq::after{content:\"Ver resposta\";margin-left:auto;flex:none;font:500 14px/1.3 var(--sans);color:var(--muted);padding:3px 0;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:.25em} .ds-fq:hover::after{color:var(--ink-hi);text-decoration-color:currentColor} .ds-fq:focus-visible{outline:2px solid var(--accent-fill);outline-offset:-2px;border-radius:var(--r-2)} .ds-fq[aria-expanded=\"true\"]::after{content:\"Esconder\";color:var(--accent-ink);text-decoration-color:currentColor} .ds-fa{margin:0 0 16px;padding:12px 16px;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-2);color:var(--ink);font:17.5px/1.65 var(--sans)}"
+    },
+    {
+      "name": "Trilha do pacote",
+      "kind": "nav",
+      "refersTo": "packet-trail",
+      "description": "Progresso do módulo: uma estação de 10px por aula, trilha pontilhada; entendida = cheia em tinta; o pacote sódio (14×8) fica na aula atual e anda com mola até a próxima. Com menos de 26px por aula, encolhe para 8px e 10×6.",
+      "html": "<div class=\"ds-trail\"><i class=\"ds-st on\"></i><b class=\"ds-ln on\"></b><i class=\"ds-st on\"></i><b class=\"ds-ln\"></b><i class=\"ds-st\"><span class=\"ds-pkt\"></span></i><b class=\"ds-ln\"></b><i class=\"ds-st\"></i></div>",
+      "css": ".ds-trail{display:flex;align-items:center;gap:0;padding:16px 8px} .ds-st{position:relative;flex:none;width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg)} .ds-st.on{background:var(--ink);border-color:var(--ink)} .ds-ln{flex:1;height:2px;min-width:36px;background:radial-gradient(circle,var(--line-strong) 1px,transparent 1.4px) 0 50%/6px 2px repeat-x} .ds-ln.on{background-image:radial-gradient(circle,var(--ink) 1.1px,transparent 1.5px)} .ds-pkt{position:absolute;left:50%;top:50%;width:14px;height:8px;border-radius:2px;background:var(--accent-fill);transform:translate(-50%,-50%)}"
+    },
+    {
+      "name": "Mostrador de 7 segmentos",
+      "kind": "custom",
+      "refersTo": "readout-seg7",
+      "description": "Número de destaque de widget desenhado em SVG por readouts.js sobre o texto original (.sr-fact b, [data-seg7]). Só número com unidade curta; segmento apagado a 8%, unidade em sans na cor de apoio (mínimo 12px).",
+      "html": "<p class=\"ds-seg\"><span class=\"ds-seg-n\">92</span><span class=\"ds-seg-u\">%</span></p>",
+      "css": ".ds-seg{display:inline-flex;align-items:baseline;gap:4px;margin:0} .ds-seg-n{font:500 40px/1 var(--mono);color:var(--ink-hi);letter-spacing:.04em;transform:skewX(-6deg);font-variant-numeric:tabular-nums} .ds-seg-u{font:600 max(12px,.62em)/1 var(--sans);color:var(--muted)}"
+    },
+    {
+      "name": "Placar de pontos",
+      "kind": "custom",
+      "refersTo": "readout-dots",
+      "description": "Só a nota do quiz (.q-score): \"38/46\" em matriz de LED 5×7, sódio, pontos apagados a 9%. Não aparece em outro lugar.",
+      "html": "<p class=\"ds-dots\">38/46</p>",
+      "css": ".ds-dots{margin:0;font:700 44px/1 var(--mono);color:var(--accent-ink);letter-spacing:.08em;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Ficha da aula",
+      "kind": "custom",
+      "refersTo": "lesson-spec",
+      "description": "Faixa de dados embaixo do título da aula: minutos, termos novos, figuras 3D, laboratórios; o que é zero some. Número sans 300 a 30px, rótulo 600 a 13px na cor de apoio, colunas separadas por régua.",
+      "html": "<dl class=\"ds-spec\"><div><dt>min de leitura</dt><dd>9</dd></div><div><dt>termos novos</dt><dd>4</dd></div><div><dt>figura 3D</dt><dd>1</dd></div></dl>",
+      "css": ".ds-spec{display:flex;flex-wrap:wrap;margin:0;padding:0} .ds-spec>div{display:flex;flex-direction:column-reverse;gap:4px;padding-right:24px;margin-right:24px;border-right:1px solid var(--line)} .ds-spec>div:last-child{border-right:0;margin-right:0;padding-right:0} .ds-spec dd{margin:0;font:300 30px/1 var(--sans);letter-spacing:-.02em;color:var(--ink-hi);font-variant-numeric:tabular-nums} .ds-spec dt{font:600 13px/1.3 var(--sans);color:var(--muted)}"
+    },
+    {
+      "name": "Mapa da história",
+      "kind": "nav",
+      "refersTo": "home-map",
+      "description": "Home: módulos numa trilha vertical com os 7 blocos como paradas. Estação cheia = completo; contorno sódio = em andamento; o pacote desce com mola até onde a pessoa parou.",
+      "html": "<ol class=\"ds-map\"><li class=\"ds-blk\">Fundamentos</li><li class=\"ds-m done\">Protocolos de Rede</li><li class=\"ds-m going\"><span class=\"ds-mp\"></span>Storage, RAID e I/O</li><li class=\"ds-m\">Teorema CAP, ACID e BASE</li></ol>",
+      "css": ".ds-map{list-style:none;margin:0;padding:0 0 0 32px;position:relative;font:600 16px/1.4 var(--sans);color:var(--ink-hi)} .ds-map::before{content:\"\";position:absolute;left:9px;top:0;bottom:0;width:2px;background:radial-gradient(circle,var(--line-strong) 1px,transparent 1.4px) 50% 0/2px 6px repeat-y} .ds-blk{padding:8px 0;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)} .ds-m{position:relative;padding:14px 0} .ds-m::before{content:\"\";position:absolute;left:-28px;top:18px;width:12px;height:12px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg);z-index:1} .ds-m.done::before{background:var(--ink);border-color:var(--ink)} .ds-m.going::before{border-color:var(--accent-ink)} .ds-mp{position:absolute;left:-26px;top:10px;width:8px;height:14px;border-radius:2px;background:var(--accent-fill);z-index:2}"
+    },
+    {
+      "name": "Gato de pelúcia",
+      "kind": "custom",
+      "refersTo": "cat-mascot",
+      "description": "Mascote de recompensa (public/shared/cat.svg): traço fino em tinta, laço sódio. Só ao completar módulo, gabaritar o quiz e no fim do mapa; entra com pulinho de 720ms.",
+      "html": "<div class=\"ds-cat\"><svg viewBox=\"0 0 120 120\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><g stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M60 104 L92 88 L60 72 L28 88 Z\" stroke-opacity=\".35\"/><path d=\"M42 90 C36 78 38 62 48 55 L72 55 C82 62 84 78 78 90 C72 96 48 96 42 90 Z\"/><path d=\"M38 38 C38 26 48 20 60 20 C72 20 82 26 82 38 C82 49 72 55 60 55 C48 55 38 49 38 38 Z\"/><path d=\"M42 30 L40 12 L54 22\"/><path d=\"M78 30 L80 12 L66 22\"/><path d=\"M48 37 C50 39.5 53 39.5 55 37\"/><path d=\"M65 37 C67 39.5 70 39.5 72 37\"/></g><g stroke=\"var(--accent-ink)\" stroke-width=\"1.6\"><path d=\"M60 57 L49 51 L50 62 Z\"/><path d=\"M60 57 L71 51 L70 62 Z\"/></g></svg></div>",
+      "css": ".ds-cat{width:96px;color:var(--ink)} .ds-cat svg{display:block;width:100%;height:auto}"
     }
   ],
   "narrative": {
@@ -722,6 +800,21 @@
         "name": "A Regra do Sem Enfeite",
         "body": "Nada de cantos de mira, tracinho de cor embaixo de título, pontinho antes de rótulo ou numeração 01/02/03. Se um elemento não diz nada, ele sai.",
         "section": "shapes"
+      },
+      {
+        "name": "A Regra do Mostrador",
+        "body": "7 segmentos e pontos de LED são para número de dado, nunca para palavra, título ou rótulo. 7 segmentos no widget; pontos só no placar do quiz.",
+        "section": "typography"
+      },
+      {
+        "name": "A Regra do Pacote",
+        "body": "Só uma coisa anda de um lugar para outro na página: o pacote na trilha. O resto do movimento abre, fecha ou confirma no lugar.",
+        "section": "motion"
+      },
+      {
+        "name": "A Regra do Gato",
+        "body": "O gato de pelúcia é recompensa, não enfeite: aparece só quando a pessoa conclui algo (módulo, quiz gabaritado, fim do mapa).",
+        "section": "components"
       }
     ],
     "dos": [

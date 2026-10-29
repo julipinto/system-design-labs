@@ -58,8 +58,8 @@ const UI = {
 
 export function t(url) { return UI[langOf(url)]; }
 
-// Módulos que já têm versão em inglês (pasta em src/content/_en/). Enquanto a tradução não termina,
-// o link de língua só aparece onde a outra versão existe, e a home em inglês manda para o português no resto.
+// Módulos que já têm versão em inglês (pasta em src/content/_en/). Hoje são todos; um módulo novo nasce em
+// português, e até ganhar a pasta em inglês o link de língua some e a home em inglês manda para o português.
 const EN_FILES = import.meta.glob('/src/content/_en/*/*.mdx');
 const EN_SLUGS = new Set(Object.keys(EN_FILES).map((p) => p.split('/')[4]));
 export function hasEn(slug) { return EN_SLUGS.has(slug); }
