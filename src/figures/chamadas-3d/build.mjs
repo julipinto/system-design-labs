@@ -55,11 +55,11 @@ const css = `
 .embedded #ctl-chamadas button:nth-child(n+3),.embedded #ctl-chamadas .sep{display:none!important}
 `;
 const reps = [
-  ["<title>Iso 3D</title>", "<title>A chamada que atravessa a loja em 3D · SDLabs</title>"],
-  ["<i></i>Iso 3D</div>", "<i></i>A chamada que atravessa a loja · 3D</div>"],
+  ["<title>Iso 3D</title>", EN ? "<title>The call that crosses the store in 3D · SDLabs</title>" : "<title>A chamada que atravessa a loja em 3D · SDLabs</title>"],
+  ["<i></i>Iso 3D</div>", EN ? "<i></i>The call that crosses the store · 3D</div>" : "<i></i>A chamada que atravessa a loja · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-6-timeouts">Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-6-timeouts">' + (EN ? "Back to the module" : "Voltar ao módulo") + '</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read(EN ? "fig3d.en.js" : "fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

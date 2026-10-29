@@ -1,0 +1,93 @@
+---
+title: "Fallbacks"
+order: 9
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the PSP-A breaker opened and <code>pagamentos</code> started answering right away that it would not call. But Lena still wants to pay. The breaker only <strong>decides to stop</strong>; what offers another path is the <em>fallback</em>.</p>
+
+<OneLiner>The <strong><em>fallback</em></strong> is the alternative path to the <strong>same goal</strong>, and it always sacrifices something: cost, accuracy or consistency. A fallback nobody uses has a hidden defect.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Fallback</strong> scenario, open the PSP-A breaker and follow Caio's order <strong>1058</strong> going to <strong>PSP-B</strong>. Then turn on the <strong>proactive 1%</strong> and see the warm-up calls.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=fallback" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Fallback" alt="Preview of the 3D figure: Fallback" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Reactive: PSP-B.</strong> When PSP-A fails, <code>pagamentos</code> sends the charge to PSP-B (p50 of 300 ms, against 180 ms for A). That was the design in module 12.</li>
+  <li><strong>Reserve value.</strong> The carrier's shipping quote falls back to the <strong>table shipping</strong> when it fails: Recife <strong>15.00</strong>, SP <strong>9.00</strong>, Rio <strong>12.00</strong>. Caio's 1058 pays Rio's 12.00.</li>
+  <li><strong>Snapshot and queue.</strong> A <em>snapshot</em> (the credit limit from the last known value) answers when the service is down. An <strong>asynchronous flow</strong> sends the email to a queue and delivers it later.</li>
+  <li><strong>Contractual.</strong> The second quote partner costs more: A at <strong>R$ 0.03</strong> and B at <strong>R$ 0.10</strong> per query (the article's numbers). In 10 min at 30/s that is 18,000 queries: <strong>R$ 540</strong> against <strong>R$ 1,800</strong>, an extra cost of <strong>R$ 1,260</strong>.</li>
+  <li><strong>Proactive.</strong> It sends <strong>1%</strong> of the traffic to the fallback all the time: 30 × 1% = <strong>0.3/s = 18 per minute</strong>. That way you find out before the incident whether it works.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Thread 3: <code>"recomendado": []</code></h3>
+
+<p>In module 9 <code>bff-app</code> answered without recommendations in 100 ms. That was a fallback: the goal (showing the page) was met with less content. Now the <code>pagamentos</code> fallback does the same for the payment, except the sacrifice here is money (PSP-B is slower) rather than content.</p>
+
+<h3 class="sec">Why the proactive one is worth it</h3>
+
+<p>AWS warns that a <strong>rarely exercised</strong> fallback has a latent defect: the code that only runs on failure is the least tested. The company prefers "continuously exercised code paths". Sending 1% of the traffic to PSP-B costs 18 calls per minute, and the price buys the certainty that the credential has not expired.</p>
+
+<h3 class="sec">And if it goes wrong: three fallbacks that make the failure worse</h3>
+
+<p>The first is the <strong>broken fallback nobody tested</strong>: PSP-B with an expired credential is only discovered at 20:20, with 100% of the traffic on top of it. The second is the <strong>fallback that takes down the fallback</strong>: all the traffic falls on PSP-B, which has less capacity, and PSP-B goes down too. Limit the fallback with its own breaker and a queue. The third is the <strong>inconsistent fallback</strong>: the credit limit <em>snapshot</em> approves beyond the real limit. That is a business decision, and it needs to be on record.</p>
+
+<Widget name="fallback" title="Fallback cost" hint="Cost per query for partners A and B, queries per second, duration and % of proactive traffic. It shows the extra cost (+R$ 1,260) and the proactive calls (18 per minute)." />
+
+<WhyItMatters>
+  <li><strong>Every fallback sacrifices something.</strong> PSP-B is 120 ms slower, partner B costs R$ 1,260 more in 10 min and the table shipping may not be the real price.</li>
+  <li><strong>A fallback that does not run rots.</strong> The proactive 1% is the continuous test.</li>
+  <li><strong>The fallback needs a limit too.</strong> Otherwise the primary's failure becomes the second one's failure.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The article's five types</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Type</th><th>In the store</th><th>What it sacrifices</th></tr></thead>
+    <tbody>
+      <tr><th>systemic (redundancy)</th><td>PSP-B when A fails</td><td>latency and cost</td></tr>
+      <tr><th>with <em>snapshot</em></th><td>credit limit from the last known value</td><td>consistency</td></tr>
+      <tr><th>asynchronous</th><td>email goes to the queue</td><td>immediacy</td></tr>
+      <tr><th>contractual</th><td>quote partner B (R$ 0.10)</td><td>cost</td></tr>
+      <tr><th>proactive</th><td>1% of the traffic on PSP-B</td><td>a bit of the traffic on a slower path</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: the side it does not see</h4>
+  <ul>
+    <li><strong>The proactive fallback is correct and useful.</strong> The same AWS that inspires it warns that a rarely used fallback has a latent defect and can make the failure <strong>worse</strong>. The article only shows the good side.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Avoiding fallback in distributed systems", href: "https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store has a second PSP and a reserve shipping price. What is left is what to do when there is no good fallback, and the way out is to switch off on purpose what is not essential.</p>
+
+<Flashcards cards={[
+  { q: "What is a fallback?",
+    a: "An alternative path to the same goal, which sacrifices something: cost, accuracy or consistency." },
+  { q: "What is the table shipping?",
+    a: "The reserve value if the carrier's quote fails: Recife 15.00, SP 9.00 and Rio 12.00." },
+  { q: "How much more does partner B cost in 10 minutes?",
+    a: "18,000 queries: R$ 540 (A at R$ 0.03) against R$ 1,800 (B at R$ 0.10), an extra cost of R$ 1,260." },
+  { q: "What is the proactive fallback and how much traffic does it carry?",
+    a: "Sending 1% to the fallback all the time: 30 × 1% = 0.3/s, or 18 per minute on PSP-B. It shows whether it works before it is needed." },
+  { q: "How can a fallback make the failure worse?",
+    a: "If nobody tested it, it is broken (expired credential). If it gets 100% of the traffic, it takes down PSP-B, which has less capacity." },
+]} />

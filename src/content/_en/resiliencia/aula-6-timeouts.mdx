@@ -1,0 +1,102 @@
+---
+title: "Timeouts"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the repeated call became safe. What is left is <strong>when to repeat</strong>, and for that you have to decide when to <strong>stop waiting</strong>. With no limit, a call stuck for 8 s holds one connection of the <code>pagamentos</code> pool of 50 for 8 s. At 30 orders per second, the pool runs out before the first response arrives.</p>
+
+<OneLiner>A <strong>timeout</strong> is the limit that keeps a slow call from <strong>getting stuck</strong> and exhausting the pool. The right value comes from a <strong>percentile</strong> and a <strong>capacity calculation</strong>, not from a round number.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Timeout</strong> scenario, change the timeout from <strong>8 s</strong> to <strong>2 s</strong> and then to <strong>1 s</strong>, and read the "in flight" each time: 240, 60 and 30. Only the last one fits in the pool of 50.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=timeout" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Timeout, deadlines and key" alt="Preview of the 3D figure: Timeout, deadlines and key" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The types.</strong> The <strong>connection</strong> timeout limits opening the channel; the <strong>read/write</strong> one limits waiting for the bytes; the <strong>idle</strong> one drops a connection that has gone quiet.</li>
+  <li><strong>Choose by percentile.</strong> AWS says to accept a small fraction of false timeouts and look at the matching percentile. PSP-A has a p50 of <strong>180 ms</strong>, a p99 of <strong>400 ms</strong> and a p99.9 of <strong>700 ms</strong>. Accepting 0.1% false timeouts, the timeout is the p99.9 plus some slack: <strong>1 s</strong>.</li>
+  <li><strong>Check with Little.</strong> The number of calls in flight is <strong>rate × time</strong>. With a pool of 50 and 30 req/s, the critical timeout is <strong>50 ÷ 30 = 1.67 s</strong>: above that the pool saturates.</li>
+  <li><strong>Chain the deadlines.</strong> Each outer link waits <strong>longer</strong> than the inner one: app <strong>5 s</strong> › <code>gw-loja</code> <strong>3 s</strong> › <code>bff-app</code> <strong>2.8 s</strong> › <code>pedidos</code> <strong>2.5 s</strong> › <code>pagamentos</code> <strong>2.0 s</strong> › PSP <strong>1.0 s per attempt</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Little's math, with the store's pool</h3>
+
+<p>With a pool of 50 and 30 req/s, the time of each call decides everything. Under normal conditions (180 ms), 5.4 calls are in flight. At 0.6 s, 18. At <strong>1.0 s</strong>, 30: it fits. At <strong>2.0 s</strong>, 60: it <strong>saturates</strong>. At <strong>8.0 s</strong>, 240. The maximum throughput of the pool of 50 is 277/s at 180 ms, <strong>50/s</strong> at 1 s, <strong>25/s</strong> at 2 s and <strong>6.25/s</strong> at 8 s. At 8 s the pool runs out in <strong>1.67 s</strong>, and at 2 s too: 60 is more than 50.</p>
+
+<h3 class="sec">Why the module 10 timeout changed from 2 s to 1 s</h3>
+
+<p>In module 10 <code>pagamentos</code> used a <strong>2 s</strong> timeout. It looked generous: 11 times the normal latency. Little's math shows it was not. At 30 orders per second, a 2 s timeout keeps <strong>60</strong> calls in flight in a pool of <strong>50</strong>: the pool fills up and the queue grows. That value was chosen without the capacity calculation. The new one, <strong>1 s</strong>, comes from the PSP's p99.9 (700 ms) plus slack and keeps 30 in flight, inside the pool. The same goes for the whole <code>pagamentos</code>: the PSP can use up to 1 s <strong>per attempt</strong>, and <code>pagamentos</code> still has 2.0 s of total deadline.</p>
+
+<h3 class="sec">The timeout does not cancel the work on the other side</h3>
+
+<p>In module 12 the PSP took 8 s, <code>pagamentos</code> gave up after 2 s and charge <code>c-7731</code> <strong>already existed</strong> at the PSP. The timeout only says "I stopped waiting", not "it did not happen". That is why idempotency (lesson 5) comes first and why the saga (module 19) exists afterwards: whoever gives up needs a way to find out what got done.</p>
+
+<h3 class="sec">And if it goes wrong: the outer one gives up and the inner one keeps going</h3>
+
+<p>The sum of the deadlines in a sequence of attempts can exceed the caller's deadline. Three 1 s attempts plus waits of 0.1 s and 0.2 s add up to <strong>3.3 s</strong>, more than the <strong>3 s</strong> of <code>gw-loja</code>. <code>gw-loja</code> gives up, <code>pagamentos</code> keeps working and the result goes to nobody: that is <strong>orphaned work</strong>. The fix is for the second attempt to receive only what is left of the deadline: 2.0 − 1.0 − 0.1 = <strong>0.9 s</strong>.</p>
+
+<p>The second mistake is a timeout that is <strong>too long for the pool</strong>, which is the case of the 2 s from module 10: the pool fills up and the queue grows without the store having a single business failure.</p>
+
+<Widget name="little" title="Little and the pool" hint="Pool (10 to 200), orders per second (5 to 100) and call time (0.1 to 10 s). The widget shows the in flight count, the maximum throughput, whether it saturates and the critical timeout (50 ÷ 30 = 1.67 s)." />
+
+<Widget name="prazos" title="Chain of deadlines" hint="Six editable timeouts (app, gw-loja, bff-app, pedidos, pagamentos and PSP per attempt), attempts and the backoff base. It warns when an outer link waits less than the inner one and adds up the attempts and waits (3.3 s)." />
+
+<WhyItMatters>
+  <li><strong>A timeout comes from a calculation.</strong> The percentile gives the sensible value; Little says whether the pool can take it.</li>
+  <li><strong>The outer one waits longer than the inner one.</strong> When it is inverted, the outer one gives up and the inner one works for nobody.</li>
+  <li><strong>Giving up is not undoing.</strong> After the timeout the operation may have happened: c-7731 already existed.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The store's values in a table</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Link</th><th>Deadline</th></tr></thead>
+    <tbody>
+      <tr><th>app</th><td>5 s</td></tr>
+      <tr><th><code>gw-loja</code></th><td>3 s</td></tr>
+      <tr><th><code>bff-app</code></th><td>2.8 s</td></tr>
+      <tr><th><code>pedidos</code></th><td>2.5 s</td></tr>
+      <tr><th><code>pagamentos</code></th><td>2.0 s</td></tr>
+      <tr><th>PSP, per attempt</th><td>1.0 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: "how to choose" was missing</h4>
+  <ul>
+    <li><strong>The article lists the types of timeout.</strong> Missing are how to choose the value (percentile and capacity calculation, as AWS and Little's Law do), the chained deadline (outer larger than inner) and the warning that the timeout <strong>does not cancel</strong> the work on the other side.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Timeouts, retries, and backoff with jitter", href: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" },
+    { label: "Google SRE book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With a 1 s timeout the pool holds and the deadline closes. What is left is whether, after a timeout, it is worth trying again, and how to do that without becoming the incident itself.</p>
+
+<Flashcards cards={[
+  { q: "What is the right timeout for PSP-A and why?",
+    a: "1 s: the p99.9 (700 ms) plus slack. It accepts 0.1% false timeouts, as AWS recommends." },
+  { q: "What is Little's Law?",
+    a: "In flight = rate × time. At 30 req/s: 1 s gives 30 (fits the pool of 50), 2 s gives 60 (saturates), 8 s gives 240." },
+  { q: "What is the critical timeout of pagamentos?",
+    a: "Pool ÷ rate = 50 ÷ 30 = 1.67 s. Above that the pool saturates." },
+  { q: "Why did the 2 s timeout from module 10 change to 1 s?",
+    a: "Because 2 s keeps 60 calls in flight in a pool of 50 at 30/s: it saturates. The value had been chosen without the capacity calculation." },
+  { q: "Why does the timeout not solve c-7731?",
+    a: "Because it only says 'I stopped waiting'. The PSP already had the charge. That is why idempotency and the saga come in." },
+]} />

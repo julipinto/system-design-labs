@@ -1,0 +1,101 @@
+---
+title: "Retry strategies"
+order: 7
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the timeout fired and the call is safe to repeat. What is left is deciding <strong>how</strong>. Trying again beats a passing failure, but it is what made 27 calls per tap in module 10. With no brake, the retry becomes the incident itself.</p>
+
+<OneLiner><strong>Trying again</strong> beats passing failures, but <strong>with no brake it becomes the incident</strong>. The brake is exponential <em>backoff</em>, <em>jitter</em>, a budget and a deadline, and only on an idempotent operation.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Jitter</strong> scenario, run the <strong>5 strategies</strong> one by one and compare the peak of calls per window: it dropped from 1,000 to 84. To see the tap turn into 27 calls, switch to the <strong>Retry</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=jitter" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Backoff and jitter" alt="Preview of the 3D figure: Backoff and jitter" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Immediate, in memory.</strong> Simple: the same <em>thread</em> tries again. It solves most passing failures and it is what creates the storm when the dependency goes down.</li>
+  <li><strong>Asynchronous.</strong> It answers <code>202 Accepted</code> instead of <code>201</code> and finishes later, or uses a queue with <em>ack</em> and a DLQ (module 13). The client does not wait for the retry.</li>
+  <li><strong>Exponential <em>backoff</em>.</strong> The wait doubles on each failure, with a base of 100 ms: <strong>100, 200, 400, 800, 1,600 ms</strong>, with cumulative times at 0.1 · 0.3 · 0.7 · 1.5 · 3.1 s. The article uses 1, 2, 4, 8, 16 s; the store's cap is 2 s.</li>
+  <li><strong><em>Jitter</em>.</strong> The wait is drawn at random, so clients do not come back together. <em>Full</em>: from 0 up to the cap for that round. <em>Equal</em>: half fixed plus half random. <em>Decorrelated</em>: a draw between the base and three times the previous wait.</li>
+  <li><strong>The store's policy.</strong> Up to <strong>3 attempts</strong> (1 + 2 retries), only on <code>503</code>, <code>504</code>, timeout and connection refused, only on an operation with an <code>Idempotency-Key</code>, <em>backoff</em> with a 100 ms base and <em>full jitter</em> and a 2 s cap, and a <strong>10% budget</strong> of the calls. It only tries if there is deadline left.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The storm in numbers</h3>
+
+<p>A thousand clients call at the same time. The PSP is out for <strong>2.0 s</strong>, then serves <strong>200/s</strong> and refuses the rest. Each client tries until a 10 s deadline (base 100 ms, cap 5 s, seed 7):</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Strategy</th><th>Calls</th><th>Peak per 100 ms</th><th>Refused with the PSP up</th><th>Completed</th></tr></thead>
+  <tbody>
+    <tr><th>fixed 100 ms interval</th><td><strong>45,500</strong></td><td>1,000</td><td><strong>24,500</strong></td><td>1,000 (the last at 6.9 s)</td></tr>
+    <tr><th>exponential without jitter</th><td>6,980</td><td><strong>1,000</strong></td><td>1,940</td><td><strong>40</strong></td></tr>
+    <tr><th>exponential + full jitter</th><td>7,540</td><td><strong>84</strong></td><td>687</td><td><strong>1,000</strong></td></tr>
+    <tr><th>exponential + equal jitter</th><td>7,162</td><td>130</td><td>1,085</td><td>993</td></tr>
+    <tr><th><em>decorrelated jitter</em></th><td>7,590</td><td>125</td><td>1,397</td><td>999</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The fixed interval gets everyone through, but with <strong>45.5 calls per client</strong>. Exponential <strong>without</strong> jitter sends synchronized waves of 1,000 and only <strong>4%</strong> finish within the deadline. Jitter spreads them out (peak of 84 to 130) and finishes almost everyone. The order matches AWS's: the one without jitter is "the clear loser". The difference between <em>full</em> and <em>equal</em> holds only in this scenario.</p>
+
+<h3 class="sec">Amplification across layers</h3>
+
+<p>Each layer repeats on its own and the attempts multiply. <strong>3 layers × 3 attempts = 27</strong> calls to <code>pagamentos</code> per tap (thread 2); 3 layers × 2 attempts, 8; one layer × 3, 3. At 30 orders per second that is <strong>810/s</strong> against a <code>pagamentos</code> with a capacity of <strong>40/s</strong>: <strong>20.2 times</strong> what it can handle. With a 10% budget, it is 30 × 1.1 = <strong>33/s</strong>. There are four defenses: repeat <strong>in one layer only</strong> (in the store, that of <code>pagamentos</code>, which repeats the PSP inside the 2.0 s deadline: the 2nd attempt goes out at 0.9 s), limit with a <strong>budget</strong> (the SRE book gives the example of 60 retries per minute per process), respect the <strong>deadline</strong> and repeat <strong>only what is idempotent</strong>.</p>
+
+<h3 class="sec">And if it goes wrong: the retry that feeds the fire</h3>
+
+<p>With no <em>backoff</em> or <em>jitter</em>, the retries arrive <strong>before</strong> the PSP recovers and <strong>afterwards</strong> in waves of 1,000. The PSP comes back in 90 s, but <code>pagamentos</code> stays overloaded by delayed retries and does not get out of the hole: it is a <strong>metastable</strong> failure, in which the extra recovery load keeps the system broken even without the original cause (described by Bronson and others at HotOS 2021; the PDF did not open during the check, so there is no link).</p>
+
+<Widget name="tempestade" title="Retry storm" hint="Strategy (fixed, exponential, full, equal, decorrelated), clients (100 to 5,000), failure duration (0 to 10 s), capacity (100 to 500/s) and deadline. It shows calls, peak per 100 ms, refused with the PSP up and completed." />
+
+<Widget name="amplificacao" title="Amplification across layers" hint="Layers that retry (1 to 5) and attempts per layer (1 to 5). It shows the N calls per tap, 30/s × N against the 40/s and the effect of the 10% budget." />
+
+<WhyItMatters>
+  <li><strong>The immediate retry is the cause of the storm.</strong> 1,000 clients become 45,500 calls.</li>
+  <li><strong>Backoff alone is not enough.</strong> Without jitter the waves come back together and only 4% finish within the deadline.</li>
+  <li><strong>The number of layers multiplies.</strong> 3 × 3 = 27: repeat in one layer, with a budget and a deadline.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correction to the source article: jitter, cap and immediate retry</h4>
+  <ul>
+    <li><strong>"Incremental jitter" (0–4 s, 2–6 s, 6–10 s).</strong> It is none of the three AWS algorithms (<em>full</em>, <em>equal</em>, <em>decorrelated</em>). Missing are the <strong>cap</strong> on the wait and the warning that <em>backoff</em> without jitter creates synchronized waves (simulated above: 4% finish).</li>
+    <li><strong>"The immediate retry solves most cases".</strong> When a dependency fails it is the <strong>cause</strong> of the storm (45,500 calls for 1,000 clients). Missing are amplification across layers (27), the budget, the deadline and "only idempotent".</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Architecture Blog: Exponential Backoff And Jitter", href: "https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/" },
+    { label: "AWS Builders' Library: Timeouts, retries, and backoff with jitter", href: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/" },
+    { label: "Google SRE book: Addressing Cascading Failures (retry budget)", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+    { label: "Microsoft: Retry pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/retry" },
+  ]} />
+</Deep>
+
+<p class="gancho">With backoff, jitter and a budget, the retry stopped being the storm. But it still believes the PSP will come back. What is left is what to do if it does not: continuing to call makes things worse.</p>
+
+<Flashcards cards={[
+  { q: "What are the waits of the store's exponential backoff?",
+    a: "100, 200, 400, 800 and 1,600 ms (base 100 ms, cap 2 s). Cumulative times: 0.1 · 0.3 · 0.7 · 1.5 · 3.1 s." },
+  { q: "What does jitter change in the storm?",
+    a: "The peak per 100 ms drops from 1,000 (exponential without jitter) to 84 (full jitter), and 1,000 finish instead of 40." },
+  { q: "What is the store's amplification?",
+    a: "3 layers × 3 attempts = 27 calls per tap: 30 × 27 = 810/s against 40/s (20.2×). With a 10% budget: 33/s." },
+  { q: "What are the four defenses against amplification?",
+    a: "Repeat in one layer only, a retry budget (10%), respect the deadline (only try if there is time left) and repeat only what is idempotent." },
+  { q: "What is a metastable failure?",
+    a: "The cause goes away (the PSP comes back in 90 s), but the retry load keeps pagamentos down." },
+]} />

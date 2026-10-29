@@ -1,0 +1,86 @@
+---
+title: "Sharding and bulkheads"
+order: 13
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the data got copies, but the problem of a bad slice was still open. The way out is the same as at the start: <strong>limit the radius</strong>, now with walls. Two walls, on different axes: <em>sharding</em> isolates <strong>data and customers</strong> and the <em>bulkhead</em> isolates <strong>resources</strong>, like pools and queues.</p>
+
+<OneLiner><strong>Isolating</strong> is limiting the radius. <em>Sharding</em> isolates data and customers, the <strong><em>bulkhead</em></strong> (a ship's compartment) isolates resources: pools, queues, versions. The failure of one compartment does not flood the others.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Bulkhead</strong> scenario, set PSP-A to <strong>8 s</strong> with the <strong>shared pool</strong> and then with the <strong>three pools</strong> (50, 30 and 20). To see the other isolation, switch to the <strong>Shuffle</strong> scenario: 2 of 10 replicas, and the noisy <code>mkt-01</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/isolamento-3d/?mode=bulkhead" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Interactive figure: Bulkheads: the walls" alt="Preview of the 3D figure: Bulkheads: the walls" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The shared pool.</strong> <code>pagamentos</code> has a pool of <strong>100</strong> connections used by the PSP, the shipping quote and the email. With PSP-A at 8 s and 30 orders/s it fills in 100 ÷ 30 = <strong>3.33 s</strong>, and the quote and the email, which are fast, <strong>also</strong> get blocked.</li>
+  <li><strong>The walls.</strong> With <em>bulkheads</em> of <strong>50</strong> (PSP), <strong>30</strong> (shipping quote) and <strong>20</strong> (email), only the PSP pool runs out, in 50 ÷ 30 = <strong>1.67 s</strong>. The other two keep going.</li>
+  <li><strong>Other axes.</strong> One pool per <strong>dependency</strong>, per <strong>priority</strong> and per <strong>customer</strong>: <code>mkt-01</code> with its own queue.</li>
+  <li><strong>Shuffle sharding.</strong> Module 16 drew 2 of 10 replicas for each customer: that is 45 pairs. The noisy customer only takes down whoever has the <strong>same pair</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Sharding and bulkhead are not the same thing</h3>
+
+<p>The article calls the <em>bulkhead</em> an "evolution of sharding". They are <strong>different axes</strong>: sharding cuts the data and the customers (the cube from module 15, the <code>shard-2</code> from lesson 3), and the bulkhead cuts resources and dependencies. <em>Shuffle sharding</em> is what ties the two together, because it cuts customers <em>and</em> resource compartments. The 1/N math keeps the caveat from lesson 3: <code>shard-2</code> takes 60% of the rows because of <code>mkt-01</code>. Module 26 takes the idea to the limit with cells per region.</p>
+
+<h3 class="sec">And if it goes wrong: three walls that fail</h3>
+
+<p>The first is the <strong>bulkhead that is too small</strong>: 30 connections for a peak of 40 in flight refuse legitimate traffic. The second is the <strong>leaky isolation</strong>: two separate pools that depend on the <strong>same</strong> database have the database's radius, and the wall is no use. The third is <strong>uneven load</strong>: <code>mkt-01</code> fills its slice and the wall is the wrong size.</p>
+
+<Widget name="bulkhead" title="Bulkhead" hint="Total pool (20 to 300), PSP and shipping partitions (the rest goes to email) and PSP latency. It shows the time to exhaust (3.33 s on the single pool against 1.67 s on the PSP one) and who is left out." />
+
+<WhyItMatters>
+  <li><strong>One pool, one radius.</strong> The shared pool puts PSP, shipping and email in the same compartment.</li>
+  <li><strong>The walls cost a bit of capacity.</strong> 50/30/20 do not give the flexibility of 100 together, and a small bulkhead refuses the legitimate.</li>
+  <li><strong>Shuffle sharding works on both axes.</strong> With 2 of 10, the noisy customer only reaches whoever has the same pair.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The <em>lease</em>: a grant with a deadline</h4>
+  <ul>
+    <li><strong>What it is.</strong> A <em>lease</em> is a grant <strong>with a deadline</strong> that the client must <strong>renew</strong>. If it does not renew, the resource goes back to the pool.</li>
+    <li><strong>Where it shows up.</strong> In a connection pool with a <em>heartbeat</em>: the connection that stopped reporting is reclaimed. In a Kafka consumer with a partition: if the consumer stops reporting, the partition goes to another one.</li>
+    <li><strong>Why it goes with the bulkhead.</strong> The PSP pool of 50 only recovers if the connections stuck for 8 s come back; the lease is what guarantees they do.</li>
+  </ul>
+  <h4 class="deep-h">Correction to the source article: sharding × bulkhead and the lease</h4>
+  <ul>
+    <li><strong>"The bulkhead is the evolution of sharding".</strong> They are different axes, and <em>shuffle sharding</em> is what ties the two together.</li>
+    <li><strong>The <em>lease</em> is in the article and not in the list of lessons.</strong> It comes in here, in this block, as a deeper look. The same goes for <em>throttling</em> and <em>rate limiting</em>, which came in lesson 11.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Microsoft: Bulkhead pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Resilience4j: Bulkhead", href: "https://resilience4j.readme.io/docs/bulkhead" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Hillside: Leasing (Jain and Kircher)", href: "https://hillside.net/plop/plop2k/proceedings/Jain-Kircher/Jain-Kircher.pdf" },
+    { label: "Enterprise Integration Patterns: Lease", href: "https://www.enterpriseintegrationpatterns.com/patterns/conversation/Lease.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now handles the slow PSP without going down. But the most common cause of an incident is the <strong>change</strong> itself: a new version, a configuration. What is left is how to ship without becoming the incident: <em>rolling</em>, <em>blue/green</em>, <em>canary</em> and <em>feature toggle</em>, which module 22, Deployment Models, brings together.</p>
+
+<Flashcards cards={[
+  { q: "What is a bulkhead?",
+    a: "A resource compartment (pool, queue) that isolates one dependency from the others, like the partitions of a ship." },
+  { q: "How long does it take to exhaust the pool with and without bulkheads?",
+    a: "Single pool of 100: 100 ÷ 30 = 3.33 s, taking shipping and email with it. With 50/30/20, only the PSP one runs out, in 1.67 s." },
+  { q: "What is the difference between sharding and a bulkhead?",
+    a: "Sharding isolates data and customers; a bulkhead isolates resources and dependencies. Shuffle sharding ties the two together." },
+  { q: "How many pairs does shuffle sharding of 2 in 10 have?",
+    a: "45. The noisy customer only takes down whoever has the same pair." },
+  { q: "What is a lease?",
+    a: "A grant with a deadline that the client renews. If it does not renew, the resource goes back to the pool." },
+]} />

@@ -1,0 +1,36 @@
+---
+// Resilience Patterns module (English): the 13 lessons in src/content/_en/resiliencia/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/resiliencia.css';
+
+const entries = (await getCollection('en-resiliencia')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/resiliencia/quiz/');
+---
+<ModuleLayout
+  title="Resilience Patterns · SDLabs"
+  description="Keep selling when a piece fails: availability and error budget, blast radius, healthchecks, idempotency, timeouts, retry with backoff and jitter, circuit breaker, fallback, degradation, backpressure, the data layer, bulkheads and shuffle sharding, with the PSP-at-8-s numbers, widgets and a quiz."
+  module="resiliencia"
+  heading="Resilience Patterns"
+  lead={'At 20:20 on Black Friday the PSP starts answering in 8 s and the 50-connection pool of pagamentos runs out in 1.67 s. How to keep selling, or fail small and fast, when a bad piece shows up, without one slow dependency taking down the whole store.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/resiliencia/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

@@ -1,0 +1,112 @@
+---
+title: "Circuit breakers"
+order: 8
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the retry had a brake, but it still believed PSP-A would come back. It stays at 8 s for 90 s and, meanwhile, each call spends a connection and a whole timeout to fail. The one who has to decide to <strong>stop calling</strong> is a breaker.</p>
+
+<OneLiner>The <strong><em>circuit breaker</em></strong> <strong>stops calling</strong> a dependency that is failing, <strong>fails fast</strong> and tests it now and then to find out whether it is back.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Breaker</strong> scenario, leave PSP-A at <strong>8 s</strong> and read the timeline: it opens at <strong>1.3 s</strong>, probes at 31.3 and 62.47 s, closes at <strong>93.91 s</strong>. Compare the calls to the PSP: <strong>237</strong> against 3,000 without the breaker.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=breaker" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Circuit breaker" alt="Preview of the 3D figure: Circuit breaker" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Closed.</strong> The call goes through and the breaker counts the result in a window. Here the window is <strong>20</strong> calls and the minimum to decide is <strong>10</strong>.</li>
+  <li><strong>Opens.</strong> With <strong>50% or more</strong> failures, the breaker opens. A <strong>slow</strong> call (over 1 s) counts as a failure. Once open, nothing goes through for <strong>30 s</strong>: the response comes back immediately, that is the <em>fast fail</em>.</li>
+  <li><strong>Half-open.</strong> After 30 s it lets <strong>5 probes</strong> through. If the probes come back fine, it closes. If they fail, it opens again for another 30 s.</li>
+  <li><strong>One per dependency.</strong> PSP-A and PSP-B each have their own breaker. The state of the PSP-A breaker is what <strong>triggers the fallback</strong> to PSP-B (lesson 9).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The Black Friday simulation</h3>
+
+<p>Thirty orders per second for 100 s, PSP-A at 8 s until <code>t = 90 s</code>, pool of 50 and a 1 s timeout:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Time</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><th>1.3 s</th><td>The first 10 calls fail by timeout (between 1.0 and 1.3 s). The breaker <strong>opens</strong>.</td></tr>
+    <tr><th>31.3 s</th><td>Half-open. The 5 probes fail.</td></tr>
+    <tr><th>32.43 s</th><td><strong>Reopens.</strong></td></tr>
+    <tr><th>62.47 → 63.6 s</th><td>Again: half-open, probes failing and it reopens.</td></tr>
+    <tr><th>93.6 s</th><td>Half-open. The PSP came back at 90 s and the probes go through.</td></tr>
+    <tr><th>93.91 s</th><td><strong>Closes.</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>In 100 s PSP-A received <strong>237 calls</strong> (<strong>54</strong> until the breaker closed and <strong>183</strong> after) <strong>against 3,000</strong> without a breaker, of which 2,700 were useless. The remaining <strong>2,763</strong> were fast fails. Without a breaker, with a 1 s timeout the pool reaches at most 31 in flight; with a 2 s timeout, <strong>484</strong> calls are refused by the pool (peak of 50); with 8 s, <strong>2,260</strong>.</p>
+
+<h3 class="sec">The library defaults and the store's configuration</h3>
+
+<p>Resilience4j sets the defaults <code>failureRateThreshold</code> of 50, <code>slidingWindowSize</code> of 100, <code>minimumNumberOfCalls</code> of 100, <code>waitDurationInOpenState</code> of 60 s, <code>permittedNumberOfCallsInHalfOpenState</code> of 10 and <code>slowCallDurationThreshold</code> of 60 s. <code>pagamentos</code> uses a much smaller window (20, minimum 10), open for 30 s, 5 probes and slow = over 1 s, because a window of 100 calls at 30/s only decides after 3.3 s of failure.</p>
+
+<h3 class="sec">And if it goes wrong: three ways the breaker does not help</h3>
+
+<p>The first is <strong>counting only failures, not slowness</strong>: the PSP answers in 8 s "successfully", the breaker never sees an error and never opens. That is why a slow call counts as a failure. The second is the <strong>long timeout that delays the breaker</strong>: with a 2 s timeout it only opens at 2.3 s and 11 calls are still refused by the pool. The third is the <strong>window that is too small</strong>, which opens on noise: 5 calls, 2 failures, 40%, and one more is enough to open for no reason.</p>
+
+<Widget name="breaker" title="Circuit breaker" hint="Window, minimum, threshold, open time, probes and timeout. The timeline shows the states; the numbers compare with the scenario without a breaker (opens at 1.3 s; 237 × 3,000 calls)." />
+
+<WhyItMatters>
+  <li><strong>The breaker fails fast.</strong> 2,763 calls come back immediately instead of holding a connection for 1 s.</li>
+  <li><strong>The pool is grateful.</strong> 237 calls to the PSP instead of 3,000: the pool never goes past 31 in flight.</li>
+  <li><strong>Slow is failure.</strong> A breaker that only counts errors does not protect against a PSP that takes too long.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Resilience4j defaults × the store</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Parameter</th><th>Default</th><th><code>pagamentos</code></th></tr></thead>
+    <tbody>
+      <tr><th><code>failureRateThreshold</code></th><td>50</td><td>50</td></tr>
+      <tr><th><code>slidingWindowSize</code></th><td>100</td><td>20</td></tr>
+      <tr><th><code>minimumNumberOfCalls</code></th><td>100</td><td>10</td></tr>
+      <tr><th><code>waitDurationInOpenState</code></th><td>60 s</td><td>30 s</td></tr>
+      <tr><th><code>permittedNumberOfCallsInHalfOpenState</code></th><td>10</td><td>5</td></tr>
+      <tr><th><code>slowCallDurationThreshold</code></th><td>60 s</td><td>1 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: what counts as a failure</h4>
+  <ul>
+    <li><strong>The article describes the three states.</strong> Missing are what counts as a failure (including the slow call), the window and the minimum number of calls, the half-open probes and the warning that each dependency needs its own breaker.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Martin Fowler: CircuitBreaker", href: "https://martinfowler.com/bliki/CircuitBreaker.html" },
+    { label: "Resilience4j: CircuitBreaker", href: "https://resilience4j.readme.io/docs/circuitbreaker" },
+    { label: "microservices.io: Circuit Breaker", href: "https://microservices.io/patterns/reliability/circuit-breaker.html" },
+    { label: "Microsoft: Circuit Breaker pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the breaker open, <code>pagamentos</code> answers right away that it will not call PSP-A. What is left is what Lena sees at that moment: an error, or another way to pay.</p>
+
+<Flashcards cards={[
+  { q: "What are the states of the circuit breaker?",
+    a: "Closed (lets calls through and counts), open (30 s: nothing goes through, fast fail) and half-open (5 probes decide)." },
+  { q: "What is the pagamentos configuration?",
+    a: "Window of 20, minimum of 10 calls, opens at 50% failures or slow calls (over 1 s), open for 30 s, 5 probes." },
+  { q: "How many calls does PSP-A receive with and without the breaker?",
+    a: "237 with the breaker (54 until it closes, 183 after) and 3,000 without (2,700 useless). It opens at 1.3 s and closes at 93.91 s." },
+  { q: "Why must the slow call count as a failure?",
+    a: "Because the PSP answers in 8 s successfully and the breaker would never open. Slowness exhausts the pool just like an error." },
+  { q: "Does a long timeout get in the breaker's way?",
+    a: "Yes: with 2 s it only opens at 2.3 s and 11 calls are still refused by the pool." },
+]} />

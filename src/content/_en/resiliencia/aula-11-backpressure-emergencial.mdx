@@ -1,0 +1,98 @@
+---
+title: "Emergency backpressure"
+order: 11
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store switched off recommendations to hold the entrance. But the excess that already got through is still inside the queues. The <code>meus-pedidos</code> projector from module 18 receives <strong>120 events per second</strong> and processes <strong>100</strong>. What is left is making the consumer <strong>tell whoever sends</strong> that it needs to slow down.</p>
+
+<OneLiner><strong><em>Backpressure</em></strong> is the consumer telling the producer to slow down. The "emergency" kind is when the signal comes from outside the normal rhythm: a <strong>full queue</strong> or a <strong>high delay</strong>. It needs a <strong>bounded</strong> queue and a <strong>signal</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Backpressure</strong> scenario, set <strong>120 events/s</strong> against <strong>100/s</strong> and pick the policy on the <strong>5,000</strong> queue: unbounded, block, <code>429</code> or drop by priority. Read the time to fill: <strong>250 s</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=backpressure" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Backpressure" alt="Preview of the 3D figure: Backpressure" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The deficit.</strong> 120/s arrive and 100/s leave: <strong>20/s</strong> are left over and stay in the queue.</li>
+  <li><strong>Bounded queue.</strong> With a limit of 5,000, it fills in 5,000 ÷ 20 = <strong>250 s</strong> (4 min 10 s). Once full, it has to refuse: the producer finds out.</li>
+  <li><strong>Unbounded queue.</strong> In 10 min that is 12,000 events in the queue and <strong>120 s</strong> of delay (12,000 ÷ 100), and the delay keeps growing.</li>
+  <li><strong>Draining.</strong> When the crisis passes and arrivals drop to 20/s, the queue of 12,000 only drains at 100 − 20 = 80/s: <strong>150 s</strong>.</li>
+  <li><strong>The signals.</strong> Bounded queue, <code>429</code> with <code>Retry-After</code> (RFC 6585 and RFC 9110), consumer pause, <code>request(n)</code> in reactive <em>streams</em>, the TCP window. They all say the same thing: "slower".</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Dropping by priority</h3>
+
+<p>Under overload, it is better to refuse <code>SHEDDABLE</code> traffic (marketing, reports) early than to delay everything. That is <em>load shedding</em>: dropping. The paid order needs the projector; the email campaign can wait or be dropped. The order is the same as in lesson 10.</p>
+
+<h3 class="sec">Three things the article mixes up</h3>
+
+<p><strong><em>Rate limiting</em></strong> limits the rate per client at the door (token bucket, module 8). <strong><em>Throttling</em></strong> slows down whoever went over their quota, instead of refusing. <strong><em>Load shedding</em></strong> refuses the excess from <strong>everyone</strong> when the store is overloaded. All three are the entrance to the defense, and each answers a different question: how much each one may send, how much to slow down and what to drop right now.</p>
+
+<p>The article also ties backpressure to the error budget (reduce ingestion when the budget runs out) and to service meshes, which can apply the signals in the proxy without touching the code (module 10).</p>
+
+<h3 class="sec">And if it goes wrong: "queue it in memory"</h3>
+
+<p>The article treats "queuing the processing in memory" as a form of backpressure. Without a limit, it only <strong>hides</strong> the overload: latency grows with nobody seeing it, memory fills up and the process dies <strong>with the queue inside</strong>, taking the 12,000 events with it. Backpressure needs a <strong>bounded</strong> queue and a <strong>signal</strong> to the producer. Without the signal, the queue only postpones the problem.</p>
+
+<Widget name="fila" title="Queue and backpressure" hint="Arrival, capacity, queue limit, crisis duration and policy (unbounded, block, 429 or drop by priority). It shows the time to fill (250 s), the delay and the drain time (150 s)." />
+
+<WhyItMatters>
+  <li><strong>Without a limit, there is no signal.</strong> The unbounded queue delays 120 s in 10 min and hides the problem.</li>
+  <li><strong>The 429 hands the decision back to whoever sends.</strong> A producer with <code>Retry-After</code> knows when to come back.</li>
+  <li><strong>Dropping is better than delaying everything.</strong> With the queue at its limit, SHEDDABLE goes first.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The four policies, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Policy</th><th>What happens to the excess</th><th>Who pays</th></tr></thead>
+    <tbody>
+      <tr><th>unbounded</th><td>grows until memory runs out</td><td>everyone, last</td></tr>
+      <tr><th>block</th><td>the producer waits</td><td>the producer</td></tr>
+      <tr><th><code>429</code></th><td>refuses with <code>Retry-After</code></td><td>whoever exceeded</td></tr>
+      <tr><th>drop by priority</th><td>removes the SHEDDABLE from the queue</td><td>the least important</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: queuing is not backpressure</h4>
+  <ul>
+    <li><strong>"Queuing the processing in memory" as backpressure.</strong> An unbounded queue hides the overload. The article also mixes <em>rate limiting</em>, <em>throttling</em> and <em>load shedding</em>; here they are kept as three separate things.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Using load shedding to avoid overload", href: "https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/" },
+    { label: "Reactive Streams", href: "https://www.reactive-streams.org/" },
+    { label: "RFC 6585: 429 Too Many Requests", href: "https://www.rfc-editor.org/rfc/rfc6585" },
+    { label: "Google SRE book: Handling Overload", href: "https://sre.google/sre-book/handling-overload/" },
+    { label: "Microsoft: Throttling pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/throttling" },
+  ]} />
+</Deep>
+
+<p class="gancho">The excess now has a limit and whoever sends knows it. But the place where it costs the most is the database. What is left is how the data, the hardest layer to protect, survives when the primary goes down.</p>
+
+<Flashcards cards={[
+  { q: "What is backpressure?",
+    a: "The consumer telling the producer to slow down. It needs a bounded queue and a signal (429, pause, request(n))." },
+  { q: "How long does the queue of 5,000 take to fill?",
+    a: "5,000 ÷ 20 = 250 s (4 min 10 s), with 120 arriving and 100 leaving per second." },
+  { q: "And if the queue is unbounded?",
+    a: "In 10 min that is 12,000 events and 120 s of delay, which keeps growing. Draining takes 12,000 ÷ 80 = 150 s." },
+  { q: "What is dropping by priority?",
+    a: "Load shedding: under overload, refusing SHEDDABLE traffic (marketing, reports) early instead of delaying everything." },
+  { q: "Why is 'queuing in memory' not backpressure?",
+    a: "Without a limit it hides the overload and the process dies with the queue inside. The limit and the signal to the producer are missing." },
+]} />

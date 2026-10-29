@@ -1,0 +1,96 @@
+---
+title: "Blast radius"
+order: 3
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the 90 s incident burned 20.8% of the error budget. But the number does not say <strong>what stopped</strong>: the whole store or just a part? That question sets the size of the damage before it happens, and its name is <strong>blast radius</strong>.</p>
+
+<OneLiner>The <strong>blast radius</strong> is how much of the store <strong>stops</strong> when one component fails. Designing is making it <strong>small</strong> and <strong>known</strong>: you can say, before the incident, what disappears.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Blast</strong> scenario, take down <code>shard-2</code> and then <code>recomendacoes</code>. Compare the stain: one wipes out a section of the screen, the other wipes out <strong>60% of the rows</strong> in the database, and notice that <code>shard-2</code> is the one that holds <code>mkt-01</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/isolamento-3d/?mode=blast" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Interactive figure: The blast radius" alt="Preview of the 3D figure: The blast radius" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Ask "what if it stops?".</strong> The article suggests four questions for each component: what stops working, what works in part, how long until I'm back and whether it creates inconsistency.</li>
+  <li><strong>Answer with the store.</strong> The table below applies the four to the components that already exist: each row has a different radius.</li>
+  <li><strong>Divide by N.</strong> With N equal compartments, each one takes 1/N: <strong>33.3%</strong> for N = 3, <strong>10%</strong> for 10, <strong>1%</strong> for 100 and <strong>0.1%</strong> for 1,000.</li>
+  <li><strong>Check the load.</strong> The math assumes they all weigh the same. With <code>mkt-01</code> at 40% of the rows (module 16), <code>shard-2</code> takes <strong>0.4 + 0.6 ÷ 3 = 60%</strong> of the rows and the other two take <strong>20%</strong> each.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The four questions, applied to the store</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>If it stops…</th><th>What happens</th><th>Radius</th></tr></thead>
+  <tbody>
+    <tr><th><code>recomendacoes</code></th><td>Only the section disappears (module 9: <code>"recomendado": []</code>).</td><td>one section of the screen</td></tr>
+    <tr><th><code>pagamentos</code></th><td><strong>All</strong> checkout stops; browsing continues.</td><td>all the revenue</td></tr>
+    <tr><th><code>catalogo</code> (1 of 10 replicas)</th><td>10% of the capacity, no visible error.</td><td>10% of the capacity</td></tr>
+    <tr><th><code>shard-2</code></th><td>Down for 1/3 of the customers, but it is where <code>mkt-01</code> lives.</td><td>1/3 of the customers, <strong>60% of the rows</strong></td></tr>
+    <tr><th>SP primary</th><td>35 s with no writes and 9 to 24 orders the replica did not see (lesson 12).</td><td>all writes, for 35 s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Two answers deserve more attention. <code>catalogo</code> looks isolated, but the same service serves <code>bff-app</code> and <code>bff-web</code> (module 9): a hidden dependency whose failure wipes out both channels at once. And the SP primary row is the only one that creates <strong>inconsistency</strong>, the fourth question.</p>
+
+<h3 class="sec">And if it goes wrong: the math that assumes equal load</h3>
+
+<p>Three <em>shards</em> "give 33%". They do, if the customers weighed the same. With <code>mkt-01</code> concentrating 40% of the rows, taking down <code>shard-2</code> wipes out 60% of them, for the same 1/3 of the customers. One <em>shard</em> down affects <strong>1/3 of the customers</strong>, but <strong>20% or 60% of the rows</strong>, depending on which one. The article assumes uniform load and the 1/N math is only the best case.</p>
+
+<p>The second way to get it wrong is the <strong>shared radius</strong>. Two dependencies that use the same connection pool are in the same radius, even if they look separate in the diagram. Lesson 13 shows this with <code>pagamentos</code>.</p>
+
+<Widget name="blast" title="Blast radius per compartment" hint="Choose the number of compartments (3, 5, 10, 100, 1,000) and the load distribution (uniform or with mkt-01 at 40%). The widget shows the % of customers and rows affected." />
+
+<WhyItMatters>
+  <li><strong>The radius is a design decision.</strong> You can list, before the incident, what each failure wipes out.</li>
+  <li><strong>1/N is the best case.</strong> With <code>mkt-01</code> at 40%, the radius of <code>shard-2</code> goes from 33.3% to 60% of the rows.</li>
+  <li><strong>A hidden dependency adds radii.</strong> The shared <code>catalogo</code> and the single connection pool put everything inside the same circle.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What each extra compartment costs</h4>
+  <ul>
+    <li><strong>More compartments, smaller radius, more pieces.</strong> From 3 to 100 <em>shards</em> the radius drops from 33.3% to 1%, but you have to route, migrate and operate 100 things. The break-even point depends on what the radius costs per minute.</li>
+    <li><strong>Cells.</strong> Isolating the store by region, each with its own full stack, is the limit of this idea (module 26).</li>
+  </ul>
+  <h4 class="deep-h">Correction to the source article: 1/N only with uniform load</h4>
+  <ul>
+    <li><strong>"The more compartments, the smaller the radius".</strong> This holds when the load is uniform. The article does not discuss uneven load, and that is what decides which <em>shard</em> is dangerous.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the radius drawn, the simplest defense is to have more than one copy of what can fall. What is left is how the replicas know who is alive, and what happens when that warning is wrong.</p>
+
+<Flashcards cards={[
+  { q: "What is the blast radius?",
+    a: "How much of the store stops when one component fails. Designing is making it small and known." },
+  { q: "What are the article's four questions?",
+    a: "What stops working, what works in part, how long until I'm back and whether it creates inconsistency." },
+  { q: "What is 1/N for N = 3, 10, 100 and 1,000?",
+    a: "33.3%, 10%, 1% and 0.1%, with uniform load." },
+  { q: "How many rows disappear if shard-2 goes down?",
+    a: "60% (0.4 from mkt-01 + 0.6 ÷ 3), for 1/3 of the customers. Shards 0 and 1 take 20% each." },
+  { q: "Why is the single connection pool a radius problem?",
+    a: "Because it puts different dependencies in the same compartment: when one exhausts the pool, all of them are out (lesson 13)." },
+]} />

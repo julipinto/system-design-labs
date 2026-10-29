@@ -1,0 +1,83 @@
+---
+title: "Resilience in the data layer"
+order: 12
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the excess got a limit and a signal. But every defense so far protects services, and a service can be restarted. The <strong>data</strong> cannot: what the SP primary lost, the replica does not have. What is left is to see how the data layer holds up the day the database goes down.</p>
+
+<OneLiner>Data is the <strong>hardest</strong> layer to make resilient. The tools are <strong>copies</strong>, <strong>separating reads from writes</strong> and a <strong>cache that outlives the origin</strong>, each one trading a bit of consistency for availability.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Data</strong> scenario, take down the SP primary and follow the <strong>35 s</strong> until the promotion. Read the <strong>RPO</strong>: 9 orders lost if the replica is Rio's, 24 if it is Recife's.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/isolamento-3d/?mode=dados" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Interactive figure: The data layer" alt="Preview of the 3D figure: The data layer" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Separate reads and writes.</strong> Reads go to the replicas (module 17), and losing a read replica is a trivial fallback: you send to another one.</li>
+  <li><strong>The promotion.</strong> If the SP primary goes down, a replica becomes the primary. The <strong>RTO</strong> (the time until it is back) is <strong>35 s</strong>. With no primary, at 30 orders/s that is 30 × 35 = <strong>1,050</strong> write attempts with nowhere to go.</li>
+  <li><strong>What is lost.</strong> The <strong>RPO</strong> measures the data the replica did not have yet: <strong>9</strong> orders if the promoted one is Rio's, <strong>24</strong> if it is Recife's, at 30/s (the asynchronous replicas from module 17 lag behind the primary).</li>
+  <li><strong>The cache holds the origin.</strong> The catalog, with a 60 s TTL (module 5), an 80% hit rate and 640 req/s, sends only <strong>128 req/s</strong> to the database: 640 × 20%.</li>
+  <li><strong>The cache outlives the origin.</strong> With <code>stale-if-error</code> (RFC 5861) the cache <strong>serves the old copy</strong> for a while when the origin fails. The CDN, with <code>max-age</code> (module 5), also holds when the origin is down.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Resilience × consistency</h3>
+
+<p>Serving the "old" price of 79.90 for 10 min is acceptable <strong>because the order command revalidates the current price</strong> (module 18). The read can be behind; the money cannot. A data <em>snapshot</em> for a fallback (lesson 9) follows the same rule: you decide in advance how much delay is tolerable, and where stale data is never accepted.</p>
+
+<h3 class="sec">And if it goes wrong: the cache that goes cold along with the database</h3>
+
+<p>The database goes down for 5 min. The catalog keys have a 60 s TTL: they expire and the hit rate collapses. When the database comes back, <strong>all the keys expired together</strong> and the <strong>640 req/s</strong> hit the origin at once, instead of the usual 128. That is the <strong>cache stampede</strong>: a spike that the freshly promoted database cannot take, and that knocks it down again. The fix has two parts: TTL with <strong>jitter</strong> (each key expires at a different moment) and <code>stale-while-revalidate</code> (serve the old copy while a single request fetches the new one).</p>
+
+<WhyItMatters>
+  <li><strong>A database does not restart.</strong> An RTO of 35 s and an RPO of 9 to 24 orders are the price the store accepts, and they need to be written down.</li>
+  <li><strong>The cache is a shield.</strong> Of 640 req/s, 128 are left at the origin, and with <code>stale-if-error</code> it keeps serving even with the database down.</li>
+  <li><strong>The same TTL on everything is a bomb.</strong> Keys that expire together come back together.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The data layer numbers</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Measure</th><th>Value</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><th>promotion RTO</th><td>35 s</td><td>module 17</td></tr>
+      <tr><th>RPO (Rio · Recife)</th><td>9 · 24 orders at 30/s</td><td>module 17</td></tr>
+      <tr><th>attempts with no primary</th><td>1,050 (30 × 35)</td><td>math from this lesson</td></tr>
+      <tr><th>catalog at the origin</th><td>128 req/s (80% hit rate)</td><td>module 5</td></tr>
+      <tr><th>catalog if the cache goes cold</th><td>640 req/s</td><td>math from this lesson</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "RFC 5861: HTTP Cache-Control Extensions for Stale Content", href: "https://www.rfc-editor.org/rfc/rfc5861" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The data now has copies and a cache that holds with the origin down. But what if the bad data belongs to only one <strong>slice</strong> of customers? What is left is how to isolate the slice so it does not take down the others.</p>
+
+<Flashcards cards={[
+  { q: "What are the RTO and RPO of the SP primary promotion?",
+    a: "RTO of 35 s. RPO of 9 orders (Rio replica) or 24 (Recife), at 30 orders/s." },
+  { q: "How many write attempts are left with no primary?",
+    a: "30 × 35 = 1,050." },
+  { q: "How much does the catalog send to the origin at an 80% hit rate?",
+    a: "128 req/s out of 640. If the cache goes cold, all 640 hit at once." },
+  { q: "What does stale-if-error do?",
+    a: "Lets the cache serve the old content for a while when the origin fails (RFC 5861)." },
+  { q: "Why is serving the old price safe?",
+    a: "Because the order command revalidates the current price (module 18). The read lags; the money does not." },
+]} />

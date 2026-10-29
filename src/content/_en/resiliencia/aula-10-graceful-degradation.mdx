@@ -1,0 +1,90 @@
+---
+title: "Graceful degradation"
+order: 10
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the fallback swapped the <strong>path</strong>. But sometimes there is no better path: there are just too many people. At 20:20 a newsletter sends a burst of a few seconds at <strong>1,300 req/s</strong> to the catalog, which handles <strong>1,000</strong> (10 replicas × 100 req/s). What is left is deciding what to switch off so the essentials keep going.</p>
+
+<OneLiner><strong>Degrading gracefully</strong> is <strong>switching off on purpose</strong> what is not essential to protect what is, <strong>before</strong> falling over. The fallback swaps the path; degradation reduces the <strong>functionality</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Degradation</strong> scenario, raise the demand to <strong>1,300</strong> and choose the <strong>minimum level</strong> that holds it. Then turn on the "too late" variant and see why switching off when the pool is already saturated does not work.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=degradacao" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Degradation" alt="Preview of the 3D figure: Degradation" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The burst.</strong> The demand of <strong>1,300 req/s</strong> against a capacity of <strong>1,000</strong> lasts a few seconds. It is not the sustained peak: module 14 measured 640 req/s and projected 950. <em>Autoscaling</em> (HPA, from 10 to 14 replicas = 1,400 req/s) takes minutes, and the burst is over before that.</li>
+  <li><strong>Level 0.</strong> Normal: 10 ms of CPU per page, 100 req/s per replica, <strong>1,000</strong> in total.</li>
+  <li><strong>Level 1.</strong> No recommendations: 7.5 ms, 133 req/s per replica, <strong>1,333</strong>. That already covers the 1,300.</li>
+  <li><strong>Level 2.</strong> Plus simplified search and no reviews: 6 ms, 167 req/s per replica, <strong>1,667</strong>.</li>
+  <li><strong>Level 3.</strong> Only the static page from the CDN (module 5). The whole store leaves the server and the CDN holds the storefront.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Who goes first</h3>
+
+<p>The SRE book names the classes: <code>CRITICAL_PLUS</code>, <code>CRITICAL</code>, <code>SHEDDABLE_PLUS</code> and <code>SHEDDABLE</code>. For the store the order is <strong>checkout</strong> › <strong>catalog</strong> › <strong>recommendations and "my orders"</strong> › <strong>reports</strong>. Degradation switches off from the bottom up, and checkout only comes in at the end.</p>
+
+<p>The trigger can be <strong>manual</strong> (the <em>feature toggle</em> from module 9) or <strong>automatic</strong> (a saturation signal from module 14). Fallback and degradation are relatives: the article separates them as "after the failure" and "before", but both can be automatic or manual. What tells them apart is <strong>what is sacrificed</strong>: the path or the functionality.</p>
+
+<h3 class="sec">And if it goes wrong: three degradations that fail</h3>
+
+<p>The first is <strong>degrading late</strong>: with the pool already saturated, there is no way to switch anything on or off, because the configuration is read from the service that went down. The second is the <strong>switch that does not come back</strong>: the <em>toggle</em> stays at level 2 after the peak, and the store sells without reviews for weeks. Define <strong>hysteresis</strong> (go back only after a while below the limit) and an owner. The third is <strong>degrading the essential by mistake</strong>: search switched off along with the recommendations, and nobody can find the product.</p>
+
+<Widget name="degradacao" title="Degradation by level" hint="Demand (500 to 2,000 req/s), replicas and ms of CPU per level. The widget shows the capacity of each level and the minimum level that holds (1 for 1,300 req/s)." />
+
+<WhyItMatters>
+  <li><strong>Switching off on purpose buys time.</strong> Level 1 (1,333) holds the 1,300 while the HPA takes minutes.</li>
+  <li><strong>Priority is a product decision.</strong> Checkout, catalog, recommendations and reports, in that order.</li>
+  <li><strong>Every degradation needs a way back.</strong> Hysteresis and an owner, otherwise the temporary becomes permanent.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The levels, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Level</th><th>What it switches off</th><th>CPU</th><th>Capacity</th></tr></thead>
+    <tbody>
+      <tr><th>0</th><td>nothing</td><td>10 ms</td><td>1,000</td></tr>
+      <tr><th>1</th><td>recommendations</td><td>7.5 ms</td><td>1,333</td></tr>
+      <tr><th>2</th><td>+ simplified search, reviews</td><td>6 ms</td><td>1,667</td></tr>
+      <tr><th>3</th><td>everything dynamic; the CDN serves the storefront</td><td>CDN</td><td>the CDN holds</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: degradation and fallback</h4>
+  <ul>
+    <li><strong>The article separates them as "preventive" and "after the failure".</strong> In practice both can be automatic or manual; the real difference is what is sacrificed. Missing are priority (SRE's criticality) and hysteresis for coming back.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Google SRE book: Handling Overload (criticality)", href: "https://sre.google/sre-book/handling-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now switches off what is not essential. But the excess that already got into the queues is still in there, waiting. What is left is how the consumer tells the producer to slow down.</p>
+
+<Flashcards cards={[
+  { q: "What is graceful degradation?",
+    a: "Switching off on purpose what is not essential to protect what is, before falling over." },
+  { q: "How much does each level handle?",
+    a: "Level 0: 1,000 req/s (10 ms). Level 1: 1,333 (7.5 ms). Level 2: 1,667 (6 ms). Level 3: only the static page from the CDN." },
+  { q: "Which level holds the 1,300 req/s?",
+    a: "Level 1, without recommendations, which handles 1,333. The 1,300 is a burst of a few seconds; the sustained peak is 640 (projected 950)." },
+  { q: "In what order do you switch off?",
+    a: "Reports, then recommendations and 'my orders', then the catalog; checkout is last (CRITICAL_PLUS, CRITICAL, SHEDDABLE_PLUS, SHEDDABLE)." },
+  { q: "How does degradation fail?",
+    a: "Too late (the pool already saturated), with no way back (the toggle stays at level 2) or by switching off the essential (search)." },
+]} />

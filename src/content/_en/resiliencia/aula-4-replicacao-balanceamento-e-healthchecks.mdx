@@ -1,0 +1,92 @@
+---
+title: "Replication, load balancing and healthchecks"
+order: 4
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the radius of a piece became how much of the store depends on it. The cheapest defense is to <strong>not have just one piece</strong>. The store already has 10 replicas of <code>catalogo</code> behind <code>lb-loja</code> and 2 of <code>pagamentos</code> (modules 7 and 14). What is left is to see what the balancer does when <strong>one of them hangs</strong>.</p>
+
+<OneLiner><strong>Several replicas behind a balancer that knows who is alive</strong> is the cheapest defense. What says who is alive is the <strong>healthcheck</strong>, and a badly written healthcheck takes down the store it was supposed to protect.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Healthcheck</strong> scenario, hang one replica of <code>pagamentos</code> and count the <strong>225 failures</strong> until it leaves the pool. Then press <strong>Turn on the deep one</strong>, the variant with the <strong>deep healthcheck</strong>, and see what happens to the two replicas.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/isolamento-3d/?mode=healthcheck" poster="labs/resiliencia/isolamento-3d-previa.webp" title="Interactive figure: Replicas and healthcheck" alt="Preview of the 3D figure: Replicas and healthcheck" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The health URL.</strong> The application exposes an address, and the balancer asks it at intervals. The replica that answers stays in the pool; the one that fails stops receiving traffic.</li>
+  <li><strong>The time until it leaves.</strong> Module 7 sets an interval of <strong>5 s</strong> and <strong>3 failures</strong> in a row: the hung replica takes <strong>15 s</strong> to leave.</li>
+  <li><strong>What is lost in those 15 s.</strong> One of the catalog's 10 replicas hangs at 640 req/s: it was receiving 64 req/s and, in 15 s, loses <strong>960</strong> requests. One of the 2 <code>pagamentos</code> replicas hangs at 30/s: it was receiving 15/s and loses <strong>225</strong>.</li>
+  <li><strong>Outlier detection.</strong> Envoy also removes from rotation whatever errors in a row, without waiting for the healthcheck interval. The two mechanisms add up.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Shallow and deep</h3>
+
+<p>The <strong>shallow</strong> healthcheck checks "the process responds": it opens the port and returns <code>200</code>. The <strong>deep</strong> one goes further and checks dependencies, for example it runs a query on the database or pings the PSP. The deep one looks more honest and is where the danger lives.</p>
+
+<h3 class="sec">And if it goes wrong: the deep healthcheck that queries the PSP</h3>
+
+<p>PSP-A starts answering in 8 s. The <code>pagamentos</code> healthcheck queries the PSP, times out and says "sick". <strong>Both</strong> replicas get sick at the same time, because the problem is not in either of them. The balancer removes <strong>all</strong> of them: the store has no <code>pagamentos</code> even though the replicas were perfect.</p>
+
+<p>Envoy has a safeguard against this, the <strong><em>panic threshold</em></strong>: below <strong>50%</strong> healthy replicas (the default) it <strong>ignores health</strong> and balances across all of them. But counting on panic is a matter of luck. Ejecting the innocent does not help and can cause the blackout.</p>
+
+<p>The rule is simple: the healthcheck that <strong>removes from the pool</strong> checks only what <strong>the replica controls</strong> (memory, queue, live process). A bad dependency is handled with a <em>circuit breaker</em> (lesson 8) and a <em>fallback</em> (lesson 9), not by ejecting replicas.</p>
+
+<WhyItMatters>
+  <li><strong>A replica is the cheap defense.</strong> Two copies behind the balancer turn "service down" into "half the capacity".</li>
+  <li><strong>15 s is a long time.</strong> 960 requests on the catalog and 225 on <code>pagamentos</code> go through a dead replica before it leaves the pool.</li>
+  <li><strong>The deep one ejects the innocent.</strong> A slow dependency is not a disease of the replica.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What each healthcheck should check</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Checks</th><th>Removes from the pool?</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><th>process responds</th><td>yes</td><td>the replica controls it</td></tr>
+      <tr><th>internal queue and memory</th><td>yes</td><td>the replica controls it</td></tr>
+      <tr><th>database responds</th><td>carefully</td><td>all replicas fail together</td></tr>
+      <tr><th>PSP responds</th><td>no</td><td>the dependency is shared; use breaker and fallback</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: shallow × deep</h4>
+  <ul>
+    <li><strong>"The URL should reflect the state of the service" and the balancer removes the replica from the pool.</strong> The article does not separate shallow from deep. The deep one that queries a dependency ejects <strong>all</strong> the replicas, and below 50% Envoy goes into panic.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "AWS Builders' Library: Implementing health checks", href: "https://aws.amazon.com/builders-library/implementing-health-checks/" },
+    { label: "Envoy: health checking", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking" },
+    { label: "Envoy: outlier detection", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier" },
+    { label: "Envoy: panic threshold", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/panic_threshold" },
+    { label: "Microsoft: Health Endpoint Monitoring pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring" },
+  ]} />
+</Deep>
+
+<p class="gancho">Copies and a balancer that carefully removes them from the pool solve the hung piece. But the same call can reach them twice, through a retry, a network failure or an impatient app. What is left is what happens when the same call is repeated.</p>
+
+<Flashcards cards={[
+  { q: "Why 15 s?",
+    a: "The healthcheck asks every 5 s and requires 3 failures in a row. In that time, a hung replica still receives traffic." },
+  { q: "How many requests are lost with one hung replica?",
+    a: "960 on the catalog (64 req/s × 15 s) and 225 on pagamentos (15/s × 15 s)." },
+  { q: "What is the difference between a shallow and a deep healthcheck?",
+    a: "The shallow one checks that the process responds. The deep one checks dependencies, like the PSP." },
+  { q: "What happens with a deep healthcheck that queries the slow PSP?",
+    a: "Both pagamentos replicas get sick together and leave the pool. Below 50% Envoy goes into panic and sends traffic to all of them." },
+  { q: "What should the healthcheck that removes from the pool check?",
+    a: "Only what the replica controls. A bad dependency is handled with a circuit breaker and a fallback." },
+]} />

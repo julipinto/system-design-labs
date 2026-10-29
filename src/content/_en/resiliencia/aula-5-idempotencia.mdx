@@ -1,0 +1,88 @@
+---
+title: "Idempotency"
+order: 5
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the balancer sent the call to a good replica. What if the <strong>same call</strong> arrives twice? Almost every defense that comes next (timeout, retry, breaker) ends up repeating a call. Two loose threads in the store were born from this: the <code>PedidoPago</code> event <code>e-502</code> from module 6, delivered twice (the stock went from 3 to 2 and then to 1), and Davi's app, in module 12, which redid the <code>POST</code> and created two orders and two charges.</p>
+
+<OneLiner><strong>Idempotency</strong> is repeating the operation and getting the same result. It is what makes it <strong>safe to repeat</strong>, which is why it comes before timeout and retry.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Timeout</strong> scenario, repeat the order <code>POST</code> <strong>without a key</strong> and then <strong>with the key</strong>, and count the orders created. Without a key, two are born; with it, the app gets back the <strong>same 1058</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/resiliencia/chamadas-3d/?mode=timeout&step=7" poster="labs/resiliencia/chamadas-3d-previa.webp" title="Interactive figure: Timeout, deadlines and key" alt="Preview of the 3D figure: Timeout, deadlines and key" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The key is born once.</strong> The app creates an identifier for the <strong>intent</strong> to pay and sends it in the header: <code>Idempotency-Key: "3f9a2c7e-5b1d-4e8a-9c3f-7a2b4d6e8f10"</code>. The header costs <strong>57 bytes</strong>: the module 12 request (157 B of headers + 53 B of body = 210 B) gets 57 B of header and becomes 214 B + 53 B = <strong>267 B</strong> (the addition is what counts; the app's order body is another one).</li>
+  <li><strong>The 1st arrival executes.</strong> The server tries to register the key in a table. If it succeeds, the operation runs and the result is stored.</li>
+  <li><strong>The repeat returns what was stored.</strong> The app lost the response and tries again with the same key. The server finds the key, executes nothing and returns the earlier response.</li>
+  <li><strong>A different body is an error.</strong> The same key with another body is not a repeat: the server compares the body <em>hash</em> and answers <code>422</code>.</li>
+  <li><strong>In progress means wait.</strong> If the first one is still processing, the second waits for the commit and then returns the result (in the IETF draft, <code>409</code>).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the database says</h3>
+
+<p>The table is <code>idempotencia(chave text PRIMARY KEY, hash_corpo text, estado text, resposta jsonb, criada_em)</code>. The 1st arrival of Caio's key ran <code>INSERT … ON CONFLICT (chave) DO NOTHING RETURNING chave</code> and PostgreSQL 14 returned <strong>one row</strong> (<code>INSERT 0 1</code>): execute, write <code>estado = concluido</code> and <code>resposta = &#123;"status":201,"pedido_id":1058&#125;</code>. On the repeat the same <code>INSERT</code> returned <strong>0 rows</strong> (<code>INSERT 0 0</code>) and the stored response came back, <code>201</code> and <code>pedido_id 1058</code>, with <code>mesmo_corpo = t</code>. With a different body, <code>mesmo_corpo = f</code>. The unique index does the locking: if the first one is still processing, the concurrent <code>INSERT</code> waits for the commit and only then returns 0 rows.</p>
+
+<p>Result for Caio: the app loses the response, repeats with the same key and gets the <strong>same 1058</strong>, not a 1059 (the 1059 here is hypothetical: it does not use up a number in the story).</p>
+
+<h3 class="sec">Three places where the key lives</h3>
+
+<p>On the <strong>API</strong>, it is the app's <code>Idempotency-Key</code>. On the <strong>consumer</strong>, it is the <code>evento_id</code> from module 20: the repeated <code>e-502</code> is blocked because it was already processed. On the <strong>compensation</strong>, it is a key of the operation itself, like <code>estorno-c-7732</code> (module 19). In all of them the reasoning is the same: the operation carries its own identity.</p>
+
+<h3 class="sec">And if it goes wrong: the key born on every attempt</h3>
+
+<p>The app creates a new UUID on the <em>retry</em>. Each attempt becomes a new intent and the table never finds a repeat: two orders and two charges, as if the key did not exist. The key is born <strong>once per intent</strong>, before the first call, and is reused on the next ones.</p>
+
+<p>The second mistake is losing the result of the 1st attempt. The key was reserved, the process crashed before storing the response and the repeat finds <code>processando</code> <strong>forever</strong>. Store a deadline on the reservation and let the owner of the operation (the saga from module 19) decide whether to redo or compensate.</p>
+
+<Widget name="idem" title="Idempotency key" hint="Resend a POST 1 to 5 times, with and without a key and with the same or a different body. The widget shows the orders created, the row in the idempotencia table and the status (201 or 422)." />
+
+<WhyItMatters>
+  <li><strong>Without idempotency, every defense that repeats makes the damage worse.</strong> Retry, the app resending and at-least-once delivery create two orders.</li>
+  <li><strong>The key gives the intent an identity.</strong> Once per intent, stored together with the response.</li>
+  <li><strong>The unique index is the doorman.</strong> Whoever arrives last waits for the commit and returns the result, without executing twice.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">How long to keep the key</h4>
+  <ul>
+    <li><strong>At least 24 h.</strong> Stripe keeps the key for at least 24 hours and accepts up to 255 characters; after that it may remove it. If the same key comes back with different parameters, it is an error.</li>
+    <li><strong>The IETF discusses the header.</strong> The <code>Idempotency-Key</code> draft defined the value as a quoted <em>structured header</em>, <code>400</code> for a missing key, <code>422</code> for a different body and <code>409</code> for concurrent processing. The draft expired on 2026-04-18: it is a reference, not a final standard.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Stripe: Idempotent requests", href: "https://docs.stripe.com/api/idempotent_requests" },
+    { label: "IETF: Idempotency-Key header draft (expired)", href: "https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/" },
+    { label: "microservices.io: Idempotent Consumer", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "RFC 9110: HTTP Semantics (idempotent methods)", href: "https://www.rfc-editor.org/rfc/rfc9110.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now repeating a call is safe. What is left is how long to wait for a response before repeating, because waiting with no limit exhausts the pool.</p>
+
+<Flashcards cards={[
+  { q: "What is idempotency?",
+    a: "Repeating the operation and getting the same result. It makes it safe to repeat a call." },
+  { q: "What do the 1st arrival and the repeat do in the idempotencia table?",
+    a: "The 1st: INSERT 0 1, executes and stores the response. The repeat: INSERT 0 0 and returns the stored response (201, order 1058)." },
+  { q: "And with the same key and a different body?",
+    a: "The body hash does not match (mesmo_corpo = f) and the server answers 422." },
+  { q: "How much does the key cost in the header?",
+    a: "57 bytes. The module 12 request goes from 210 B to 267 B." },
+  { q: "What is the app's typical mistake with the key?",
+    a: "Generating a new UUID on every attempt. The key is born once per intent." },
+]} />

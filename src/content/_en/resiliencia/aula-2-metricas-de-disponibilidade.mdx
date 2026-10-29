@@ -1,0 +1,94 @@
+---
+title: "Availability metrics"
+order: 2
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson PSP-A spent 90 seconds at 8 s and the store had no defense. Now the team wants a number for the incident: "where did we end up?". The answer depends on <strong>what you count</strong>. The same incident gives 99.979% one way and 99.9965% the other.</p>
+
+<OneLiner>Availability is measured <strong>by usage</strong> (errors ÷ attempts) or <strong>by time</strong> (<em>uptime</em>), and the two tell different stories. The number is only useful with a <strong>latency limit</strong> and an <strong>error budget</strong> next to it.</OneLiner>
+
+<DoIt>
+  <p>In the widget below, set <strong>4 hops at 99.9%</strong> and read 99.6006% (172.5 min per month). Then choose <strong>"It's PSP-A at 99.5%"</strong>, turn on <strong>PSP-B in parallel</strong> and watch the chain rise from 99.2018% to 99.6978%.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>By usage.</strong> Divide the errors by the attempts. The article gives 40 errors in 1,000 requests: <strong>4%</strong> error, <strong>96%</strong> availability. Whoever counts what an "error" is decides the number (see the end of the lesson).</li>
+  <li><strong>By time.</strong> Subtract the <em>downtime</em> from the period. In 30 days there are <strong>43,200 min</strong>; with 180 min down, <strong>43,020</strong> are left, or <strong>99.58%</strong>.</li>
+  <li><strong>The nines.</strong> 99% leaves <strong>432 min</strong> per month down; 99.5%, 216; <strong>99.9%, 43.2 min (2,592 s)</strong>; 99.95%, 21.6; <strong>99.99%, 4.32 min (259 s)</strong>; 99.999%, <strong>25.9 s</strong>. Each extra nine divides the error time by ten.</li>
+  <li><strong>Series and parallel.</strong> In series the math multiplies: 0.999³ = <strong>99.7003%</strong> (129.5 min) and 0.999⁴ = <strong>99.6006%</strong> (172.5 min). In parallel a failure only counts if <strong>all</strong> of them go down: two PSPs at 99.5% give 1 − 0.005² = <strong>99.9975%</strong> (1.08 min, against 216).</li>
+  <li><strong>Error budget.</strong> A 99.9% usage-based SLO over the month's 12,960,000 attempts (5 orders/s) allows 0.1% failure: <strong>12,960</strong>. The 90 s incident burned 2,700: <strong>20.8%</strong> of the month.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The same incident, two numbers</h3>
+
+<p>At 20:20 there were 30 orders/s for 90 s: <strong>2,700 attempts</strong>, all failures. By usage, the month has 12,960,000 attempts and availability drops to 1 − 2,700 ÷ 12,960,000 = <strong>99.979%</strong>. By time, it was 90 s or 1.5 min out of 43,200, and the number is <strong>99.9965%</strong>. The time-based number looks better because it counts the clock and forgets that Black Friday has far more people per second than the middle of the night. Both are right; they answer different questions.</p>
+
+<p>Without protection the damage grows: the exhausted pool takes the whole checkout down and the retry storm keeps <code>pagamentos</code> out for longer. In an example with <strong>5 minutes</strong>, 30 × 300 = 9,000 failures, <strong>69.4%</strong> of the month's budget burned by a single incident.</p>
+
+<h3 class="sec">Latency is availability too</h3>
+
+<p>A response that arrives in 8 s with status <code>200</code> is a success for the server and a failure for the client: they already closed the app. That is why the SLI (the indicator) needs a limit, like "answered within 1 s". Without it, the store can be at 100% success by status while nobody can pay. The <strong>SLO</strong> is the target on that indicator (99.9% good attempts in the month) and the error budget is what is left of it.</p>
+
+<h3 class="sec">And if it goes wrong: three ways to measure badly</h3>
+
+<p>The first is <strong>counting only <code>5xx</code></strong>. The slow PSP produces client <em>timeouts</em> that never become a status on the server, and the number looks great. The second is the <strong>average that lies</strong>: 99.9% over the month can hide an hour at 0% on Black Friday, because usage is concentrated and the month is long. The third is using <strong>series and parallel with dependent failures</strong>: the 99.9975% math only holds if the two PSPs fail independently. Two PSPs in the same cloud, with the same credential, do not.</p>
+
+<Widget name="disponibilidade" title="Chain availability" hint="Hops in series (1 to 8), availability of each one, the last hop as PSP-A at 99.5%, PSP-B in parallel and the SLO. The widget shows the % and minutes per month (172.5 × 130.5), the table of nines, the error budget (12,960) and the 90 s incident (20.8%)." />
+
+<WhyItMatters>
+  <li><strong>"How long it stayed up" has two meanings.</strong> By usage it counts orders; by time it counts the clock. Say which one you mean when you quote the number.</li>
+  <li><strong>Series multiplies and parallel protects.</strong> Four hops at 99.9% end at 99.6006%; PSP-B in parallel recovers more than 200 min per month, as long as it fails independently.</li>
+  <li><strong>The error budget becomes a decision.</strong> A 90 s incident spends 20.8%; an unprotected 5 min one spends 69.4%. You can say when to stop shipping and fix things.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The math of the store's chain</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Chain</th><th>Availability</th><th>Down per month</th></tr></thead>
+    <tbody>
+      <tr><th><code>bff</code> × <code>pedidos</code> × <code>pagamentos</code> × PSP-A (99.9%, 99.9%, 99.9%, 99.5%)</th><td>99.2018%</td><td>344.8 min</td></tr>
+      <tr><th>the same, with PSP-B in parallel</th><td>99.6978%</td><td>130.5 min</td></tr>
+      <tr><th>3 services at 99.9% in series</th><td>99.7003%</td><td>129.5 min</td></tr>
+      <tr><th>4 services at 99.9% in series</th><td>99.6006%</td><td>172.5 min</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: what "error" means and what <em>uptime</em> subtracts</h4>
+  <ul>
+    <li><strong>On <em>uptime</em> the article says incident time "is disregarded in the calculation".</strong> The sentence is confusing: the formula <strong>subtracts</strong> the <em>downtime</em> from the period (43,200 − 180 = 43,020, 99.58%).</li>
+    <li><strong>"Errors ÷ attempts" without saying what an error is.</strong> It should include the client <em>timeout</em> and the slow response. Also missing are the SLO and the error budget, the table of nines, availability in series and in parallel, and latency in the SLI.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on resilience patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Google SRE book: Service Level Objectives", href: "https://sre.google/sre-book/service-level-objectives/" },
+    { label: "Google SRE workbook: Implementing SLOs", href: "https://sre.google/workbook/implementing-slos/" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now the store can measure how much it lost. What is left is how much a failing component takes down with it, and how to design so that amount is small and known.</p>
+
+<Flashcards cards={[
+  { q: "How do you calculate availability by usage?",
+    a: "1 − errors ÷ attempts. With 40 errors in 1,000: 4% error and 96% availability." },
+  { q: "And by time?",
+    a: "Subtract the downtime from the period. 180 min out of 43,200 leaves 43,020 up: 99.58%." },
+  { q: "How much is 99.9% per month?",
+    a: "43.2 min (2,592 s) down in 30 days. 99.99% is 4.32 min and 99.999% is 25.9 s." },
+  { q: "What changes between series and parallel?",
+    a: "In series it multiplies (0.999⁴ = 99.6006%). In parallel it only counts when all of them go down (two PSPs at 99.5%: 99.9975%), if the failures are independent." },
+  { q: "How much of the error budget did the 90 s incident burn?",
+    a: "2,700 of the 12,960 failures the 99.9% SLO allows: 20.8%. Unprotected, 5 min would be 9,000, or 69.4%." },
+]} />
