@@ -1,0 +1,85 @@
+---
+title: "X axis: horizontal scaling"
+order: 2
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the cube was left with three questions, and the cheapest to answer is copying. X is the axis the store has used the most: the catalog has had 10 copies since module 7. It is worth understanding why it works and where it stops, because <code>pedidos</code> showed that it stops.</p>
+
+<OneLiner>X is <strong>copying the service and splitting the traffic</strong>: with N identical copies, each one takes 1/N of the load. It works as long as each copy <strong>does not depend on anything that is not a copy</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, watch <code>catalogo</code> become 10 copies behind <code>lb-loja</code> and write down how many req/s each copy receives. Then press <strong>X ceiling</strong>, step forward while <code>pedidos</code> goes from 3 to 7 replicas and write down at which number the output stops growing.</p>
+</DoIt>
+
+<Figure3D path="en/labs/scale-cube/cubo-3d/?mode=x" poster="labs/scale-cube/cubo-3d-previa.webp" title="Interactive figure: X axis: cloning" alt="Preview of the 3D figure: X axis: cloning" hint="Drag to rotate · use ← → or Next step · switch the scene in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The math is a division. At the peak, the catalog receives <strong>640 req/s</strong> and has <strong>10 replicas</strong>: 640 ÷ 10 = <strong>64 req/s</strong> per replica, the 1/N fraction from Richardson's math. Each replica handles 100 (module 14), so there is headroom.</li>
+  <li>For the division to hold, the copies need to be <strong>interchangeable</strong>. That calls for a <strong>stateless</strong> service (the session lives outside the process, in the Redis from module 5), a load balancer in front (module 7) and something that adjusts the number of copies (the HPA from module 14).</li>
+  <li>The first cost is <strong>data</strong>. Each copy accesses <strong>all</strong> of the data, so the per-copy cache (the <code>local</code> mode from module 5) holds the same items ten times, and at the data layer X becomes the <strong>replica</strong>: the whole set, duplicated (module 17).</li>
+  <li>The second cost is <strong>session state</strong>. The more user memory lives inside the process, the less interchangeable each copy is, and the load balancer has to remember who went where.</li>
+  <li>The third is what X <strong>does not do</strong>: it does not solve code complexity or organizational complexity. Ten copies of a big program are still a big program, maintained by three teams waiting on each other.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the cart in memory</h3>
+
+<p><code>carrinho</code> keeps the cart <strong>in the memory</strong> of each replica. Lena puts the cat in the cart and the request lands on replica 1. When she opens the cart page, the load balancer sends her to replica 2, and the cart shows up <strong>empty</strong>: replica 2 has never heard of the cat.</p>
+
+<p>There are two fixes. The first is to take the state out of the process and keep it in <strong>Redis</strong> (module 5): any replica reads the same cart. The second is IP <em>sticky</em> sessions, which pin Lena to replica 1, but module 7 showed where it breaks: with NAT, 500 people in an office arrive with the same IP and all land on the same replica.</p>
+
+<h3 class="sec">What if it goes wrong, again: the sixth replica of pedidos</h3>
+
+<p><code>pedidos</code> does 30 orders/s per replica, and its database, 150/s. With 3 replicas that is 90/s; with 5, 150/s, the database ceiling. The <strong>sixth replica</strong> (6 × 30 = 180/s) <strong>adds nothing</strong>: the database stops at 150. X moved the bottleneck from the service to the database, and it stays there. The widget below shows the limiting link at each change.</p>
+
+<Widget name="cubo-pods" title="Cube and pods: the limiting link" hint="Move the X sliders (pedidos replicas), Y (monolith or 9 services) and Z (partitions) and the demand (1 to 400 orders/s). The widget computes pods, service capacity (30/s per pod) and database capacity (150/s per shard), and marks the limiting link." />
+
+<WhyItMatters>
+  <li><strong>X is the 1/N division.</strong> 640 ÷ 10 = 64 req/s per replica, and it is the math the load balancer does.</li>
+  <li><strong>It works with interchangeable copies.</strong> No state in memory, with a load balancer and with an HPA.</li>
+  <li><strong>It has a cost.</strong> Per-copy cache, whole datasets replicated, heavy sessions and no organizational gain.</li>
+  <li><strong>It has a ceiling.</strong> The sixth replica of <code>pedidos</code> adds nothing: the database stops at 150/s.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The axis and elasticity are two different things</h4>
+  <p>X is the <strong>way</strong> to grow: copying. <strong>Elasticity</strong> is the policy for how many copies to have at each moment, and it is what the HPA from module 14 does. You can have the axis without elasticity (10 fixed replicas) and elasticity without a good load split. The two usually go together, which is why they get confused.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>"The simplest part of the model".</strong> X is the <strong>easiest to do</strong> (AKF says "intellectually easy"), but it has costs the article leaves out: whole datasets replicated, caches that degrade, session state and <strong>no</strong> organizational gain. The article's X ("add and remove replicas as needed") mixes up the axis, which is cloning, with elasticity, which is adjusting the number of clones.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Scale Cube (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "Chris Richardson: The Scale Cube (X axis)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "AKF Partners: The Scale Cube (X axis and the cost in data and cache)", href: "https://akfpartners.com/growth-blog/scale-cube" },
+    { label: "The Twelve-Factor App: stateless processes", href: "https://12factor.net/processes" },
+    { label: "The Twelve-Factor App: concurrency through processes", href: "https://12factor.net/concurrency" },
+    { label: "Kubernetes: Deployment", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The X math fits in a division, but it only holds if the store really makes identical copies. What is left is to <strong>see X actually happening</strong>, with one command and a hundred requests, to check that each copy answers with its own name.</p>
+
+<Flashcards cards={[
+  { q: "How much does each catalog replica receive with 640 req/s and 10 replicas?",
+    a: "640 ÷ 10 = 64 req/s, the 1/N fraction. Each replica handles 100, so there is headroom." },
+  { q: "Which conditions let X work?",
+    a: "A stateless service (session in Redis), a load balancer in front (module 7) and something that adjusts the number of copies (HPA, module 14)." },
+  { q: "Which costs of X does AKF point out?",
+    a: "Each copy accesses all the data (per-copy cache, whole datasets replicated), session state gets in the way, and X solves neither code complexity nor organizational complexity." },
+  { q: "What happens to the cart kept in the memory of each replica?",
+    a: "Lena puts the cat on replica 1, the cart page lands on replica 2 and shows up empty. Fix: state in Redis; IP sticky breaks with NAT." },
+  { q: "Why does the sixth replica of pedidos add nothing?",
+    a: "6 × 30 = 180/s of service, but the database stops at 150/s. The bottleneck left the service and stayed in the database." },
+]} />

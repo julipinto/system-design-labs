@@ -1,0 +1,90 @@
+---
+title: "Y axis: breaking up functionality"
+order: 4
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson ten copies of the catalog were enough, but they all did the same thing. Ten copies of the whole monolith would still be one program, with one database and three teams waiting on each other. Splitting what is <strong>different</strong> is Y's job, and the store already did that in module 6.</p>
+
+<OneLiner>Y splits what is different so that <strong>each part scales its own way and has an owner</strong>: by verb (a use case, like <code>checkout</code>) or by noun (an entity, like <code>clientes</code>), each service with its own data.</OneLiner>
+
+<DoIt>
+  <p>In the figure, watch the 8 vCPU monolith split into 7 services and follow order <strong>1053</strong> through <code>checkout</code>. Write down how many services it crosses and the vCPU total before and after the split.</p>
+</DoIt>
+
+<Figure3D path="en/labs/scale-cube/cubo-3d/?mode=y" poster="labs/scale-cube/cubo-3d-previa.webp" title="Interactive figure: Y axis: split by function" alt="Preview of the 3D figure: Y axis: split by function" hint="Drag to rotate · use ← → or Next step · switch the scene in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>There are two ways to cut, and Richardson gives them names. By <strong>verb</strong>: a use case, <code>checkout</code>, which crosses <code>carrinho → pedidos → pagamentos → estoque → entregas</code>. By <strong>noun</strong>: an entity, <code>catalogo</code>. Caio's order 1053, at 8:05 PM on Black Friday (1 blue mug at 19.90 plus Rio shipping of 12.00, <strong>31.90</strong>; the mug stock goes from 38 to 37), crosses <strong>five services</strong>, with four hops of 5 ms: <strong>+20 ms</strong> (module 6).</li>
+  <li>Each piece has a different <strong>profile</strong>, and that is what Y lets you handle separately. The article talks about CPU versus I/O. The catalog is CPU and cache. <code>estoque</code> waits on the database (20 ms of waiting for 2 of CPU, module 11). <code>relatorios</code> is a 4 vCPU batch. In a monolith the three share the same machine size.</li>
+  <li>The math shows up in vCPU. Ten copies of the 8 vCPU monolith cost <strong>80 vCPU</strong>. The 7 services on Black Friday add up to <strong>25 vCPU</strong>: catalog 10 × 1, cart 3 × 1, orders 3 × 1, payments 2 × 1, stock 2 × 1, deliveries 1 × 1 and reports 1 × 4. That is 55 vCPU less, <strong>69%</strong>.</li>
+  <li>Y is the <strong>only axis that increases organizational scalability</strong>. The 3 teams (Storefront on the catalog, Checkout on cart, orders and payments, Logistics on stock and deliveries) stop fighting over a 40-minute deploy (module 8) and ship on their own, each one owning its code and its data.</li>
+  <li>Each service has <strong>its own</strong> database. That is what gives failure isolation and availability: <code>relatorios</code> can lock up its own database without touching the checkout one. A Y without its own data is a distributed monolith.</li>
+</ol>
+</HowItWorks>
+
+<p>The widget below redoes the 80 versus 25 vCPU math with the storefront traffic multiplier.</p>
+
+<Widget name="vcpu" title="How much each axis costs in vCPU" hint="Pick the storefront traffic multiplier (1× to 20×). The widget compares N copies of the 8 vCPU monolith with the store's 7 services (25 vCPU at 1×) and shows the difference." />
+
+<h3 class="sec">What if it goes wrong: a service per table</h3>
+
+<p>Someone splits <code>itens_pedido</code> into its own service, because "it is another entity". The "my orders" screen shows 20 orders. Before, it was a <code>JOIN</code> of about <strong>2 ms</strong>; now it is 1 call to list the orders and <strong>20 calls</strong> to fetch the items of each one: 21 × 5 ms = <strong>105 ms</strong> of network alone.</p>
+
+<p>And there is a second, less visible loss: the <strong>single transaction</strong> is gone. The refund in module 6 was a <code>ROLLBACK</code>; with two services and two databases, it becomes the saga from module 19. Y cuts along the business boundary, and <code>itens_pedido</code> has no boundary of its own: it is part of the order.</p>
+
+<WhyItMatters>
+  <li><strong>Y splits what is different.</strong> Verb (<code>checkout</code>) or noun (<code>catalogo</code>), each with its own profile, team and database.</li>
+  <li><strong>The math is measured.</strong> 25 vCPU against 80, 69% less, with the same 10 for the catalog.</li>
+  <li><strong>It is the organization's axis.</strong> Independent deploys instead of 40 minutes of waiting.</li>
+  <li><strong>It cuts along the business boundary.</strong> A service per table trades a 2 ms <code>JOIN</code> for 105 ms of network.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Who got each service</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Team</th><th>Services</th><th>Profile</th></tr></thead>
+    <tbody>
+      <tr><th>Storefront</th><td><code>catalogo</code></td><td>CPU and cache; 10 replicas on Black Friday</td></tr>
+      <tr><th>Checkout</th><td><code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code></td><td>writes and transactions; 3, 3 and 2 replicas</td></tr>
+      <tr><th>Logistics</th><td><code>estoque</code>, <code>entregas</code></td><td>waits on the database (<code>estoque</code>: 20 ms of waiting, 2 of CPU)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>"Together with X, Y ensures much of the characteristics of microservices".</strong> True, but Y <strong>alone</strong> is not well-done microservices. Without <strong>its own data</strong> per service and without a boundary (verb or noun), it becomes a distributed monolith: the same coupling, now with a network in the middle. AKF and Richardson insist on own data.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Scale Cube (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "AKF Partners: Splitting applications or services for scale", href: "https://akfpartners.com/growth-blog/splitting-applications-or-services-for-scale" },
+    { label: "Chris Richardson: The Scale Cube (Y axis, verb and noun)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "microservices.io: Microservice Architecture pattern", href: "https://microservices.io/patterns/microservices.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Y and X do not split the <strong>data</strong>: <code>pedidos</code> is a service of its own, and even cloned into 7 replicas it still talks to a single database, which stops at 150 orders/s. What is left is how to split what is the <strong>same but too big</strong>. That is the Z axis.</p>
+
+<Flashcards cards={[
+  { q: "What does Y split and by what criterion?",
+    a: "What is different: by verb (a use case, like checkout) or by noun (an entity, like catalogo), each service with its own data." },
+  { q: "How many services does order 1053 cross and how much does that cost in ms?",
+    a: "Five (cart, orders, payments, stock and deliveries), with four hops of 5 ms: +20 ms." },
+  { q: "What is the vCPU math for Y?",
+    a: "Monolith: 10 × 8 = 80 vCPU. Services on Black Friday: 25 vCPU. That is 55 less, 69%." },
+  { q: "Which axis increases organizational scalability?",
+    a: "Only Y: each team owns code and data and ships without waiting on the others (from a 40-minute deploy to independent deploys)." },
+  { q: "What goes wrong with a service per table?",
+    a: "The 20-order screen makes 1 list call and 20 item calls: 21 × 5 ms = 105 ms of network against a JOIN of ~2 ms, and the single transaction is lost." },
+]} />

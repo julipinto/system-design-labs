@@ -1,0 +1,94 @@
+---
+title: "Vertical and horizontal scalability"
+order: 4
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson <code>pagamentos</code> stayed at 40 orders per second against a demand of 60, and the store found out that the weakest link's capacity rules checkout. Now the question is how to increase that capacity. There are two paths: swap the machine for a bigger one or put more identical machines together.</p>
+
+<OneLiner><strong>Scaling</strong> is adding or removing capacity: <strong>vertical</strong> changes the size of one unit (1 to 8 vCPU on the same replica, which gives 600 req/s), <strong>horizontal</strong> changes the number of units (10 replicas of 1 vCPU, which give 1,000 req/s).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Horizontal</strong> scenario, start with the 10 replicas of 1 vCPU (1,000 req/s) and step forward: they drop to 9, 8 and 7 and then to 6, always at 640 req/s. Note at which step utilization goes past 100%. Then press <strong>Vertical</strong> to see the 8 vCPU box, Amdahl's math and what happens when it goes down.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/capacidade-3d/?mode=horizontal" poster="labs/performance/capacidade-3d-previa.webp" title="Interactive figure: Scaling horizontally" alt="Preview of the 3D figure: Scaling horizontally" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A bus company with queues at the stops has both exits. Swapping the buses for double-deckers is <strong>scaling vertically</strong>; buying more identical buses is <strong>scaling horizontally</strong>. In the store, vertical is <code>catalogo</code> going from 1 vCPU to <strong>8 vCPU</strong> on a single replica (<strong>scale up</strong>, and <strong>scale down</strong> to go back). Horizontal is turning on more replicas (<strong>scale out</strong>, and <strong>scale in</strong> to remove them).</li>
+  <li>Vertical does not yield 8 times. If the part that does not parallelize is the one from <code>relatorios</code> in module 11, <strong>1/21</strong> of the work (4.76%), Amdahl's law gives 1 ÷ (1/21 + (20/21) ÷ 8) = <strong>6.0 times</strong>: <strong>600 req/s</strong>, not 800. That is 75 req/s per vCPU against 100 on horizontal. It requires restarting the pod (Kubernetes has in-place resizing, see the sources) and it has a ceiling: the provider's biggest machine.</li>
+  <li>Horizontal yields per replica: 10 replicas of 1 vCPU give <strong>1,000 req/s</strong> with 10 vCPU. For that, state has to be <strong>outside the process</strong> (the session in Redis, module 5) and something has to split the requests (the load balancer, module 7). Adjusting the fleet up <strong>and down</strong>, on its own, following demand, is <strong>elasticity</strong>.</li>
+  <li>The drop shows the difference that matters most. At 640 req/s, with 10 replicas each one sits at 64% (37.8 ms). <strong>1</strong> goes down: 71.1% (44.6 ms). <strong>2</strong> go down: 80% (60 ms). <strong>3</strong> go down: <strong>91.4%</strong> (126.7 ms). <strong>4</strong> go down: 6 replicas are left, capacity of 600 against 640 of demand, <strong>106.7%</strong>, and the catalog saturates.</li>
+  <li>Planning calls this <strong>N+k</strong>: headroom is what is left after k replicas go down. The vertical fleet, one replica of 8 vCPU, has no headroom at all: when it goes down, <strong>100%</strong> of the capacity goes with it.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="queda" title="Replicas going down, and vertical versus horizontal" hint="On top: the demand, the replicas, the capacity per replica and how many go down; the widget shows the utilization, the response time and whether it saturates. Below: the scale up from 1 to 16 vCPU with the fraction that does not parallelize (1/21) and the Amdahl gains." />
+
+<h3 class="sec">If it goes wrong: the queue of 2,400 per minute</h3>
+
+<p>It is 20:05, the peak is at 640 req/s and a zone failure takes down <strong>4</strong> of the 10 replicas. 6 are left, with capacity of 600 req/s, and demand is 640: <strong>40 req/s</strong> are missing. Those 40 per second become a queue, <strong>2,400 per minute</strong>, and the responses go past 2 s and get a <code>504</code>. With 7 replicas alive the catalog still held (91.4%, 126.7 ms).</p>
+
+<p>If the store had scaled up to a single 8 vCPU replica, the outage would be worse: with no other replica, the 640 req/s meet a capacity of <strong>zero</strong>. Vertical is simpler to operate, and it concentrates the risk in a single unit.</p>
+
+<WhyItMatters>
+  <li><strong>The two ways answer different limits.</strong> Vertical hits the machine's ceiling and the restart; horizontal asks for state outside the process and a load balancer.</li>
+  <li><strong>The gain is not linear.</strong> 8 vCPU are worth 6 times (600 req/s) when 1/21 of the work is serial.</li>
+  <li><strong>Headroom is the insurance.</strong> With 10 replicas, losing 3 still fits at 91.4%; losing 4 does not.</li>
+  <li><strong>Elasticity cuts both ways.</strong> The fleet that goes up at the peak and down afterward is the 80 replica-hours one, not the 240 one.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Replicas going down, line by line</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Replicas alive</th><th>Capacity</th><th>Utilization at 640 req/s</th><th>Response</th></tr></thead>
+    <tbody>
+      <tr><th>10</th><td>1,000</td><td>64%</td><td>37.8 ms</td></tr>
+      <tr><th>9</th><td>900</td><td>71.1%</td><td>44.6 ms</td></tr>
+      <tr><th>8</th><td>800</td><td>80%</td><td>60 ms</td></tr>
+      <tr><th>7</th><td>700</td><td>91.4%</td><td>126.7 ms</td></tr>
+      <tr><th>6</th><td>600</td><td>106.7%</td><td>saturates: queue of 40 req/s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The response uses the toy model R(ρ) = 10 + 10 ÷ (1 − ρ) from the previous lesson, which only holds below 100%.</p>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Elasticity.</strong> The article says that scaling horizontally with autoscaling tools is "elasticity". Elasticity is adjusting capacity <strong>automatically</strong> to demand, <strong>in both directions</strong>, and it can be vertical or horizontal. The HPA in the next lesson is a horizontal elasticity mechanism. And "scalability", in Nygard's sense in <em>Release It!</em>, has two readings (how throughput changes with demand, and the modes of scaling); the article picks the second.</li>
+    <li><strong>Optimizing the algorithm is not scaling vertically.</strong> The article puts "algorithm optimizations" inside vertical. Optimizing the code raises capacity <strong>per resource</strong> without changing the resource: it is another lever, the one in the last lesson.</li>
+    <li><strong>Horizontal is not linear.</strong> The article suggests that N replicas give N times the capacity. With a shared resource, like the <code>pedidos</code> DB at 150/s or the connection pool from module 11, the gain stops (Amdahl; Gunther's Universal Scalability Law adds the coherence cost). The catalog's 10 replicas give 1,000 req/s <strong>because</strong> the catalog does not share a write DB.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Kubernetes: resize a container's resources in place", href: "https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/" },
+    { label: "Kubernetes: Vertical Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/" },
+    { label: "Neil Gunther: Universal Scalability Law", href: "https://www.perfdynamics.com/Manifesto/USLscalability.html" },
+    { label: "Amdahl's law (Wikipedia, the article's reference)", href: "https://pt.wikipedia.org/wiki/Lei_de_Amdahl" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows that horizontal yields 100 req/s per replica and that headroom protects against a drop. But Black Friday does not announce the size of the peak, and turning on replicas by hand is too late. What is missing is <strong>how many</strong> replicas to turn on and <strong>when</strong>, and the formula Kubernetes uses to decide.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between scaling vertically and horizontally?",
+    a: "Vertical changes the size of one unit (scale up/down, 1 to 8 vCPU). Horizontal changes the number of units (scale out/in, 10 replicas of 1 vCPU)." },
+  { q: "How much do 8 vCPU yield if 1/21 of the work is serial?",
+    a: "Amdahl: 1 ÷ (1/21 + (20/21) ÷ 8) = 6.0 times, or 600 req/s (75 per vCPU), not 800. On horizontal it is 100 per vCPU." },
+  { q: "What does horizontal require from the service?",
+    a: "State outside the process (the session in Redis, module 5) and a load balancer (module 7). Elasticity is adjusting up and down." },
+  { q: "What happens at 640 req/s when 1, 2, 3 and 4 replicas go down?",
+    a: "71.1%, 80%, 91.4% and 106.7%. With 4 down it saturates and the queue grows 40 req/s, 2,400 per minute." },
+  { q: "What is N+k, and what does vertical lose in it?",
+    a: "The headroom left after k replicas go down. The single 8 vCPU replica, when it goes down, takes 100% of the capacity." },
+]} />

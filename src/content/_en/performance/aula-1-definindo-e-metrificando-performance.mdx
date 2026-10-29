@@ -1,0 +1,87 @@
+---
+title: "Defining and measuring performance"
+order: 1
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Module 13 ended with the store talking in every possible way and with one Black Friday itch: the catalog answered in <strong>2 s</strong> for some customers, and nobody could say how much the store can take, where the bottleneck is, or whether turning on more machines would have been enough. The 20:00 newsletter (50,000 emails at 100 per second, 500 s) made the clicks hit the catalog between 20:01 and 20:09. "The store is slow" is not a problem anyone can solve, and this is the first module of numbers: what to measure, where to measure it and against which goal.</p>
+
+<OneLiner>Performance is the time that <strong>whoever uses it feels</strong>, and it only becomes engineering when it has a <strong>number, a measuring point and a goal</strong>: response time is network plus processing, measured at the client, at the load balancer and at the replica, and compared with a goal such as "p95 under 300 ms".</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Measure</strong> scenario, step forward with the → arrow and note the three stopwatches on Lena's request: the replica (20 ms), <code>lb-loja</code> (20 ms) and the browser (100 ms). At the 20:03:07 step, <code>catalogo-3</code> is at 99% and the three become 2,000, 2,000 and 2,080 ms. In the last step, compare with the 135 ms average dashboard, all green.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/latencia-3d/?mode=medir" poster="labs/performance/latencia-3d-previa.webp" title="Interactive figure: Three measuring points" alt="Preview of the 3D figure: Three measuring points" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>It is 20:03 on Black Friday. The catalog has <strong>10 replicas of 1 vCPU</strong> (<code>catalogo-1</code> to <code>catalogo-10</code>) behind <code>lb-loja</code>, with unweighted round robin, and the traffic is the product page, <code>{"GET /produtos/{id}"}</code>. "Slow" breaks down into three questions: <strong>what</strong> is slow (which request), <strong>where</strong> (at which point of the trip) and <strong>how much</strong> (which number, against which goal).</li>
+  <li>For the "how much", the first number is <strong>response time</strong>: what passes between the client asking and receiving. It is <strong>network latency</strong> plus <strong>processing time</strong>. On a normal day, Lena, in Recife, pays <strong>80 ms</strong> of round trip to the store (the example RTT) and the server spends <strong>20 ms</strong> (10 ms of CPU and 10 ms waiting for the cache and the document DB). Her browser reads <strong>100 ms</strong>; the server dashboard, 20 ms.</li>
+  <li>For the "where", you measure at <strong>three points</strong>: at the client, at <code>lb-loja</code> and at the replica. At 20:03:07 the page for Lena's cat takes <strong>2.08 s</strong> in the browser, <strong>2,000 ms</strong> at the load balancer and <strong>2,000 ms</strong> at the replica. The 80 ms difference is the network, which did not change; the degradation happened inside <code>catalogo-3</code>.</li>
+  <li>To know whether 2 s is a problem, you need the <strong>goal</strong>. In the module's example: <strong>p95 under 300 ms</strong> and <strong>errors under 0.1%</strong>, measured at <code>lb-loja</code>, which cuts the request at <strong>2 s</strong> (timeout). Goals come from non-functional requirements: a real-time system and a long-term archive expect different things.</li>
+  <li>And the number depends on how much traffic arrives. An ordinary day has <strong>40 req/s</strong>, a replica at 40% CPU and a 26.7 ms response. The Black Friday average is <strong>400 req/s</strong> (the 10 replicas, the 10× from module 6) and the 20:03 peak reaches <strong>640 req/s</strong>, 64 per replica.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">If it goes wrong: the dashboard that only shows the average</h3>
+
+<p>The store dashboard draws a single line, the fleet's <strong>average</strong> response time, and at 20:03 it reads <strong>135 ms</strong>. The goal is 300 ms, so the line is green. Meanwhile, Lena waited 2 s for the cat page, and the black t-shirt page for <strong>Davi</strong> (20:03:12) took 2.1 s: it went past the timeout, he got a <code>504</code>, reloaded, and the second attempt took 61 ms at the load balancer.</p>
+
+<p>At 20:03:30 Davi closes <strong>order 1052</strong>: 3 black t-shirts, 147.00, plus 9.00 shipping to SP, 156.00 total. Davi insisted after the <code>504</code> and bought. Whoever gave up at the first error shows up in no average, and looking only at the green dashboard nobody would know they exist.</p>
+
+<WhyItMatters>
+  <li><strong>"Slow" becomes a decision.</strong> With a number, a measuring point and a goal, you can say where to act and when to stop.</li>
+  <li><strong>Three points say where it hurts.</strong> The difference between the browser, the load balancer and the replica separates the network from the server.</li>
+  <li><strong>The goal decides what is a problem.</strong> 2 s for Lena is a defect, and for a nightly report it would be normal.</li>
+  <li><strong>The average lies.</strong> A green 135 ms and 2 s on the customer's screen coexist in the same minute.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The same request on two days</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Normal day</th><th>20:03 on Black Friday</th></tr></thead>
+    <tbody>
+      <tr><th>In Lena's browser</th><td>100 ms</td><td>2.08 s</td></tr>
+      <tr><th>At <code>lb-loja</code></th><td>20 ms</td><td>2,000 ms</td></tr>
+      <tr><th>At the replica</th><td>20 ms</td><td>2,000 ms (<code>catalogo-3</code>)</td></tr>
+      <tr><th>Network (RTT Recife to SP)</th><td>80 ms</td><td>80 ms</td></tr>
+      <tr><th>Traffic</th><td>40 req/s</td><td>640 req/s at the peak</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The numbers are examples, chosen to keep the math in plain view, and the next lessons use all of them.</p>
+  <h4 class="deep-h">Correction to the base article: latency and response time</h4>
+  <ul>
+    <li><strong>Two names for different things.</strong> The article calls the <strong>network</strong> time latency and the sum with processing response time. Google's SRE book uses "latency" for the time to <strong>serve</strong> the request, and separates the ones that succeeded from the ones that failed: a fast error cannot go into the average. The module uses <strong>response time</strong> for what the client sees and warns when a dashboard calls that "latency".</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Gil Tene: How NOT to measure latency (video)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now the store knows how to measure at three points and has a goal, and it has seen that the 135 ms average hides Lena's 2 s. What is missing is which numbers to look at beyond the average time: which signals tell the health of a service, and what a percentile shows that the average does not.</p>
+
+<Flashcards cards={[
+  { q: "What is response time made of?",
+    a: "Network latency plus processing time. Lena on a normal day: 80 ms of RTT + 20 ms of server = 100 ms in the browser, against 20 ms on the server dashboard." },
+  { q: "Why measure at three points?",
+    a: "Client, lb-loja and replica show where the degradation happened. On Black Friday: 2.08 s, 2,000 ms and 2,000 ms. The 80 ms is the network and the rest is inside catalogo-3." },
+  { q: "What is the module's goal?",
+    a: "p95 under 300 ms and errors under 0.1%, measured at lb-loja, which has a 2 s timeout. It is an example." },
+  { q: "How does catalog traffic grow?",
+    a: "Ordinary day 40 req/s, Black Friday average 400 req/s, 20:03 peak at 640 req/s (64 per replica)." },
+  { q: "Why does the average dashboard mislead?",
+    a: "It reads 135 ms (green, the goal is 300) in the minute Lena waited 2 s and Davi got a 2.1 s 504." },
+]} />

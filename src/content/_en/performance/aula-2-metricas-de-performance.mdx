@@ -1,0 +1,92 @@
+---
+title: "Performance metrics"
+order: 2
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the average dashboard read 135 ms, green, in the minute Lena waited 2 s. The store has the goal (p95 under 300 ms) and the three measuring points, and now it needs the right numbers to watch. Four signals cover the essentials, and one of them, the percentile, is what makes Lena show up on the dashboard.</p>
+
+<OneLiner>The <strong>four signals</strong> (response time, traffic, errors and saturation) tell the health of a service, and <strong>percentiles</strong> show what the average hides: in the 20:03 minute, the average is 135 ms, the p50 is 32 ms and the p99 is 2,000 ms.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Percentiles</strong> scenario, find the markers for the average (135) and the p95 (800) over the 100 sorted requests. Then turn on <strong>Remove catalogo-3</strong> (key X) and watch the p95 drop from 800 to 58. Finally, press <strong>Hot</strong> to see that replica at 99% CPU and the other nine at 64%.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/latencia-3d/?mode=percentis" poster="labs/performance/latencia-3d-previa.webp" title="Interactive figure: Average and percentiles" alt="Preview of the 3D figure: Average and percentiles" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Google's SRE book proposes four signals: <strong>response time</strong> (its "latency"), <strong>traffic</strong>, <strong>errors</strong> and <strong>saturation</strong>. In the store at 20:03, the response time is the one from lesson 1, traffic is 640 req/s, errors are 1% and saturation, we will see, is the one with a queue.</li>
+  <li>Three of them come from simple math. <strong>Utilization</strong> is used ÷ available × 100: 1,024 of 2,048 MB is 50%. <strong>Throughput</strong> is work ÷ time: 6,000 requests in 60 s are 100 req/s, and in the store 38,400 in 60 s are <strong>640 req/s</strong>. <strong>Error rate</strong> is errors ÷ total × 100: 1 in 100 is <strong>1%</strong>, ten times above the 0.1% goal.</li>
+  <li>Response time does not fit in a single number. Take a <strong>sample</strong> of 100 requests from the 20:03 minute, drawn from the 38,400, and sort it. The <strong>percentile</strong> p is the value below which p% of the responses fall; with the nearest-rank method, it is the value at position ⌈p% × n⌉. With n = 100: <strong>average 135 ms, p50 32, p90 74, p95 800, p99 2,000, maximum 2,100</strong>.</li>
+  <li>The 100 requests come from two worlds. Nine replicas at 64% answer in 26 to 74 ms (average 37.8). <code>catalogo-3</code>, at 99%, answers in 150 to 2,100 ms (average 1,010): the heavy 900 ms searches from module 7 landed almost all on it, because round robin counts requests, not effort. Mix the two and the average comes out at 135, far from both.</li>
+  <li><strong>Saturation</strong> is the work that <strong>waits</strong>: the request queue, the full connection pool, the load average above the number of cores. <code>catalogo-3</code> has a queue and the others do not. It only shows up when you look <strong>per replica</strong>, and the whole fleet, at 67.5% CPU on average, looks healthy.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="percentis" title="Percentiles and average: the 20:03 sample" hint="See the average, p50, p90, p95, p99, maximum and the errors of the 100-request sample. Then use the button to remove catalogo-3 (the sample after the fix) and compare both metrics with the 300 ms goal." />
+
+<h3 class="sec">If it goes wrong: the average of the p99s</h3>
+
+<p>Each replica reports <strong>its own</strong> p99 to the dashboard. With 10 requests per replica, each one's p99 is its maximum: 4 replicas at 55 ms, 5 at 74 ms and <code>catalogo-3</code> at 2,100 ms. The dashboard joins everything with an average, (4 × 55 + 5 × 74 + 2,100) ÷ 10 = <strong>269 ms</strong>, and shows a p99 that looks acceptable. The true fleet p99, computed over the 100 requests together, is <strong>2,000 ms</strong>.</p>
+
+<p>You do not add percentiles or average them. The right way is to merge the <strong>histograms</strong> (the counts per time range, the buckets) and compute the percentile again over the whole set. And there is a second caution: with 100 samples, the p99 is just the 99th value, and a single slow request moves it. It only settles with a thousand samples or more.</p>
+
+<WhyItMatters>
+  <li><strong>Each signal answers a question.</strong> Is it slow? Is a lot arriving? Is it failing? Is it full?</li>
+  <li><strong>The p95 is red while the average is green.</strong> The 300 ms goal looks at the p95: 800 ms blows it, and a 135 ms average does not warn you.</li>
+  <li><strong>The per-replica view finds the hot one.</strong> The fleet at 67.5% hides <code>catalogo-3</code> at 99%.</li>
+  <li><strong>Aggregating percentiles misleads.</strong> 269 ms on the dashboard against 2,000 ms for real.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The 20:03 sample, in full</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Group</th><th>How many</th><th>Time at <code>lb-loja</code> (ms)</th></tr></thead>
+    <tbody>
+      <tr><th>9 healthy replicas (64%)</th><td>20 · 30 · 25 · 10 · 5</td><td>26 · 32 · 40 · 55 · 74 (average 37.8)</td></tr>
+      <tr><th><code>catalogo-3</code> (99%)</th><td>10</td><td>150 · 300 · 450 · 600 · 800 · 1,000 · 1,200 · 1,500 · 2,000 · 2,100 (average 1,010)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Each replica contributes 10 requests, because round robin gives all of them the same <strong>number</strong> of requests. The 2,000 ms request is Lena's (20:03:07) and the 2,100 ms one is Davi's (20:03:12): that one goes past the 2 s timeout and becomes the only <code>504</code>, 1.0% of the sample.</p>
+  <h4 class="deep-h">After fixing the balancing</h4>
+  <p>With the load balancer using least outstanding requests and weights (module 7), all replicas sit at 67.5% and answer in 40.8 ms on average. The sample has 20 × 28 · 30 × 34 · 25 × 42 · 15 × 56 · 8 × 58 · 2 × 73 ms: <strong>average 40.8, p50 34, p95 58, p99 73, maximum 73, errors 0%</strong>. The average dropped 3.3 times (from 135 to 41) and the p99 dropped 27 times (from 2,000 to 73).</p>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Utilization is not saturation.</strong> The article calls a resource near 100% usage "saturated". By Brendan Gregg's USE method (utilization, saturation and errors) and by the SRE book, saturation is <strong>work waiting</strong>: a queue, a full connection pool, load average above the cores. A resource at 100% with nobody waiting is not saturated, and the response can get worse before 100% (the knee in the next lesson).</li>
+    <li><strong>Percentiles are not aggregated.</strong> The article explains what p95 and p99 are, but not that you do not average them, nor that p99 with 100 samples is just the 99th value. The Prometheus documentation shows the way with histograms.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems (the four signals)", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Brendan Gregg: the USE method (utilization, saturation and errors)", href: "https://www.brendangregg.com/usemethod.html" },
+    { label: "Prometheus: histograms and summaries", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Gil Tene: How NOT to measure latency (video)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the four signals per replica, the store found <code>catalogo-3</code>: its p99 is bad and the rest is fine. What is missing is the bigger question, how much the whole fleet can take: where the catalog's limit is, and what happens to checkout when demand goes past what it can handle.</p>
+
+<Flashcards cards={[
+  { q: "What are the four signals?",
+    a: "Response time, traffic, errors and saturation. In the store at 20:03: p95 of 800 ms, 640 req/s, 1% errors and a queue on catalogo-3." },
+  { q: "How do you compute a percentile by nearest rank?",
+    a: "The value at position ⌈p% × n⌉ of the sorted sample. With n = 100: p50 = 32, p90 = 74, p95 = 800, p99 = 2,000." },
+  { q: "Why can a green dashboard and Lena waiting 2 s coexist?",
+    a: "The average is 135 ms (under 300 ms), but the p95 is 800 ms (over). The average mixes the 9 healthy replicas with catalogo-3." },
+  { q: "What is saturation, really?",
+    a: "Work waiting: a queue, a full connection pool, high load average. High utilization with no queue is not saturation." },
+  { q: "Why do you not average the p99s?",
+    a: "The average of the per-replica p99s gives 269 ms, and the real fleet p99 is 2,000 ms. You merge the histogram and compute again. With 100 samples the p99 is just the 99th value." },
+]} />

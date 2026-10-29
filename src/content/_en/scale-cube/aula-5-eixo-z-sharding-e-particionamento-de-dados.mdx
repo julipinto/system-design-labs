@@ -1,0 +1,103 @@
+---
+title: "Z axis: sharding and data partitioning"
+order: 5
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">After Y each service has its own database, and after X each service has several copies. But the <code>pedidos</code> database is still a single one: 150 orders/s and 50 million rows. It is the hole in the cube the store has not used yet, and the question that remains is how to split a service that is already one thing.</p>
+
+<OneLiner>Z splits <strong>what is the same but too big</strong>: the same code, each instance with a piece of the data, and a <strong>router</strong> that looks at a key to pick the piece.</OneLiner>
+
+<DoIt>
+  <p>In the figure, watch the <code>pedidos</code> database in 3 shards and follow <code>caio-58</code> to shard 2. In the last step, look at the query <code>WHERE id = 1042</code> and count how many shards it reads. Remember that Z is only born in module 16: the figure shows what it will build.</p>
+</DoIt>
+
+<Figure3D path="en/labs/scale-cube/cubo-3d/?mode=z" poster="labs/scale-cube/cubo-3d-previa.webp" title="Interactive figure: Z axis: split by data" alt="Preview of the 3D figure: Z axis: split by data" hint="Drag to rotate · use ← → or Next step · switch the scene in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>It all starts with the <strong>key</strong>. AKF cites the modulus of <code>customer_id</code> (in the store, <code>cliente_id</code>), geography (a region), the SKU and the customer type. The router computes and picks: with 3 shards, <code>murmur3('caio-58') mod 3 = 2</code>.</li>
+  <li>Z has <strong>two models</strong>. Z <strong>for the database only</strong>: the 3 shards of <code>pedidos</code>, with the application untouched. And Z for the <strong>application</strong>: <code>catalogo</code> searches in partitions and an aggregator asks all of them and merges the answers (Richardson's example). AKF goes further and talks about <strong>pods</strong>, each one with the application and the data of one customer or one region, including because the law requires it, like GDPR. (Here "pod" is AKF's word, not the Kubernetes pod.)</li>
+  <li>What Z improves: <strong>cache</strong> (each instance keeps only its own piece, so more fits), <strong>I/O</strong> (each disk reads less) and <strong>failure isolation</strong>: if a shard goes down, part of the data is gone, not all of it.</li>
+  <li>What Z does <strong>not</strong> improve: the organization and the code complexity. Three shards of <code>pedidos</code> are still the same program maintained by the same team. That is what Y is for.</li>
+  <li>The cost of Z is the <strong>partitioning scheme</strong>: it is hard to get right and even harder <strong>when you need to repartition</strong>, because going from 3 to 6 shards changes the math for almost every key and moves data.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The math at 200 orders/s</h3>
+
+<p><code>pedidos</code> with next year's demand, <strong>200 orders/s</strong>. Each replica delivers 30 orders/s and a single-primary database, 150/s. At each state, the output is the smaller of the service and the database.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>State (X, Y, Z)</th><th>Pods</th><th>Service</th><th>Database</th><th>Output (of 200/s)</th></tr></thead>
+  <tbody>
+    <tr><th>Today (3, 1, 1)</th><td>3</td><td>90/s</td><td>150/s</td><td><strong>90/s</strong> (45%)</td></tr>
+    <tr><th>X only, 7 replicas (7, 1, 1)</th><td>7</td><td>210/s</td><td>150/s</td><td><strong>150/s</strong> (75%): the database stops X</td></tr>
+    <tr><th>X + Z, 3 shards × 3 replicas (3, 1, 3)</th><td>9</td><td>270/s</td><td>3 × 150 = 450/s</td><td><strong>200/s</strong> (100%), each database at 44%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Z solves the 200/s with room to spare, and the math has two catches. The first is the <strong>big customer</strong>. With <code>mkt-01</code>, the marketplace from module 8, one shard receives 60% of the orders: 120/s of the 200, out of a 150 ceiling, or <strong>80%</strong>, at the knee from module 14, while the other two receive 40/s each. With 250/s in total, the hot shard hits the 150/s ceiling, and the system uses 250 of the 450 nominal (<strong>55.6%</strong>). The second catch is <strong>connections</strong>: each <code>pedidos</code> replica keeps a pool of 10 connections per shard it serves. If the 9 replicas talk to all the shards, each database sees 9 × 10 = <strong>90 connections</strong>, close to PostgreSQL's <code>max_connections</code> of 100 (modules 11 and 14). In the <strong>pods per shard</strong> model, each database sees only its own 3 replicas: 3 × 10 = <strong>30</strong>.</p>
+
+<p>The Z router fits in two lines of code and one widget. The same widget is the one in module 16.</p>
+
+<Widget name="roteador" title="Z router: which shard?" hint="Type a cliente_id and pick 2 to 6 shards. The widget computes murmur3(key) mod N and shows the partition, with the store's 4 customers (lena-77, bia-31, caio-58 and davi-12) in a table." />
+
+<h3 class="sec">What if it goes wrong: the query without the key</h3>
+
+<p>The router only knows how to pick when the query carries the key. <code>WHERE id = 1042</code>, with only the order id, does not say which customer owns it, so the query goes to <strong>all the shards</strong> and the result is merged afterwards: this is <strong>scatter-gather</strong>. The cost is that of the slowest shard plus the merge, and it grows with the number of shards. The PostgreSQL plan with partitioned tables shows this, with an <code>Append</code> over the 3 partitions (illustrative shape, no costs):</p>
+
+<pre><code>{"Append\n  ->  Index Scan using pedidos_p0_pkey on pedidos_p0\n        Index Cond: (id = 1042)\n  ->  Index Scan using pedidos_p1_pkey on pedidos_p1\n        Index Cond: (id = 1042)\n  ->  Index Scan using pedidos_p2_pkey on pedidos_p2\n        Index Cond: (id = 1042)"}</code></pre>
+
+<p>With the key in the query (<code>WHERE cliente_id = 'caio-58' AND id = 1042</code>), PostgreSQL discards the other two partitions, called <strong>partition pruning</strong>, and reads only one. The widget below makes the same comparison. And there is a second way to get it wrong: Z <strong>by region</strong>, with SP concentrating 55% of the orders (module 16), creates a hot shard.</p>
+
+<Widget name="scatter" title="Scatter-gather: with and without the key" hint="Choose between a query with the key (cliente_id) and one without it (only the id), and the number of shards. The widget shows how many partitions are read and which ones." />
+
+<WhyItMatters>
+  <li><strong>Z splits what is the same but too big.</strong> The same code, a piece of the data, a router and a key.</li>
+  <li><strong>It solves the database.</strong> 3 shards give 450/s, and the 200/s output reaches 100%, with each database at 44%.</li>
+  <li><strong>It is not free.</strong> Choosing and repartitioning the key is hard, and a query without the key reads all the shards.</li>
+  <li><strong>It does not improve the organization.</strong> That is Y's job.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Z only in the database.</strong> The article restricts Z to data and the persistence layer. AKF and Richardson also apply Z to the <strong>application</strong> (shards of a search service with an aggregator; whole <strong>pods</strong> per customer or region), and Z is an axis of <strong>failure isolation</strong> when each pod has its own data.</li>
+    <li><strong>The missing drawbacks.</strong> Repartitioning data is hard, queries without the key go to all the shards, transactions across shards do not come for free, and the key can create a hot shard (module 16 covers each one).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Scale Cube (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "AKF Partners: Splitting databases for scale", href: "https://akfpartners.com/growth-blog/splitting-databases-for-scale" },
+    { label: "Chris Richardson: The Scale Cube (Z axis, with aggregator)", href: "https://microservices.io/articles/scalecube.html" },
+    { label: "AKF Partners: The Scale Cube (pods and GDPR)", href: "https://akfpartners.com/growth-blog/scale-cube" },
+    { label: "Author's public repository: exemplos/sharding (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Author's public repository: exemplos/partitioning (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+  ]} />
+</Deep>
+
+<p class="gancho">All three axes are on the table, each with its cost, and <code>pedidos</code> only closes the math with X plus Z together. What is left is knowing how to <strong>combine all three</strong>: in what order to move and how many deploy units that gives.</p>
+
+<Flashcards cards={[
+  { q: "What does Z split?",
+    a: "What is the same but too big: the same code with each instance serving a subset of the data, and a router that picks by key." },
+  { q: "Which keys does AKF cite for Z?",
+    a: "The modulus of customer_id, geography, the SKU and the customer type." },
+  { q: "What output does pedidos give at 200/s in (3, 1, 3)?",
+    a: "200/s, 100% of the demand, with 9 pods (270/s of service) and 3 × 150 = 450/s of database, each database at 44%." },
+  { q: "What happens with WHERE id = 1042 on a table in 3 shards?",
+    a: "Without the key, the query goes to all the shards (scatter-gather): an Append over the 3 partitions. With the key, pruning reads only one." },
+  { q: "Does Z improve code organization?",
+    a: "No. It improves cache, I/O and failure isolation. Organization is Y's job." },
+]} />

@@ -1,0 +1,104 @@
+---
+title: "Understanding capacity in systems"
+order: 3
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the store found <code>catalogo-3</code> by looking per replica: the fleet's average CPU, 67.5%, looked calm, and it was at 99%. That leaves a bigger question, how much the catalog can take before the response goes past the goal, and another on the checkout side: what happens when demand goes past what a service can handle.</p>
+
+<OneLiner><strong>Capacity</strong> is the most work the system serves with an acceptable response, and the <strong>bottleneck</strong> is the link where demand goes past capacity: the catalog handles <strong>1,000 req/s</strong> but is only safe up to <strong>700</strong>, and the whole checkout is worth its weakest link, <code>pagamentos</code>, at <strong>40 orders/s</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Chain</strong> scenario, start with 30 orders/s, which get through whole, and step forward to 60. See which block chokes the output and how many orders per second back up. Keep going to the last step, where <code>estoque</code> doubles and the output does not change. The knee of the curve is in the <strong>Knee</strong> scenario of the previous lesson's figure and in the first widget, right below.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/capacidade-3d/?mode=cadeia" poster="labs/performance/capacidade-3d-previa.webp" title="Interactive figure: The checkout chain" alt="Preview of the 3D figure: The checkout chain" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Start with the math for one replica. Each request to the product page uses <strong>10 ms of CPU</strong> (and 10 ms waiting for cache and DB, without occupying the CPU, which module 11 already showed). So 1 s ÷ 10 ms = <strong>100 req/s per replica</strong>, and the 10 replicas give <strong>1,000 req/s</strong>. The "100 requests per second" in module 8 were for <strong>one</strong> replica.</li>
+  <li>But capacity is not "the most before it breaks". Near the limit, requests start waiting for each other, and response time rises as a curve with a <strong>knee</strong>. In the module's toy queue model, R(ρ) = 10 ms + 10 ms ÷ (1 − ρ), where ρ is CPU utilization: <strong>43 ms at 70%</strong>, 60 ms at 80%, 110 ms at 90%, 210 ms at 95% and <strong>1,010 ms at 99%</strong>. That 99% utilization is the Black Friday "2 s", in order of magnitude. That is why the catalog's safe limit is <strong>70%</strong>, 700 req/s.</li>
+  <li>Little's law gives the size of the queue: <strong>L = λ × W</strong>, requests in flight = arrivals per second × time each one takes. At 640 req/s and 0.135 s on average, that is <strong>86.4 requests in flight</strong> across the fleet. <code>catalogo-3</code> alone has 64 req/s × 1.01 s = <strong>64.6</strong>, three quarters of everything, against 2.4 on each healthy replica.</li>
+  <li>Now checkout, in <strong>orders per second</strong>. The order goes through <code>pedidos</code> (3 × 1 vCPU, 33 ms of CPU, capacity <strong>90/s</strong>), through <code>pagamentos</code> (2 × 1 vCPU, 50 ms, <strong>40/s</strong>), through <code>estoque</code> (2 × 1 vCPU, 2 ms, <strong>1,000/s</strong>) and is written to the <code>pedidos</code> DB, a PostgreSQL primary at <strong>150/s</strong>. The <strong>bottleneck</strong> is demand bigger than a link's capacity.</li>
+  <li>Whoever does not see the bottleneck only looks at the total. Today it is <strong>30 orders/s</strong>: <code>pedidos</code> at 33%, <code>pagamentos</code> at <strong>75%</strong> (response of 50 ms ÷ 0.25 = 200 ms, four times the time without a queue) and <code>estoque</code> at 3%. The weakest link already shows, and the math on the total hides it.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="joelho" title="The knee curve: response × utilization" hint="Change the utilization or the req/s (and the replicas, from 1 to 20). The widget computes R(ρ) = 10 + 10 ÷ (1 − ρ), marks the safe 70% and the 99% of the 2 s, and shows the requests in flight (Little)." />
+
+<h3 class="sec">The bottleneck is the link, and it moves</h3>
+
+<p>A <strong>doubled Black Friday</strong> would be 60 orders/s. <code>pedidos</code> gets through (90), but <code>pagamentos</code> only handles <strong>40</strong>: 40 per second go out and <strong>20 per second back up</strong>, 33% degradation. In 60 s that is 1,200 orders waiting, and <code>estoque</code> sits at 4% its whole life. It is the article's math applied to the store: it uses three services of 100, 60 and 300 per second and an input of 120, and the output is 60, 50% of the input, whatever the capacity of the strongest link.</p>
+
+<p>The excess does not vanish: it either <strong>becomes a queue</strong> (and the queue raises response time, by Little's law) or <strong>is dropped</strong> (an error). And there is a second-order effect: fixing one bottleneck sends more load to the next link, which can become the next one. Scaling <code>pagamentos</code> from 2 to 4 replicas takes the chain to min(90, 80, 150) = <strong>80/s</strong>; at 100 orders/s the next link is <code>pedidos</code> (90/s). The bottleneck moves.</p>
+
+<Widget name="cadeia" title="The checkout chain: where demand becomes a queue" hint="Pick the demand (1 to 200 orders/s) and scale each service's replicas. The widget computes the output, the backed-up amount per second, the queue after 60 s, the utilization of each link and which one is the bottleneck." />
+
+<h3 class="sec">Cost per transaction</h3>
+
+<p>Capacity costs too. With 1 replica = 1 vCPU, a fixed fleet of 10 replicas for 24 h is <strong>240 replica-hours</strong>. An elastic fleet, with 10 replicas only for the 4 h of the peak and 2 the rest of the time, spends 10 × 4 + 2 × 20 = <strong>80 replica-hours</strong>, 33% of the fixed one, three times less. The <strong>cost per transaction</strong> is the total cost ÷ the number of transactions (per 1,000 orders, × 1,000): it falls when utilization rises and rises when the fleet sits idle.</p>
+
+<h3 class="sec">If it goes wrong: scaling the wrong link</h3>
+
+<p>Someone looks at the dashboard, sees "checkout slow" and doubles <code>estoque</code> from 2 to 4 replicas (2,000 orders/s of capacity). Nothing changes: the output stays at <strong>40 orders/s</strong>, the 20 per second keep backing up, and the store's CPU bill doubled for a service that was at 4%. The capacity that matters is the weakest link's, and only measuring per link shows which one that is.</p>
+
+<WhyItMatters>
+  <li><strong>Capacity has a unit.</strong> 100 req/s per replica and 1,000 req/s for the catalog fleet; 40 orders/s for checkout.</li>
+  <li><strong>The safe limit sits before 100%.</strong> At 70% the response is 43 ms; at 99% it is 1 s.</li>
+  <li><strong>The weakest link rules.</strong> Checkout's output is worth 40/s, no matter how much <code>estoque</code> can take.</li>
+  <li><strong>Scaling costs.</strong> 240 against 80 replica-hours for the same day, and the cost per transaction shows the idleness.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The checkout table</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Service</th><th>Replicas × vCPU</th><th>CPU per order</th><th>Capacity</th><th>At 30/s</th><th>At 60/s</th></tr></thead>
+    <tbody>
+      <tr><th><code>pedidos</code></th><td>3 × 1</td><td>33 ms</td><td>90/s</td><td>33%</td><td>67%</td></tr>
+      <tr><th><code>pagamentos</code></th><td>2 × 1</td><td>50 ms</td><td>40/s</td><td>75%</td><td>saturated: 40/s out</td></tr>
+      <tr><th><code>estoque</code></th><td>2 × 1</td><td>2 ms</td><td>1,000/s</td><td>3%</td><td>4% (receives 40/s)</td></tr>
+      <tr><th><code>pedidos</code> DB</th><td>1 primary</td><td>measured under load (module 24)</td><td>150/s</td><td>20%</td><td>40%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The capacities are examples, checked with the CPU-per-order math (1 s ÷ 33 ms is 30/s per replica, 3 replicas: 90). The load test in module 24 will measure for real.</p>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Backpressure is something else.</strong> The article uses the fluid-physics definition and gives an example that is about <strong>bottleneck and backing up</strong> (service B backs up 40 per second). In software, "backpressure" usually means the <strong>mechanism</strong> by which the consumer tells the producer to slow down: reactive streams, TCP flow control, <code>429</code> or <code>503</code> with <code>Retry-After</code>. This module calls the example a bottleneck in the chain and leaves the mechanism for module 21, Resilience Patterns. What the article does not say is where the excess goes: it becomes a queue or is dropped.</li>
+    <li><strong>Capacity per replica depends on the mix.</strong> The article treats the 10 or 15 TPS per replica as a constant. They change with the <strong>type</strong> of request (the 20 ms page against the 900 ms search): measure per type, with a load test (module 24).</li>
+  </ul>
+  <h4 class="deep-h">A real load test</h4>
+  <p>The author's public repository has <code>exemplos/load-test/README.md</code>, a performance test report template: goals of p95 under 800 ms, 600 TPS and errors under 0.1%, with a pre-test of <strong>one</strong> replica at 100 req/s and the autoscaling policy. It is what measures capacity per replica, and the center of module 24.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Little's law (Wikipedia)", href: "https://en.wikipedia.org/wiki/Little%27s_law" },
+    { label: "M/M/1 queue (Wikipedia)", href: "https://en.wikipedia.org/wiki/M/M/1_queue" },
+    { label: "Amdahl's law (Wikipedia, the article's reference)", href: "https://pt.wikipedia.org/wiki/Lei_de_Amdahl" },
+    { label: "Author's public repository: exemplos/load-test (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows what each link can take and that the bottleneck rules the rest. <code>pagamentos</code> gives 40 per second, and Black Friday asks for 60. What is missing is how to <strong>increase</strong> capacity: buy a bigger machine for each service, or turn on more identical machines?</p>
+
+<Flashcards cards={[
+  { q: "What is the capacity of one catalog replica?",
+    a: "100 req/s: 1 s ÷ 10 ms of CPU. The 10 replicas give 1,000 req/s. The 10 ms of waiting for cache and DB do not occupy the CPU." },
+  { q: "What is the safe limit and why?",
+    a: "70% CPU (700 req/s): the response is 43 ms. At 90% it is already 110 ms, at 95% it is 210 ms and at 99% it is 1,010 ms." },
+  { q: "How many requests are in flight at the 20:03 peak?",
+    a: "Little: 640 × 0.135 = 86.4. catalogo-3 has 64.6 of them (64 × 1.01), and each healthy replica has 2.4." },
+  { q: "What happens at 60 orders/s in checkout?",
+    a: "pagamentos only gives 40/s: 40 go out and 20 per second back up (1,200 orders in 60 s). estoque sits at 4%." },
+  { q: "Why does doubling estoque not fix it?",
+    a: "The output stays at 40/s, pagamentos' limit, and the CPU bill doubles. Scaling pagamentos to 4 replicas gets to 80/s, and the next link becomes the bottleneck." },
+]} />

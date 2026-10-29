@@ -1,0 +1,93 @@
+---
+title: "X axis: example"
+order: 3
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson X was a division, 640 ÷ 10 = 64, with a ceiling hidden in the database. You can see that division on a cluster, with a hundred requests and the question "who answered?". The author's public repository has no Scale Cube lab, so this is an <strong>SDLabs lab</strong>: three Kubernetes manifests and five commands.</p>
+
+<OneLiner>Cloning is <strong>one command</strong>, and the proof that the copies are identical is that <strong>each answer gives the name of a different pod</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, watch <code>catalogo</code> become copies behind <code>lb-loja</code> and write down how the requests spread out. If you bring the lab up, count the <code>/hostname</code> answers per pod and write down the smallest and the largest number.</p>
+</DoIt>
+
+<Figure3D path="en/labs/scale-cube/cubo-3d/?mode=x" poster="labs/scale-cube/cubo-3d-previa.webp" title="Interactive figure: X axis: cloning" alt="Preview of the 3D figure: X axis: cloning" hint="Drag to rotate · use ← → or Next step · switch the scene in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The lab uses the <code>agnhost</code> image, a test image from Kubernetes itself (the same one as in the "Hello Minikube" tutorial). The <code>netexec</code> command opens an HTTP server on port 8080, and the <code>/hostname</code> path returns the <strong>pod name</strong>. The manifests are in the "Go deeper" section.</li>
+  <li><code>kubectl apply -f catalogo.yaml</code> creates the Deployment (3 replicas), the Service (port 80 to 8080) and the HPA. Then <code>kubectl get pods -l app=catalogo</code> lists <strong>3 pods</strong>, each with the Deployment name plus a suffix.</li>
+  <li>From inside the cluster, in a pod with <code>curl</code>, the loop <code>for i in $(seq 1 100); do curl -s catalogo/hostname; echo; done | sort | uniq -c</code> calls the Service 100 times and counts how many answers each pod gave. With 3 pods, each one answers about a third.</li>
+  <li><code>kubectl scale deployment catalogo --replicas=10</code> takes the Deployment to 10 pods, the catalog from module 7. Repeating the loop, there are 10 names and about 10 answers for each. The manifest's HPA (<code>minReplicas: 10</code>, 70% target) watches the same Deployment and resets the number within its range.</li>
+  <li><code>kubectl delete pod &lt;nome&gt;</code> deletes a pod. The Deployment notices a copy is missing and creates another. That is what makes X simple: copies are disposable and replaced on their own.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The output, with example names</h3>
+
+<p>With 3 pods, the count comes out like this. The names and numbers are <strong>illustrative</strong>: I did not run the manifests in this session, and your terminal will show other suffixes and a similar split, not an identical one.</p>
+
+<pre><code>{"     33 catalogo-7d9c6b6c5f-x2k4q\n     35 catalogo-7d9c6b6c5f-m8p2z\n     32 catalogo-7d9c6b6c5f-t5v9r"}</code></pre>
+
+<p>The split does not need to be exact. The Service picks a pod on each connection, and what matters is that all three names show up. It is the same selection problem as <code>round-robin/main.go</code> in the author's repository, the program that alternated between <code>host1</code>, <code>host2</code> and <code>host3</code> in module 7. Here the choice happens inside the Service.</p>
+
+<h3 class="sec">Four warnings before running</h3>
+
+<ol class="flow steps">
+  <li><code>kubectl port-forward service/catalogo …</code> forwards to <strong>one</strong> pod only. It is no good for seeing the balancing: use the loop from inside the cluster.</li>
+  <li><code>agnhost</code> does not spend real CPU, so the HPA with a 70% target only acts under real load, and the one that generates that load is module 24.</li>
+  <li>With the <code>minReplicas: 10</code> HPA applied, a <code>kubectl scale</code> to a smaller number is undone by the HPA. To see <code>scale</code> on its own, delete the HPA first.</li>
+  <li>The <code>/hostname</code> path and the output above (<code>catalogo-7d9c6b6c5f-x2k4q</code> and the others) are illustrative. The manifests had their syntax checked with a parser, but <strong>were not applied to a cluster</strong>: run them first on <code>kind</code> or <code>minikube</code> and swap the output for the real one.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the pod deleted in the middle of requests</h3>
+
+<p>The pod you deleted was serving traffic. Without a <code>readinessProbe</code> and without graceful shutdown, the Service <strong>keeps sending connections</strong> to it for a few seconds after the pod starts leaving, and those requests fail. Cloning is one command, but <strong>removing a copy without dropping anyone</strong> is not. Module 22 shows how: the readiness signal, the termination signal and the wait time.</p>
+
+<WhyItMatters>
+  <li><strong>X is practical.</strong> <code>kubectl scale</code> goes from 3 to 10 pods, and the store from module 7 is ready.</li>
+  <li><strong>The proof is the name.</strong> Each <code>/hostname</code> answer shows a different pod: the copies are identical and the Service alternates between them.</li>
+  <li><strong>Pods are disposable.</strong> Deleting one makes the Deployment create another. It is the basis of elasticity.</li>
+  <li><strong>Leaving has a protocol.</strong> Without readiness and without graceful shutdown, the deleted pod drops requests.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">The three manifests</h4>
+  <p>One file, <code>catalogo.yaml</code>, with the three resources separated by <code>---</code>. The Deployment creates 3 replicas requesting 1 vCPU and 128 MiB; the Service puts port 80 in front of 8080; the HPA keeps 10 to 20 replicas with a 70% CPU target.</p>
+  <pre><code>{"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: catalogo\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: catalogo\n  template:\n    metadata:\n      labels:\n        app: catalogo\n    spec:\n      containers:\n        - name: catalogo\n          image: registry.k8s.io/e2e-test-images/agnhost:2.53\n          command: [\"/agnhost\", \"netexec\", \"--http-port=8080\"]\n          ports:\n            - containerPort: 8080\n          resources:\n            requests:\n              cpu: \"1\"\n              memory: 128Mi\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: catalogo\nspec:\n  selector:\n    app: catalogo\n  ports:\n    - port: 80\n      targetPort: 8080\n---\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: catalogo\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: catalogo\n  minReplicas: 10\n  maxReplicas: 20\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70"}</code></pre>
+  <h4 class="deep-h">The commands, in order</h4>
+  <pre><code>{"kubectl apply -f catalogo.yaml\nkubectl get pods -l app=catalogo\n\n# from inside the cluster (a pod with curl):\nfor i in $(seq 1 100); do curl -s catalogo/hostname; echo; done | sort | uniq -c\n\nkubectl scale deployment catalogo --replicas=10\nkubectl delete pod <nome>"}</code></pre>
+  <p>Without Kubernetes, <code>docker compose up --scale catalogo=3</code> does the same exercise with containers and is an alternative for a machine that cannot run <code>kind</code>.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Scale Cube (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/cubo-escalabilidade/" },
+    { label: "Kubernetes: Service", href: "https://kubernetes.io/docs/concepts/services-networking/service/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+    { label: "Kubernetes: Hello Minikube tutorial", href: "https://kubernetes.io/docs/tutorials/hello-minikube/" },
+    { label: "Kubernetes: agnhost image README (netexec and /hostname)", href: "https://raw.githubusercontent.com/kubernetes/kubernetes/master/test/images/agnhost/README.md" },
+    { label: "Author's public repository: round-robin/main.go (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-balancing/algoritmos/round-robin" },
+  ]} />
+</Deep>
+
+<p class="gancho">Ten copies of the same catalog treat all the store's functions as one. What is left is knowing what to do when the problem is that the functions are <strong>different</strong>: a 4 vCPU report does not have the same profile as a 10 ms page. That is the Y axis.</p>
+
+<Flashcards cards={[
+  { q: "What proves that the copies of a Deployment are identical?",
+    a: "Each /hostname answer carries the name of a different pod, and the count of the 100 calls is split among all of them." },
+  { q: "Which command takes the catalog from 3 to 10 pods?",
+    a: "kubectl scale deployment catalogo --replicas=10. With the minReplicas 10 HPA applied, the HPA undoes a smaller number." },
+  { q: "Why is port-forward no good for seeing the balancing?",
+    a: "It forwards to one pod only. You need to call the Service from inside the cluster." },
+  { q: "What happens when you delete a pod from a Deployment?",
+    a: "The Deployment notices a copy is missing and creates another. Copies are disposable." },
+  { q: "What can go wrong when you delete a pod that is serving requests?",
+    a: "Without a readinessProbe and without graceful shutdown, the Service sends connections to the pod for a few seconds and they fail (module 22)." },
+]} />

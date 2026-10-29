@@ -1,0 +1,97 @@
+---
+title: "Capacity formula and HPA"
+order: 5
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the store saw that more replicas give more capacity and that headroom protects against a drop. What is left is deciding how many to turn on and when, without anyone watching the dashboard. Kubernetes does this with the HPA, the Horizontal Pod Autoscaler, and its math fits on one line.</p>
+
+<OneLiner>The HPA formula turns a metric into a number of replicas: <strong>desired = ⌈ current × current value ÷ desired value ⌉</strong>. At the 950 req/s peak, 10 replicas at 95% CPU with a 70% target become <strong>14</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>HPA</strong> scenario, step forward and watch the 10 replicas become 14 in one step, with CPU falling from 95% to 67.9%. In the last step, the peak arrives late. Then press <strong>HPA average</strong> and see <code>catalogo-3</code> at 99% while the fleet average stays at 67.5%: with a 70% target nothing happens, and with 80% the HPA removes a replica.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/capacidade-3d/?mode=hpa" poster="labs/performance/capacidade-3d-previa.webp" title="Interactive figure: The HPA formula" alt="Preview of the 3D figure: The HPA formula" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The HPA compares what it measures with what you want and adjusts the fleet in the same proportion, like an air conditioner thermostat that raises power when the room heats up and lowers it when it cools. The math: <strong>desired = ⌈ current × current ÷ desired ⌉</strong>. The <code>⌈ ⌉</code> rounds <strong>up</strong>, because half a replica does not exist and being short costs more than having extra.</li>
+  <li>With <strong>CPU</strong>: the peak rises to <strong>950 req/s</strong>, the 10 replicas sit at <strong>95%</strong> (response of 210 ms) and the target is <strong>70%</strong>. ⌈ 10 × 95 ÷ 70 ⌉ = ⌈13.57⌉ = <strong>14 replicas</strong>. Afterward, 950 ÷ 1,400 = <strong>67.9%</strong> CPU and a 41.1 ms response.</li>
+  <li>With <strong>throughput</strong>: if a replica should receive at most 70 req/s, ⌈ 950 ÷ 70 ⌉ = <strong>14</strong>, the same math, because CPU and req/s move together in the catalog. The default scale-up policy allows +4 pods <strong>or</strong> +100% every 15 s, whichever is larger, so 10 to 14 fits in <strong>one</strong> step.</li>
+  <li>The real HPA has rules the formula does not show. It polls every <strong>15 s</strong>. It ignores the difference if the ratio is within <strong>10%</strong> of 1.0 (the default tolerance). CPU utilization is the % of the pod's <strong>requests</strong>, averaged across pods, and so the <code>requests</code> must be set. And on the way down there is a <strong>300 s stabilization window</strong>, so the fleet does not oscillate.</li>
+  <li>Davi's order <strong>1052</strong> comes back here. His <code>504</code> made Davi reload the page: every error becomes one more request. With 1% errors at 640 req/s that is 6.4 extra req/s, little, and they fall on replicas that are already full. The HPA math sees that traffic as demand, without knowing that part of it is retries.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="hpa" title="HPA calculator" hint="Pick a preset (95% peak, 67.5% average with a hot replica, 1,100 req/s peak, the article's examples) or type replicas, current metric, target, tolerance, minimum and maximum. The widget applies the ceil, the tolerance and shows the reaction timeline and the lost requests." />
+
+<h3 class="sec">If it goes wrong (a): the average hides the hot replica</h3>
+
+<p><code>catalogo-3</code> is at 99% and the other 9 at 64%, and the fleet's average CPU is (9 × 64 + 99) ÷ 10 = <strong>67.5%</strong>. With a <strong>70%</strong> target, the ratio is 0.964, within the 10% tolerance: the HPA <strong>does nothing</strong> and <code>catalogo-3</code> stays at 99%. With an <strong>80%</strong> target, the ratio is 0.844 and ⌈ 10 × 0.844 ⌉ = <strong>9</strong>: the HPA <strong>removes</strong> a replica at the worst moment (the 300 s window delays the scale-down, but it comes). With a <strong>60%</strong> target, 1.125 gives <strong>12</strong>. The average does not see the imbalance. The fix is in the load balancer (module 7) and in p95 and p99 per replica.</p>
+
+<h3 class="sec">If it goes wrong (b): the peak that arrives faster than the HPA</h3>
+
+<p>Between 20:03 and 20:04 demand rises from 640 to <strong>1,100 req/s in 10 s</strong>, with capacity at 1,000. The HPA computes ⌈ 10 × 110 ÷ 70 ⌉ = <strong>16</strong>, but between the metric arriving (about 15 s of delay), the decision (15 s) and the pod becoming ready (about 30 s), <strong>60 s</strong> go by. In that time 100 req/s are left above capacity: 100 × 60 = <strong>6,000 requests</strong> rejected or delayed, 9.1% of the 66,000 in the minute.</p>
+
+<p>Pods that are not ready yet enter the HPA math as <strong>0%</strong> usage, which cushions the next rise. The fix is to have <strong>headroom</strong> (a lower target) and to raise the <strong>minimum replicas</strong> before known events: the 20:00 newsletter is known, and that is the scheduled planning from module 23.</p>
+
+<WhyItMatters>
+  <li><strong>One line decides the fleet.</strong> 95% with a 70% target is 14 replicas, and the math can be checked by hand.</li>
+  <li><strong>CPU and throughput lead to the same number</strong> when they move together, and throughput is easier to plan.</li>
+  <li><strong>The average can lie.</strong> 67.5% with a hot replica scales nothing up and, with an 80% target, still removes a replica.</li>
+  <li><strong>The HPA reacts afterward.</strong> The 60 s of delay cost 6,000 requests on a jump to 1,100 req/s, and only headroom and scheduled scaling avoid it.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The math, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Scenario</th><th>Replicas</th><th>Current ÷ target</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>95% peak, target 70%</th><td>10</td><td>95 ÷ 70</td><td>⌈13.57⌉ = 14</td></tr>
+      <tr><th>Average 67.5%, target 70%</th><td>10</td><td>0.964 (tolerance)</td><td>10, does nothing</td></tr>
+      <tr><th>Average 67.5%, target 80%</th><td>10</td><td>0.844</td><td>⌈8.44⌉ = 9</td></tr>
+      <tr><th>Average 67.5%, target 60%</th><td>10</td><td>1.125</td><td>⌈11.25⌉ = 12</td></tr>
+      <tr><th>1,100 req/s peak (110%), target 70%</th><td>10</td><td>110 ÷ 70</td><td>⌈15.71⌉ = 16</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the base article: the HPA math</h4>
+  <ul>
+    <li><strong>The CPU example.</strong> The article gives 6 replicas of 200m and says "Available resource: 600m", with 1,200m used and 200% utilization, and arrives at 15 replicas. Six replicas of 200m have <strong>1,200m</strong> available; with 1,200m used the utilization is <strong>100%</strong>, and the formula gives ⌈ 6 × 100 ÷ 80 ⌉ = <strong>8</strong>. The article's 15 only works out with 2,400m used (200%): ⌈ 6 × 200 ÷ 80 ⌉ = 15. Utilization is the % of the pod's <strong>requests</strong>, averaged across pods (the documentation).</li>
+    <li><strong>The throughput example.</strong> 10,000 requests in one minute are 166.66 req/s, or 27.78 per replica with 6 replicas; 6 × 27.78 ÷ 15 = 11.11. The article concludes 11 (rounded down). The HPA uses <strong>ceil</strong>, so it is <strong>12</strong>. With 11 replicas, each one receives 15.15 req/s, above the declared 15.</li>
+    <li><strong>The real HPA.</strong> The article shows only the formula. Missing are the ceil, the 10% tolerance, the 300 s stabilization window on scale-down, the scale-up policies (+4 pods or +100% every 15 s), the handling of pods that are not ready yet and the requirement that <code>requests</code> be set.</li>
+    <li><strong>The references.</strong> "Test of the New Infortrend CS Scale-Out NAS Cluster" (storage, unrelated to the text), "Stupid Simple Scalability" and the Nomad Autoscaler slides are dropped. The learnk8s instance calculator comes in as extra reading.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling (algorithm, tolerance, stabilization)", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+    { label: "Kubernetes: HorizontalPodAutoscaler walkthrough", href: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/" },
+    { label: "learnk8s: Kubernetes instance calculator (the article's reference)", href: "https://learnk8s.io/kubernetes-instance-calculator" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now decides the fleet with one calculation and knows where the HPA goes wrong: in the average, in the delay and in what it does not see. What is missing is what all this <strong>leaves unsolved</strong>: with the services' replicas on, which link becomes the next bottleneck, and what else, besides machines, increases capacity.</p>
+
+<Flashcards cards={[
+  { q: "What is the HPA formula?",
+    a: "desired = ⌈ current × current ÷ desired ⌉. It rounds up, ignores ratios within 10% of 1.0 and polls every 15 s." },
+  { q: "How many replicas at the 950 req/s peak, with a 70% target?",
+    a: "⌈ 10 × 95 ÷ 70 ⌉ = 14, and then 950 ÷ 1,400 = 67.9% CPU. By throughput (target of 70 req/s per replica) also 14." },
+  { q: "What does the HPA do with a 67.5% average and a 70%, 80% and 60% target?",
+    a: "70%: nothing (within tolerance). 80%: 9 replicas, removes one. 60%: 12. The average does not see catalogo-3 at 99%." },
+  { q: "Why does the jump to 1,100 req/s cost 6,000 requests?",
+    a: "Metric (15 s) + decision (15 s) + pod ready (30 s) = 60 s. 100 req/s are left over the 1,000 capacity: 100 × 60 = 6,000, 9.1% of the 66,000." },
+  { q: "How do you fix the HPA delay?",
+    a: "With headroom (a lower target) and a minimum replica count before the known event, such as the 20:00 newsletter (module 23 planning)." },
+]} />

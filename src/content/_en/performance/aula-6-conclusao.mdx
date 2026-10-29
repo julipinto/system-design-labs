@@ -1,0 +1,88 @@
+---
+title: "Conclusion"
+order: 6
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the store learned to compute the fleet with the HPA formula and to see where it fails. With that in hand, you can pull the whole module together and ask what replicas solve and what they leave out. The answer is a table of measured numbers, and a bottleneck that moved all the way to the DB.</p>
+
+<OneLiner>Performance, capacity and scalability are <strong>the same problem seen at three moments</strong>: measure, limit and grow. And growing is not just turning on machines, because algorithm, index, cache, queue and parallelism raise capacity <strong>per vCPU</strong> before you buy another.</OneLiner>
+
+<DoIt>
+  <p>The figure opens in the <strong>Chain</strong> scenario, at the step where the store receives 200 orders/s. Go back with the ← arrow and follow the weakest link move: first <code>pagamentos</code> (40/s), then <code>pedidos</code> (90/s) and finally the <code>pedidos</code> DB (150/s). Note at which value service replicas stop helping.</p>
+</DoIt>
+
+<Figure3D path="en/labs/performance/capacidade-3d/?mode=cadeia&step=5" poster="labs/performance/capacidade-3d-previa.webp" title="Interactive figure: The checkout chain" alt="Preview of the 3D figure: The checkout chain" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The three moments chain together. <strong>Measure</strong> (lessons 1 and 2) says what the user feels and where: three points, four signals, percentiles. <strong>Limit</strong> (lesson 3) says what the system can take: capacity, knee, bottleneck. <strong>Grow</strong> (lessons 4 and 5) says how to add capacity: vertical, horizontal, the HPA formula. Without the first, the third is a guess.</li>
+  <li>The module's measured numbers fit in a table, and module 23 (Capacity Planning) uses it to forecast the next Black Friday. The 20:03 peak was <strong>640 req/s</strong> with a p50 of <strong>32 ms</strong>, p95 of <strong>800 ms</strong>, p99 of <strong>2,000 ms</strong> and <strong>1%</strong> errors. The hot replica sat at <strong>99%</strong> and the fleet at <strong>67.5%</strong>. The catalog gives <strong>1,000 req/s</strong> (10 × 100) and is safe up to <strong>700</strong>. Checkout does <strong>30 orders/s</strong>, with <code>pagamentos</code> (<strong>40/s</strong>) as the weakest link and the <code>pedidos</code> DB capped at <strong>150/s</strong>.</li>
+  <li>Scaling is not only infrastructure either. If a request uses 10 ms of CPU, the catalog gives 100 req/s per replica. A better <strong>algorithm</strong> or an <strong>index</strong> (module 4) that cuts those 10 ms in half doubles the capacity per vCPU. <strong>Cache</strong> (module 5) takes the request off the DB, a <strong>queue</strong> (module 13) takes the work off the response path, and <strong>parallelism</strong> (module 11) uses each vCPU better. All of this is done before buying another machine.</li>
+  <li>The bottleneck moved. With <code>pagamentos</code> at 4 replicas (80/s), the next link at 100 orders/s is <code>pedidos</code> (90/s). With <code>pedidos</code> and <code>pagamentos</code> scaled, the link is the <strong><code>pedidos</code> DB, 150/s</strong>: service replicas <strong>no longer</strong> solve it, because writes still go to a single primary.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">If it goes wrong: we scaled estoque</h3>
+
+<p>The checkout dashboard turned red and the first action was to double <code>estoque</code>: from 2 to 4 replicas, 2,000 orders/s of capacity for a service that was using 4%. Checkout's output stayed at <strong>40 orders/s</strong>, <code>pagamentos</code>' limit, and <code>estoque</code>'s CPU bill doubled. The number that decides what to scale is the capacity measured per link, and it was in the lesson 3 table.</p>
+
+<WhyItMatters>
+  <li><strong>The three moments have an order.</strong> Measure, limit and grow, in that sequence, avoid scaling what is not the problem.</li>
+  <li><strong>The module's table is reusable.</strong> Module 23 starts from the same 640 req/s, 1,000 of capacity and 150 orders/s of the DB.</li>
+  <li><strong>Capacity per vCPU is also a lever.</strong> Cutting the page's CPU from 10 to 5 ms doubles each replica's 100 req/s.</li>
+  <li><strong>The bottleneck moves to where replicas do not reach.</strong> Here, the <code>pedidos</code> DB at 150/s.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The numbers the module delivers</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>What</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><th>20:03 peak</th><td>640 req/s (38,400 per minute)</td></tr>
+      <tr><th>Response time (sample of 100)</th><td>average 135 · p50 32 · p95 800 · p99 2,000 ms</td></tr>
+      <tr><th>Errors</th><td>1% (goal: under 0.1%)</td></tr>
+      <tr><th>CPU</th><td><code>catalogo-3</code> at 99%; fleet at 67.5%</td></tr>
+      <tr><th>Catalog capacity</th><td>1,000 req/s; safe up to 700 (70%)</td></tr>
+      <tr><th>Checkout today</th><td>30 orders/s; weakest link: <code>pagamentos</code> (40/s)</td></tr>
+      <tr><th><code>pedidos</code> DB</th><td>cap of 150 orders/s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">A real report</h4>
+  <p>The author's public repository has <code>exemplos/load-test/README.md</code>, a performance test report template: goals of p95 under 800 ms, 600 TPS and errors under 0.1%, with a pre-test of <strong>one</strong> replica at 100 req/s and the autoscaling policy. It is the center of module 24, where this module's numbers, which are examples, start being measured.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li><strong>Request baseline.</strong> The article treats the 10 or 15 TPS per replica as a constant. Capacity depends on the request mix: the 20 ms page and the 900 ms search weigh differently, and only a load test, per request type, shows the real number.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on performance, capacity and scalability (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/performance-capacidade-escalabilidade/" },
+    { label: "Michael T. Nygard, Release It! (book; no verifiable link)" },
+    { label: "Google SRE book: table of contents", href: "https://sre.google/sre-book/table-of-contents/" },
+    { label: "Author's public repository: exemplos/load-test (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store has already grown sideways, with replicas (module 7), and by function, with services (module 6). The <code>pedidos</code> DB grows by neither: it is at 150 orders per second and the next Black Friday asks for more. What is missing is the <strong>shape</strong> of growth for each bottleneck, and what it takes to have a map. That map is the <strong>Scale Cube</strong>, in module 15.</p>
+
+<Flashcards cards={[
+  { q: "What are the module's three moments?",
+    a: "Measure (what is felt and where), limit (what it can take: capacity, knee, bottleneck) and grow (vertical, horizontal, HPA)." },
+  { q: "What are the measured numbers of the 20:03 peak?",
+    a: "640 req/s; p50 32, p95 800 and p99 2,000 ms; 1% errors; catalogo-3 at 99%, fleet at 67.5%; catalog at 1,000 req/s (safe up to 700); checkout 30 orders/s; pedidos DB 150/s." },
+  { q: "What raises capacity per vCPU before buying a machine?",
+    a: "Algorithm, index (module 4), cache (5), queue (13) and parallelism (11): each one reduces the CPU spent per request." },
+  { q: "Where did the bottleneck move?",
+    a: "From pagamentos (40/s) to pedidos (90/s) and from it to the pedidos DB (150/s), where service replicas do not help." },
+  { q: "What does module 15 solve?",
+    a: "The map of the ways to grow (Scale Cube): X replicas, Y services and Z parts of the data. The pedidos DB needs a shape we do not use yet." },
+]} />
