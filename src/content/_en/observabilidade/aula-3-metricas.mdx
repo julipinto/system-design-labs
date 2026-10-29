@@ -1,0 +1,109 @@
+---
+title: "Metrics"
+order: 3
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson Lena waited 1.9 s, the dashboard was green and support had only the code <code>9c1e5a7b</code>. The first signal the team opens is the <strong>metric</strong>, because it is the cheapest and the most aggregated. But why did a percentile dashboard not see that order?</p>
+
+<OneLiner>The <strong>metric</strong> says <strong>that</strong> something changed and <strong>how much</strong>, at low cost. It has three types (counter, <em>gauge</em>, histogram) and its <strong>labels</strong> cost <strong>cardinality</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the <strong>Histogram and percentiles</strong> widget, change the <em>bucket</em> limit from 2.5 to <strong>2.0</strong> and watch p99.9 get close to 1.9 s. In the figure, in the <strong>Metrics</strong> scenario, follow the same <em>buckets</em> filling up and the episode of 8 slow orders. Then put <code>cliente_id</code> as a label in the <strong>Cardinality</strong> widget.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/sinais-3d/?mode=metricas" poster="labs/observabilidade/sinais-3d-previa.webp" title="Interactive figure: Metrics: the histogram" alt="Preview of the 3D figure: Metrics: the histogram" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Counter.</strong> It only goes up (or goes back to zero when the service restarts). <code>http_server_requests_total</code> counts requests. A counter alone says little; what matters is how much it rises per second, the Prometheus <code>rate()</code> function.</li>
+  <li><strong>Gauge.</strong> It goes up and down: <code>db_pool_connections_in_use</code>, <code>replication_lag_seconds</code> (the RPO from module 27). It keeps the <strong>last value</strong>, and nothing else.</li>
+  <li><strong>Histogram.</strong> It keeps the distribution: a <strong>cumulative</strong> count per value range, the <em>buckets</em>. It is the right type for response time.</li>
+  <li><strong>Percentile.</strong> It comes out of the histogram by <strong>linear interpolation</strong> inside the <em>bucket</em> where the percentile falls. The precision depends on where the <em>buckets</em> are.</li>
+  <li><strong>Label.</strong> <code>servico</code>, <code>rota</code>, <code>status</code> and <code>celula</code> split one metric into many <strong>series</strong>. Each combination of values is a stored series, and the count grows fast.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The 1063 histogram</h3>
+
+<p>Take a window of <strong>1,000 requests</strong> (200 s at 5 per second) of <code>POST /pedidos</code>, measured by <code>http_server_request_duration_seconds</code>. The <em>buckets</em> have limits (<code>le</code>, "less than or equal") at 0.05 · 0.1 · 0.25 · 0.5 · 0.8 · 1 · 2.5 · 5 and +Inf. The 0.8 is there on purpose: it is the SLO limit. The counts are <strong>cumulative</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><code>le</code> (s)</th><th>0.05</th><th>0.1</th><th>0.25</th><th>0.5</th><th>0.8</th><th>1</th><th>2.5</th><th>5</th><th>+Inf</th></tr></thead>
+  <tbody>
+    <tr><th>requests up to there</th><td>0</td><td>0</td><td><strong>400</strong></td><td><strong>975</strong></td><td><strong>992</strong></td><td><strong>992</strong></td><td><strong>1,000</strong></td><td>1,000</td><td>1,000</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The percentile comes from an interpolation. <strong>p50</strong> is request number 500, which is in the 0.25 to 0.5 <em>bucket</em> (from the 400th to the 975th value). Inside it, the values are assumed to be <strong>spread in a straight line</strong>: 0.25 + (500 − 400) ÷ (975 − 400) × 0.25 = <strong>0.293 s</strong>. <strong>p95</strong> (the 950th) falls in the same <em>bucket</em>: 0.25 + 550 ÷ 575 × 0.25 = <strong>0.489 s</strong>. <strong>p99</strong> (the 990th) falls in the 0.5 to 0.8 one: 0.5 + 15 ÷ 17 × 0.3 = <strong>0.765 s</strong>, below the 0.8 s SLO. <strong>p99.9</strong> (the 999th) falls in the 1 to 2.5 one: 1 + 7 ÷ 8 × 1.5 = <strong>2.3125 s</strong>.</p>
+
+<Widget name="histograma" title="Histogram and percentiles" hint="Editable bucket limits and cumulative counts (1063: 400 · 975 · 992 · 992 · 1,000). Shows p50, p95, p99 and p99.9 by interpolation, the real value in the window and the average. The 'average the p99s' button redoes the math from module 14 (269 × 2,000)." />
+
+<p>What 1063 shows is this rule: <strong>the episode moves neither p95 nor p99</strong>. Eight orders in 1,000 is 0.8%, and p99 discards exactly the 10 slowest. The dashboard stays green and Lena waited 1.9 s. <strong>p99.9</strong> already sees the 8, but gives 2.3125 s for a value that is about 1.9 s: the 1 to 2.5 <em>bucket</em> is wide, and the interpolation only knows the value is somewhere inside. What sets the precision is the <strong>limits of the <em>buckets</em></strong>. Put one near the SLO (0.8) and another near what you fear (2.0).</p>
+
+<h3 class="sec">Percentiles do not add up</h3>
+
+<p>In module 14, each replica sent its p99 to the dashboard, and the dashboard took the average: (4 × 55 + 5 × 74 + 2,100) ÷ 10 = <strong>269 ms</strong>. The true fleet p99, over the 100 requests together, was <strong>2,000 ms</strong>. A percentile <strong>cannot be added or averaged</strong>: Prometheus says quantiles do not aggregate. The right way is to sum the <em>bucket</em> counts from all replicas and compute the percentile <strong>again</strong>. You can look at the same thing from the other side: the average hides the distribution, and <code>catalogo-3</code> at 99% vanished in a fleet at 67.5%.</p>
+
+<h3 class="sec">Technical and business</h3>
+
+<p>The article separates two families. The <strong>technical</strong> ones measure the software: response time, <em>status</em> counters, <em>breaker</em> state. The <strong>business</strong> ones measure what the domain considers success: <code>pedidos_criados_total&#123;celula&#125;</code>, <code>pagamentos_recusados_total&#123;motivo&#125;</code> and the one that found the wrong shipping in lesson 1, <code>pedidos_frete_zero_total&#123;cidade="recife"&#125;</code>. Both sit on the same dashboard. The business ones are the ones that report "available and wrong".</p>
+
+<h3 class="sec">Labels cost series</h3>
+
+<p>Each label splits the metric. In the store: <code>servico</code> (7 values) × <code>rota</code> (12) × <code>status</code> (6) × <code>celula</code> (4) = <strong>2,016 combinations</strong>. A histogram generates <strong>11 series</strong> per combination (8 <code>le</code>, the <code>+Inf</code>, the <code>_sum</code> and the <code>_count</code>): 2,016 × 11 = <strong>22,176 series</strong>. That is fine for a Prometheus. If someone puts <code>cliente_id</code> as a label, it is 22,176 × 1,500,000 = <strong>33.3 billion</strong>. <code>cliente_id</code>, <code>pedido_id</code> and <code>trace_id</code> are <strong>almost unique</strong> values, and almost unique is the opposite of a label: their place is the <strong>log</strong> and the <em>trace</em>.</p>
+
+<Widget name="cardinalidade" title="Cardinality" hint="Labels with the number of values (servico 7, rota 12, status 6, celula 4, versao, cliente_id 1.5 M) and the metric type (counter or 11-series histogram). Shows the series (2,016 · 22,176 · 33.3 billion) and warns when it goes past reasonable." />
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p>There are two ways for a metric to fail without being broken. The first is <strong><code>cliente_id</code> as a label</strong>: 33.3 billion series take down the metrics server, and the dashboard disappears exactly when it is needed most. The second is the <strong>wide <em>bucket</em></strong>: p99.9 gives 2.31 s for a 1.9 s value, and whoever trusts the number looks for the problem in the wrong place. In both cases the metric says <strong>that</strong> something is there and does not let you find <strong>what</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>The metric is the cheapest.</strong> With 22,176 series, the whole store fits on one dashboard per cell.</li>
+  <li><strong>The percentile depends on the <em>buckets</em>.</strong> p99 = 0.765 s, p99.9 = 2.3125 s for a 1.9 s value.</li>
+  <li><strong>The episode stays outside p99.</strong> Eight in 1,000 is 0.8%; the metric shows <em>that</em> there is a problem, not <em>which</em> orders.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where Prometheus comes in and where it does not</h4>
+  <p>The interpolation is the one in Prometheus <code>histogram_quantile</code>: it assumes a uniform distribution inside the <em>bucket</em>. The queries appear as an example of shape, with no "real" output: no Prometheus was run, and the histogram is a window <strong>defined</strong> in this module.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Response times" as a <em>gauge</em>.</strong> The article gives the wrong example: a <em>gauge</em> keeps the last value and loses the distribution. Response time is a <strong>histogram</strong>. The article is right to talk about histograms and percentiles; what is missing is saying that the percentile does <strong>not</strong> aggregate and that the precision depends on the <em>buckets</em>.</li>
+    <li><strong>Cardinality is missing.</strong> The article does not talk about the cost of labels. The math (2,016 → 22,176 → 33.3 billion) is here.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Prometheus: metric types", href: "https://prometheus.io/docs/concepts/metric_types/" },
+    { label: "Prometheus: histograms and summaries", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Prometheus: metric and label naming", href: "https://prometheus.io/docs/practices/naming/" },
+    { label: "Google SRE book: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The metric says that 8 orders took more than 1 s, but it does not say <strong>which</strong>, and it never will: <code>pedido_id</code> does not fit in a label. What is missing is where <strong>what happened to that order</strong> lives. That is lesson 4, the logs.</p>
+
+<Flashcards cards={[
+  { q: "What are the three metric types and what is each one for?",
+    a: "Counter (only goes up; you use rate()), gauge (goes up and down, keeps the last value) and histogram (the distribution, in cumulative buckets). Response time is a histogram." },
+  { q: "What are p50, p95, p99 and p99.9 of the 1063 histogram?",
+    a: "0.293 · 0.489 · 0.765 · 2.3125 s. The 8 slow orders move neither p95 nor p99." },
+  { q: "Why is the p99.9 of 2.3125 s not the real value?",
+    a: "The 1 to 2.5 s bucket is wide and the interpolation only knows the value is somewhere inside. The real value is ~1.9 s; with a bucket at 2.0 the p99.9 gives ~1.875 s." },
+  { q: "Why do you not average the p99 of several replicas?",
+    a: "Because percentiles do not add up: the average of the p99s in module 14 gave 269 ms, and the true fleet p99 was 2,000 ms. You sum the buckets and compute again." },
+  { q: "How much cardinality fits in the store's labels, and what does cliente_id do?",
+    a: "7 × 12 × 6 × 4 = 2,016 combinations × 11 series = 22,176. With cliente_id (1.5 million): 33.3 billion. Ids go in the log and the trace, not in the metric." },
+]} />

@@ -1,0 +1,99 @@
+---
+title: "Logs"
+order: 4
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The metric showed that 8 orders took more than 1 s and did not say which, because <code>pedido_id</code> does not fit in a label. The answer to "what happened to <strong>that</strong> order?" lives in the <strong>log</strong>: a timestamped record of something the service did. But each service writes its own, and there are five on Lena's path.</p>
+
+<OneLiner>The log is the <strong>diary of an event</strong>: what happened to <strong>that</strong> order. It is only worth it if it is <strong>structured</strong> and <strong>correlatable</strong> (<code>trace_id</code>, <code>pedido_id</code>, <code>celula</code>, <code>versao</code>), and what limits it is the <strong>cost</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Logs</strong> scenario, advance to <strong>Filter by the trace_id of 1063</strong> and read the <strong>WARN</strong>. Then, in the <strong>Log cost</strong> widget, change the level from INFO to DEBUG and see the GB per day.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/sinais-3d/?mode=logs" poster="labs/observabilidade/sinais-3d-previa.webp" title="Interactive figure: Logs: the order's diary" alt="Preview of the 3D figure: Logs: the order's diary" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Six levels.</strong> <strong>TRACE</strong> (every internal step), <strong>DEBUG</strong> (why the system decided that way; the article ties it to crises), <strong>INFO</strong> (the facts of the flow), <strong>WARN</strong> (a deviation the system recovered from), <strong>ERROR</strong> (the operation failed) and <strong>FATAL</strong> (the process cannot go on).</li>
+  <li><strong>The actionable WARN.</strong> A good WARN brings context for triage and shows up <strong>before</strong> the incident. The <code>estoque</code> <code>espera por lock</code> is one: it was written before Lena wrote in.</li>
+  <li><strong>ERROR is a triage log.</strong> It says what failed, why, where, and how to find the rest of the flow (the <code>trace_id</code>).</li>
+  <li><strong>Structure.</strong> JSON with fixed fields (<code>trace_id</code>, <code>pedido_id</code>, <code>celula</code>, <code>servico</code>, <code>versao</code>, <code>level</code>) instead of free text. You can filter and sum by field.</li>
+  <li><strong>Index only some.</strong> Indexing the text of every line costs a lot. With fixed fields, you index the <code>trace_id</code> and the <code>level</code>, and the rest stays compressed and cheap, searched only afterwards.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The five lines of 1063</h3>
+
+<p>Lena's order goes through five services, and each writes about three INFO lines. Among the roughly 15 lines of the order, these five, from three services (<code>pedidos</code> writes two), tell the story, and the <code>trace_id</code> joins them. In time order:</p>
+
+<pre><code>{`{"ts":"2026-12-03T15:30:07.412-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"POST /pedidos","cliente_id":"lena-77"}
+{"ts":"2026-12-03T15:30:07.422-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido aceito","itens":1,"total":74.70}
+{"ts":"2026-12-03T15:30:09.068-03:00","level":"WARN","servico":"estoque","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","span_id":"6d1f0a2b9e3c4a58","msg":"espera por lock","sku":"CANECA-007","lock_wait_ms":1620,"holder":"contagem-estoque","holder_pid":4412}
+{"ts":"2026-12-03T15:30:09.302-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido criado","total":74.70}
+{"ts":"2026-12-03T15:30:09.307-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"resposta","status":201,"duracao_ms":1895}`}</code></pre>
+
+<p>Read it in order. The first line is the entry at <code>gw-loja</code>. The third is the one that explains: <code>estoque</code> waited <strong>1,620 ms</strong> for a <em>lock</em> that <code>contagem-estoque</code> (the <code>holder_pid</code> 4412) held on the <code>CANECA-007</code> row. The last one closes it: <code>201</code>, <strong>1,895 ms</strong>. No line alone tells the story, and the five, with the same <code>trace_id</code>, do. Order 1047 from module 6 had 5 lines joined by <code>7f3a…</code>; it is the same mechanism, and that full id is <code>7f3a9c0e5b2d4186a9e3c7d1f0b84e26</code>. (The log fields and messages are kept in Portuguese, as the services write them.)</p>
+
+<p>Two details. The <code>cliente_id</code> may go in the log (it identifies the order), and the customer's <strong>CPF</strong> and <strong>token</strong> may not: personal data and secrets go in masked or do not go in at all. And the <code>trace_id</code> does not replace the timestamp, it only completes it: clocks on different machines diverge by a few milliseconds.</p>
+
+<h3 class="sec">What the diary costs</h3>
+
+<p>The math has few pieces. Each order goes through <strong>5 services</strong>, with ~<strong>3 INFO lines</strong> each, of ~<strong>300 B</strong> in JSON: 5 × 3 × 300 = <strong>4.5 KB per order</strong>. The catalog writes <strong>1 line of 250 B</strong> per request. On a normal day, at 5 orders per second and 40 req/s on the catalog (module 14): 5 × 4.5 = 22.5 KB/s, plus 40 × 250 B = 10 KB/s, or <strong>32.5 KB/s</strong> = <strong>2.81 GB per day</strong>.</p>
+
+<p>Now the Black Friday peak, with <strong>30 orders per second</strong> and <strong>640 req/s</strong>, in a conservative calculation that assumes the peak lasts all day: 135 KB/s + 160 KB/s = 295 KB/s, <strong>25.5 GB per day</strong>, and <strong>765 GB</strong> over 30 days of retention. With <strong>DEBUG</strong> on (the article says it is "used in crises"), about 10 times more: <strong>255 GB per day</strong>.</p>
+
+<Widget name="custo-log" title="Log cost" hint="Orders per second, catalog req/s, lines per service, bytes, level (INFO or DEBUG ×10) and retention. Shows the GB per day and the total retained (2.81 · 25.5 · 255 GB/day; 765 GB in 30 days)." />
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>DEBUG on during Black Friday.</strong> Someone opens the level to understand a defect and forgets it. That is 255 GB per day, the ingestion cost goes up and search gets slow exactly when you need it. The way out is to open DEBUG per <strong>service and for a limited time</strong>, not across the whole store.</p>
+
+<p><strong>Personal data in the log.</strong> A line with a CPF, email or token stays indexed, copied and retained for 30 days, in a place many people query. Worse: the log is hard to erase. Prevention is masking at the source; the <code>cliente_id</code> is enough to find the order.</p>
+
+<WhyItMatters>
+  <li><strong>The log answers "why?".</strong> The <code>holder</code> <code>contagem-estoque</code> was written down, one line, before Lena complained.</li>
+  <li><strong>The <code>trace_id</code> turns the lines into one story.</strong> Without it, each service writes an island.</li>
+  <li><strong>The cost has a number.</strong> 2.81 GB per day on a normal day, 25.5 at the peak and 255 with DEBUG; 765 GB in 30 days.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Why index only some fields</h4>
+  <p>Grafana's Loki stores logs with an index only on the <strong>labels</strong> and leaves the text compressed. Its documentation warns about the same thing as the article: labels with almost-unique values (an id per request) blow up the index. It is the cardinality from lesson 3 again, now for logs: the <code>trace_id</code> is <strong>searched</strong> for, but not used as a label.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>The cost number is missing.</strong> The article says cost is the biggest challenge and does not calculate it. Here it is 4.5 KB per order and 2.81 · 25.5 · 255 GB per day; the per-line sizes are an <strong>example</strong>.</li>
+    <li><strong>No lab from the author.</strong> The author's public repository has no structured log or observability example (checked on 10/21/2026). The five lines of 1063 are built by the math, not taken from a collection.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Grafana Loki: label cardinality", href: "https://grafana.com/docs/loki/latest/get-started/labels/cardinality/" },
+    { label: "OpenTelemetry: Signals (logs)", href: "https://opentelemetry.io/docs/concepts/signals/" },
+    { label: "The author's public repository (there is no observability lab)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design" },
+  ]} />
+</Deep>
+
+<p class="gancho">The five lines of 1063 could be found by an id, but they say little about <strong>time</strong>: each service talks about its own moment, and none shows the whole path, with the waits side by side. What is missing is how to put the request's whole journey together, with durations. That is lesson 5, the <em>traces</em>.</p>
+
+<Flashcards cards={[
+  { q: "What are the six log levels and how does the article treat WARN and ERROR?",
+    a: "TRACE, DEBUG, INFO, WARN, ERROR and FATAL. A good WARN is actionable and appears before the incident; ERROR is a triage log (what, why, where, how to correlate)." },
+  { q: "What do the five lines of 1063 tell?",
+    a: "gw-loja receives, pedidos accepts, estoque waits 1,620 ms for a lock (holder contagem-estoque), pedidos creates and gw-loja answers 201 in 1,895 ms; all with the same trace_id." },
+  { q: "Why structure the log and index only some fields?",
+    a: "Free text indexed in full costs a lot. JSON with fixed fields lets you index the trace_id and the level and compress the rest." },
+  { q: "How much log does the store write per day?",
+    a: "4.5 KB per order: 2.81 GB/day on a normal day, 25.5 GB/day at the peak (765 GB in 30 days) and 255 GB/day with DEBUG." },
+  { q: "What should not go in the log?",
+    a: "Personal data and secrets (CPF, token): mask at the source. The cliente_id is enough to find the order." },
+]} />

@@ -1,0 +1,101 @@
+---
+title: "The four golden signals"
+order: 10
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">RED gave a dashboard for each service, and USE already gave one for each resource. The store now has two lenses, and whoever is on call wants a single question: <strong>what is the user feeling?</strong> Google's SRE book answers with four numbers, the ones that matter if you can only have <strong>four</strong>.</p>
+
+<OneLiner><strong>Latency, traffic, errors and saturation</strong> describe the health of what the <strong>user</strong> uses and give the basis for the SLO. <strong>Latency</strong> is split into success and error, because the average misleads.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Golden</strong> scenario, advance to <strong>Open the breaker</strong> and compare the <strong>average</strong> latency with the <strong>success</strong> latency. Then read the saturation with its forecast. In the <strong>USE × RED × four signals</strong> widget, the same math shows up with the numbers 275 and 193 ms.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/contrato-3d/?mode=golden" poster="labs/observabilidade/contrato-3d-previa.webp" title="Interactive figure: The four golden signals" alt="Preview of the 3D figure: The four golden signals" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Latency.</strong> The time of a request, measured in <strong>percentiles</strong> and with <strong>two curves</strong>: the one for <strong>successes</strong> and the one for <strong>errors</strong>. A fast error and a slow error are different problems, and mixing the two hides both.</li>
+  <li><strong>Traffic.</strong> How much work arrives: orders per second, messages, bytes. It serves to tell <strong>legitimate use</strong> from <strong>amplification</strong>: <em>retries</em>, a mass <em>cache miss</em>, <em>fan-out</em> (the module 21 storm).</li>
+  <li><strong>Errors.</strong> The fraction that fails, in the way the customer understands it: <code>5xx</code>, explicit protocol failure and <strong>the <code>200</code> with wrong content</strong>. The <code>4xx</code>s are observed too.</li>
+  <li><strong>Saturation.</strong> How close the <strong>tightest</strong> resource is to its limit, and the forecast: not "the disk is at 80%", but "the disk fills in 4 h". The most useful signal for acting <em>before</em>.</li>
+  <li><strong>The relation to the others.</strong> The four signals are <strong>RED + saturation</strong>, at the service level. USE remains the lens for the <strong>resource</strong>. A store uses all three, each where it fits.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Why split the latency</h3>
+
+<p>Suppose the module 21 <em>breaker</em> is open. It refuses the call right away, and <strong>30%</strong> of the requests fail in <strong>2 ms</strong>. The other <strong>70%</strong> answer in <strong>275 ms</strong>, the normal. The average latency is 0.3 × 2 + 0.7 × 275 = <strong>193 ms</strong>: it fell from 275 to 193 ms, <strong>while the system got worse</strong>, because 3 in every 10 customers receive an error. A dashboard with a single average only sees the improvement. With two curves, the success one stays at 275 ms, and the error one shows the fast failure: the problem appears.</p>
+
+<p>The reverse also holds, and the SRE book says so: a <strong>slow</strong> error is worse than a fast error. Whoever receives an error in 2 ms tries again or gives up; whoever waits 8 s for an error has already spent a connection, a thread and their patience. You can only see this difference if the two latencies are separate.</p>
+
+<Widget name="golden" title="USE × RED × four signals" hint="Pick the resource or the service (catalogo-3, the 20-connection pool, pedidos) and fill in U, S, E or R, E, D. Shows what each method sees and what it does not (the 0.00 shipping). Includes latency with fast failure: the average falls from 275 to 193 ms with 30% failing in 2 ms." />
+
+<h3 class="sec">The cell's single dashboard</h3>
+
+<p>With four numbers, each cell's dashboard fits on one screen and can be compared with the other three. See how it looks, as an example, for <code>celula-recife</code> on Black Friday:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Signal</th><th>What it shows</th><th>Example (<code>celula-recife</code>)</th></tr></thead>
+  <tbody>
+    <tr><th>Latency</th><td>p95 of success, and the error's, separately</td><td>success p95 489 ms (SLO 800 ms); <em>breaker</em> errors: 2 ms</td></tr>
+    <tr><th>Traffic</th><td>orders per second of the cell</td><td>3.6 orders/s</td></tr>
+    <tr><th>Errors</th><td><code>5xx</code>, <em>timeout</em> and business error</td><td>0% <code>5xx</code>; <code>pedidos_frete_zero_total</code> at zero</td></tr>
+    <tr><th>Saturation</th><td>the tightest resource and the forecast</td><td>pool at 2% (0.4 of 20); lag of the SP passive replica (0.3 s) with an alert at 500 ms</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Four cells × four signals are 16 numbers. They answer the article's two questions: "is the system healthy from the user's point of view?" and "which parts are degraded right now?". Each signal feeds a decision: latency and errors give the SLI from lesson 7; traffic, the module 23 capacity plan; saturation, the forecast alert.</p>
+
+<h3 class="sec">And if it goes wrong: monitoring by accumulation</h3>
+
+<p>The article names the opposite of the four signals: <strong>monitoring by accumulation</strong>. The team piles up 300 dashboards and thousands of metrics, and when someone asks "is the store fine?", nobody answers without opening ten of them. What gets lost is the <strong>mental model</strong>. Four signals per cell do not replace the details (the resources and services are still there), but they give a place to start and the basis for the SLO.</p>
+
+<WhyItMatters>
+  <li><strong>Four numbers describe the user.</strong> Latency, traffic, errors and saturation, per cell.</li>
+  <li><strong>The average can improve while the system gets worse.</strong> 275 → 193 ms with 30% failing in 2 ms.</li>
+  <li><strong>Each lens has its place.</strong> USE for the resource, RED for the service and the four signals for the user.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">What the SRE book says about latency</h4>
+  <p>In the <em>Monitoring Distributed Systems</em> chapter, Google writes that you must <strong>distinguish the latency of successful requests from that of failed ones</strong>: a <code>500</code> caused by losing the database connection, for example, comes out very fast and, if it enters the average, produces a misleading calculation. The same chapter argues for alerting on <strong>symptoms</strong> and using the cause for debugging.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Latency.</strong> The article says latency "includes both successful and error responses". The SRE book says the <strong>opposite</strong>: you must <strong>distinguish</strong>, because a fast <code>500</code> pulls the average down ("misleading calculations"), and "a <strong>slow</strong> error is even worse than a fast error". In the store: 275 → 193 ms with 30% fast failures.</li>
+    <li><strong>References.</strong> The article cites Nanoshots (429 on 10/21/2026) and ACM Queue (403 to robots); neither is used. The Lamport text opens and stays under "Going deeper".</li>
+    <li><strong>Math.</strong> The 193.1 ms average (0.3 × 2 + 0.7 × 275) was calculated in Python on 10/21/2026. No real dashboard was built.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems (the four signals)", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "FireHydrant: 4 SRE Golden Signals", href: "https://firehydrant.com/blog/4-sre-golden-signals-what-they-are-and-why-they-matter/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now has 28 chapters of problem and piece: network, disk, database, cache, services, balancer, gateway, BFF, mesh, concurrency, communication, capacity, cube, <em>shards</em>, replicas, CQRS, saga, events, resilience, <em>deploy</em>, planning, testing, <em>bulkheads</em>, cells, DR and observability. One thing is missing: <strong>if someone erased the drawing, could you rebuild the store from scratch, in order, knowing why each piece is there?</strong> That is module 29, the Final Exams.</p>
+
+<Flashcards cards={[
+  { q: "What are the four golden signals?",
+    a: "Latency, traffic, errors and saturation: RED + saturation, at the service level, for what the user feels." },
+  { q: "Why separate success latency from error latency?",
+    a: "With the breaker open, 30% fail in 2 ms and 70% answer in 275 ms: the average falls from 275 to 193 ms (0.3 × 2 + 0.7 × 275) while the system gets worse." },
+  { q: "What does traffic tell apart?",
+    a: "Legitimate use from amplification: retries, mass cache miss, fan-out." },
+  { q: "What is saturation with a forecast?",
+    a: "The tightest resource and how much time is left: 'the disk fills in 4 h' instead of 'the disk is at 80%'." },
+  { q: "When do you use USE, RED and the four signals?",
+    a: "USE for the resource, RED for the service and the four signals for what the user feels. Monitoring by accumulation (300 dashboards) does not answer whether the system is healthy." },
+]} />

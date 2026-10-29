@@ -1,0 +1,109 @@
+---
+title: "Alerts and APM"
+order: 6
+min: 17
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The metric, the <em>trace</em> and the log of 1063 pointed to the same cause, but only after Lena wrote in the chat. Having the three signals is being able to <strong>see</strong>. Nobody watches a dashboard all day, and the question that remains is of another kind: <strong>when should the system call someone</strong>? To think about it, go back to the module 21 incident.</p>
+
+<p>It was on Black Friday night, from <strong>20:20:00 to 20:21:30</strong> (90 s): PSP-A stopped answering, at <strong>30 orders per second</strong>. Without the module 21 defenses (<em>breaker</em> and <em>fallback</em>), <strong>100% of the orders would fail</strong>: 30 × 90 = <strong>2,700 failures</strong>. The question is which alert design would wake someone up in time.</p>
+
+<OneLiner>The <strong>alert</strong> turns a <strong>known</strong> state into a signal for intervention. A good alert <strong>wakes someone for a symptom</strong> (the customer felt it) and leaves the <strong>cause</strong> to the dashboard and the <em>ticket</em>.</OneLiner>
+
+<DoIt>
+  <p>In the <strong>When the alert fires</strong> widget, put <code>for: 5m</code> on the 90 s incident and watch the alert never fire. Then switch to the <em>burn rate</em> rule and compare the time to fire. In the figure, the alerts scenario shows the same timeline, from 20:20:00 to 20:21:30.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/sinais-3d/?mode=alerta" poster="labs/observabilidade/sinais-3d-previa.webp" title="Interactive figure: Alerts: the 90 s of PSP-A" alt="Preview of the 3D figure: Alerts: the 90 s of PSP-A" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>What an alert is.</strong> A rule over a signal ("the error rate went above 5%") that, when true, notifies a person or a robot. The article sees it as the piece that speeds up <em>feedback</em>: the sooner you notice, the lower the MTTD.</li>
+  <li><strong>Symptom, not cause.</strong> Google writes in the SRE book that the page should be for a <strong>symptom</strong> (the customer is feeling it) and that the <strong>cause</strong> is for debugging. A checkout error wakes someone; an open <code>breaker_state</code> becomes a <em>ticket</em>.</li>
+  <li><strong>Page and <em>ticket</em>.</strong> A <strong>page</strong> is for acting <em>now</em>, at night if needed. A <strong><em>ticket</em></strong> is for looking at on the next business day. Whoever sends everything as a page creates <strong>fatigue</strong>, and the real page gets lost.</li>
+  <li><strong><code>for</code> and the interval.</strong> The rule is evaluated from time to time (every 15 s, here). <code>for</code> requires the condition to last that long before firing, so it does not wake anyone for a 2 s spike. But each second of <code>for</code> is a second more of MTTD.</li>
+  <li><strong>Four designs.</strong> For the same 90 s incident, four rules, four results. It is the table below.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Four alerts for the same 90 s</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Alert</th><th>Fires at</th><th>MTTD</th></tr></thead>
+  <tbody>
+    <tr><th>A: error &gt; 5% <strong>for 5 min</strong> (<code>for: 5m</code>)</th><td><strong>never</strong>: the incident ends in 90 s</td><td><strong>∞</strong></td></tr>
+    <tr><th>B: error &gt; 5% <strong>for 1 min</strong> (<code>for: 1m</code>)</th><td>20:21:00 to 20:21:15</td><td><strong>60 to 75 s</strong></td></tr>
+    <tr><th>C: <strong>synthetic probe</strong> every 10 s, 3 failures in a row</th><td>20:20:30</td><td><strong>30 s</strong></td></tr>
+    <tr><th>D: fast <strong><em>burn rate</em></strong> (14.4× in the 1 h window <strong>and</strong> the 5 min one; SLO 99.9%)</th><td>after <strong>51.84 s</strong> of errors</td><td><strong>~52 to 67 s</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each row has a reason. <strong>A</strong> is the alert that looks safe: 5 minutes without high errors, nobody is woken for nothing. But the incident lasts 90 s, and the 5 min window <strong>never closes</strong>. <strong>B</strong> waits 1 min and evaluates every 15 s, so it catches it between 60 and 75 s. <strong>C</strong> is the probe from module 27: 3 failures in a row every 10 s is 30 s. <strong>D</strong> is the subtlest: the <em>burn rate</em> measures how fast the error budget is being spent (lesson 7 explains the budget). With a 99.9% SLO, the budget allows 0.1% of errors, and 14.4× means burning the budget 14.4 times faster than allowed: 1.44% of errors. With 100% errors, the 1 h window reaches 1.44% after <strong>14.4 × 0.001 × 3,600 = 51.84 s</strong> of failure. The <em>burn rate</em> of 100% errors is <strong>1,000×</strong> (1 ÷ 0.001).</p>
+
+<Widget name="alerta" title="When the alert fires" hint="Threshold, window, for, evaluation interval (15 s), synthetic probe (10 s × 3) and burn rate. Incident with a duration (90 s), error in % and with or without breaker. Shows each alert's MTTD (∞ · 60–75 s · 30 s · ~52 s) and whether it becomes a page or a ticket." />
+
+<h3 class="sec">With the defenses on, nobody is woken</h3>
+
+<p>The real module 21 incident had the defenses. The <em>breaker</em> opened in 1.3 s and the <em>fallback</em> took the orders to PSP-B. Only 30 × 1.3 ≈ <strong>39</strong> of the 2,700 orders failed, or <strong>1.44%</strong> of the 90 s window, which gives 14.4×. But look at alert D's windows. In 1 h, 39 out of 108,000 (30 × 3,600) is <strong>0.036%</strong>, or <strong>0.36×</strong>. In 5 min, 39 out of 9,000 is 0.43%, or 4.3×. D requires both windows above 14.4×, and neither passes. <strong>No page alert fires, and it should not</strong>: the customer barely felt it. The <code>breaker_state&#123;dependencia="psp-a"&#125;=aberto</code> is the <strong>cause</strong>, and it becomes a <em>ticket</em>.</p>
+
+<p>The same goes for 1063. Eight bad orders in a 5 min window (1,500 orders) are 0.53%, or <strong>5.3×</strong>, below 14.4×. In 1 h, 8 out of 18,000 is <strong>0.044%</strong> (0.44×). Lena's episode <strong>fires nothing</strong>. It is only discovered through the investigation in lesson 2: it is the kind of problem that known monitoring does not catch.</p>
+
+<h3 class="sec">APM: the signals around the experience</h3>
+
+<p>At the end of whoever uses the dashboard every day is <strong>APM</strong> (<em>Application Performance Monitoring</em>). The article describes it as the layer that organizes metrics, <em>traces</em> and logs <strong>around the experience</strong>: operations, routes, dependencies, times and errors, instead of resources. It answers questions like "which operations are slowest right now?", "which regressed after a <em>deploy</em>?", "which dependencies consume the most time in the transaction?". In the store, it is the dashboard that shows that <code>POST /pedidos</code> on version <code>2.6.0</code> is slower than on <code>2.5.0</code>, and opens the <em>trace</em> of a slow order to see the guilty <em>span</em>. APM is not a fourth signal: it is a <strong>view</strong> of the same three.</p>
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>The alert that never fires.</strong> It is rule A, with <code>for: 5m</code>. It passes every test and fails on the day that matters. Prevention is testing the rule against <strong>past</strong> incidents: would it have fired at 20:20?</p>
+
+<p><strong>The alert that fires too much.</strong> The open <code>breaker</code> at 3 a.m. waking someone, and the person finds that the <em>fallback</em> was working and nobody felt anything. After three nights like that, the fourth page is ignored. That is <strong>alert fatigue</strong>: what wakes someone must be a symptom, and the cause becomes a <em>ticket</em>.</p>
+
+<WhyItMatters>
+  <li><strong>The same incident, four MTTDs.</strong> Never, 60 to 75 s, 30 s and ~52 s: the alert design decides.</li>
+  <li><strong>A page is for a symptom.</strong> With defenses, the 1.44% of the 90 s incident does not fire the <em>burn rate</em> (0.36× in 1 h), and the open <em>breaker</em> becomes a <em>ticket</em>.</li>
+  <li><strong>1063 triggers no alert.</strong> 5.3× in 5 min and 0.44× in 1 h: only the investigation finds it.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The two burn rate windows</h4>
+  <p>The <em>SRE Workbook</em> (<em>Alerting on SLOs</em>) recommends requiring the <strong>long and the short</strong> window at the same time: the long one (1 h) says the budget really is burning, the short one (5 min) says it is still burning <em>now</em>, and the alert stops soon after the problem does. It is the combination alert D uses. The values 14.4× in 1 h (2% of the budget) and 6× in 6 h (5%) become a <strong>page</strong>; 1× in 3 days (10%) becomes a <em>ticket</em>. Lesson 7 does that math.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>The article says alerts reduce MTTD and does not say what avoids noise.</strong> Missing are <strong>alerting on symptoms</strong>, <strong>page × <em>ticket</em></strong>, <code>for</code> and the <strong>double window</strong> (SRE Workbook). A 5 min alert <strong>never</strong> catches a 90 s incident.</li>
+    <li><strong>The math does not come from measurement.</strong> The 90 s incident is the one from module 21, and the firing times were calculated in Python (<code>c28.py</code>, 10/21/2026). No Prometheus was run: the rules are an example of shape.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Monitoring Distributed Systems", href: "https://sre.google/sre-book/monitoring-distributed-systems/" },
+    { label: "Google SRE book: Practical Alerting", href: "https://sre.google/sre-book/practical-alerting/" },
+    { label: "Google SRE Workbook: Alerting on SLOs", href: "https://sre.google/workbook/alerting-on-slos/" },
+    { label: "Prometheus: Alerting (best practices)", href: "https://prometheus.io/docs/practices/alerting/" },
+    { label: "Splunk: What Are Feedback Loops?", href: "https://www.splunk.com/en_us/blog/learn/feedback-loops.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows when to call someone: for a symptom, and with a rule that catches the 90 s incident. What is missing is <strong>how much error is acceptable</strong> before a page makes sense, and who decides. That is lesson 7, the contracts.</p>
+
+<Flashcards cards={[
+  { q: "What are the MTTDs of the four alerts for the 90 s of PSP-A?",
+    a: "A (error > 5% for 5 min): never. B (for 1 min): 60 to 75 s. C (10 s synthetic probe, 3 failures): 30 s. D (burn rate 14.4× in 1 h and 5 min): ~52 to 67 s (51.84 s of errors)." },
+  { q: "Why does the 5-minute alert never catch the 90 s incident?",
+    a: "The condition must last 5 min and the incident ends in 90 s: the window never closes." },
+  { q: "What is a page and what is a ticket?",
+    a: "Page: a symptom the customer felt, to act now. Ticket: a cause or risk, for the next business day. An open breaker is a ticket." },
+  { q: "Why, with the module 21 defenses, does no page alert fire?",
+    a: "Only ~39 of 2,700 fail (1.44%, 14.4×), but that is 0.036% in 1 h (0.36×) and 0.43% in 5 min (4.3×): the burn rate requires both windows above 14.4×." },
+  { q: "What does APM add?",
+    a: "It organizes metrics, traces and logs around the experience: operations, routes, dependencies and regressions per version after a deploy. It is a view, not a fourth signal." },
+]} />

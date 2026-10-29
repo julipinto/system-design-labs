@@ -1,0 +1,99 @@
+---
+title: "Observability × monitoring"
+order: 2
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the store was up and wrong, and only the business metric noticed, an hour later. That dashboard was not bad: it answered, well, the questions someone had thought to ask. A question nobody predicted went unanswered. See what happens on an <strong>ordinary Thursday</strong>.</p>
+
+<p>It is <strong>12/03/2026, 15:30:07.412</strong>, 5 orders per second. The 15:30 newsletter announced "double mugs", and <strong>every</strong> order includes the <strong>blue mug</strong> (product 7). Lena, in Recife (<code>celula-recife</code>, <code>lena-77</code>), buys <strong>3 mugs</strong>: 19.90 × 3 = 59.70, plus Recife shipping of 15.00, <strong>R$ 74.70</strong>. The app shows "order confirmed" after <strong>1.9 s</strong>; normal is about 0.3 s. The dashboard is <strong>green</strong>: good average, <code>5xx</code> at 0%, p95 within the SLO. Lena writes in the chat. The app shows a <strong>support code</strong>, <code>9c1e5a7b</code>. It is the only clue she has. Support's question is new: <strong>why was her order slow?</strong></p>
+
+<OneLiner><strong>Monitoring</strong> answers questions you already knew how to ask. <strong>Observability</strong> is the property of a system that lets you ask <strong>new questions</strong> and find the answer in what it emits.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Pillars</strong> scenario, follow <strong>1063</strong> from one box to the next and count the marks each service leaves: a log, a metric bar and a <em>span</em>. Then advance to <strong>And if it goes wrong</strong> and see which boxes stop emitting the <code>trace_id</code>. The figure also has a correlation scenario, which redoes the investigation in three steps.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/sinais-3d/?mode=pilares" poster="labs/observabilidade/sinais-3d-previa.webp" title="Interactive figure: The three signals of 1063" alt="Preview of the 3D figure: The three signals of 1063" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Monitoring follows the known.</strong> "Did the error rate go above 5%?", "did CPU pass 80%?", "did the Kafka queue grow?". You already know the question is worth asking, pick a threshold and leave an alert watching. The article calls this detecting known <strong>symptoms</strong>.</li>
+  <li><strong>Observing is asking what nobody predicted.</strong> "Why was <strong>this</strong> request from Lena slow?" has no ready-made panel. If the system emits signals rich enough (each tied to the order), you can investigate without changing the code and without waiting for a new <em>deploy</em>.</li>
+  <li><strong>The origin is control theory.</strong> In the 1960s, Rudolf Kalman called a system <em>observable</em> when its internal state can be inferred <strong>from its outputs alone</strong>. For software, the outputs are the signals: metrics, <em>traces</em> and logs.</li>
+  <li><strong>One follows from the other.</strong> What the investigation finds becomes a monitoring rule. Order 1063 showed that a counting job locks the stock; the team can now watch the <code>estoque</code> <em>lock</em> wait. Monitoring without observing only repeats what is already known.</li>
+  <li><strong>It is a property, not a tool.</strong> A company can have 50 expensive dashboards and no <code>trace_id</code> in the logs. It monitors a lot and observes little. Observability lives in the <strong>correlation</strong>, not in the product brand.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The three signals and what each one says</h3>
+
+<p>The article talks about <strong>three pillars</strong>, and this lesson uses the OpenTelemetry project's word, <strong>signals</strong>: its list is longer (there is also <em>baggage</em> and others in development), and "pillar" sounds like a definition. The three signals the article brings answer different things in the same episode:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Signal</th><th>Question</th><th>In order 1063</th></tr></thead>
+  <tbody>
+    <tr><th>Metric</th><td><strong>What</strong> is slow? How much?</td><td><code>estoque_reservar_duracao_segundos</code>: 8 orders above 1 s in a 5 min window</td></tr>
+    <tr><th><em>Trace</em></th><td><strong>Where</strong> did the time go?</td><td>1,895 ms in total; <code>estoque</code> spent <strong>1,640</strong>, or 86.5%</td></tr>
+    <tr><th>Log</th><td><strong>Why</strong>?</td><td>WARN <code>espera por lock</code>, <code>holder</code>: <code>contagem-estoque</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>None of the three answers alone. The metric knows that 8 orders were slow and does not know which. The <em>trace</em> knows which order and where, and does not know the reason. The log knows the reason and is only found by whoever looks for it. What <strong>links</strong> them is an identifier that travels in all of them: the <code>trace_id</code> <code>9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52</code>, of which the support code is the beginning. Think of the <code>7f3a…</code> from order 1047, in module 6: it was the same gesture, still short. Here it grows to 32 hexadecimal characters, and the next lessons open each of the three signals.</p>
+
+<h3 class="sec">The investigation cycle</h3>
+
+<p>In practice the path is always the same, and it has an order, from cheapest to most expensive: the <strong>alert</strong> says something changed; the <strong>metric</strong> shows <em>what</em> and <em>how much</em>; the <strong>trace</strong> of Lena's order shows <em>where</em>; the <strong>log</strong> with the same <code>trace_id</code> shows <em>why</em>. The last link becomes a fix (count the stock by <em>snapshot</em>, not by <code>FOR UPDATE</code>) and a new alert. That fix is out of scope for the lesson; what it shows is the path that led to it.</p>
+
+<h3 class="sec">And if it goes wrong: the expensive tool without observability</h3>
+
+<p>Picture the store with everything installed and badly connected. The logs have no <code>trace_id</code>: the <code>estoque</code> line exists, but nobody finds it. The metrics have no <code>celula</code> label: Lena is in <code>celula-recife</code>, and the dashboard mixes all four (module 26 already asked for <strong>segmented</strong> observability). The Kafka consumer does not pass on the <code>traceparent</code>: the <em>trace</em> breaks in half. Each tool works, and together they answer nothing. Having the three signals is <strong>not</strong> having observability; you need <strong>correlation</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>The green dashboard was not lying.</strong> The average, <code>5xx</code> and p95 were right; the episode hit 8 orders in 1,000 and fell outside them.</li>
+  <li><strong>The new question needs a thread.</strong> The <code>trace_id</code> links Lena's order to the metric, the <em>trace</em> and the log.</li>
+  <li><strong>What you find becomes an alert.</strong> The <code>estoque</code> <em>lock</em> wait stops being a surprise next time.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Why correlate by id and not by time</h4>
+  <p>It would be tempting to join the logs by the clock: "everything that happened at 15:30:07". In a distributed system clocks diverge, and Lamport showed in <em>Time, Clocks, and the Ordering of Events in a Distributed System</em> that the order between events on different machines cannot be taken from timestamps alone. An identifier that follows the order avoids the math.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Three pillars" as a definition.</strong> The article itself says observability is a property, not a tool. The pillars are <strong>signals</strong>, and OpenTelemetry lists traces, metrics, logs and <em>baggage</em>, with others in development. Having the three is not enough.</li>
+    <li><strong>What the article lacks.</strong> Observability <strong>per cell</strong> (the <code>celula</code> label, in the sense of module 26) and context propagation between services, which lesson 5 shows.</li>
+    <li><strong>Math, not measurements.</strong> The 1063 numbers (the <em>spans</em>, the <code>contagem-estoque</code>) are an <strong>example</strong> defined in this module. No OpenTelemetry, Prometheus or Grafana was run.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "OpenTelemetry: Observability primer", href: "https://opentelemetry.io/docs/concepts/observability-primer/" },
+    { label: "OpenTelemetry: Signals", href: "https://opentelemetry.io/docs/concepts/signals/" },
+    { label: "Wikipedia: Observability", href: "https://en.wikipedia.org/wiki/Observability" },
+    { label: "Lamport: Time, Clocks, and the Ordering of Events (going deeper)", href: "https://lamport.azurewebsites.net/pubs/time-clocks.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">Lena has a code, <code>9c1e5a7b</code>, and the team has three signals with different questions. What is missing is what each one answers and what it costs, starting with the cheapest: the <strong>metric</strong>. That is lesson 3.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between monitoring and observability?",
+    a: "Monitoring answers known questions ('did errors go above 5%?'). Observability is the property that lets you ask new questions ('why was this request from Lena slow?')." },
+  { q: "Where does the word observability come from?",
+    a: "From control theory, 1960s (Kalman): a system is observable if its internal state can be inferred from its outputs." },
+  { q: "What does each signal answer in order 1063?",
+    a: "The metric says what (8 orders above 1 s), the trace says where (1,640 of 1,895 ms in estoque) and the log says why (the holder is contagem-estoque)." },
+  { q: "Why are a green dashboard and Lena waiting 1.9 s not a contradiction?",
+    a: "The episode hit 8 of 1,000 orders: it does not move p95 or p99, and 5xx is 0%. The dashboard answers what was predicted." },
+  { q: "How can the expensive tool fail to give observability?",
+    a: "Logs without trace_id, metrics without the celula label and traces that break at Kafka: each signal exists, but nothing links them." },
+]} />

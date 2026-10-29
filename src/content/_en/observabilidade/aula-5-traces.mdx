@@ -1,0 +1,123 @@
+---
+title: "Traces"
+order: 5
+min: 17
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Five lines with the same <code>trace_id</code> told the story of 1063, but each service spoke about its own moment, and no line showed the <strong>whole path with the waits side by side</strong>. That is the job of the third signal. A <em>trace</em> puts together, for a single request, what each service did, when it started and how long it lasted.</p>
+
+<OneLiner>The <em>trace</em> is the <strong>end-to-end path</strong> of a request: a tree of <em>spans</em> (each with a start, a duration, a parent and attributes), <strong>stitched by the <code>traceparent</code></strong> that travels in the headers.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Traces</strong> scenario, find the <strong>1,620 ms</strong> <em>span</em> and turn on <em>tail sampling</em>. The <strong>Correlation</strong> scenario of the same figure redoes the whole investigation, from the metric to the log.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/sinais-3d/?mode=traces" poster="labs/observabilidade/sinais-3d-previa.webp" title="Interactive figure: Traces: the waterfall" alt="Preview of the 3D figure: Traces: the waterfall" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The <em>span</em>.</strong> It is a unit of work: a name, the <strong>start</strong>, the <strong>duration</strong>, the <strong>parent</strong> and a few attributes. An HTTP call, a database query, the publishing of an event: each one is a <em>span</em>.</li>
+  <li><strong>The tree.</strong> The calling <em>span</em> is the parent of the called one. The root is the <code>POST /pedidos</code> at <code>gw-loja</code>. On the tree you read the <strong>critical path</strong>: what actually made the request slow.</li>
+  <li><strong>The <code>traceparent</code>.</strong> A W3C header that carries the <code>trace_id</code> and the parent <em>span</em> id from one service to the next. It is what stitches the pieces.</li>
+  <li><strong>Propagation.</strong> Each service reads the header that arrived, creates its <em>span</em> as a child and puts the header on the calls it makes: HTTP and also Kafka messages.</li>
+  <li><strong>Sampling.</strong> Keeping every <em>trace</em> is expensive. You decide which to keep: at the start of the request (<em>head</em>) or after seeing it whole (<em>tail</em>).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The 1063 waterfall</h3>
+
+<p>1063 has a tree of <strong>8 main <em>spans</em></strong>, lined up because each one waits for the previous (a simplification in the example). The "normal" column is how the store usually answers; the last one is what Lena's <em>trace</em> showed. The durations are an <strong>example</strong>, defined in this module; they did not come from a real OpenTelemetry.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><em>span</em> (service)</th><th>start (ms)</th><th>normal</th><th>1063</th></tr></thead>
+  <tbody>
+    <tr><th><code>POST /pedidos</code> (root, <code>gw-loja</code>)</th><td>0</td><td>4</td><td>4</td></tr>
+    <tr><th><code>bff-app</code></th><td>4</td><td>6</td><td>6</td></tr>
+    <tr><th><code>pedidos</code> (validate and price)</th><td>10</td><td>14</td><td>14</td></tr>
+    <tr><th>↳ <code>carrinho</code> <code>GET</code></th><td>24</td><td>12</td><td>12</td></tr>
+    <tr><th>↳ <code>estoque</code> <code>reservar</code></th><td>36</td><td>20</td><td><strong>1,640</strong> (20 of work + 1,620 of <em>lock</em> wait)</td></tr>
+    <tr><th>↳ <code>pagamentos</code> (5 network + 20 + 5 + 180 from PSP-A)</th><td>56 → 1,676</td><td>210</td><td>210</td></tr>
+    <tr><th>↳ <code>INSERT</code> into <code>pedidos</code></th><td>266 → 1,886</td><td>6</td><td>6</td></tr>
+    <tr><th>↳ publish to Kafka (<code>PedidoCriado</code>)</th><td>272 → 1,892</td><td>3</td><td>3</td></tr>
+    <tr><th><strong>total</strong></th><td></td><td><strong>275 ms</strong></td><td><strong>1,895 ms</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Seven <em>spans</em> did not change. Only one, <code>estoque</code>, went from 20 to 1,640 ms, and with that the request went from 275 to 1,895 ms. <code>estoque</code> took <strong>86.5%</strong> of the time (1,640 ÷ 1,895). The 210 of <code>pagamentos</code> are the ones from module 12: 5 + 20 + 5 of network and processing and 180 from PSP-A. The <code>estoque</code> <em>span</em> has the id <code>6d1f0a2b9e3c4a58</code>, the same one the WARN in lesson 4 carries: that is how the <em>trace</em> and the log touch.</p>
+
+<Widget name="cascata" title="Span waterfall" hint="1063 with editable durations (normal × slow). Shows the critical path, each span's share (86.5% estoque) and the traceparent. The 'lose the context' button simulates the Kafka consumer that does not pass on the traceparent." />
+
+<h3 class="sec">The <code>traceparent</code>, field by field</h3>
+
+<p>W3C defines the format in four parts, separated by hyphens: <code>version-trace_id-parent_id-flags</code>. For Lena's order:</p>
+
+<pre><code>{`traceparent: 00-9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52-a3c4d5e6f7a8b9c0-01
+             |  |                                |                |
+             |  trace_id (32 hex)                parent_id (16 hex) flags (01 = sampled)
+             version`}</code></pre>
+
+<p>The <code>trace_id</code> is the same for the whole trip. The <code>parent_id</code> changes at each hop: it is the caller's <em>span</em>. The last byte says whether the <em>trace</em> was chosen to be kept. The <code>9c1e5a7b</code> the app shows Lena is the first 8 characters of the <code>trace_id</code>. Support types those 8 and finds the rest.</p>
+
+<h3 class="sec">Sampling: how much to keep</h3>
+
+<p>1063 has 12 <em>spans</em> (the 8 in the table plus the internal calls from <code>pagamentos</code> and <code>estoque</code> to the database and the PSP), of about <strong>400 B</strong> each: <strong>4.8 KB per <em>trace</em></strong>. At 30 orders per second, keeping 100% gives 30 × 4.8 KB × 86,400 = <strong>12.4 GB per day</strong>. With <strong>1%</strong>, <strong>124 MB per day</strong>. The 100-fold difference is the reason to sample.</p>
+
+<p>But choosing at the start has a price. In <strong><em>head sampling</em></strong> the decision is made before knowing whether the request will be slow: you draw 1%. The chance of keeping <strong>at least one</strong> of the 8 slow <em>traces</em> is 1 − 0.99⁸ = <strong>7.7%</strong>. In <strong><em>tail sampling</em></strong> the decision comes after seeing the whole <em>trace</em>: you keep <strong>all</strong> the <code>5xx</code>, <strong>all</strong> those above 800 ms and 1% of the rest. It keeps the <strong>8</strong> of the episode. The cost of <em>tail</em> is in holding the <em>spans</em> in a collector's memory until the request ends.</p>
+
+<Widget name="amostragem" title="Sampling" hint="Trace rate (30/s), head (%) × tail (keep 5xx and above 800 ms). Shows the GB per day (12.4 with no sampling; 0.124 with 1% head) and the chance of keeping the 8 slow ones (7.7% with head and 100% with tail)." />
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>The context is lost.</strong> <code>pedidos</code> publishes <code>PedidoCriado</code> to Kafka, and the consumer (the <code>estoque</code> from module 13) reads the message without passing on the <code>traceparent</code>. To the consumer, it is an order with no past: it opens a new <em>trace</em>. The end-to-end one <strong>breaks in half</strong>, and the event becomes an orphan <em>trace</em>. The way out is to put the <code>traceparent</code> in the message headers too and instrument the consumer to read it.</p>
+
+<p><strong>Sampling throws away Lena's <em>trace</em>.</strong> With 1% <em>head</em>, the chance that her order was not kept is 99%. Support types <code>9c1e5a7b</code> and finds nothing. That is a good reason for <em>tail</em>, and for the cost question that comes with it: you can keep everything slow or wrong, and the rest at 1%.</p>
+
+<WhyItMatters>
+  <li><strong>The <em>trace</em> says where.</strong> 1,640 of 1,895 ms in <code>estoque</code>: 86.5%.</li>
+  <li><strong>The <code>traceparent</code> is the stitching.</strong> Without passing the header on, the trace breaks in half, as at Kafka.</li>
+  <li><strong>Sampling is a decision about which question you want to be able to answer.</strong> 1% <em>head</em> finds a slow one with 7.7%; <em>tail</em> finds all 8.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where it comes from and what it standardizes</h4>
+  <p>Large-scale distributed <em>tracing</em> was born at Google, with <strong>Dapper</strong>: a request becomes a tree of <em>spans</em> with an id that follows it. OpenTelemetry is today's open standard for generating this data, and W3C Trace Context fixes the header. For an introduction in Portuguese, the text by Ezzio Moreira (dev.to) and Elastic's page on OpenTelemetry are good starting points.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>The article does not talk about propagation.</strong> It says the <em>trace</em> connects events, but does not explain how: it is the <code>traceparent</code> (W3C), and losing one hop breaks the tree.</li>
+    <li><strong>Sampling is missing.</strong> Neither <em>head</em> nor <em>tail</em> appears, and it is the decision that determines whether Lena's <em>trace</em> exists. OpenTelemetry (<em>Sampling</em>) describes both.</li>
+    <li><strong>OpenTelemetry only shows up in the references.</strong> Here it is the instrumentation standard. The <em>span</em> durations are an example, and no OpenTelemetry was run.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "W3C: Trace Context", href: "https://www.w3.org/TR/trace-context/" },
+    { label: "OpenTelemetry: Sampling", href: "https://opentelemetry.io/docs/concepts/sampling/" },
+    { label: "Google: Dapper, a large-scale distributed systems tracing infrastructure", href: "https://research.google/pubs/dapper-a-large-scale-distributed-systems-tracing-infrastructure/" },
+    { label: "OpenTelemetry concepts, by Ezzio Moreira (going deeper, in Portuguese)", href: "https://dev.to/ezziomoreira/conceitos-opentelemetry-9k0" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the three signals, the team can <strong>see</strong>: the metric, the <em>trace</em> and the log of 1063 point to the same cause. But nobody was looking at 15:30. What is missing is when the system should <strong>call someone</strong>, and which questions are worth a person woken up. That is lesson 6, alerts and APM.</p>
+
+<Flashcards cards={[
+  { q: "What is a span and what is a trace?",
+    a: "Span: a unit of work with a start, a duration, a parent and attributes. Trace: the tree of spans of one request, end to end, linked by a trace_id." },
+  { q: "Where did 1063 spend its time?",
+    a: "In estoque: 1,640 of the 1,895 ms (86.5%): 20 of work and 1,620 of lock wait. The other 7 spans did not change; normal is 275 ms." },
+  { q: "What does the traceparent header look like?",
+    a: "version-trace_id(32 hex)-parent_id(16 hex)-flags, e.g. 00-9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52-a3c4d5e6f7a8b9c0-01. The trace_id stays; the parent_id changes at each hop." },
+  { q: "Head sampling or tail sampling to find the 8 slow orders?",
+    a: "1% head keeps at least one of them with 1 − 0.99^8 = 7.7%. Tail (keeps every 5xx, everything above 800 ms and 1% of the rest) keeps all 8." },
+  { q: "What happens if the Kafka consumer does not pass on the traceparent?",
+    a: "The trace breaks in half: PedidoCriado becomes an orphan trace and is no longer linked to Lena's order." },
+]} />

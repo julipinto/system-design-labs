@@ -1,0 +1,106 @@
+---
+title: "RED: looking at services"
+order: 9
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Every resource was fine and <code>pedidos</code> returned shipping 0.00: USE looks from the inside and does not see the service. Whoever stands outside the service, like the customer, asks three other questions, and they hold for any web service. That is <strong>RED</strong>, what you instrument first.</p>
+
+<OneLiner>For each <strong>service</strong>, measure <strong>R</strong>ate (how many requests), <strong>E</strong>rrors (how many <strong>fail</strong>, defined <strong>semantically</strong>) and <strong>D</strong>uration (as a <strong>percentile</strong>, from a histogram).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>RED</strong> scenario, compare <code>2.4.0</code> and <code>2.5.0</code> of <code>pedidos</code> with and without the business metric. See in which of the two versions the three panels (R, E and D) stay green.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/contrato-3d/?mode=red" poster="labs/observabilidade/contrato-3d-previa.webp" title="Interactive figure: RED: the services" alt="Preview of the 3D figure: RED: the services" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The origin.</strong> RED is associated with Tom Wilkie and Grafana, as the version for <strong>services</strong> of what USE does for resources. It was designed for microservices, where there are many and each one needs the same set of signals.</li>
+  <li><strong>Rate.</strong> How many requests per second arrive, per service, per route, per tenant, per cell, per version. It is the pressure on the service, and the first metric to look at: if the <em>rate</em> rises and the service does not scale, saturation, queues and errors follow.</li>
+  <li><strong>Errors.</strong> The fraction of requests that <strong>fail</strong>. The article's point is that the error must be defined <strong>by what the customer expects</strong>: <code>5xx</code>, <em>timeout</em>, invalid response, duplication, a success that came too late, and <strong>the 0.00 shipping</strong>.</li>
+  <li><strong>Duration.</strong> The request time, in <strong>percentiles</strong> (p50, p95, p99) from a <strong>histogram</strong>. The average hides the tail, and the tail is where <em>timeouts</em> fire and <em>retries</em> amplify the load.</li>
+  <li><strong>The dimensions.</strong> Each of the three is cut by <strong>route</strong>, by <strong>version</strong> and by <strong>cell</strong>. Cutting by version is what lets you compare <code>2.5.0</code> with <code>2.4.0</code> in the <em>canary</em> (module 22).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec"><code>pedidos</code> per cell</h3>
+
+<p>On Black Friday, at 30 orders per second, the Rate is split across the four module 26 cells:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cell</th><th>Share</th><th>Rate (orders/s)</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-sp</code></th><td>33%</td><td><strong>9.9</strong></td></tr>
+    <tr><th><code>celula-rio</code></th><td>15%</td><td><strong>4.5</strong></td></tr>
+    <tr><th><code>celula-recife</code></th><td>12%</td><td><strong>3.6</strong></td></tr>
+    <tr><th><code>celula-mkt</code></th><td>40%</td><td><strong>12.0</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>That per-cell Rate serves planning (<em>rate</em> as a capacity signal, module 23) and diagnosis: if <code>celula-mkt</code> suddenly goes from 12 to 40 orders per second, the question is what changed in it. If all four rise together, the question is the campaign. A single Rate, the whole store's, does not tell one from the other.</p>
+
+<h3 class="sec">An error is anything that violates the expectation</h3>
+
+<p>The article asks that <strong>Errors</strong> not be only <code>5xx</code>, and gives the reason: a <code>4xx</code> can also be degradation (a JWT refused because of clock drift, a validation broken by a contract change). In the store, the RED error includes three families: the <code>5xx</code> and the <em>timeout</em>; the <strong>invalid</strong> or duplicated response; and the <strong>wrong success</strong>, the <code>201</code> with shipping 0.00.</p>
+
+<p>The <code>4xx</code>s are <strong>observed and left out of the SLO</strong>: the <code>409</code> for "sold out" (module 11), the customer's <code>422</code> and the tenant's <code>429</code> (module 25) are legitimate store decisions, not failures. But a jump in <code>429</code> in a cell is a signal, and it shows on the dashboard. As the article says, <strong>every code is monitored, and not every code enters the SLO</strong>.</p>
+
+<Widget name="red" title="RED: services" hint="Pick the service (pedidos) and fill in R, E, D per version (2.4.0 and 2.5.0). Turn the business metric and the error definition on and off. Shows what RED sees and what it does not (the 0.00 shipping)." />
+
+<h3 class="sec">Duration, per version</h3>
+
+<p>The module 22 <em>canary</em> sent 10% of the traffic to <code>2.5.0</code> and compared it with <code>2.4.0</code>. RED per version makes that comparison without anyone looking: a dashboard with Rate, Errors and Duration side by side for both. <code>2.5.0</code> had <strong>the same Duration</strong> as <code>2.4.0</code>, <strong>0% <code>5xx</code></strong> and the same Rate. All three rows stay green. Only a <strong>semantic Errors</strong> (<code>pedidos_frete_zero_total</code> over the total, per city) reports it: 20% of the <code>2.5.0</code> orders (the Recife ones, in the module 22 mix) came out with shipping 0.00.</p>
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>Error = only <code>5xx</code>, and Duration = only the average.</strong> It is the dashboard almost every team builds first. On it, <code>2.5.0</code> stays <strong>green</strong>: no <code>5xx</code>, same average. The store loses R$ 15.00 per order in Recife for 60 min. RED only helps if the word "error" is written in the store's <strong>domain</strong> and if Duration is a percentile. It was lesson 1 again, now with a dashboard and a name for what was missing.</p>
+
+<WhyItMatters>
+  <li><strong>RED is each service's first dashboard.</strong> Rate, Errors and Duration answer what the customer feels.</li>
+  <li><strong>The error is semantic.</strong> <code>5xx</code>, <em>timeout</em>, invalid response, duplication, late success and the 0.00 shipping.</li>
+  <li><strong>Per version, it is the basis of the <em>canary</em>.</strong> <code>2.5.0</code> × <code>2.4.0</code> side by side.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">RED and USE complete each other</h4>
+  <p>The texts from Grafana, PagerTree and SolarWinds repeat the practical rule: USE for resources (infrastructure, databases, queues), RED for services. Whoever investigates starts with the RED of the service the customer uses and goes down to the USE of the resource it consumes. RED is very close to the four signals of lesson 10; the difference is saturation.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Little to correct in RED.</strong> The article is right to ask for a semantic error and percentiles. What the lesson adds is the cut <strong>per version and per cell</strong>, which the article mentions only in passing.</li>
+    <li><strong>Repeated references.</strong> The article lists the Grafana text twice; here it appears once.</li>
+    <li><strong>Math.</strong> The per-cell Rate is the division of 30 orders/s by the module 26 shares. No dashboard was actually built.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Grafana: The RED Method, how to instrument your services", href: "https://grafana.com/blog/the-red-method-how-to-instrument-your-services/" },
+    { label: "PagerTree: USE and RED", href: "https://pagertree.com/learn/devops/what-is-observability/use-and-red-method" },
+    { label: "SolarWinds: Monitoring and Observability with USE and RED", href: "https://www.solarwinds.com/blog/monitoring-and-observability-with-use-and-red" },
+  ]} />
+</Deep>
+
+<p class="gancho">USE looks at the resource, RED looks at the service, and the store still needs <strong>one dashboard</strong> to say whether what the user feels is fine. What is missing is which four numbers, if you could only have four, describe that. That is lesson 10, the four golden signals.</p>
+
+<Flashcards cards={[
+  { q: "What does RED measure and on what?",
+    a: "Rate, Errors and Duration, for each service. It is what you instrument first." },
+  { q: "What is the Rate of pedidos per cell on Black Friday?",
+    a: "30 orders/s: celula-sp 9.9 · celula-rio 4.5 · celula-recife 3.6 · celula-mkt 12.0." },
+  { q: "What counts as an error in RED?",
+    a: "Anything that violates the expectation: 5xx, timeout, invalid response, duplication, late success and the 201 with shipping 0.00. The 4xx (409, 422, 429) are observed and left out of the SLO." },
+  { q: "Why cut RED by version?",
+    a: "It compares 2.5.0 with 2.4.0 in the canary: with equal Rate, Errors and Duration, only a semantic Errors shows the 0.00 shipping." },
+  { q: "How does RED fail?",
+    a: "With error = only 5xx and Duration = only the average, 2.5.0 stays green while the store loses R$ 15.00 per order in Recife." },
+]} />

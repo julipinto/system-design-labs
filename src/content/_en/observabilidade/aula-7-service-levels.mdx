@@ -1,0 +1,148 @@
+---
+title: "Service levels: SLI, SLO, SLA and error budget"
+order: 7
+min: 18
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Alerting on symptoms and a rule that catches the 90 s incident: the store already knows <strong>when</strong> to call someone. What was left was deciding <strong>how much error is acceptable</strong>. Without that answer, any alert is a guess: is 5% of errors a lot? Is 0.1% little? And who says stop releasing? <strong>Service levels</strong> are the answer, and they start by swapping adjectives for numbers.</p>
+
+<OneLiner><strong>SLI</strong> is the <strong>measure</strong> (good ÷ valid). <strong>SLO</strong> is the <strong>internal target</strong>. <strong>SLA</strong> is the <strong>contract</strong> with a consequence. The <strong>error budget</strong> is what remains between the target and 100%, and it decides whether the team ships or freezes.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Budget</strong> scenario, advance: the <strong>SP outage</strong> in the month and read the percentage burned; then throw in the <strong>PSP without protection</strong>. The buttons of the same figure also show the SLI → SLO → SLA ladder and the budget per cell. In the <strong>Error budget and <em>burn rate</em></strong> widget, change the SLO from 99.9% to 99.99% and watch the budget shrink.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/contrato-3d/?mode=orcamento" poster="labs/observabilidade/contrato-3d-previa.webp" title="Interactive figure: The error budget" alt="Preview of the 3D figure: The error budget" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>SLI: the measure.</strong> A <strong>good ÷ valid</strong> ratio over <code>POST /pedidos</code>. <strong>Good</strong> is a <code>2xx</code> response <strong>and</strong> with a duration of up to <strong>800 ms</strong>. <strong>Valid</strong> is everything except what the store did not choose: the customer's error (<code>422</code>), the <code>409</code> for "sold out" (module 11) and the <code>429</code> from the tenant's <em>rate limit</em> (module 25).</li>
+  <li><strong>SLO: the target.</strong> <strong>99.9% over 30 days</strong> (errors ≤ 0.1% and p95 ≤ 800 ms, the module 24 goals). It is an <strong>internal</strong> target, which the team uses to decide.</li>
+  <li><strong>SLA: the contract.</strong> With <code>mkt-01</code> the store signed <strong>99.5% per month</strong>: 216 min, or 3 h 36 min, of allowed failure. The SLA is <strong>less demanding</strong> than the SLO, and that is on purpose: the SLO is the contract's <strong>shield</strong>.</li>
+  <li><strong>The budget.</strong> What remains between the SLO and 100%: 0.1%. In 30 days, at 5 orders per second, that is 5 × 2,592,000 = <strong>12,960,000</strong> requests, and 0.1% is <strong>12,960 bad ones</strong> (or <strong>43.2 min</strong> of total downtime).</li>
+  <li><strong>Never 100%.</strong> The article recommends: an SLA is written with nines, and never 100%. Each extra nine costs a lot, and a 100% target forbids any change.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The nines, in minutes</h3>
+
+<p>In 30 days there are 43,200 minutes. The target becomes the time the store may be down:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Target</th><th>99%</th><th>99.5%</th><th>99.9%</th><th>99.95%</th><th>99.99%</th></tr></thead>
+  <tbody>
+    <tr><th>minutes of failure per month</th><td>432</td><td>216</td><td><strong>43.2</strong></td><td>21.6</td><td>4.32</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each nine cuts the budget by 10 times. Going from 99.9% to 99.99% turns 43.2 minutes into <strong>4.32</strong>. That is why the target is a business decision: who pays for the next nine?</p>
+
+<h3 class="sec">The store's budget, per cell</h3>
+
+<p>The 12,960 bad requests of the month do not have to be split equally. By each cell's share (module 26): <code>celula-mkt</code> (40%) gets <strong>5,184</strong>, <code>celula-sp</code> (33%) gets <strong>4,276.8</strong>, <code>celula-rio</code> (15%) gets <strong>1,944</strong> and <code>celula-recife</code> (12%) gets <strong>1,555.2</strong>. The Recife cell, Lena's, has the smallest absolute budget: the same incident consumes it faster.</p>
+
+<h3 class="sec">What has already burned</h3>
+
+<p>The incidents from the earlier modules now have a price, as a fraction of the month:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Incident</th><th>Math</th><th>Burned</th></tr></thead>
+  <tbody>
+    <tr><th>90 s PSP-A <strong>without</strong> protection (module 21)</th><td>30 × 90 = 2,700 failures</td><td><strong>20.8%</strong> of 12,960</td></tr>
+    <tr><th>SP outage (module 27)</th><td>9.9 × 65 s = 643.5</td><td><strong>4.97%</strong></td></tr>
+    <tr><th>1063 episode (lesson 2)</th><td>8 orders above 800 ms</td><td><strong>0.06%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The SP outage math is simplified: it counts only the 9.9 orders per second of <code>celula-sp</code> during the 65 s of the RTO and compares with a budget calculated at an average of 5 orders per second. PSP-A without protection, alone, would spend a fifth of the month in 90 s. 1063, which made Lena wait, cost almost nothing of the budget: it went by without lighting up any alarm, and that is why the investigation in lesson 2 is still needed: the budget measures the damage, it does not find it.</p>
+
+<Widget name="orcamento" title="Error budget and burn rate" hint="SLO (99 to 99.99%), window (30 days), requests per month (12,960,000) and incidents (unprotected PSP, SP outage, 1063). Shows the budget (12,960 · 43.2 min), the % burned (20.8 · 4.97 · 0.06), the burn rate and the time to exhaustion, and the policy (ship, fixes only, freeze)." />
+
+<h3 class="sec">Burn rate: linking the budget to the alert</h3>
+
+<p>The <strong><em>burn rate</em></strong> is the speed of the burn: 1× spends the budget exactly at the end of the period; 2× spends it in half the time. The <em>SRE Workbook</em> formula is <strong>consumption = burn × window ÷ period</strong>. Three combinations become rules:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><em>Burn rate</em></th><th>Window</th><th>Budget consumption</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><th>14.4×</th><td>1 h (and 5 min)</td><td>14.4 × 1 ÷ 720 = <strong>2%</strong></td><td>page</td></tr>
+    <tr><th>6×</th><td>6 h (and 30 min)</td><td>6 × 6 ÷ 720 = <strong>5%</strong></td><td>page</td></tr>
+    <tr><th>1×</th><td>3 days</td><td>1 × 72 ÷ 720 = <strong>10%</strong></td><td><em>ticket</em></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The 720 is the hours in 30 days. The short window (5 min, 30 min) keeps the alert from firing after the problem is over. Why 14.4×? It is the <strong>burn</strong> that spends 2% of the budget in 1 h, and 2% is a value the team found worth waking someone for. Spending 5% in 1 h would need 36×, which almost only happens in a total outage.</p>
+
+<h3 class="sec">The policy: the budget rules the deploy</h3>
+
+<p>The budget is a <strong>signal for what the team does</strong>. One possible policy, as an example:</p>
+
+<ul>
+  <li><strong>More than 50% left.</strong> Ship as normal.</li>
+  <li><strong>Between 50% and 10%.</strong> Only fixes and a slow <em>canary</em> (module 22).</li>
+  <li><strong>Less than 10%.</strong> Freeze everything that is not a fix.</li>
+  <li><strong>Hit zero.</strong> War room, with priority on stability.</li>
+</ul>
+
+<p>The 12,960 budget and the 20.8% of the unprotected PSP-A make this clear: one such incident and the store is left with 79% and keeps shipping; three, and it has already burned 62.5% and enters the caution band. It is a way to negotiate between <strong>speed</strong> and <strong>stability</strong> with a number, not with an opinion.</p>
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>The SLI that measures the wrong thing.</strong> <code>2.5.0</code> from module 22 returns <code>201</code>, fast, with shipping 0.00. By the definition above that counts as "good": <code>2xx</code> and within 800 ms. The budget <strong>does not burn</strong>, the SLO dashboard stays green, and the store loses R$ 15.00 per order in Recife. The SLI needs to measure what the customer (and the business) considers right. Two ways: a <strong>business</strong> SLI (the ratio of <code>pedidos_frete_zero_total</code>) and a <em>diff</em> SLI against <code>2.4.0</code> (does the same input give the same answer?).</p>
+
+<p><strong>The 100% SLO.</strong> No errors in 30 days means no releases, no maintenance and no tolerance: the first incident, even of 1 s, breaks the contract. It is the reason the article asks for nines, not 100%.</p>
+
+<WhyItMatters>
+  <li><strong>Each acronym has a role.</strong> SLI measures, SLO aims (99.9%), SLA promises (99.5%, 216 min) and the budget (12,960; 43.2 min) decides.</li>
+  <li><strong>The incidents get a scale.</strong> 20.8% · 4.97% · 0.06%: the unprotected PSP burns a fifth of the month.</li>
+  <li><strong>The SLI can be wrong.</strong> If shipping 0.00 counts as good, the budget does not see the defect.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The article's margin, in minutes</h4>
+  <p>The article gives an example: a 99.95% SLO and an SLI measured at 99.98%, or "0.03% of margin". That is right. In 30 days, 99.95% allows 21.6 min of failure, and the store spent 0.02% (8.64 min); the 0.03% margin is 12.96 min. The lesson only adds the math, and the <em>burn rate</em>.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>SLI as "what materializes the SLA and the SLO".</strong> The SLI is the <strong>measure</strong>, a <strong>good ÷ valid</strong> ratio with the definition of what counts as "good". The SLO is the <strong>target</strong> on it, and the SLA is the <strong>contract</strong>. The article also says that "in the long run, the SLO should become the SLA", and that is confusing: the SLO should stay <strong>stricter</strong> than the SLA to shield it.</li>
+    <li><strong>The budget math and the <em>burn rate</em> are missing.</strong> 43.2 min and 12,960 requests; 2% in 1 h = 14.4×, 5% in 6 h = 6×, 10% in 3 days = 1× (<em>SRE Workbook</em>). It is what links the budget to the alert in lesson 6.</li>
+    <li><strong>Math, not measurements.</strong> The budget policy is an <strong>example</strong>. No Prometheus was run; the math came from <code>c28.py</code> (10/21/2026).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Service Level Objectives", href: "https://sre.google/sre-book/service-level-objectives/" },
+    { label: "Google SRE Workbook: Implementing SLOs", href: "https://sre.google/workbook/implementing-slos/" },
+    { label: "Google SRE Workbook: Alerting on SLOs", href: "https://sre.google/workbook/alerting-on-slos/" },
+    { label: "New Relic: What are SLOs, SLIs, and SLAs?", href: "https://newrelic.com/blog/observability/what-are-slos-slis-slas" },
+    { label: "Grafana: SLOs, a guide to setting and benefiting from them", href: "https://grafana.com/blog/slos-a-guide-to-setting-and-benefiting-from-service-level-objectives/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Target, budget and alert now talk to each other. What is missing is <strong>where to look</strong> when the budget starts to burn: at the resource, at the service or at what the user feels. That is lesson 8, and it starts with the resources method.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between SLI, SLO and SLA?",
+    a: "SLI: the measure (good ÷ valid). SLO: the internal target (99.9% over 30 days). SLA: the contract with a consequence (99.5% with mkt-01, 216 min). The SLO should be stricter than the SLA." },
+  { q: "What is 'good' and what is 'valid' in the POST /pedidos SLI?",
+    a: "Good: 2xx and duration ≤ 800 ms. Valid: everything except 422 (customer error), 409 (sold out) and 429 (tenant rate limit)." },
+  { q: "How much is the month's error budget?",
+    a: "5/s × 2,592,000 s = 12,960,000 requests; 0.1% = 12,960 bad ones, or 43.2 min of total downtime." },
+  { q: "How much of the budget did each incident burn?",
+    a: "90 s PSP-A without protection: 2,700 = 20.8%. SP outage: 643.5 = 4.97%. 1063 episode: 8 = 0.06%." },
+  { q: "Which burn rates become alerts?",
+    a: "14.4× in 1 h = 2% and 6× in 6 h = 5% (page, with a short window of 5 and 30 min); 1× in 3 days = 10% (ticket). consumption = burn × window ÷ period." },
+]} />

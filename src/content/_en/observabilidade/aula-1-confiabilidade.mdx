@@ -1,0 +1,120 @@
+---
+title: "Reliability"
+order: 1
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Module 27 ended with a good number: an <strong>MTTD of 30 s</strong> for the São Paulo outage. But those 30 s only existed because someone had put <strong>probes</strong> in the store. Before them, the shipping defect from module 22 (<code>201</code>, 0% errors, shipping 0.00) took <strong>60 min</strong> to be noticed, and only through a business metric. The store has measured a lot along the way, each measure in a different module. What is missing is one discipline to pull it all together, and it starts with a simple question: <strong>what is a reliable store</strong>?</p>
+
+<OneLiner><strong>Reliability</strong> is delivering <strong>correct</strong> behavior over time, not just "being up". Availability is one <strong>piece</strong> of it.</OneLiner>
+
+<DoIt>
+  <p>In the <strong>Available × correct</strong> widget, turn on the <code>2.5.0</code> shipping defect and see which panels turn red. Then move the time until someone notices, from 30 s to 60 min, and read how much the store loses in Recife.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>"Up".</strong> <code>/healthcheck</code> answers <code>200</code>, requests come back <code>2xx</code>, the error rate is 0% and latency is the usual. By the technical dashboard, the store is perfect.</li>
+  <li><strong>"Correct".</strong> The article we start from defines reliability as the property of delivering <strong>correct behavior over time</strong>, under expected conditions and under some adverse ones. That joins three things: <strong>continuity</strong> (the service keeps going), <strong>integrity</strong> (the data and the math are right) and <strong>predictability</strong> (latency and degradation are not a surprise).</li>
+  <li><strong>The <code>2.5.0</code> case.</strong> With the defect, <code>pedidos</code> returns <code>201</code>, fast, with <strong>shipping 0.00</strong> in Recife. Every technical panel stays green. The store is available and <strong>wrong</strong>, and loses R$ 15.00 per Recife order.</li>
+  <li><strong>A contract, not a wish.</strong> The article puts reliability as an <strong>architecture constraint</strong> and an <strong>operational contract</strong>, not a "desirable attribute". A contract has a number, a measure and an owner.</li>
+  <li><strong>The three goals.</strong> From there come the goals the course has chased since module 21: lower the <strong>probability and impact</strong> of wrong behavior, lower the <strong>time to detect and recover</strong>, and limit the <strong>blast radius</strong> when something fails.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The shipping 60 min, in money</h3>
+
+<p>The math is from module 22. The store sells 5 orders per second on a normal day, and 20% go to Recife: <strong>1 order per second</strong>. Each one is R$ 15.00 cheaper with the defect. In <strong>60 min</strong> (3,600 s) that is 3,600 × 15 = <strong>R$ 54,000</strong>. With a probe that sees the shipping in <strong>30 s</strong>, it is 30 × 15 = <strong>R$ 450</strong>. The 120-fold difference is in the time to <strong>notice</strong>, not in the time to fix.</p>
+
+<Widget name="disponivel-correto" title="Available × correct" hint="Turns the 2.5.0 shipping defect on and off. Shows the 201, the healthcheck 200, errors at 0% and the same latency, and which panel reports it: the technical one (all green) or the business one (pedidos_frete_zero_total{cidade='recife'}). Move the time until someone notices and read the loss." />
+
+<p>The widget shows what the technical panel does <strong>not</strong> have: a question about the content. Only a metric that knows the domain rule (<code>pedidos_frete_zero_total</code>, in module 22) sees a shipping cost of zero. That is why the article's definition fits so well: a system can be technically available and barely reliable if it <strong>answers with wrong data</strong>.</p>
+
+<h3 class="sec">The 27 chapters as answers to "what if..."</h3>
+
+<p>Read backwards, the store is a list of questions someone asked and the pieces that answer each one. The article says SLIs, redundancy, resilience patterns and incident response are a <strong>consequence</strong> of the reliability goal. The table shows it, one row per module:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Module</th><th>What if...</th><th>The piece</th></tr></thead>
+  <tbody>
+    <tr><th>1 Network Protocols</th><td>the data gets lost on the way?</td><td>layers, TCP, TLS, DNS</td></tr>
+    <tr><th>2 Storage, RAID and I/O</th><td>the disk burns out?</td><td>RAID 1, 5, 6, 10</td></tr>
+    <tr><th>3 CAP, ACID, BASE</th><td>the network between SP and Recife goes down?</td><td>choosing between C and A</td></tr>
+    <tr><th>4 Databases</th><td>finding order 1042 takes too long?</td><td>indexes</td></tr>
+    <tr><th>5 Cache</th><td>the cat page gets slow?</td><td>cache, TTL, CDN</td></tr>
+    <tr><th>6 Microservices</th><td>one report takes the whole program down?</td><td>split by domain</td></tr>
+    <tr><th>7 Load Balancers</th><td>one catalog replica goes down?</td><td>healthcheck and balancer</td></tr>
+    <tr><th>8 API Gateways</th><td>a bot sends 500 req/s?</td><td>single door and <em>rate limit</em></td></tr>
+    <tr><th>9 BFF</th><td>the screen joins 4 services?</td><td>one backend per channel</td></tr>
+    <tr><th>10 Service Mesh</th><td>each service handles retry and TLS its own way?</td><td>sidecar and mTLS</td></tr>
+    <tr><th>11 Concurrency</th><td>two people click on the last cat?</td><td>lock and semaphore</td></tr>
+    <tr><th>12 Synchronous Communication</th><td>the payment is slow to answer?</td><td>REST, gRPC, <em>polling</em></td></tr>
+    <tr><th>13 Asynchronous Communication</th><td>the consumer is down?</td><td>Kafka and DLQ</td></tr>
+    <tr><th>14 Performance</th><td>Black Friday arrives?</td><td>percentiles, knee, HPA</td></tr>
+    <tr><th>15 Scale Cube</th><td>cloning replicas is not enough?</td><td>X, Y and Z axes</td></tr>
+    <tr><th>16 Sharding</th><td>the table has 50 million rows?</td><td><em>shards</em> by customer</td></tr>
+    <tr><th>17 Data Replication</th><td>Lena cannot see her own order?</td><td>replicas and lag</td></tr>
+    <tr><th>18 CQRS</th><td>reads and writes ask for different things?</td><td>read model</td></tr>
+    <tr><th>19 Saga</th><td>stock fails after the payment?</td><td>compensation</td></tr>
+    <tr><th>20 Event Sourcing</th><td>we need to know how the order got there?</td><td>event tape</td></tr>
+    <tr><th>21 Resilience Patterns</th><td>the PSP answers in 8 s?</td><td><em>timeout</em>, <em>breaker</em>, <em>fallback</em></td></tr>
+    <tr><th>22 Deployment Models</th><td>the new version is wrong?</td><td><em>canary</em> and <em>rollback</em></td></tr>
+    <tr><th>23 Capacity Planning</th><td>the 200 orders/s plan turns out real?</td><td>Little and queues</td></tr>
+    <tr><th>24 Load and Stress Testing</th><td>the system breaks before the plan?</td><td>k6</td></tr>
+    <tr><th>25 Bulkhead</th><td>the report takes over the pool?</td><td>compartments</td></tr>
+    <tr><th>26 Cell-Based Architecture</th><td>one customer poisons the whole store?</td><td>4 cells</td></tr>
+    <tr><th>27 SPoF and DR</th><td>the SP region disappears?</td><td>failover, RTO, RPO</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each row in that table reduces the <strong>chance</strong> of the failure, the <strong>time</strong> to recover or its <strong>radius</strong>. None of them guarantees that the next defect gets noticed. That is another subject, the one in this module: <strong>seeing</strong> what the store is doing.</p>
+
+<h3 class="sec">And if it goes wrong: available and wrong</h3>
+
+<p>It is the <code>2.5.0</code> case, and it is worth rereading with the definition in hand. <code>/healthcheck</code> measures continuity, and that is intact. Integrity (the shipping) is broken, and no technical panel asks that question. Predictability does not show up either: latency is the same. What gave the alert was the business metric, 60 min later. If the store only measured what the technical panel measures, it would have found out through a customer's <strong>complaint</strong>, or through the monthly balance.</p>
+
+<WhyItMatters>
+  <li><strong>Available is not enough.</strong> <code>2.5.0</code> answered <code>201</code> and cost R$ 54,000 in 60 min.</li>
+  <li><strong>Detecting is worth money.</strong> 60 min × 1 Recife order/s × R$ 15.00 = R$ 54,000; 30 s = R$ 450.</li>
+  <li><strong>The earlier chapters are the first half.</strong> They reduce the chance, the time and the radius; what is missing is what shows, at every moment, whether the store is right.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">What the article does and what this lesson adds</h4>
+  <p>The article presents itself as a <em>recap</em>: it gathers, in one chapter, what was scattered across performance, continuity and resilience. The definition of reliability (continuity, integrity and predictability) is the article's. Google, in the <em>Embracing Risk</em> chapter of the SRE book, starts from the same place: reliability is a goal with a cost, and 100% is the wrong target for almost anything. Lesson 7 uses that idea for the error budget.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>No lab from the author.</strong> The author's public repository has no observability example (checked with <code>gh api</code> on 10/21/2026). The module's math was done in Python (<code>c28.py</code>, 10/21/2026); <strong>no</strong> OpenTelemetry, Prometheus or Grafana was run, and the <em>span</em> durations are an <strong>example</strong>, as the lessons say.</li>
+    <li><strong>Detection time enters the definition.</strong> The article mentions "reducing the time to detect and recover" and leaves detection loose. Here it has a value: 60 min (R$ 54,000) against 30 s (R$ 450).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+    { label: "Red Hat: What is observability?", href: "https://www.redhat.com/en/topics/devops/what-is-observability" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store only got safe when someone <strong>saw</strong> the shipping, and it was the business metric, an hour later. What is missing is how to see what is <strong>not</strong> on the dashboard: what separates watching what is already known from being able to ask what nobody predicted. That is lesson 2.</p>
+
+<Flashcards cards={[
+  { q: "What is reliability, according to the article?",
+    a: "Delivering correct behavior over time, under expected and some adverse conditions: continuity, integrity and predictability. Availability is one piece." },
+  { q: "What does 'available and wrong' mean?",
+    a: "2.5.0 returns 201, the healthcheck answers 200, errors stay at 0% and latency is the same, but the Recife shipping is 0.00. Only the business metric sees it." },
+  { q: "How much did the 0.00 shipping cost in 60 min, and how much would it cost in 30 s?",
+    a: "1 order per second from Recife (20% of 5) × R$ 15.00: 3,600 × 15 = R$ 54,000 in 60 min; 30 × 15 = R$ 450 in 30 s." },
+  { q: "Why does the article talk about an operational contract?",
+    a: "Because reliability has a measure and an owner: it is an architecture constraint, not a 'desirable attribute'." },
+  { q: "What are the three goals that modules 21 to 27 chase?",
+    a: "Reduce the probability and impact of wrong behavior, reduce the time to detect and recover, and limit the blast radius of the failure." },
+]} />

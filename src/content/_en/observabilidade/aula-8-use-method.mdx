@@ -1,0 +1,110 @@
+---
+title: "USE: looking at resources"
+order: 8
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The store has a target (99.9%), a budget (12,960) and an alert that tells you when it burns fast. But when the page rings, what is missing is <strong>where to look</strong>: there is CPU, memory, pools, queues, disk and network, and each one has dozens of metrics. Without a script, the investigation becomes a stroll through dashboards. The first script is for <strong>resources</strong>, and it is what the store already saw, without that name, on the Black Friday at 20:03.</p>
+
+<OneLiner>For each <strong>resource</strong> (CPU, memory, disk, network, <strong>pools and queues</strong>), measure <strong>U</strong>tilization, <strong>S</strong>aturation and <strong>E</strong>rrors. <strong>Saturation</strong>, the queue, is what utilization hides.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>USE</strong> scenario, advance to the <strong>23:00 report</strong> and read the utilization, saturation and errors of the 20-connection pool. Compare with <code>catalogo-3</code>, the replica at 99% among the others at 64%.</p>
+</DoIt>
+
+<Figure3D path="en/labs/observabilidade/contrato-3d/?mode=use" poster="labs/observabilidade/contrato-3d-previa.webp" title="Interactive figure: USE: the resources" alt="Preview of the 3D figure: USE: the resources" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The method.</strong> Brendan Gregg described it as a way to <strong>start</strong> a performance investigation: for each resource, three questions, and you go through all the resources before theorizing. The resources are the physical ones (CPU, memory, disk, network) and also the queues and pools.</li>
+  <li><strong>Utilization.</strong> How much of the resource is in use, over an interval: CPU at 64%, connections in use ÷ the limit. It is a load and trend indicator; it serves capacity planning.</li>
+  <li><strong>Saturation.</strong> The work that <strong>waits</strong> because the resource cannot keep up: the CPU run queue, the requests in the pool queue, <em>iowait</em>, the Kafka consumer's lag. A resource at 99% may still serve, and one with a queue already degrades.</li>
+  <li><strong>Errors.</strong> Failure events <strong>of the resource</strong>: an I/O error, an <em>OOMKill</em>, a <em>packet drop</em>, a connection refused by a full pool. In the original method they belong to the <strong>resource</strong>; the service's errors stay in RED (lesson 9).</li>
+  <li><strong>The walkthrough.</strong> List the cell's resources, fill in U, S and E for each and look first at what is red in S or E. The method answers "which resource is the bottleneck?" and is silent about the rest.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec"><code>catalogo-3</code> in three lines</h3>
+
+<p>Go back to the module 14 Black Friday, at 20:03. The catalog fleet has 10 replicas, nine at 64% utilization and <code>catalogo-3</code> at <strong>99%</strong>. The fleet, on average, is at (9 × 64 + 99) ÷ 10 = <strong>67.5%</strong>: it looks healthy. By the three USE questions:</p>
+
+<p><strong>Utilization:</strong> 99% on <code>catalogo-3</code>; the fleet average (67.5%) hides it. <strong>Saturation:</strong> the queue. By Little's law (module 14), <code>catalogo-3</code> has 64 req/s × 1.01 s = <strong>64.6</strong> requests in flight, out of a fleet total of 86.4; each healthy replica has 2.4. <strong>Errors:</strong> <strong>1%</strong> of <code>504</code> at 640 req/s. Any of the three, alone, points to the right replica; the average does not.</p>
+
+<h3 class="sec">The 20-connection pool, again</h3>
+
+<p>The module 25 pool is a resource, and USE describes it well. <strong>Utilization:</strong> connections in use ÷ 20. Without the report, 0.4 of 20 (2%). With the 23:00 report, 40.4 requested for 20: <strong>100%</strong>. <strong>Saturation:</strong> whoever waits for a slot, <code>db_pool_waiting</code>. <strong>Errors:</strong> the <code>503</code>s from the full pool, 33% of checkout and 10% of status in the module 25 test. It is the same situation USE sees in other words, with one advantage: the reading <strong>does not depend on knowing what caused it</strong>.</p>
+
+<h3 class="sec">The cell's resource table</h3>
+
+<p>For <code>celula-recife</code>, the full resource table has the shape below. The values are the reading model, not a measurement:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Resource</th><th>Utilization</th><th>Saturation</th><th>Errors</th></tr></thead>
+  <tbody>
+    <tr><th>CPU</th><td>% in use</td><td>run queue, <em>throttling</em></td><td>(rare)</td></tr>
+    <tr><th>Memory</th><td>% of the limit</td><td><em>swap</em>, GC pauses</td><td><em>OOMKill</em></td></tr>
+    <tr><th>DB pool</th><td>in use ÷ 20</td><td><code>db_pool_waiting</code></td><td><code>503</code> from a full pool</td></tr>
+    <tr><th>WAL disk</th><td>% of I/O busy</td><td>I/O queue, <em>flush</em> delay</td><td>I/O error</td></tr>
+    <tr><th>Network</th><td>bandwidth ÷ capacity</td><td><em>drops</em>, retransmissions</td><td><em>resets</em></td></tr>
+    <tr><th>Kafka consumer</th><td>messages/s ÷ capacity</td><td><code>kafka_consumer_lag</code></td><td>messages in the DLQ</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Note the last row: the <strong>consumer lag</strong> is the saturation of a resource that does not look like a resource. If the <code>estoque</code> consumer cannot keep up with the <code>pedidos</code> topic, the delay grows without the CPU going up.</p>
+
+<Widget name="use" title="USE: resources" hint="Pick the resource (catalogo-3, the 20-connection pool, or pedidos) and fill in U, S and E. Shows what the method sees (the replica at 99%, the pool at 100% and the 503s) and what it does not (the 0.00 shipping)." />
+
+<h3 class="sec">And if it goes wrong</h3>
+
+<p><strong>USE only sees resources.</strong> With <code>2.5.0</code> live, the CPU is at 20%, the pool at 10%, the disk at peace, and <code>pedidos</code> keeps returning shipping 0.00 in Recife. Every resource is <strong>fine</strong>: the defect is in the service. That is the method's limit, and lesson 9 shows what covers the gap.</p>
+
+<p><strong>The fleet average.</strong> <code>catalogo-3</code> at 99% vanishes in a fleet at 67.5%. A <strong>per-fleet</strong> utilization dashboard shows a calm number, while 1 in every 10 requests lives on the saturated replica. USE applies to each <strong>instance</strong>, and then you aggregate.</p>
+
+<WhyItMatters>
+  <li><strong>Saturation shows what utilization hides.</strong> <code>catalogo-3</code> has 64.6 requests in flight and the fleet is at 67.5%.</li>
+  <li><strong>The pool is a resource too.</strong> 100% utilization, a queue and 503s: it is module 25 in three lines.</li>
+  <li><strong>The method is blind to the service.</strong> With CPU at 20%, <code>2.5.0</code> stays wrong.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where the original method is</h4>
+  <p>The article cites ACM Queue (<em>Thinking Methodically about Performance</em>), which answers 403 to robots. The method is described by Gregg himself at <code>brendangregg.com/usemethod.html</code>, with checklists per operating system. There, the list of resources includes CPU, memory, network interfaces, disks and buses, and the <em>errors</em> are events of the resource.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Errors" per resource mixes two things.</strong> The article lists both resource errors (<em>I/O errors</em>, <em>OOMKills</em>) and software errors (<em>thread pool exhausted</em>, <em>rate limit exceeded</em>). In the original method the <strong>errors</strong> are events of the resource; the service's stay in RED.</li>
+    <li><strong>ACM Queue link.</strong> It answers 403 to robots; the source used here is Gregg's page.</li>
+    <li><strong>Math.</strong> The resource table is a reading model. The <code>catalogo-3</code> numbers are from module 14, and the pool's are from module 25 (real k6).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Observability and Monitoring (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/observabilidade/" },
+    { label: "Brendan Gregg: The USE Method", href: "https://www.brendangregg.com/usemethod.html" },
+    { label: "PagerTree: USE and RED", href: "https://pagertree.com/learn/devops/what-is-observability/use-and-red-method" },
+    { label: "The New Stack: Monitoring Methodologies, RED and USE", href: "https://thenewstack.io/monitoring-methodologies-red-and-use/" },
+  ]} />
+</Deep>
+
+<p class="gancho">All the resources can be fine and the service wrong. USE looks from the inside. What is missing is how to look at the service <strong>from the outside</strong>: how many requests arrive, how many fail and how long they take. That is lesson 9, RED.</p>
+
+<Flashcards cards={[
+  { q: "What does USE measure and on what?",
+    a: "Utilization, saturation and errors, for each resource: CPU, memory, disk, network, pools and queues. Saturation (the queue) is what utilization hides." },
+  { q: "What does USE say about catalogo-3?",
+    a: "Utilization 99% (fleet 67.5%), saturation 64.6 of 86.4 requests in flight and errors of 1% 504s at 640 req/s." },
+  { q: "How does USE describe the 20-connection pool with the 23:00 report?",
+    a: "Utilization 100% (40.4 requested), saturation in the wait for a slot and errors in the full-pool 503s: 33% of checkout and 10% of status." },
+  { q: "Why is Kafka consumer lag saturation?",
+    a: "It is work piling up because the consumer cannot keep up with the topic, and the CPU may be low." },
+  { q: "What is the limit of USE?",
+    a: "It only sees resources. With CPU at 20% and the pool at 10%, 2.5.0 keeps returning shipping 0.00. And the fleet average hides the replica at 99%." },
+]} />
