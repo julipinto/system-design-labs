@@ -1,0 +1,70 @@
+---
+title: "Graph model"
+order: 9
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson each key-value pair lived alone. But the store wants to say on the plush cat's page: "whoever bought this also bought that". That depends on links between Lena, Bia, the cat and the mugs, and links are what the graph model works with.</p>
+
+<OneLiner>In the graph model, entities are nodes, relationships are edges, and both are first-class data; so following a node to its neighbor is an operation of the database, not a JOIN assembled in the query.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Graph</strong> mode, start from the <strong>gato de pelúcia</strong> node (plush cat), follow the COMPROU (bought) edges to the buyers and then to what they also bought. Note which product shows up most often.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=graph" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: nodes and COMPROU edges: whoever bought the cat also bought a mug" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Each customer and each product becomes a <strong>node</strong>, with properties: the Lena node has <code>cidade: Recife</code> and the gato de pelúcia node has <code>preço: 89.90</code>.</li>
+  <li>Each purchase becomes an <strong>edge</strong> with a direction and a name: <code>(Lena)-[COMPROU]→(gato de pelúcia)</code> is order 1042 and <code>(Bia)-[COMPROU]→(gato de pelúcia)</code> is 1043. The blue mug (caneca azul) also gets edges from Lena (order 1044) and Bia (order 1046).</li>
+  <li>The question "whoever bought the cat also bought what?" is a <strong>traversal</strong>: from the cat, follow COMPROU backwards to Lena and Bia. From each of them, follow COMPROU forwards to the other products.</li>
+  <li>The result: both bought the <strong>blue mug</strong>. That is the recommendation for whoever is looking at the plush cat.</li>
+  <li>In SQL, the same question needs joining the <code>pedidos</code> table with itself. With millions of orders and many hops, each join costs more than the previous one. In the graph, each hop starts from the node you are on and looks only at its neighbors.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>When the answer lies in the links (friends of friends, products bought together, the path between two points), the graph stores the link ready-made instead of recomputing it.</li>
+  <li>Real uses: product recommendation, social networks, fraud detection (accounts linked to the same card), threat analysis and logistics.</li>
+  <li>For summing a column or looking up by id, the graph is not the tool. It wins where the question looks like a map.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Questions the graph answers well</h4>
+  <ul>
+    <li>"Students in the morning class who live in the same neighborhood and have an average above 8."</li>
+    <li>"Friends of friends who live in the same city and worked at the same company."</li>
+    <li>"Whoever bought the plush cat also bought what?" (the store's).</li>
+  </ul>
+  <h4 class="deep-h">Performance care</h4>
+  <p>The cost depends on the <strong>degree</strong> of the nodes (how many edges leave each one). A product that millions of people bought is a heavy node, and passing through it on every traversal is expensive. Good queries start from an uncommon node and limit the depth.</p>
+  <h4 class="deep-h">Graph is NoSQL, and it is about relationships</h4>
+  <p>The source article says NoSQL databases "have no direct relationships". That describes key-value and document. The graph database is the exception: it was built for relationships. The model does give up the table format, though, which is why it belongs to the NoSQL family.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Neo4j: graph database concepts", href: "https://neo4j.com/docs/getting-started/get-started-with-neo4j/graph-database/" },
+    { label: "Wikipedia: graph database", href: "https://en.wikipedia.org/wiki/Graph_database" },
+  ]} />
+</Deep>
+
+<p>With that, the six ways of storing order 1042 have been seen: row, document, column, wide-column, key-value and graph. So far we have talked about "reading" without saying what the disk hands over per read. What is left is to see how the database splits all of this into fixed-size pages and how the page size changes the cost of finding a row.</p>
+
+<Flashcards cards={[
+  { q: "What are nodes and edges?",
+    a: "Nodes are the entities (Lena, Bia, plush cat). Edges are the relationships between them (COMPROU), with a direction and a name." },
+  { q: "What does order 1042 look like in a graph?",
+    a: "As the edge <code>(Lena)-[COMPROU]→(gato de pelúcia)</code>." },
+  { q: "What does the database do to answer \"whoever bought the cat also bought what\"?",
+    a: "A traversal: from the cat to the buyers (Lena and Bia) and from them to the other products. The blue mug comes up." },
+  { q: "Why does the graph beat the JOIN on long chains?",
+    a: "Each hop starts from the current node and looks only at its neighbors. The JOIN merges whole tables at every step." },
+]} />

@@ -1,6 +1,7 @@
 /* ---------- modo foco, barra de estado, concluídas e flashcards ---------- */
 (function () {
   'use strict';
+  var EN = /^en/.test(document.documentElement.lang);   // versão em inglês (/en/)
   var root = document.querySelector('.sdl-content');
   if (!root) return;
   var lessons = Array.prototype.slice.call(root.querySelectorAll('.lesson'));
@@ -28,27 +29,44 @@
   function doneCount() { var c = 0; lessons.forEach(function (l) { if (done[l.id]) c++; }); return c; }
   function title(l) { return l.querySelector('h2').textContent; }
 
-  /* segmentos da barra de progresso */
-  var segs = lessons.map(function () { var s = document.createElement('span'); s.className = 'pg-seg'; track.appendChild(s); return s; });
+  /* trilha do pacote: uma estação por aula, trilha pontilhada entre elas, o pacote na aula atual */
+  var stations = [], links = [];
+  lessons.forEach(function (l, i) {
+    var st = document.createElement('span'); st.className = 'pg-st'; track.appendChild(st); stations.push(st);
+    if (i < N - 1) { var ln = document.createElement('span'); ln.className = 'pg-link'; ln.appendChild(document.createElement('i')); track.appendChild(ln); links.push(ln); }
+  });
+  var pkt = document.createElement('span'); pkt.className = 'pg-pkt'; track.appendChild(pkt);
   track.setAttribute('aria-valuemax', String(N));
+  var pktAt = -1;
+  function placePkt(animate) {
+    var st = stations[cur]; if (!st || !st.offsetWidth) return;
+    pkt.classList.toggle('moving', !!animate && pktAt >= 0 && pktAt !== cur);
+    pkt.style.left = (st.offsetLeft + st.offsetWidth / 2) + 'px'; pktAt = cur;
+  }
+  // muitas aulas para a largura: estação e pacote encolhem para não encostar
+  function fitTrail() { track.classList.toggle('dense', track.clientWidth / N < 26); placePkt(false); }
+  addEventListener('resize', fitTrail);
 
   var rendered = false;
   function render() {
     var dc = doneCount(), l = lessons[cur];
     statusText.textContent = '';
-    var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = 'Aula ' + (cur + 1) + ' de ' + N + ' · ';
+    var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = (EN ? 'Lesson ' + (cur + 1) + ' of ' : 'Aula ' + (cur + 1) + ' de ') + N + ' · ';
     var pm = document.createElement('span'); pm.className = 'pg-min'; pm.textContent = ' · ~' + l.getAttribute('data-min') + ' min';
     statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l))); statusText.appendChild(pm);
+    if (rendered && pktAt !== cur) { statusText.classList.remove('swap'); void statusText.offsetWidth; statusText.classList.add('swap'); }
     count.textContent = dc + '/' + N;
     track.setAttribute('aria-valuenow', String(dc));
-    track.setAttribute('aria-valuetext', dc + ' de ' + N + ' aulas entendidas');
-    segs.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-seg' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : ''); });
+    track.setAttribute('aria-valuetext', EN ? dc + ' of ' + N + ' lessons understood' : dc + ' de ' + N + ' aulas entendidas');
+    stations.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-st' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : ''); });
+    links.forEach(function (ln, i) { ln.classList.toggle('lit', i < cur); });
+    placePkt(rendered);
     rendered = true;
     prevBtn.disabled = cur === 0; nextBtn.disabled = cur === N - 1;
     tocLinks.forEach(function (a, i) {
       var ck = a.querySelector('.toc-ck');
       if (done[lessons[i] && lessons[i].id]) {
-        if (!ck) { ck = document.createElement('span'); ck.className = 'ico ico-check toc-ck'; ck.setAttribute('aria-label', 'entendida'); a.appendChild(ck); }
+        if (!ck) { ck = document.createElement('span'); ck.className = 'ico ico-check toc-ck'; ck.setAttribute('aria-label', EN ? 'understood' : 'entendida'); a.appendChild(ck); }
       } else if (ck) a.removeChild(ck);
       if (i === cur) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
@@ -56,9 +74,10 @@
       var b = ls.querySelector('.done-btn'), msg = ls.querySelector('.done-msg'), nx = ls.querySelector('[data-nav="next"]');
       var isDone = !!done[ls.id];
       ls.classList.toggle('is-done', isDone);
-      if (b) { b.setAttribute('aria-pressed', String(isDone)); b.textContent = isDone ? 'Aula entendida (clique para desfazer)' : 'Entendi esta aula';
+      if (b) { var justDone = isDone && b.getAttribute('aria-pressed') === 'false' && rendered; b.classList.toggle('just', justDone); b.setAttribute('aria-pressed', String(isDone)); b.textContent = EN ? (isDone ? 'Lesson understood (click to undo)' : 'I understood this lesson') : (isDone ? 'Aula entendida (clique para desfazer)' : 'Entendi esta aula');
         var bi = document.createElement('i'); bi.className = 'ico ico-check'; bi.setAttribute('aria-hidden', 'true'); b.insertBefore(bi, isDone ? b.firstChild : null); }
-      if (msg) msg.textContent = isDone ? dc + ' de ' + N + ' entendidas' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!') : '';
+      if (msg) msg.textContent = !isDone ? '' : EN ? dc + ' of ' + N + ' understood' + (i < N - 1 ? ' · Next: Lesson ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Module complete!')
+        : dc + ' de ' + N + ' entendidas' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!');
       if (nx) nx.className = 'btn big' + (isDone ? ' primary' : '');
     });
   }
@@ -152,4 +171,5 @@
   panel.hidden = true;
   sw.setAttribute('aria-checked', String(mode === 'all'));
   if (mode === 'focus') { show(cur, hashIdx() >= 0); } else { render(); }
+  fitTrail();
 })();

@@ -1,7 +1,9 @@
 ---
 // Seção "Como funciona" (título + o que vier no slot: passos, callouts, parágrafos).
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 interface Props { title?: string }
-const { title = 'Como funciona' } = Astro.props;
+const { title = T.how } = Astro.props;
 ---
 <h3 class="sec">{title}</h3>
 <slot />

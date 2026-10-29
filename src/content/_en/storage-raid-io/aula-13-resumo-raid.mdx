@@ -1,0 +1,97 @@
+---
+title: "RAID Summary and Comparisons"
+order: 13
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>There are five RAID levels now, and the store needs one for pedidos.db. The choice depends on what each piece of data can afford to lose: space, speed or safety. This lesson puts the five side by side.</p>
+
+<OneLiner>each RAID trades space, speed and safety in its own way: 0 only runs fast, 1 and 10 copy, 5 and 6 use parity, and none of them is a backup.</OneLiner>
+
+<DoIt>
+  <p>In the calculator, choose <strong>RAID 5</strong>, 4 disks of 1 TB (3 TB usable). Switch to RAID 6 (with 5 disks) and then RAID 10 (with 4) and watch capacity and penalty change.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Interactive figure: RAID 5 writing blocks, one or two disks failing and the rebuild" alt="Preview of the 3D figure: RAID 6 with disks D2 and D4 burned out and the blocks rebuilt from parities P and Q, 2 of 2 failures used" hint="Drag to rotate · Next step or ← → to advance · switch the RAID level in the panel" />
+<Widget name="raid" title="RAID calculator" hint="Choose the level, the number of disks and the size. The IOPS are theoretical." />
+
+<div class="sr-tablewrap" role="region" aria-label="Table comparing the RAID levels" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Level</th><th>Usable capacity</th><th>Failures tolerated</th><th>Read</th><th>Write</th><th>Penalty</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><th>RAID 0</th><td>N x S (100%)</td><td>0</td><td>~N x</td><td>~N x</td><td>1</td><td>Cache and temporary files</td></tr>
+    <tr><th>RAID 1</th><td>S (50% with 2 disks)</td><td>N - 1</td><td>up to N x</td><td>1 x</td><td>2</td><td>System and small database</td></tr>
+    <tr><th>RAID 5</th><td>(N - 1) x S</td><td>1</td><td>~(N - 1) x</td><td>good for sequential, weak for small</td><td>4</td><td>Files and read-heavy loads</td></tr>
+    <tr><th>RAID 6</th><td>(N - 2) x S</td><td>2</td><td>~(N - 2) x</td><td>worse than RAID 5</td><td>6</td><td>Large volume, long-term data</td></tr>
+    <tr><th>RAID 10</th><td>N / 2 x S (50%)</td><td>1 guaranteed, up to N / 2</td><td>~N x</td><td>~N / 2 x</td><td>2</td><td>Databases and transactional loads</td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Need speed and the data can be rebuilt?</strong> RAID 0.</li>
+  <li><strong>Little data, critical, simple?</strong> RAID 1.</li>
+  <li><strong>Write-heavy database with critical data?</strong> RAID 10. That is the case of pedidos.db.</li>
+  <li><strong>Lots of space, read-heavy, tight budget?</strong> RAID 5. With large disks and many of them: RAID 6.</li>
+  <li>In all of them: <strong>RAID is not a backup.</strong> Keep copies outside the set (object storage, another region).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Capacity math with 1 TB disks: RAID 0 (4 disks) = 4 TB, RAID 1 (2) = 1 TB, RAID 5 (4) = 3 TB, RAID 6 (5) = 3 TB, RAID 10 (4) = 2 TB.</li>
+  <li>RAID 5 and 6 pay for capacity with slower writes. RAID 10 pays with space. RAID 0 pays with safety.</li>
+  <li>RAID protects against <strong>disk failure</strong>, not against human error, ransomware, fire or bugs.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">How to read the table</h4>
+  <ul>
+    <li><strong>N</strong> is the number of disks and <strong>S</strong> the size of each one.</li>
+    <li>Read and write are theoretical values: they depend on the controller, the cache and the access pattern.</li>
+    <li><strong>Penalty</strong> is how many disk operations each small write generates.</li>
+  </ul>
+  <h4 class="deep-h">Random writes with 150 IOPS per disk</h4>
+  <ul>
+    <li>RAID 10 with 4 disks: 4 x 150 / 2 = 300 IOPS.</li>
+    <li>RAID 5 with 4 disks: 4 x 150 / 4 = 150 IOPS.</li>
+    <li>RAID 6 with 5 disks: 5 x 150 / 6 = 125 IOPS.</li>
+  </ul>
+  <h4 class="deep-h">And the store?</h4>
+  <ul>
+    <li><strong>Orders (pedidos.db):</strong> RAID 10 on SSD, plus a replica on another machine.</li>
+    <li><strong>Photos (like gato.jpg):</strong> object storage, which replicates by itself.</li>
+    <li><strong>Backups:</strong> object storage in another region, with a lifecycle.</li>
+    <li><strong>Cache and temporary files:</strong> RAID 0 or a disk with no RAID.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+    { label: "DataStorage: what RAID 5 is", href: "https://datastorage.com.br/post/raid-5" },
+    { label: "DataStorage: what RAID 6 is", href: "https://datastorage.com.br/post/o-que-e-o-raid-6" },
+  ]} />
+</Deep>
+
+<p>gato.jpg is in object storage and pedidos.db is on RAID 10. But a RAID only protects against a disk failure, and the whole machine can still go down. Next, how to keep the store up in that case. That is the ground of replicas and sharding.</p>
+
+<Flashcards cards={[
+  { q: "RAID 5, 6 and 10: capacity and failures?",
+    a: "5: (N - 1) x S, 1 failure. 6: (N - 2) x S, 2 failures. 10: N / 2 x S, 1 guaranteed." },
+  { q: "Write penalties?",
+    a: "RAID 0: 1. RAID 1 and 10: 2. RAID 5: 4. RAID 6: 6." },
+  { q: "Which RAID for a write-heavy database?",
+    a: "RAID 10." },
+  { q: "Does RAID replace backup?",
+    a: "No. It protects against disk failure, not against human error or disaster." },
+  { q: "How much do 5 disks of 1 TB in RAID 6 give?",
+    a: "3 TB." },
+]} />

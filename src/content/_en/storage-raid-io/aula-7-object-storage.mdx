@@ -1,0 +1,77 @@
+---
+title: "Object Storage"
+order: 7
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>The store keeps 500,000 photos like gato.jpg, and a folder tree with that many photos gets heavy. Object storage removes the tree: each photo has a key, and the server asks for the photo by it.</p>
+
+<OneLiner>object storage keeps each thing as an object (content, metadata and a unique key) in a bucket, and you access it through an API, with no real folders.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch gato.jpg become an object, get a key and be read by another server with just the URL.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/storage-3d/?mode=object" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Interactive figure: the same photo saved with object storage" alt="Preview of the 3D figure: a volume of numbered blocks (LBA 2048, 2049…), with only block 2048 being rewritten" hint="Drag to rotate · Next step or ← → to advance · switch the storage type in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store creates a <strong>bucket</strong> (a "pail") with a unique name: <code>loja-fotos</code>.</li>
+  <li>gato.jpg becomes an <strong>object</strong>: the 2,457,600 bytes, plus metadata (<code>image/jpeg</code>, <code>produto=4521</code>) and a key: <code>produtos/gatos/gato.jpg</code>.</li>
+  <li>Everything goes through an <strong>HTTP API</strong>: PUT to write, GET to read, DELETE to remove. No disk to mount. B and the customer's browser read through the same URL.</li>
+  <li>The slashes in the key look like folders, but they are just part of the name. The bucket is flat, and listing <code>produtos/gatos/</code> means filtering keys by prefix.</li>
+  <li>The service <strong>replicates and distributes</strong> by itself, across disks and even across locations. The price is that you can't edit the middle of the object: fixing 4 KB of the header re-uploads the whole 2.4 MB.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It is the home for the store's photos, backups and large files: nearly unlimited, cheap capacity.</li>
+  <li>It scales horizontally and is cloud native. In exchange, it doesn't fit a database or editing one byte in the middle of a file.</li>
+  <li>Each access is a network call, with tens of milliseconds of latency, more than a disk. Put a CDN in front for photos.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Talking to S3 (examples)</h4>
+  <pre><code>{"aws s3 cp gato.jpg s3://loja-fotos/produtos/gatos/gato.jpg\naws s3 ls s3://loja-fotos/produtos/gatos/\naws s3api head-object --bucket loja-fotos --key produtos/gatos/gato.jpg\n# head-object shows ContentLength, ContentType, ETag and metadata"}</code></pre>
+  <h4 class="deep-h">Anatomy of an object</h4>
+  <ul>
+    <li><strong>Data:</strong> the photo's bytes.</li>
+    <li><strong>Metadata:</strong> content type, date, tags you define.</li>
+    <li><strong>Key:</strong> the unique identifier inside the bucket.</li>
+  </ul>
+  <h4 class="deep-h">Durability</h4>
+  <p>S3 Standard promises 99.999999999% (11 nines) durability: with 10 million objects, the expectation is to lose one every 10,000 years. That comes from keeping several copies in different locations.</p>
+  <h4 class="deep-h">Other examples</h4>
+  <p>Azure Blob Storage, Google Cloud Storage and, to run at home, MinIO and Ceph.</p>
+  <h4 class="deep-h">Lifecycle</h4>
+  <p>Automatic rules move old objects to cheaper tiers or delete them. Useful for the store's backups.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: file, block and object storage", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "Cloudian: object storage care", href: "https://www.cloudian.com/blog/object-storage-care/" },
+    { label: "AWS: difference between block, file and object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<p>Now the store has somewhere to keep photos and backups. What's left is pedidos.db, on a single disk, and disks die. Next, how to combine several disks so one of them can die without taking the file with it. That is RAID, starting with the simplest.</p>
+
+<Flashcards cards={[
+  { q: "What is in an object?",
+    a: "Content, metadata and a unique key." },
+  { q: "What is a bucket?",
+    a: "The pail that holds objects; the name is unique." },
+  { q: "Are there folders in object storage?",
+    a: "No. The \"folder\" is just part of the key's name." },
+  { q: "How do you access object storage?",
+    a: "Through an HTTP API (PUT, GET, DELETE), not a mounted disk." },
+  { q: "What is it not good for?",
+    a: "Databases and editing the middle of a file: latency is higher and the object is replaced whole." },
+]} />

@@ -1,0 +1,78 @@
+---
+title: "B-Tree"
+order: 12
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The LSM left reads spread across several files. The B-Tree makes the opposite bet: it keeps the keys sorted in one place, and finding a row takes few page reads. It is the default index of relational databases, and it is worth seeing how much it beats the scan.</p>
+
+<OneLiner>A B-Tree is a tree in which each node is a page with many keys, so it reaches any row by reading few pages, from the root down to the leaf.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>B-Tree</strong> mode, search for order 1042 and look at the pages-read counter. Then switch to <strong>Scan</strong> mode (no index) and compare. After that, use the simulator below and raise the number of rows to 1 million.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/indices-3d/?mode=btree" poster="labs/databases/indices-3d-previa.webp" title="Interactive figure: B-Tree: finding order 1042 by going from the root down to the leaf" alt="Preview of the 3D figure: the orders' B-Tree with root 1043 and the two leaves, the path to order 1042 lit up" hint="Drag to rotate · go from the root down to the leaf, counting pages read · switch to Scan in the panel" />
+
+<Widget name="btreesearch" title="B-Tree search vs scan" hint="See step by step how many pages each approach reads to find an order. Then pick the table size and compare the numbers." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Without an index, <code>WHERE id = 1042</code> does a <strong>scan</strong>: the database reads the 2 pages of the table (1041 to 1044 in one, 1045 and 1046 in the other), because only at the end does it know there is no other row with that id.</li>
+  <li>With the B-Tree, the keys are kept <strong>sorted</strong> in pages. The <strong>root</strong> holds the key <code>1043</code>: everything smaller is in the left leaf (<code>1041, 1042</code>), the rest in the right leaf (<code>1043 to 1046</code>).</li>
+  <li>For 1042, the database reads the <strong>root</strong> (page 1), sees that 1042 is smaller than 1043 and goes down to the <strong>left leaf</strong> (page 2), where the row is. That is <strong>2 page reads</strong>.</li>
+  <li>Notice that the scan also read 2 pages. With 6 rows, the two <strong>tie</strong>. The tree only pays off when the table grows.</li>
+  <li>With 1 million orders of 2 KB, the scan reads 250,000 pages of 8 KB. The B-Tree, with each page holding hundreds of keys, has few levels: it reads <strong>4 pages</strong>. The tree grows wider, not taller.</li>
+  <li>When a new order fills a leaf, the leaf <strong>splits in two</strong> and the middle key goes up to the node above. The tree stays balanced, and every search costs the same number of levels.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Since the keys are sorted, the B-Tree also answers ranges: "orders 1042 to 1045" finds 1042 and follows the neighboring leaves.</li>
+  <li>It is the default index of transactional databases (PostgreSQL, MySQL, SQL Server) for primary keys and secondary indexes.</li>
+  <li>The price is on the write: each new order has to find the right leaf and, sometimes, split pages. Writing costs more than in an LSM.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The numbers in the scene (example)</h4>
+  <ul>
+    <li>6 rows, 4 per page, 2 leaves and a root. Finding 1042: 2 reads. The scan: 2 reads. A tie.</li>
+    <li>1 million rows of 2 KB: 250,000 pages of 8 KB in the scan. With ~400 keys per page in the internal node (example), the tree has 4 levels, and the search reads 4 pages.</li>
+    <li>In InnoDB the leaf of the primary index already holds the whole row, and the count of 2 reads holds. In PostgreSQL the index points to the table page and the search costs one more read.</li>
+  </ul>
+  <h4 class="deep-h">B-Tree and B+Tree</h4>
+  <p>The source article mixes "B-Tree" and "B+Tree". The structure databases really use is the <strong>B+Tree</strong>: the data (or the pointers to it) sit only in the leaves, and the leaves are linked in sequence, which makes range searches cheap. The drawing in the figure follows that idea.</p>
+  <h4 class="deep-h">Logarithmic time</h4>
+  <p>The number of levels grows with the logarithm of the number of rows, and the base of the logarithm is the number of keys per page (hundreds). That is why a thousand times more rows usually costs one or two extra levels.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: B-Tree indexes", href: "https://www.postgresql.org/docs/current/btree.html" },
+    { label: "MySQL: physical structure of an InnoDB index", href: "https://dev.mysql.com/doc/refman/8.0/en/innodb-physical-structure.html" },
+    { label: "PostgreSQL: using EXPLAIN (scan vs index)", href: "https://www.postgresql.org/docs/current/using-explain.html" },
+    { label: "Wikipedia: B-tree", href: "https://en.wikipedia.org/wiki/B-tree" },
+  ]} />
+</Deep>
+
+<p>The B-Tree is great when there is order and ranges. But what about when the only question is "the order is exactly 1042", with no interest in order? What is left is to see whether there is an even more direct shortcut, and it is hashing.</p>
+
+<Flashcards cards={[
+  { q: "How does the B-Tree find order 1042?",
+    a: "It reads the root (key 1043), sees that 1042 is smaller and goes down to the leaf [1041, 1042]. That is 2 page reads." },
+  { q: "Why, with 6 rows, does the B-Tree not beat the scan?",
+    a: "The scan also reads 2 pages (4 rows per page). The gain shows up with large tables." },
+  { q: "How many pages does the search read with 1 million rows?",
+    a: "The scan reads 250,000 pages of 8 KB. The B-Tree, with hundreds of keys per page, reads 4." },
+  { q: "What happens when a leaf fills up?",
+    a: "It splits in two and the middle key goes up to the node above. The tree stays balanced." },
+  { q: "Does the B-Tree answer ranges of values?",
+    a: "Yes. The keys are sorted and the leaves are linked in sequence." },
+]} />

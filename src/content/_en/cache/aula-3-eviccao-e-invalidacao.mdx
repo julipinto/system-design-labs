@@ -1,0 +1,79 @@
+---
+title: "Eviction and invalidation"
+order: 3
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson the store's cache got an expiration date, but it still has a limit the TTL doesn't solve: memory runs out. Picture a cache with only 3 slots, holding the plush cat (product 42) and two other products (7 and 13), and a request from Davi arriving for product 99. To get in, someone has to leave. Who?</p>
+
+<OneLiner>Eviction removes a copy for lack of space, TTL removes it by time and invalidation removes it by event; the eviction policy (LRU, LFU, FIFO) is the rule that picks who leaves.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step through the access sequence and watch which key leaves when the 5th arrives. Switch the policy in the panel (<strong>LRU</strong>, <strong>LFU</strong> or <strong>FIFO</strong>) and repeat: does the key that leaves change? The last step asks for <code>produto:42</code> once more: see which policy gets it wrong. Then replay the sequence in the simulator below.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=evict" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: cache with 3 slots and the sequence 42, 7, 42, 13, 99 under LRU, LFU or FIFO" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<Widget name="evict" title="Eviction simulator: LRU, LFU and FIFO with 3 slots" hint="Click the products to request them, in any order, and see who leaves when the cache fills up, under the three policies side by side. The ready-made sequence is produto:42, 7, 42, 13, 99." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The cache has <strong>3 slots</strong>. The accesses arrive in this order: <code>produto:42</code>, <code>produto:7</code>, <code>produto:42</code>, <code>produto:13</code>, <code>produto:99</code>. The first two are misses and the third is a hit (42 was already there). 13 is a miss and fills the third slot: <code>[42, 7, 13]</code>.</li>
+  <li><code>produto:99</code> is a miss and <strong>there is no slot</strong>. This is when eviction happens, and the policy decides who leaves.</li>
+  <li>In <strong>LRU</strong> (least recently used), the one that went longest without being requested leaves. 42 was requested 2 accesses ago, 13 was 1 ago and 7 was 3 ago, so <code>produto:7</code> leaves.</li>
+  <li>In <strong>LFU</strong> (least frequently used), the one requested the fewest times leaves. 42 has 2 requests, 7 and 13 have 1 each. In that tie, the oldest leaves, <code>produto:7</code>. The tie-break rule varies from one implementation to another.</li>
+  <li>In <strong>FIFO</strong> (first in, first out), whoever entered first leaves, even if it's the most requested. <code>produto:42</code> leaves, which is exactly the plush cat page. On the request that follows for 42, LRU and LFU get a hit and FIFO gets a miss.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The policy has to match the access pattern. FIFO is the simplest to build and the one that errs most here: it looks at no usage at all.</li>
+  <li>LRU assumes that what was used recently will be used again (the locality from lesson 1). LFU assumes that what is requested a lot will keep being requested, but it keeps a counter per key and is slow to forget what cooled down.</li>
+  <li>Eviction only happens with a full cache. TTL and invalidation happen whether it's full or empty.</li>
+  <li>The result of a good policy shows up in a single number, the hit rate. That's the topic of the next lesson.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Three ways out of the cache</h4>
+  <ul>
+    <li><strong>By time (TTL):</strong> the key's deadline ran out (lesson 2).</li>
+    <li><strong>By space (eviction):</strong> the cache filled up and the policy picked a key.</li>
+    <li><strong>By event (invalidation):</strong> someone or some rule declared the copy invalid. It can be inside the algorithm (the item no longer serves), manual (a command, like <code>DEL produto:42</code>, for one key or a group) or automatic, via TTL.</li>
+  </ul>
+  <h4 class="deep-h">What about random?</h4>
+  <p>The article also mentions <strong>random</strong> replacement (RR): a randomly drawn key leaves. It's simple and needs to store nothing about usage. On its own, it sometimes draws exactly product 42.</p>
+  <h4 class="deep-h">In Redis</h4>
+  <p>Redis only evicts when it hits the memory limit (<code>maxmemory</code>). The policy comes from <code>maxmemory-policy</code>: there are LRU and LFU versions over all keys (<code>allkeys-lru</code>, <code>allkeys-lfu</code>), versions only for keys with a TTL (<code>volatile-*</code>), the random one and <code>noeviction</code>, which removes nothing and returns an error on writes. Redis's LRU and LFU are <strong>approximate</strong>: it samples a few keys and removes the worst of them, instead of sorting all of them.</p>
+  <h4 class="deep-h">What's left after eviction</h4>
+  <p>A key removed from the cache still exists in the database. The next request for it is a miss, and the app brings it back. Eviction doesn't lose data, it only loses speed.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Redis: eviction policies (approximate LRU and LFU)", href: "https://redis.io/docs/latest/develop/reference/eviction/" },
+    { label: "Wikipedia: cache replacement policies", href: "https://en.wikipedia.org/wiki/Cache_replacement_policies" },
+    { label: "Redis: EXPIRE command", href: "https://redis.io/docs/latest/commands/expire/" },
+  ]} />
+</Deep>
+
+<p>With a good policy, the cache keeps what's requested most. But "requested most" is still an impression, and the store needs a number. What's left to find out is how to measure how much the cache gets right and what that's worth in milliseconds.</p>
+
+<Flashcards cards={[
+  { q: "What is eviction?",
+    a: "Removing a copy from the cache because it filled up and a new key arrived." },
+  { q: "In the sequence 42, 7, 42, 13, 99 with 3 slots, who leaves under each policy?",
+    a: "LRU: 7 leaves. LFU: 7 leaves (tied with 13, the oldest wins). FIFO: 42 leaves." },
+  { q: "Why does FIFO get it so wrong in the store?",
+    a: "Because it only looks at the order of entry. It removes product 42, the most requested, just because it was the first to enter." },
+  { q: "What is the difference between eviction, TTL and invalidation?",
+    a: "Eviction leaves for lack of space, TTL by time and invalidation by event (a command or a rule)." },
+  { q: "Does Redis sort all keys to do LRU?",
+    a: "No. It samples some keys and removes the worst of them. That's why its LRU and LFU are approximate." },
+]} />

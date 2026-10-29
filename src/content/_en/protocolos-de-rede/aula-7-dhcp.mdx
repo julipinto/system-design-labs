@@ -1,0 +1,63 @@
+---
+title: "DHCP"
+order: 7
+min: 1
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Lena just sat down in the café. Her phone connected to the Wi-Fi, but it still has no IP, doesn't know who the router is and doesn't know which DNS to use. DHCP is what delivers that configuration, and in the real order it comes before everything we've seen: before DNS, TCP and TLS.</p>
+
+<OneLiner>DHCP automatically hands IP, mask, gateway and DNS to whoever just joined the network, in a 4-message ritual called DORA.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch Lena's phone shout to the whole café, receive an IP badge and end up configured. Then try <strong>No DHCP server</strong>.</p>
+</DoIt>
+<Figure3D path="en/labs/protocolos-de-rede/dhcp-3d/" poster="labs/protocolos-de-rede/dhcp-3d-previa.webp" title="Interactive figure: DHCP (DORA) on a café's network" alt="Preview of the 3D figure: the router offers IP 192.168.0.105 to Lena's phone, with the address pool beside it" hint="Drag to rotate · Next step or ← → to advance · switch the scenario in the panel" />
+
+<HowItWorks>
+<p>The phone has no IP and doesn't know who the server is, so everything starts with shouting. The acronym <strong>DORA</strong> covers the 4 steps: Discover, Offer, Request, Acknowledgment.</p>
+<ol class="flow steps">
+  <li><strong>Discover:</strong> the client doesn't have an IP yet, so it shouts by <strong>broadcast</strong> over UDP (ports 68 and 67): "is there a DHCP server out there?"</li>
+  <li><strong>Offer:</strong> only the server answers, with an offer of IP, mask, gateway, DNS and lease time.</li>
+  <li><strong>Request:</strong> the client picks an offer and asks for it, also by broadcast, because it can't use the IP yet.</li>
+  <li><strong>Acknowledgment:</strong> the server confirms. The IP is the client's for the length of the <strong>lease</strong>.</li>
+</ol>
+</HowItWorks>
+
+<p>With IP, gateway and DNS in hand, Lena's phone can finally use the DNS from lesson 6 and open the connections from lessons 4 and 5.</p>
+
+<WhyItMatters>
+  <li>Thanks to this, instances, containers and devices join the network with no manual configuration, with IPs being reused.</li>
+  <li>The flip side: an exhausted address pool or a DHCP server that is down leaves new devices with no network.</li>
+  <li>The classic symptom is a <code>169.254.x.x</code> IP.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>Without DHCP, each device would need manual configuration, with the risk of IP conflicts.</p>
+  <p>The DHCP server (at home, the Wi-Fi router) keeps a pool of addresses and <strong>leases</strong> them for a while. When the device leaves, the address goes back to the pool.</p>
+  <p>The IP is renewed before it expires. In the public cloud this is usually abstracted away.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 2131: DHCP", href: "https://www.rfc-editor.org/rfc/rfc2131" },
+    { label: "GeeksforGeeks: how DORA works", href: "https://www.geeksforgeeks.org/how-dora-works/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With IP, gateway and DNS in hand, the phone is ready to talk to the server. What's left is to see what it says and why the web's protocol got three versions.</p>
+
+<Flashcards cards={[
+  { q: "What does DORA stand for?",
+    a: "Discover, Offer, Request, Acknowledgment." },
+  { q: "Why do Discover and Request go by broadcast?",
+    a: "Because the client doesn't have an IP yet." },
+  { q: "Whose is the IP that DHCP hands out?",
+    a: "Borrowed (lease) and renewed before it expires." },
+]} />

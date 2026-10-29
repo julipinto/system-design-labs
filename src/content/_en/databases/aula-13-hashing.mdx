@@ -1,0 +1,70 @@
+---
+title: "Hash indexing"
+order: 13
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson ended on a question: if the store only wants "exactly order 1042", with no order and no range, the B-Tree still has to go down from the root to the leaf. There is a shorter path: turn the key into an address with a calculation.</p>
+
+<OneLiner>A hash index applies a function to the key and the result gives the bucket where the data is, so an equality search goes straight to the spot, without going down any level and without serving ranges.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Hash</strong> mode, search for order 1042 and see the calculation that leads to the bucket. Go on to the last step, the range from 1042 to 1044, and notice why the hash does not help there.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/indices-3d/?mode=hash" poster="labs/databases/indices-3d-previa.webp" title="Interactive figure: Hash indexing: hash(1042) % 4 lands in bucket 2" alt="Preview of the 3D figure: the orders' B-Tree with root 1043 and the two leaves, the path to order 1042 lit up" hint="Drag to rotate · compute the hash, find the bucket and fetch the offset · use ← → or Next step" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The database creates a <strong>hash table</strong> with 4 buckets (0 to 3). Each bucket holds pointers to the rows, in the form <code>key → position in the file</code>.</li>
+  <li>To write order 1042, it applies the <strong>hash function</strong> to the key. In the example, it is simply <code>1042 % 4</code>, which gives <strong>2</strong>. 1042 goes to <strong>bucket 2</strong>, with the row's position in the file (the second row, at offset 2,048).</li>
+  <li>To read 1042, it repeats the calculation: <code>1042 % 4 = 2</code>. It goes straight to bucket 2, without looking at the other three.</li>
+  <li>But <code>1046 % 4</code> also gives <strong>2</strong>. Two keys in the same bucket is a <strong>collision</strong>. Bucket 2 holds a small list, <code>1042 → 1046</code>, and the search compares the keys in the list until it finds the right one. Bucket 1 has one too: <code>1041</code> and <code>1045</code>.</li>
+  <li>The calculation shows the limit: <code>WHERE id BETWEEN 1042 AND 1045</code> has no shortcut. Orders 1042, 1043, 1044 and 1045 land in buckets 2, 3, 0 and 1. The hash spreads the keys and loses the order, so the range forces a look at every bucket.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>For equality search (id, token, e-mail), the hash is the shortest path: one calculation and one read.</li>
+  <li>It is the same idea that distributes keys across servers in a key-value database (lesson 8): the key's hash picks the server, and the bucket's picks the position.</li>
+  <li>If the question has a range, an order or a prefix, the hash does not help and the B-Tree is the choice.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">A real hash function</h4>
+  <p>The <code>id % 4</code> is a simplification so the calculation fits on the screen. A real hash function mixes the bits of the key, so that similar keys (1042 and 1043) land in buckets far apart. It is deterministic: the same key gives the same number, a thousand times in a row.</p>
+  <h4 class="deep-h">Where the source article needs adjusting</h4>
+  <ul>
+    <li>The article calls hash lookup "instant". It has <strong>constant cost on average</strong>, and collisions make the bucket's list grow. If the hash table gets too full, it has to be rebuilt with more buckets.</li>
+    <li>PostgreSQL only uses a hash index for the <code>=</code> operator. Its hash indexes are protected by the write-ahead log (crash-safe) since version 10.</li>
+  </ul>
+  <h4 class="deep-h">Resolving collisions</h4>
+  <p>The example uses <strong>chaining</strong>: each bucket points to a list. There is also <strong>open addressing</strong>, which looks for the next free bucket. Both serve the same purpose: storing keys that landed in the same place.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: hash indexes", href: "https://www.postgresql.org/docs/current/hash-index.html" },
+    { label: "Wikipedia: hash table", href: "https://en.wikipedia.org/wiki/Hash_table" },
+    { label: "Wikipedia: consistent hashing", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+  ]} />
+</Deep>
+
+<p>The hash finds the order you know by id, and nothing more. What is left is to see how to find the orders that mention "pelúcia" (plush) without opening each one's description, which is the job of the inverted index.</p>
+
+<Flashcards cards={[
+  { q: "What does the hash function do with the key?",
+    a: "It turns the key into a number that points to a bucket. The same key always gives the same bucket." },
+  { q: "Which bucket does order 1042 land in, in the example?",
+    a: "Bucket 2, because <code>1042 % 4 = 2</code>." },
+  { q: "What is a collision?",
+    a: "Two different keys in the same bucket (1042 and 1046, both in bucket 2). The bucket holds a list and the search compares the keys." },
+  { q: "Why is a hash index no good for ranges?",
+    a: "The function spreads the keys and loses the order. <code>BETWEEN 1042 AND 1045</code> lands in different buckets and forces a look at all of them." },
+]} />

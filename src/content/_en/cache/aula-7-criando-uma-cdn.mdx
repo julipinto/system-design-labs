@@ -1,0 +1,182 @@
+---
+title: "Building a CDN"
+order: 7
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson the Recife edge stored the 120 KB <code>gato.jpg</code> and started delivering it to Lena in 5 ms, instead of the ~55 ms it takes to go to São Paulo. It looks like big-company magic, but the mechanism fits in 85 lines of Go. Let's read that proxy from start to finish, because each of its lines is one of this module's ideas, and each missing line is one of the things that go wrong.</p>
+
+<OneLiner>A CDN, at heart, is a proxy that turns each request into a key, stores the origin's response in a file named after that key and, on the next request, reads the file instead of going to the origin.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Lab</strong> mode, step through the lab proxy: the 1st request (miss), the 2nd (hit) and, last, the <strong>"what if it goes wrong"</strong> step, where the photo changes at the origin. Watch which file the proxy creates and what it returns after the change. Then switch the mode in the panel to <strong>Miss</strong>, <strong>Hit</strong> and <strong>Expires</strong> and compare with a real CDN, which respects <code>max-age</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cdn-3d/?mode=lab" poster="labs/cache/cdn-3d-previa.webp" title="Interactive figure: the lab proxy stores the cat photo in a file with a sha1 name, and the Recife CDN fetches the photo from São Paulo" alt="Preview of the 3D figure: Lena's phone in Recife, the CDN edge and the origin in São Paulo, with the 200 OK response coming back from São Paulo" hint="Drag to rotate · use ← → or Next step · switch Lab, Miss, Hit or Expires in the panel" />
+
+<p>The code below is the <code>cdn/main.go</code> from Matheus Fidelis's public examples repository, with no changes (the numbers on the left were added for reading, and the comments and messages are still in Portuguese, as in the original). The constant <code>origem</code> points to a news site; read it as "the São Paulo server that has <code>gato.jpg</code>".</p>
+
+<pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"crypto/sha1"
+ 5  	"encoding/hex"
+ 6  	"fmt"
+ 7  	"io/ioutil"
+ 8  	"log"
+ 9  	"net/http"
+10  	"os"
+11  	"path/filepath"
+12  	"time"
+13  )
+14  
+15  const port = 8080
+16  const cacheDir = "cache"
+17  const origem = "https://uol.com.br"
+18  
+19  func CacheHandler(w http.ResponseWriter, r *http.Request) {
+20  
+21  	cachePath := filepath.Join(cacheDir, generateHash(fmt.Sprintf("%s%s%s", r.Method, r.URL.Path, r.URL.RawQuery)))
+22  
+23  	var body []byte
+24  	startTime := time.Now()
+25  
+26  	// Verifica se o arquivo já existe no cache
+27  	_, err := os.Stat(cachePath)
+28  	if os.IsNotExist(err) {
+29  		fmt.Printf("Cache miss %s\n", cachePath)
+30  
+31  		// Buscar do servidor de origem
+32  		url := fmt.Sprintf("%s%s", origem, r.URL.Path)
+33  		resp, err := http.Get(url)
+34  		if err != nil {
+35  			http.Error(w, "Error fetching from origin", http.StatusInternalServerError)
+36  			return
+37  		}
+38  		defer resp.Body.Close()
+39  
+40  		body, err = ioutil.ReadAll(resp.Body)
+41  		if err != nil {
+42  			http.Error(w, "Error reading response body", http.StatusInternalServerError)
+43  			return
+44  		}
+45  
+46  		// Salvar no cache
+47  		err = ioutil.WriteFile(cachePath, body, 0644)
+48  		if err != nil {
+49  			http.Error(w, "Error writing to cache", http.StatusInternalServerError)
+50  			return
+51  		}
+52  
+53  	} else {
+54  		// Cache hit
+55  		fmt.Printf("Cache hit %s\n", cachePath)
+56  		body, err = ioutil.ReadFile(cachePath)
+57  		if err != nil {
+58  			http.Error(w, "Error reading from cache", http.StatusInternalServerError)
+59  			return
+60  		}
+61  	}
+62  	elapsed := time.Since(startTime)
+63  	log.Printf("Tempo total da resquição %s %s took %s\n", r.Method, r.URL.Path, elapsed)
+64  	w.Write(body)
+65  	return
+66  }
+67  
+68  func generateHash(input string) string {
+69  	hash := sha1.New()
+70  	hash.Write([]byte(input))
+71  	return hex.EncodeToString(hash.Sum(nil))
+72  }
+73  
+74  func main() {
+75  
+76  	// Criar o diretorio "cache" se não existir
+77  	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+78  		os.Mkdir(cacheDir, os.ModePerm)
+79  	}
+80  
+81  	http.HandleFunc("/", CacheHandler)
+82  	log.Printf("Starting server on port %d", port)
+83  
+84  	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+85  }`}</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Lines 15 to 17: the three constants.</strong> The proxy listens on port 8080, stores the files in the <code>cache</code> folder and forwards requests to the <code>origem</code>. Lena (or her browser) talks to port 8080, and only the proxy talks to the origin.</li>
+  <li><strong>Lines 21 and 68 to 72: the key.</strong> The proxy glues method, path and query into one text and computes its <strong>SHA-1</strong> (<code>generateHash</code>), in hexadecimal. For <code>GET /gato.jpg</code> the text is <code>GET/gato.jpg</code> and the file is called <code>cache/f34b98978ea8b0b6b5e489a03cd1f067ec7a3ffa</code>. The name says nothing about the photo, but it's always the same for the same request, and never has a slash in the middle.</li>
+  <li><strong>Lines 27 and 28: the cache question.</strong> <code>os.Stat</code> asks the disk whether that file exists. If it doesn't, it's a miss (line 29 prints <code>Cache miss</code>). Here the "cache" is the folder, and the "hashmap" is the file system.</li>
+  <li><strong>Lines 31 to 51: the miss.</strong> The proxy builds the origin URL (line 32), does the <code>http.Get</code> (33), reads the whole body (40) and writes everything to the file (47). Any error in these steps answers Lena with a 500. The response body is still in the <code>body</code> variable.</li>
+  <li><strong>Lines 53 to 65: the hit and the response.</strong> If the file existed, the proxy just reads it (56), without touching the origin. On both paths, line 62 measures the time and line 64 returns the <code>body</code> to Lena. Lines 74 to 85 (<code>main</code>) create the folder, bind the handler to every path (<code>"/"</code>) and start the server.</li>
+</ol>
+</HowItWorks>
+
+<p>In Lena's desk test, the 1st <code>GET /gato.jpg</code> prints <code>Cache miss cache/f34b…</code>, spends about 50 ms going to the origin and leaves the file in the folder. The 2nd prints <code>Cache hit cache/f34b…</code> and answers just by reading the file. The article measured the same effect with another site: the home page took 795.7 ms on the 1st access and 357 µs on the 2nd.</p>
+
+<Widget name="cdnkey" title="Which file does the proxy create?" hint="Change the method, the path and the query and see the key text, the file name (SHA-1) and what the proxy asks the origin. Note what happens to the query." />
+
+<h3 class="sec">What if it goes wrong: what the lab doesn't do</h3>
+
+<ol class="flow steps">
+  <li><strong>No TTL.</strong> The store owner swaps the photo at the origin for a new cat. The proxy looks at the folder, finds the <code>GET/gato.jpg</code> file and answers with the old photo, forever. It doesn't even read the origin's <code>Cache-Control: max-age=3600</code>. Only <code>rm cache/f34b…</code>, by hand, makes the new photo show up.</li>
+  <li><strong>It doesn't check the status.</strong> <code>http.Get</code> doesn't return an error when the origin answers 404 or 500. The error page body goes into the file as if it were the photo, and Lena gets a 200 with the error, today and on every following request.</li>
+  <li><strong>The query goes into the key and vanishes from the request.</strong> <code>GET /gato.jpg?v=2</code> becomes another file (<code>442f2a6a…</code>), but line 32 requests <code>origem + Path</code>, without the query. Result: two copies of the same photo. Worse: <code>/busca?q=gato</code> and <code>/busca?q=cachorro</code> store the same response, the one for the search without a term.</li>
+  <li><strong>The method goes into the key, but the origin always receives GET.</strong> A <code>POST /gato.jpg</code> becomes its own file (<code>98650421…</code>) with the response of a GET. Storing the result of a write in a read cache is asking for trouble.</li>
+  <li><strong>No limit and no care with concurrency.</strong> The folder grows until the disk fills up, because there is no eviction (lesson 3). And two simultaneous requests for the same miss both go to the origin; a third may find the file still being written and read half a photo.</li>
+</ol>
+
+<WhyItMatters>
+  <li>With 85 lines the cycle miss, write, hit already exists. Almost everything a real CDN does on top of that is in lessons 2 to 4: expiration, space, status validation.</li>
+  <li>A cache without a TTL doesn't break, it just keeps serving what it has. Lena's old photo is the most concrete way to see what the TTL from lesson 2 solves.</li>
+  <li>Whoever understands the mechanism reads the <code>X-Cache</code> and <code>Age</code> headers of the response for what they are: the proxy saying whether it found the copy and how long it has existed.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">How a real CDN solves what's missing</h4>
+  <ul>
+    <li><strong>TTL:</strong> the origin sends <code>Cache-Control: public, max-age=3600</code>, and the edge counts the copy's <code>Age</code>.</li>
+    <li><strong>Expiring without downloading everything:</strong> when the <code>Age</code> reaches 3600, the edge asks the origin with <code>If-None-Match</code> and the copy's ETag. If the photo didn't change, the origin answers <strong>304 Not Modified</strong>, with no body, and the edge renews the deadline. The trip costs the ~50 ms, and the 120 KB don't travel again. If it changed, it answers 200 with the new photo.</li>
+    <li><strong>Status:</strong> the edge looks at the response code and usually handles errors (404, 500) separately, instead of storing them as if they were the photo.</li>
+  </ul>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li>The article calls this "content-based cache". The key comes from the <strong>request</strong> (the URL), not from the content. Hashing the content to name the file is another technique (content-addressing).</li>
+    <li>The article's code computes the hash from the <code>Path</code> only. The repository's uses method, path and query, and so has the inconsistency on line 32, which doesn't pass the query on.</li>
+    <li>The example uses <code>io/ioutil</code>, which has been deprecated since Go 1.16. The equivalent is <code>os.ReadFile</code> and <code>os.WriteFile</code>.</li>
+  </ul>
+  <h4 class="deep-h">Other examples in the repository</h4>
+  <p>The same examples folder has the lesson 5 hashmap (<code>app/cache-memory</code>) and an app with a database and a cache (<code>app/cache-app</code>). It's worth running all three with <code>go run main.go</code>.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Matheus Fidelis's public GitHub profile, with the CDN example code (no affiliation)", href: "https://github.com/msfidelis" },
+    { label: "Go: net/http package (http.Get and non-2xx responses)", href: "https://pkg.go.dev/net/http" },
+    { label: "Go: crypto/sha1 package", href: "https://pkg.go.dev/crypto/sha1" },
+    { label: "MDN: 304 Not Modified status", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304" },
+    { label: "RFC 9111: HTTP Caching", href: "https://datatracker.ietf.org/doc/html/rfc9111" },
+  ]} />
+</Deep>
+
+<p>The store now keeps the copy, forgets by time and by space, measures what it gets right and takes the photo to Recife, but the cache is still just a copy: everything it knows comes from the database. Yet the whole store is still one program, and three teams edit the same code. What's left to find out is when and where to split that program into services: that's the topic of module 6, Microservices.</p>
+
+<Flashcards cards={[
+  { q: "How does the lab proxy decide which file to read?",
+    a: "It glues method, path and query into a text, computes the SHA-1 and uses the result as the file name in the cache folder. For GET /gato.jpg: f34b9897…" },
+  { q: "What does the proxy do on a miss and on a hit?",
+    a: "Miss: fetches from the origin, writes the body to the file and answers. Hit: reads the file and answers, without touching the origin." },
+  { q: "Why does the new photo never show up in the lab?",
+    a: "Because there is no TTL: the file exists, so it's always a hit. Only deleting the file by hand fixes it." },
+  { q: "What does a real CDN do when max-age expires?",
+    a: "It revalidates with If-None-Match. If the photo didn't change, the origin answers 304 Not Modified, with no body, and the edge renews the copy." },
+  { q: "What error does the lab hide when the origin answers 404?",
+    a: "It stores the error page as if it were the photo and starts serving it as a hit, with status 200." },
+]} />

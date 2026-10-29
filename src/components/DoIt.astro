@@ -1,7 +1,9 @@
 ---
 // Caixa "Faça agora": uma ação curta antes de ler.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 ---
 <div class="doit">
-  <h3>Faça agora</h3>
+  <h3>{T.doit}</h3>
   <slot />
 </div>

@@ -1,0 +1,73 @@
+---
+title: "Direct-Attached Storage (DAS)"
+order: 3
+min: 3
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>With IOPS and latency in hand, the store needs to write <strong>gato.jpg</strong>, a product photo (2.4 MB). The shortest path to a disk is no path at all: the disk sits inside the server.</p>
+
+<OneLiner>DAS is a disk attached directly to the server: the shortest and fastest path, but only that server sees the disk.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch gato.jpg being saved on the disk plugged into server A. Count how many network hops it makes.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/storage-3d/?mode=das" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Interactive figure: the same photo saved with DAS" alt="Preview of the 3D figure: a volume of numbered blocks (LBA 2048, 2049…), with only block 2048 being rewritten" hint="Drag to rotate · Next step or ← → to advance · switch the storage type in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store's server A has a <strong>1 TB NVMe SSD</strong> installed inside it.</li>
+  <li>The operating system talks to the disk over the bus (<strong>PCIe</strong>, SATA or USB). There is no network in the path.</li>
+  <li>gato.jpg is written to <code>/data/produtos/gato.jpg</code>. With no hops, a 4 KB read takes about <strong>0.1 ms</strong>.</li>
+  <li>The price shows up when the store grows: server B looks for the same file and can't find it. Only A sees that disk.</li>
+  <li>To grow, you have to <strong>add more disks to the machine</strong> and migrate data by hand. The patch is copying the photo to B, and now there are two photos.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A database that needs minimal latency usually runs on DAS (or on an equivalent volume).</li>
+  <li>It only scales up: few disks fit in a server, and the machine becomes a single point of failure.</li>
+  <li>If the server goes down, the disk becomes inaccessible with it. RAID and replicas cover that (lessons 8 to 13).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">When to use</h4>
+  <ul>
+    <li>Very low latency: transactional database, cache, temporary files.</li>
+    <li>Simple environment, no need to share.</li>
+  </ul>
+  <h4 class="deep-h">Limits</h4>
+  <ul>
+    <li>Little horizontal scalability.</li>
+    <li>Expanding means opening the machine or swapping the disk.</li>
+    <li>No sharing: copying to another server is manual work.</li>
+  </ul>
+  <h4 class="deep-h">See it on Linux</h4>
+  <pre><code>{"lsblk -o NAME,SIZE,TYPE,ROTA,MOUNTPOINT\n# ROTA=1 is HDD, ROTA=0 is SSD or NVMe\ndf -h /data"}</code></pre>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>Copying the photo from server to server doesn't scale. We still need a way for A, B and C to see the same folder without copying anything. NAS does that.</p>
+
+<Flashcards cards={[
+  { q: "What is DAS?",
+    a: "A disk attached directly to the server (SATA, USB or NVMe), with no network in between." },
+  { q: "Advantage of DAS?",
+    a: "Fewer hops: low latency (~0.1 ms) and high performance." },
+  { q: "Main limit of DAS?",
+    a: "Only one machine sees the disk, and growing means touching the hardware." },
+  { q: "If the server with DAS goes down, what about the disk?",
+    a: "It becomes inaccessible with it, unless there is a replica or RAID." },
+]} />

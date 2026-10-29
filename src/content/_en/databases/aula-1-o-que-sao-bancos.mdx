@@ -1,0 +1,75 @@
+---
+title: "What a database is"
+order: 1
+min: 4
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In module 3 the store copied the plush cat's stock into three databases and discussed what each copy promises when the cable gets cut. At no point did we stop to ask what a database is, and what it does that a text file does not. Let's answer that with the <code>pedidos</code> table (orders), the same one from the store in module 2.</p>
+
+<OneLiner>A database is the layer between your program and the disk: you say what you want, and it takes care of where the data lives, how to find it fast and how to store it safely.</OneLiner>
+
+<DoIt>
+  <p>Before reading, think of the table below as a text file with 6 lines and ask: <strong>how would I find order 1042?</strong> Then picture the same file with 6 million lines and answer again.</p>
+</DoIt>
+
+<pre><code>id    cliente  produto           qtd  valor   cidade
+1041  Caio     caneca azul       2    39.80   Rio
+1042  Lena     gato de pelúcia   1    89.90   Recife
+1043  Bia      gato de pelúcia   1    89.90   SP
+1044  Lena     caneca azul       1    19.90   Recife
+1045  Davi     camiseta preta    3    147.00  SP
+1046  Bia      caneca azul       1    19.90   SP</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena buys the plush cat and the store's program writes <strong>order 1042</strong>. With a text file, the program would have to decide on its own where on the disk to write, and how not to lose the line if the power goes out halfway through the write.</li>
+  <li>A database takes over those decisions. You write <code>INSERT INTO pedidos ...</code> and it allocates the space, writes to disk and <strong>confirms only after</strong> the line is safe.</li>
+  <li>To read, the program writes <code>SELECT * FROM pedidos WHERE id = 1042</code>. It only says <strong>what</strong> it wants. How to find the line (scan everything or follow an index) is the database's problem.</li>
+  <li>With 6 rows, scanning everything is fine. With 6 million, it is the difference between a quick click and a frozen screen, and that is where the <strong>index</strong> comes in: a shortcut the database keeps to jump straight to the row.</li>
+  <li>As the store grows, the database also helps <strong>distribute</strong> and <strong>replicate</strong> the orders across servers, which led to module 3 (CAP, ACID and BASE).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Without a database, every program reinvents disk allocation, search and failure recovery. Each reinvention is a chance to lose orders.</li>
+  <li>Each database stores and searches in its own way. The same <code>pedidos</code> table answers some questions well and others badly, depending on that way.</li>
+  <li>Understanding that way is what lets you pick the database by the question the store asks most, not by fashion.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the database does between the client and the data</h4>
+  <ul>
+    <li><strong>Structure:</strong> tables, documents, graphs or key-value pairs. It is the format the data lives in.</li>
+    <li><strong>Query pattern:</strong> a language (SQL) or an API that says how to ask for the data.</li>
+    <li><strong>Storage:</strong> which pages and files the data sits in, on disk, in memory or both.</li>
+    <li><strong>Index:</strong> the shortcut that avoids reading everything. It shows up in lessons 11 to 14.</li>
+    <li><strong>Distribution:</strong> in systems with several servers, the engine also decides which server stores each piece and how many copies exist.</li>
+  </ul>
+  <h4 class="deep-h">Same database, different roles</h4>
+  <p>In a distributed system, the database still has to choose between strong and eventual consistency, and between replicating across distant regions or close to the readers. Module 3 showed the price of those choices. The next lessons show how each type of database chooses.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases, Data Models and Indexing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+    { label: "Kleppmann: Designing Data-Intensive Applications (book website)", href: "https://dataintensive.net/" },
+  ]} />
+</Deep>
+
+<p>We now have a database with the <code>pedidos</code> table, but the store's database is not the only way to keep data: the cart, the metrics and text search call for others. What is left is to learn which types of database exist and what each one gives up to gain speed or scale.</p>
+
+<Flashcards cards={[
+  { q: "What is a database, in one sentence?",
+    a: "The layer between the program and the data: it stores in a structure, answers a query pattern and takes care of the disk and the indexes for you." },
+  { q: "What does the program tell the database, and what does the database decide?",
+    a: "The program says <strong>what</strong> it wants (<code>WHERE id = 1042</code>). The database decides <strong>how</strong> to find it: scan everything or follow an index." },
+  { q: "Why is a text file not enough for the store?",
+    a: "The program would have to handle allocation, search and not losing the line in a failure all by itself. The database already ships with that." },
+  { q: "What is an index?",
+    a: "A shortcut the database keeps to jump straight to the row, without reading the whole table." },
+]} />

@@ -1,0 +1,83 @@
+---
+title: "IP, IPv4 and IPv6"
+order: 3
+min: 3
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In lesson 2, Lena's photo became 215 slices and each one got an IP box with the final address, 198.51.100.7. But what is that number, and what does a router do with it?</p>
+
+<OneLiner>IP gives each device a logical address at layer 3 so packets know where to go, and IPv6 exists because the 32 bits of IPv4 ran out.</OneLiner>
+
+<DoIt>
+  <p>Click the <code>10.0.0.5</code> chip, then <code>8.8.8.8</code>, and compare the bits and the verdict (private or public).</p>
+</DoIt>
+<Widget name="ip" title="Address viewer" hint="Type an IPv4 address to see its 32 bits and whether it's private." />
+
+<HowItWorks>
+<p>The 32 bits the viewer showed are the address every router reads.</p>
+<ol class="flow steps">
+  <li>IP is the device's "ZIP code + street number", at <strong>layer 3</strong>.</li>
+  <li>With the destination IP in hand, <strong>routers</strong> push the packet to the next hop. They look at only that, and IP <strong>does not guarantee</strong> delivery or order: that's TCP's job.</li>
+  <li>The address comes in two versions. <strong>IPv4:</strong> 32 bits in 4 octets (<code>192.168.1.10</code>), about 4.3 billion addresses. That space ran out.</li>
+  <li><strong>IPv6:</strong> 128 bits in 8 hexadecimal groups (<code>2001:db8::1</code>). Practically unlimited space.</li>
+  <li>While the world migrates, <strong>dual stack</strong> lets the device speak IPv4 and IPv6 and pick according to the destination.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Private IP inside the VPC, public IP only on what needs it.</li>
+  <li>Since IPv4 ran out, the way out was <strong>NAT</strong>: it hides instances behind one public IP, but exhausts ports when many connections go out.</li>
+  <li>IPv6 reduces the dependence on NAT, and dual stack shows up in load balancers and DNS (A and AAAA records).</li>
+  <li>And when something fails along the path, the network tells you where: <code>ping</code> and <code>traceroute</code> use ICMP.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <p>To work around the end of IPv4, <strong>private IPs</strong> and <strong>NAT</strong> came in: thousands of devices behind a single public IP.</p>
+  <p>IPv6 has a simpler header for routers and native IPsec. Dual stack is a simple transition, but it needs support on both sides.</p>
+  <p>Private ranges (not routed on the internet):</p>
+  <ul>
+    <li><code>10.0.0.0/8</code></li>
+    <li><code>172.16.0.0/12</code></li>
+    <li><code>192.168.0.0/16</code></li>
+  </ul>
+  <p>That's why your machine's IP (192.168.x.x) isn't the IP the world sees.</p>
+  <h4 class="deep-h">ICMP: IP's channel for notices</h4>
+  <p><strong>ICMP</strong> travels inside IP packets. <code>ping</code> sends an <em>echo request</em> and waits for the <em>echo reply</em>. Many firewalls block ICMP, so a ping with no reply doesn't always mean the machine is down.</p>
+  <ul>
+    <li><strong>Destination unreachable:</strong> the packet has no way to arrive (no network, machine or port at the destination).</li>
+    <li><strong>Time exceeded:</strong> the TTL reached zero and the router discarded the packet.</li>
+  </ul>
+  <p><code>traceroute</code> takes advantage of this: it sends packets with TTL 1, 2, 3 and so on. Each router that zeroes the TTL answers "time exceeded" and, without meaning to, introduces itself, so the path shows up hop by hop.</p>
+  <h4 class="deep-h">ARP: on the border between 2 and 3</h4>
+  <p><strong>ARP</strong> finds the MAC for an IP on the local network: it asks by broadcast "who has IP X?" and the owner answers with its MAC. The ARP frame goes straight inside Ethernet, with no IP header, so some materials put it at layer 3 and others at layer 2.</p>
+  <p>In this module we follow the convention of the lesson 2 figure: layer 2/3, treated as layer 2. In IPv6, this role belongs to NDP, which uses ICMPv6.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 791: IP", href: "https://www.rfc-editor.org/rfc/rfc791" },
+    { label: "RFC 8200: IPv6", href: "https://www.rfc-editor.org/rfc/rfc8200" },
+    { label: "RFC 792: ICMP", href: "https://www.rfc-editor.org/rfc/rfc792" },
+    { label: "RFC 826: ARP", href: "https://www.rfc-editor.org/rfc/rfc826" },
+    { label: "ipv6.br: addressing (in Portuguese)", href: "https://ipv6.br/post/enderecamento/" },
+  ]} />
+</Deep>
+
+<p class="gancho">IP takes each slice to the right machine, but it doesn't guarantee that the slice arrives, or in what order. What's left is to see who guarantees the photo's 215 slices.</p>
+
+<Flashcards cards={[
+  { q: "How many bits do IPv4 and IPv6 have?",
+    a: "IPv4 = 32 bits (~4.3 billion). IPv6 = 128 bits (~3.4 × 10<sup>38</sup>)." },
+  { q: "What are the private ranges?",
+    a: "10/8, 172.16/12 and 192.168/16. Anything going out to the internet passes through NAT." },
+  { q: "What does IP deliver, and what is left to the port?",
+    a: "IP takes the packet to the right machine. The port (layer 4) picks the program." },
+  { q: "How does traceroute discover the path?",
+    a: "It sends packets with TTL 1, 2, 3... Each router that zeroes the TTL answers \"time exceeded\"." },
+]} />

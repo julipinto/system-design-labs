@@ -1,6 +1,7 @@
 /* ---------- glossário: termos tocáveis nas aulas + ficha compartilhada ---------- */
 (function () {
   'use strict';
+  var EN = /^en/.test(document.documentElement.lang);   // versão em inglês (/en/)
   var root = document.querySelector('.sdl-content');
   var dataEl = document.getElementById('gl-data');
   if (!root || !dataEl) return;
@@ -92,7 +93,7 @@
   card.setAttribute('aria-hidden', 'true'); card.tabIndex = -1;
   card.innerHTML = '<p class="gl-name" id="gl-name"></p><p class="gl-def" id="gl-def"></p>' +
     '<p class="gl-meta"><span class="gl-layer"></span><span class="gl-seen"></span></p>' +
-    '<button type="button" class="gl-close">Fechar</button>';
+    '<button type="button" class="gl-close">' + (EN ? 'Close' : 'Fechar') + '</button>';
   document.body.appendChild(card);
   var elName = card.querySelector('.gl-name'), elDef = card.querySelector('.gl-def'),
     elLayer = card.querySelector('.gl-layer'), elSeen = card.querySelector('.gl-seen'),
@@ -124,16 +125,16 @@
     btn.setAttribute('aria-expanded', 'true');
     elName.textContent = t.term;
     elDef.textContent = t.short;
-    elLayer.textContent = t.layer ? 'Camada ' + t.layer : '';
+    elLayer.textContent = t.layer ? (EN ? 'Layer ' : 'Camada ') + t.layer : '';
     elLayer.hidden = !t.layer;
     var n = lessonNum(t.lesson), here = btn.closest('.lesson');
     elSeen.textContent = '';
-    if (here && here.id === t.lesson) elSeen.textContent = 'Explicado nesta aula';
+    if (here && here.id === t.lesson) elSeen.textContent = EN ? 'Explained in this lesson' : 'Explicado nesta aula';
     else if (n) {
       var a = document.createElement('a');
-      a.href = '#' + t.lesson; a.textContent = 'Aula ' + n;
+      a.href = '#' + t.lesson; a.textContent = (EN ? 'Lesson ' : 'Aula ') + n;
       var ic = document.createElement('i'); ic.className = 'ico ico-next'; ic.setAttribute('aria-hidden', 'true'); a.appendChild(ic);
-      elSeen.appendChild(document.createTextNode('Visto em: ')); elSeen.appendChild(a);
+      elSeen.appendChild(document.createTextNode(EN ? 'Seen in: ' : 'Visto em: ')); elSeen.appendChild(a);
     }
     card.classList.toggle('gl-sheet', !isDesktop());
     card.setAttribute('aria-hidden', 'false');

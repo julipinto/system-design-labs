@@ -1,0 +1,75 @@
+---
+title: "The CAP theorem"
+order: 1
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>Lena buys a plush cat in São Paulo. Her brother buys the same cat, at the same moment, in Recife. The store's stock is copied across three databases, and the cable to Recife just went down. What does the store do?</p>
+
+<OneLiner>When the network between the databases breaks, a replicated system can only choose between always answering (available) or always answering with the newest data (consistent).</OneLiner>
+
+<DoIt>
+  <p>In the figure, cut the cable between Rio and Recife. Then make two purchases of the <strong>plush cat</strong> at the same time, Lena's in São Paulo and her brother's in Recife, and compare what each mode does.</p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=cp" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, choosing consistency (CP)" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store keeps the plush cat's stock in <strong>3 replicated databases</strong>: São Paulo, Rio and Recife. While the network is healthy, sale #101 (5 → 4) reaches all three and each ends up with the same row: <code>gato_pelucia: estoque 4, v2</code>. Lena buys in SP and her brother buys in Recife.</li>
+  <li>Then the cable between Rio and Recife goes down. São Paulo and Rio can still talk, but <strong>Recife is isolated</strong>: this is a network partition.</li>
+  <li>Now two orders come in: Lena's #102 in São Paulo and her brother's #103 in Recife. Recife can't ask anyone anything, so all that's left is to choose what to do.</li>
+  <li><strong>Choice 1, consistent:</strong> SP writes 3 and Rio confirms. That's 2 of 3 nodes, so there is a quorum, and #102 goes through. Recife has no majority: it refuses after a 3,000 ms timeout (503 error). When the cable is back, her brother tries again, #103 goes through and the final stock is 2 (v4). Nobody got a false promise, but the brother waited a while with no answer.</li>
+  <li><strong>Choice 2, available:</strong> this time Recife accepts and also writes 3, without knowing about #102. Both get an OK, but the real stock is 5 − 3 = 2 and the nodes show 3. The divergence only shows up when the cable is back.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>The choice has a name, and it comes from three letters</h3>
+  <p><strong>C</strong>onsistency (everyone sees the newest data), <strong>A</strong>vailability (every request gets an answer) and <strong>P</strong>artition tolerance (the system keeps running with the network cut). Eric Brewer proposed the idea in 2000 and Gilbert and Lynch proved it in 2002. The pocket version is "good, fast and cheap: pick two". In lesson 6 you'll see why it misleads a little.</p>
+</div>
+
+<WhyItMatters>
+  <li>Partitions <strong>happen</strong>: a cable, a router, a bad deploy, a cloud with trouble in one zone. You can't decide "this won't occur".</li>
+  <li>Since they will happen, the design question is: <strong>what does each part of the store prefer, refusing or risking?</strong> Stock and payment call for one answer, cart and recommendations call for another.</li>
+  <li>And the answer has to come before the failure. If you don't decide, the database decides for you at the worst moment.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The numbers in the scene (example)</h4>
+  <ul>
+    <li>Normal sale with a healthy network (#101): ~12 ms. SP writes, tells Rio, and Rio tells Recife. Timeout for a write with no answer: 3,000 ms.</li>
+    <li>Quorum for 3 databases: 2. São Paulo + Rio have a majority. Recife alone doesn't.</li>
+    <li>Consistent mode: the side without a majority refuses. Available mode: both sides accept and reconcile later.</li>
+  </ul>
+  <h4 class="deep-h">What the theorem really says</h4>
+  <p>It covers a narrow case: during a partition, no system can guarantee both always-current (linearizable) reads and an answer to every request. Without a partition, nothing stops you from having both.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Brewer (2012): CAP Twelve Years Later, on InfoQ", href: "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/" },
+    { label: "IBM: what is the CAP theorem", href: "https://www.ibm.com/br-pt/topics/cap-theorem" },
+  ]} />
+</Deep>
+
+<p>Refusing the brother's order was a promise: "I won't let the data go wrong". What's left is to see what a database promises, inside a transaction, so that Lena's account is never left half done. That's ACID.</p>
+
+<Flashcards cards={[
+  { q: "What does the CAP theorem say?",
+    a: "During a network partition, a replicated system has to choose between consistency and availability." },
+  { q: "Who proposed CAP and when?",
+    a: "Eric Brewer, in 2000. Gilbert and Lynch proved it in 2002." },
+  { q: "What is a network partition?",
+    a: "The nodes are still up, but they can't talk to each other. Each group thinks it's the only one." },
+  { q: "In the scene with the two plush cat purchases, what does consistent mode do in Recife?",
+    a: "It refuses the request (503 error after the timeout) so the copies don't diverge." },
+  { q: "And available mode?",
+    a: "It accepts on both sides: the nodes show 3 while the real stock is 2, to be fixed when the network is back." },
+]} />

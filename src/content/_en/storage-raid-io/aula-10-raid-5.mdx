@@ -1,0 +1,90 @@
+---
+title: "RAID 5 (Striping with Distributed Parity)"
+order: 10
+min: 5
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>RAID 1's mirror saved pedidos.db, but it used half the disks. With 4 disks you can spend just one: instead of copying each block, the controller keeps a calculation that lets it rebuild the lost block. That calculation is the <strong>parity</strong>.</p>
+
+<OneLiner>RAID 5 spreads the data and a parity across the disks, so it survives the loss of any one of them while spending only one disk of space.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong>, watch the parity being calculated, let D2 burn out and see the XOR recalculate A2. At step 6, D4 burns out before the new disk arrives: notice the calculation that no longer works.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/raid-3d/?mode=raid5" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Interactive figure: RAID 5 writing blocks, one or two disks failing and the rebuild" alt="Preview of the 3D figure: RAID 6 with disks D2 and D4 burned out and the blocks rebuilt from parities P and Q, 2 of 2 failures used" hint="Drag to rotate · Next step or ← → to advance · switch the RAID level in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store uses <strong>4 disks of 1 TB</strong>. In each stripe, 3 disks hold data and 1 holds the <strong>parity</strong> (P). The parity <strong>rotates</strong>: P1 sits on D4, P2 on D3.</li>
+  <li>The parity is the <strong>XOR</strong> of the stripe's blocks. With A1 = 1011, A2 = 0110 and A3 = 0101, the parity is P1 = 1011 xor 0110 xor 0101 = <strong>1000</strong>.</li>
+  <li>D2 dies and takes A2 and A5. To rebuild A2, the controller XORs what is left in the stripe: A1 xor A3 xor P1 = 1011 xor 0101 xor 1000 = <strong>0110</strong>. A2 is back. A5 comes out the same way.</li>
+  <li>Until D2 is replaced, the file is complete, just slower (degraded mode). During the <strong>rebuild</strong>, the controller reads all the other disks and recalculates each block of D2.</li>
+  <li>Capacity: (4 - 1) x 1 TB = <strong>3 TB</strong> usable (75%). It tolerates <strong>1 failure</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A good ratio of space to protection: you lose only 1 disk, however many there are. The more disks, the smaller the fraction lost.</li>
+  <li><strong>Writes are expensive</strong>: each small write becomes 4 operations (write penalty 4).</li>
+  <li>The <strong>rebuild</strong> reads all the other disks. With large disks, it takes long and is risky: if another disk fails in that window, the file is lost.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The math</h4>
+  <ul>
+    <li><strong>Minimum:</strong> 3 disks.</li>
+    <li><strong>Usable capacity:</strong> (N - 1) x size. 4 x 1 TB: 3 TB (75%).</li>
+    <li><strong>Failures tolerated:</strong> 1.</li>
+    <li><strong>Write penalty:</strong> 4.</li>
+  </ul>
+  <h4 class="deep-h">Why a small write costs 4 I/Os</h4>
+  <ol class="flow steps">
+    <li>Read the old block.</li>
+    <li>Read the old parity.</li>
+    <li>Calculate the new one: new P = old P xor old data xor new data.</li>
+    <li>Write the new block and the new parity (2 writes).</li>
+  </ol>
+  <p>Total: 2 reads + 2 writes = 4 operations. With 4 disks of 150 IOPS, random writes drop from 600 to 150 IOPS.</p>
+  <h4 class="deep-h">Rebuild and URE: what if the disks were 10 TB? (example)</h4>
+  <ul>
+    <li>Rebuilding a 10 TB disk at 150 MB/s: 10,000,000 MB / 150 = 66,667 s, more than 18 hours. In practice, days with the store live. With the figure's 1 TB disks, it is about 2 hours.</li>
+    <li>In a RAID 5 of 4 disks of 10 TB, the rebuild reads the other 3 disks in full: 30 TB = 2.4 x 10^14 bits.</li>
+    <li>Common disks have 1 <strong>URE</strong> (an unrecoverable read error) per 10^14 bits. By that math, you expect about 2 to 3 errors during the rebuild. With no spare parity, each error is a loss. With 1 TB, the math drops to ~0.24 expected errors.</li>
+  </ul>
+  <h4 class="deep-h">Hot spare</h4>
+  <p>A spare disk, powered on and empty: when a disk fails, it steps in by itself and the rebuild starts right away, without waiting for someone to swap the disk.</p>
+  <h4 class="deep-h">See it on Linux</h4>
+  <pre><code>{"sudo mdadm --create /dev/md0 --level=5 --raid-devices=4 /dev/sd[b-e]\ncat /proc/mdstat        # shows \"recovery = 12.3%\" during the rebuild"}</code></pre>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "DataStorage: what RAID 5 is", href: "https://datastorage.com.br/post/raid-5" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>RAID 5 only withstands one dead disk, and during the rebuild there is no margin for a second. Next, how to withstand two disks at once. RAID 6 answers with a second parity.</p>
+
+<Flashcards cards={[
+  { q: "Capacity of RAID 5 with 4 disks of 1 TB?",
+    a: "(4 - 1) x 1 = 3 TB." },
+  { q: "How many failures does RAID 5 tolerate?",
+    a: "One." },
+  { q: "How does the parity recover a disk?",
+    a: "XOR of the surviving blocks with the parity returns the lost block." },
+  { q: "Write penalty of RAID 5?",
+    a: "4: read old data and old parity, write new data and new parity." },
+  { q: "Why is the rebuild dangerous?",
+    a: "It reads all the other disks for hours or days, and a read error (URE) at that moment causes a loss." },
+  { q: "What is a hot spare?",
+    a: "A powered-on spare disk that steps in for the one that failed." },
+]} />

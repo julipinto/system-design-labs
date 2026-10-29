@@ -1,0 +1,75 @@
+---
+title: "Block Storage"
+order: 5
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>NAS solved sharing, but it delivers files over the network, and each read costs about 1 ms. pedidos.db can't take that: it rewrites 4 KB in the middle of a huge file, thousands of times per second. It needs a disk that delivers only blocks.</p>
+
+<OneLiner>block storage delivers a "raw" disk of numbered blocks, and whoever receives it formats it and decides what to keep on it.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch gato.jpg being cut into blocks, each block going to an address number (LBA).</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/storage-3d/?mode=block" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Interactive figure: the same photo saved with block storage" alt="Preview of the 3D figure: a volume of numbered blocks (LBA 2048, 2049…), with only block 2048 being rewritten" hint="Drag to rotate · Next step or ← → to advance · switch the storage type in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store creates a 100 GB volume in the cloud, attached to server A as <code>/dev/nvme1n1</code>. The disk is split into <strong>fixed-size blocks</strong>, here 4 KB.</li>
+  <li>Each block has a number, the <strong>LBA</strong> (Logical Block Address): block 0, block 1, block 2048.</li>
+  <li>Whoever uses the volume installs a <strong>filesystem</strong> (ext4, XFS) or a database straight onto the blocks. A formats it with ext4 and mounts it at <code>/dados</code>.</li>
+  <li>gato.jpg is 2,457,600 bytes. Split into 4 KB blocks, it takes <strong>600 blocks</strong>, from LBA 2048 to 2647.</li>
+  <li>The volume stores only bytes. Block 2048 starts with <code>FF D8 FF E0</code>, the signature of every JPEG, but the volume doesn't know that: there is no name, folder or owner in there.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It is the storage for the database and the system disk: low latency, full control. To fix 4 KB at the start of the photo, you only rewrite block 2048; the other 599 stay as they are. That is what pedidos.db does all the time.</li>
+  <li>On EBS you attach and detach the volume from one instance to another. But it usually serves <strong>one instance at a time</strong>: if B tries to attach the same volume, the cloud refuses.</li>
+  <li>It doesn't share files by itself, and the block size is set at configuration: growing takes planning.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Seeing real blocks</h4>
+  <pre><code>{"lsblk -o NAME,SIZE,PHY-SEC,LOG-SEC\nsudo blockdev --getbsz /dev/nvme1n1       # block size\nsudo dd if=/dev/nvme1n1 bs=4096 skip=2048 count=1 status=none | xxd | head -4\n# reads block 2048 (where gato.jpg starts in this example), read-only"}</code></pre>
+  <h4 class="deep-h">Common sizes</h4>
+  <ul>
+    <li>Disk sector: 512 bytes or 4 KB. With 512-byte sectors, each 4 KB block takes 8 LBAs.</li>
+    <li>ext4 block: 4 KB by default.</li>
+    <li>Postgres page: 8 KB.</li>
+  </ul>
+  <h4 class="deep-h">Partitions</h4>
+  <p>A large volume can be split into isolated partitions on the same device, each formatted with its own filesystem.</p>
+  <h4 class="deep-h">In the cloud</h4>
+  <p><strong>EBS gp3:</strong> 3,000 IOPS and 125 MB/s baseline. The volume is a network disk: it has network latency, but behaves like a local disk.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: file, block and object storage", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "AWS: difference between block, file and object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>If the volume doesn't know those 600 blocks are a photo, who does? Next, how the name gato.jpg and the folder produtos/gatos reach the blocks. File storage does that.</p>
+
+<Flashcards cards={[
+  { q: "What is block storage?",
+    a: "A raw disk split into fixed-size blocks, each with an address." },
+  { q: "What is an LBA?",
+    a: "The block's number on the disk (Logical Block Address)." },
+  { q: "How many 4 KB blocks does gato.jpg, at 2.4 MB, have?",
+    a: "600 (2,457,600 bytes ÷ 4,096)." },
+  { q: "Who decides what goes in the blocks?",
+    a: "Whoever uses the volume: a filesystem or the database itself." },
+  { q: "Which AWS service is block storage?",
+    a: "EBS." },
+]} />

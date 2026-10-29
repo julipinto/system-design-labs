@@ -50,3 +50,6 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
   .home-foot{font-size:14px}
   .home-foot p:last-child a{display:inline-flex;align-items:center;min-height:44px}
 }
+.home-head .sdl-lang{display:inline-block;margin-bottom:var(--s-4)}
+.sdl-lang{font:600 var(--fs-label)/1.35 var(--sans);color:var(--muted);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px;padding:8px 0}
+.sdl-lang:hover{color:var(--ink);text-decoration-color:currentColor}

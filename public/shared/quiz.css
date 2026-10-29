@@ -108,6 +108,7 @@
 /* fim */
 .q-score{font:300 clamp(52px,14vw,80px)/1 var(--sans);letter-spacing:-.03em;color:var(--ink-hi);margin:var(--s-3) 0 var(--s-2);font-variant-numeric:tabular-nums}
 .q-score small{font:600 16px var(--sans);letter-spacing:0;color:var(--muted)}
+.q-score.rv-dots{color:var(--accent-ink);margin:var(--s-4) 0 var(--s-3)}
 .q-miss{margin:0;padding:0;list-style:none;border-top:var(--hair) solid var(--line)}
 .q-miss li{border-bottom:var(--hair) solid var(--line);padding:var(--s-3) 0}
 .q-miss .q-m-q{font-weight:600;color:var(--ink-hi);margin:0 0 var(--s-1)}

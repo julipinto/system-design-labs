@@ -1,0 +1,78 @@
+---
+title: "Types of databases"
+order: 2
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson the store had a database with the <code>pedidos</code> table. But the store also keeps Lena's cart, the site's metrics and searches for "pelúcia" (plush). Does the same database serve all of that? Almost never. Each type of database gives something up to gain something else.</p>
+
+<OneLiner>The types of database (SQL, NoSQL, NewSQL, in-memory and time series) are five different bets on what matters most: strict rules, scale, both at once, speed, or time as the axis.</OneLiner>
+
+<DoIt>
+  <p>For each item in the store, write down the type of database you would use and <strong>what you would accept losing</strong>: the orders, Lena's cart, the response-time metrics and a login session. Check the box right below.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>SQL (relational).</strong> Based on Edgar Codd's model (1970): tables with rows and columns, strict schema, foreign keys and the ACID guarantees (Atomicity, Consistency, Isolation and Durability). An order only exists if the customer exists, and the database checks that on its own. It is the choice for <code>pedidos</code>.</li>
+  <li><strong>NoSQL.</strong> Born to trade some of those guarantees for scale. It uses other formats (document, key-value, wide-column, graph), has a flexible schema and often eventual consistency. Lena and her cart fit here.</li>
+  <li><strong>NewSQL.</strong> Wants both: SQL and transactions as in the relational model, with the horizontal scale of NoSQL. To get there it splits the data across servers and uses a consensus protocol (Raft or Paxos) to confirm each write. The price is network latency on every commit.</li>
+  <li><strong>In-memory.</strong> Keeps everything in RAM, where a read takes nanoseconds instead of the milliseconds of disk. It works as a cache and for sessions (<code>sessao:lena</code>). If the server restarts, the data may vanish, so it only fits data you can rebuild.</li>
+  <li><strong>Time series.</strong> Each record carries a timestamp, and writes only append to the end. It fits metrics, logs and sensors: the store's response time every second. It also deletes data that has grown too old, on its own.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Exercise answer</h3>
+  <p><strong>Orders:</strong> SQL (gives up easy scale). <strong>Lena's cart:</strong> key-value, in-memory or NoSQL (accepts losing the cart if the server goes down). <strong>Response time per second:</strong> time series (not meant for transactions). <strong>Login session:</strong> in-memory (if it disappears, Lena logs in again).</p>
+</div>
+
+<WhyItMatters>
+  <li>Every feature of a database has a cost. Picking a database with features the product does not use means paying in latency, money or operations.</li>
+  <li>Orders need integrity. The cart needs speed. Metrics need volume. In a real product, the store uses <strong>more than one database</strong>.</li>
+  <li>The type is only the start of the choice. What happens inside depends on the data model (lessons 4 to 9) and the index (lessons 11 to 14).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where the source article needs adjusting</h4>
+  <ul>
+    <li><strong>ACID with "Integrity".</strong> The article writes the I as Integrity. The I is <strong>Isolation</strong>: concurrent transactions do not see each other's intermediate state (module 3, lesson 2).</li>
+    <li><strong>NoSQL "without relationships".</strong> The article says NoSQL has no direct relationships. That holds for key-value and document. The graph database (lesson 9) is NoSQL and exists <em>to</em> store relationships.</li>
+    <li><strong>"Not Only SQL".</strong> It is the popular meaning of the acronym. Many NoSQL databases also have an SQL-like language.</li>
+    <li><strong>Time series "with no guarantee of reading what you wrote".</strong> The article treats this as a rule of the type. It is a choice of each product: some confirm the write before answering, others enqueue it. Check the documentation of the one you use.</li>
+  </ul>
+  <h4 class="deep-h">NewSQL and consensus</h4>
+  <p>ACID in a distributed database requires a majority of nodes to agree before the commit. The farther apart the nodes, the slower the commit: it is the same reasoning as the quorum in module 3.</p>
+  <h4 class="deep-h">In-memory, but durable?</h4>
+  <p>Some in-memory databases write a log to disk to survive a restart. That brings durability back, at the cost of some speed.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+    { label: "dev.to: NoSQL, NewSQL and distributed SQL, a comparison", href: "https://dev.to/ankitmalikg/nosql-vs-newsql-vs-distributed-sql-a-comprehensive-comparison-lm7" },
+    { label: "Wikipedia: NewSQL", href: "https://en.wikipedia.org/wiki/NewSQL" },
+    { label: "Wikipedia: in-memory database", href: "https://en.wikipedia.org/wiki/In-memory_database" },
+    { label: "Wikipedia: time series database", href: "https://en.wikipedia.org/wiki/Time_series_database" },
+  ]} />
+</Deep>
+
+<p>All of these databases promise "consistency" in some way, and the promise changes from one type to another. What is left is to learn what each level of that promise means when Lena writes order 1042 and Bia reads from another server.</p>
+
+<Flashcards cards={[
+  { q: "Who proposed the relational model and when?",
+    a: "Edgar F. Codd, in 1970." },
+  { q: "What does NoSQL trade to gain scale?",
+    a: "Part of the strictness and strong consistency of SQL, for a flexible schema and, often, eventual consistency." },
+  { q: "What does NewSQL try to combine?",
+    a: "The transactions and SQL of the relational model with the horizontal scale of NoSQL, using consensus (Raft or Paxos) on every commit." },
+  { q: "What is an in-memory database for in the store?",
+    a: "Cache and sessions (<code>sessao:lena</code>). It reads in nanoseconds, but the data may vanish if the server restarts." },
+  { q: "What defines a time series database?",
+    a: "Each record has a timestamp, writes only append to the end and old data is deleted automatically." },
+]} />

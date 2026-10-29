@@ -1,0 +1,103 @@
+---
+title: "Memory and distributed"
+order: 5
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The 80% from the last lesson imagined a single cache. With the store busy, the app already runs on 3 replicas (A, B and C) behind a load balancer, and each replica, to answer fast, keeps a hashmap in its own memory: 0.05 ms per read, no network. It looks like the perfect cache. Lena hits F5 on the plush cat page and the price flickers.</p>
+
+<OneLiner>A hashmap inside each replica is the fastest cache (0.05 ms) and the one that diverges most; a shared Redis costs 1 ms, but keeps a single copy for all the replicas.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step through and watch the <strong>price stored in each replica</strong> after the change to 79.90 and what Lena sees each time she reloads the page. Go to the last step, the shared Redis, and count: how many copies of <code>produto:42</code> exist now?</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=local" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: 3 app replicas, each with its own hashmap and price, and then one Redis for all 3" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Each replica has its own <strong>hashmap</strong> (the code is right below). All parts of the same program read and write to it, and the <code>RWMutex</code> makes sure nobody reads a half-written value. Since it's the process's own memory, the read costs <strong>0.05 ms</strong>.</li>
+  <li>All three start <strong>cold</strong>. The first request that lands on each one is a miss, and each goes to the database on its own, 40 ms. That's 3 database reads for the same key. In 10 requests spread round-robin (A, B, C, A, B, C…), that's 3 misses and 7 hits: <strong>70%</strong>. With a single Redis, it would be 1 miss and 9 hits: <strong>90%</strong>.</li>
+  <li>The price changes to 79.90 at t = 20 s. A stored its copy at t = 0 and B at t = 10, so both say <strong>89.90</strong>. C stored at t = 30, after the change, and says <strong>79.90</strong>. Lena reloads and the balancer sends her to A, then C, then B: 89.90, 79.90, 89.90.</li>
+  <li>Deleting the key doesn't solve it alone. The replica that wrote the price deletes <code>produto:42</code> from <strong>its</strong> hashmap, and the other two don't even know it happened. All three would need to be told.</li>
+  <li>With a <strong>shared Redis</strong>, the three replicas read and write the same key. There is a single copy and one <code>DEL produto:42</code> applies to all. The cost is 1 ms per read (almost all of it network) and a new piece that can go down or become a bottleneck.</li>
+</ol>
+</HowItWorks>
+
+<p>The example hashmap is small. This is the main part of the code (the article's full program does the same, in Go):</p>
+
+<pre><code>{String.raw`// Defines the structure for our in-memory cache with a hashmap
+type MemoryCache struct {
+	items map[string]interface{}
+	mutex sync.RWMutex // simple mutex to keep reads and writes synchronized
+}
+
+// Adds or updates a value in the cache with the given key
+func (c *MemoryCache) Set(key string, value interface{}) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.items[key] = value
+}
+
+// Get returns a value from the cache if it exists
+func (c *MemoryCache) Get(key string) (interface{}, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	value, found := c.items[key]
+	return value, found
+}`}</code></pre>
+
+<WhyItMatters>
+  <li>The choice depends on what can diverge. A list of categories tolerates a few seconds of difference between replicas. Price and stock call for a single copy.</li>
+  <li>The hashmap spends memory in every replica (3 copies of the same data) and comes back cold on every deploy or restart. Redis survives the replicas being swapped.</li>
+  <li>Many stores use both: a small hashmap, with a TTL of a few seconds, in front of Redis. A hit in the hashmap costs 0.05 ms, a hit in Redis 1 ms and a full miss 41 ms.</li>
+  <li>One question remains that neither answers: who fills the cache and who updates it when the price changes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The example hashmap forgets nothing</h4>
+  <p>The code above has <code>Set</code> and <code>Get</code> and no TTL or eviction. Every key written stays in memory until the process dies, and a store with millions of products runs out of memory. The source article warns about this. The way out is to add the rules from lessons 2 and 3 to the map: a deadline per key and an item limit with a policy (LRU, for example).</p>
+  <h4 class="deep-h">Correction to the source article: the scope is the process</h4>
+  <p>The article says the in-memory cache has its scope limited to "one execution, thread or process". The threads (goroutines, in Go) of the same process <strong>share</strong> the map, and that's why the <code>RWMutex</code> exists. The limit is the <strong>process</strong>: two replicas are two processes and can't see each other's hashmap.</p>
+  <h4 class="deep-h">Distributed Redis</h4>
+  <ul>
+    <li>In <strong>cluster mode</strong> the keys are split among the nodes, and you can add nodes to handle more load.</li>
+    <li>Each node can have replicas, and there is automatic failover when a primary goes down.</li>
+    <li>Redis replication is <strong>asynchronous</strong> by default: a write acknowledged to the client can be lost if the primary fails before passing it on. In a cache that is usually acceptable, because the lost data comes back with a miss on the database.</li>
+  </ul>
+  <h4 class="deep-h">Correction to the source article: cluster consistency</h4>
+  <p>The article says these technologies guarantee data consistency across the whole system. The Redis documentation says the opposite: Redis Cluster <strong>does not guarantee strong consistency</strong>, and can lose writes that were already acknowledged. For a cache, that's a reasonable price. For the source of truth, it isn't (the levels from module 4).</p>
+  <h4 class="deep-h">When the server tells the hashmap</h4>
+  <p>Redis has a feature called client-side caching: each client keeps local copies and the server tells it when the key changes, so the client can delete it. It's the way to get 0.05 ms and still know that the price changed.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Go: sync.RWMutex", href: "https://pkg.go.dev/sync#RWMutex" },
+    { label: "Redis: scale with Redis Cluster (asynchronous replication and lost writes)", href: "https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/" },
+    { label: "Redis: replication", href: "https://redis.io/docs/latest/operate/oss_and_stack/management/replication/" },
+    { label: "Redis: client-side caching", href: "https://redis.io/docs/latest/develop/reference/client-side-caching/" },
+    { label: "Memcached", href: "https://memcached.org/" },
+  ]} />
+</Deep>
+
+<p>Whether in the hashmap or in Redis, the cache starts empty and someone has to fill it, and someone has to touch it when the price changes. What's left to find out is who does each of these two things, and in what order, so Lena doesn't pay the old price.</p>
+
+<Flashcards cards={[
+  { q: "How much does it cost to read from a hashmap in the app's memory?",
+    a: "0.05 ms in the store example, because it doesn't go through the network. Redis costs 1 ms and the database, 40 ms." },
+  { q: "Why do three replicas with their own hashmap show different prices?",
+    a: "Each stored its copy at a different moment. A and B stored before the change (89.90) and C after (79.90)." },
+  { q: "What is the hit rate of 10 round-robin requests with 3 hashmaps? And with a single Redis?",
+    a: "3 misses and 7 hits (70%) against 1 miss and 9 hits (90%)." },
+  { q: "What is the scope of an in-memory hashmap?",
+    a: "The process. All its threads share the map (hence the mutex), but another replica is another process." },
+  { q: "Does Redis Cluster guarantee strong consistency?",
+    a: "No. Replication is asynchronous, and an acknowledged write can be lost in a primary failover." },
+]} />

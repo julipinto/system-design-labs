@@ -1,0 +1,79 @@
+---
+title: "Response time"
+order: 9
+min: 2
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Each lesson left a tally of RTTs: one for TCP, one or two for TLS, DNS before everything and HTTP's waits. Now the tally closes: how long does the store page take for Lena, and where do we cut?</p>
+
+<OneLiner>response time is the sum of several waits (DNS, handshakes, server, download), and most of them are made of RTTs, not bandwidth.</OneLiner>
+
+<DoIt>
+  <p>In the calculator, check <strong>Reused connection (keep-alive)</strong> and see which slices of the bar disappear.</p>
+</DoIt>
+<Widget name="latency" title="Response time calculator" hint="Simplified model: it ignores slow start and losses. Values are examples." />
+
+<HowItWorks>
+<p>A new HTTPS request, from the user's point of view, goes through these waits, in the order they happen:</p>
+<ol class="flow steps">
+  <li><strong>DNS lookup</strong> (lesson 6): finding the IP (zero if it's cached).</li>
+  <li><strong>TCP handshake</strong> (lesson 4): 1 RTT.</li>
+  <li><strong>TLS handshake</strong> (lesson 5): 2 RTTs in TLS 1.2, 1 RTT in TLS 1.3.</li>
+  <li><strong>Wait for the first byte</strong> (lesson 8): 1 RTT for the request to go and the response to come back, plus the server's processing.</li>
+  <li><strong>Download:</strong> downloading the content, limited by bandwidth.</li>
+</ol>
+<p><strong>RTT</strong> (round-trip time) is the time of a round trip between client and server. For small responses, almost all the time is RTT. With the 80 ms of the figures, TCP and TLS 1.2 alone already add up to 240 ms before the request goes out.</p>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Order of attack: eliminate RTTs (keep-alive, DNS cache, TLS 1.3, HTTP/3, a CDN close to the user), then reduce server time, and only then buy bandwidth.</li>
+  <li>This works because, for small responses, doubling the bandwidth barely changes anything and cutting one RTT changes everything.</li>
+  <li>Measure percentiles (p95, p99), not just the average.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>Browsers call <strong>TTFB</strong> the time from the start of navigation to the first byte of the response, so it already includes steps 1 to 3.</p>
+  <p>RTT is dominated by <strong>latency</strong> (distance and the speed of light). <strong>Bandwidth</strong> is how many bits pass per second.</p>
+  <p>Road: latency is the length of the road; bandwidth is the number of lanes. More lanes don't shorten the road.</p>
+  <h4 class="deep-h">How many RTTs until the request can go out</h4>
+  <div class="rtt-table-wrap">
+  <table class="rtt-table">
+    <thead><tr><th>Scenario</th><th>RTTs before the request</th><th>First byte of the response</th></tr></thead>
+    <tbody>
+      <tr><td>HTTPS, TCP + TLS 1.2</td><td>3 (1 TCP + 2 TLS)</td><td>4 RTTs</td></tr>
+      <tr><td>HTTPS, TCP + TLS 1.3</td><td>2 (1 TCP + 1 TLS)</td><td>3 RTTs</td></tr>
+      <tr><td>HTTP/3 (QUIC), new connection</td><td>1</td><td>2 RTTs</td></tr>
+      <tr><td>HTTP/3, 0-RTT resumption</td><td>0</td><td>1 RTT</td></tr>
+      <tr><td>Reused connection (keep-alive)</td><td>0</td><td>1 RTT</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Add to this the DNS when there is no cache, the server time and the download.</p>
+  <Sources items={[
+    { label: "MDN: latency", href: "https://developer.mozilla.org/en-US/docs/Glossary/Latency" },
+    { label: "MDN: TTFB", href: "https://developer.mozilla.org/en-US/docs/Glossary/Time_to_first_byte" },
+    { label: "MDN: bandwidth", href: "https://developer.mozilla.org/en-US/docs/Glossary/Bandwidth" },
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now every protocol in the module has a cost you can measure in RTTs. Next time a page is slow, add up the waits and cut the biggest one.</p>
+
+<Flashcards cards={[
+  { q: "Which parts make up response time?",
+    a: "DNS + TCP + TLS + wait for the server (RTT + processing) + download." },
+  { q: "Is latency the same as bandwidth?",
+    a: "No. For small responses, RTT rules." },
+  { q: "How many RTTs does each protocol add?",
+    a: "TCP 1, TLS 1.2 2, TLS 1.3 1, QUIC 1 (or 0)." },
+  { q: "What is the cheapest way to save time?",
+    a: "Not repeating handshakes." },
+]} />

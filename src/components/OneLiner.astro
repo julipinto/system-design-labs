@@ -1,4 +1,6 @@
 ---
 // "Em uma frase:" no topo da aula.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 ---
-<p class="oneliner"><strong>Em uma frase:</strong> <slot /></p>
+<p class="oneliner"><strong>{T.oneliner}</strong> <slot /></p>

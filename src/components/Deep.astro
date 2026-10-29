@@ -1,9 +1,11 @@
 ---
 // <details> "Aprofundar (N min)": o texto longo, fechado por padrão.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 interface Props { min: number }
 const { min } = Astro.props;
 ---
 <details class="deep">
-  <summary>Aprofundar ({min} min)</summary>
+  <summary>{T.deep} ({min} min)</summary>
   <slot />
 </details>

@@ -1,21 +1,23 @@
 ---
 // Glossário completo do módulo: <details> no fim, em ordem alfabética, com link para a aula.
 // Também entrega os dados (JSON) para o script das fichas tocáveis (src/scripts/glossary.js).
+import { t as tr, langOf } from '../lib/i18n.js';
+const T = tr(Astro.url);
 interface Term { term: string; aliases: string[]; short: string; layer?: number; lesson: string }
 interface Props { terms: Term[]; lessons: { id: string; title: string }[] }
 const { terms, lessons } = Astro.props;
 const n = (id: string) => lessons.findIndex((l) => l.id === id) + 1;
-const sorted = [...terms].sort((a, b) => a.term.localeCompare(b.term, 'pt', { sensitivity: 'base' }));
+const sorted = [...terms].sort((a, b) => a.term.localeCompare(b.term, langOf(Astro.url), { sensitivity: 'base' }));
 const data = JSON.stringify(terms.map((t) => ({ ...t, n: n(t.lesson) }))).replace(/</g, '\\u003c');
 ---
 <details class="gl-all" id="glossario">
-  <summary>Glossário ({terms.length} termos)</summary>
-  <p class="gl-all-hint">Os termos sublinhados nas aulas também abrem aqui. Toque em "Aula" para ir ao lugar onde o termo é explicado.</p>
+  <summary>{T.glossary} ({T.terms(terms.length)})</summary>
+  <p class="gl-all-hint">{T.glHint}</p>
   <dl class="gl-list">
     {sorted.map((t) => (
       <div class="gl-item">
-        <dt>{t.term}{t.layer ? <span class="gl-layer">Camada {t.layer}</span> : null}</dt>
-        <dd>{t.short} <a href={`#${t.lesson}`} data-gl-lesson={t.lesson}>Aula {n(t.lesson)}<i class="ico ico-next" aria-hidden="true"></i></a></dd>
+        <dt>{t.term}{t.layer ? <span class="gl-layer">{T.layer} {t.layer}</span> : null}</dt>
+        <dd>{t.short} <a href={`#${t.lesson}`} data-gl-lesson={t.lesson}>{T.lesson} {n(t.lesson)}<i class="ico ico-next" aria-hidden="true"></i></a></dd>
       </div>
     ))}
   </dl>

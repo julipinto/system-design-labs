@@ -1,0 +1,71 @@
+---
+title: "Inverted indexes"
+order: 14
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The hash from the last lesson finds an order by id. But Lena types "pelúcia" (plush) into the store's search, and the text is inside each order's product. Scanning all the orders looking for the word is the slow way. The inverted index flips the path: instead of going from the order to the words, it goes from the word to the orders.</p>
+
+<OneLiner>An inverted index links each term to the documents where it appears, like a library catalog, so a word search consults the catalog and does not open every document.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Inverted</strong> mode, search for <strong>pelúcia</strong> and see the list of orders the index returns. Compare with the first step, the search without an index using LIKE, and go to the last one: <strong>pelucia</strong> without the accent.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/indices-3d/?mode=inverted" poster="labs/databases/indices-3d-previa.webp" title="Interactive figure: Inverted index: the search for “pelúcia” becomes the list [1042, 1043]" alt="Preview of the 3D figure: the orders' B-Tree with root 1043 and the two leaves, the path to order 1042 lit up" hint="Drag to rotate · split the text into terms and look up each term's list · use ← → or Next step" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>When an order is written, the database runs the product text through a <strong>pipeline</strong>. First <strong>normalization</strong> (everything lowercase, in some engines without accents). Order 1042 carries <code>gato de pelúcia</code>.</li>
+  <li>Then <strong>tokenization</strong>: the text is cut into words, the tokens <code>gato</code>, <code>de</code> and <code>pelúcia</code>. Words with no value for search, like <code>de</code>, are usually dropped.</li>
+  <li>Finally the database builds the index, one list per term: <code>pelúcia → [1042, 1043]</code> and <code>caneca → [1041, 1044, 1046]</code>. The other terms go in the same way: <code>azul → [1041, 1044, 1046]</code> and <code>camiseta → [1045]</code>.</li>
+  <li>On a search for <code>pelúcia</code>, the database goes straight to the term's entry and returns <strong>1042 and 1043</strong>. It opens none of the 6 orders to look for the word.</li>
+  <li>For <code>gato pelúcia</code> (two words), it takes each term's list and <strong>intersects</strong> the two: the result is 1042 and 1043, which are in both. In <code>caneca azul</code>, the two lists coincide on 1041, 1044 and 1046.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It is what makes text search viable over millions of documents: the cost goes to the write (building the lists) and the read stays short.</li>
+  <li>It shows up in search engines (Elasticsearch, Solr), in catalog and log searches, and in the text features of relational databases.</li>
+  <li>Each write does more work and the index takes extra space. The trade is the same as every index: more expensive writes, cheaper reads.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The same case, with a big store</h4>
+  <p>On a search for <code>geladeira verde 2 portas</code> (green 2-door fridge), the inverted index returns the products whose description has the terms, no matter in what order or in which field (a JSON field or a text column).</p>
+  <h4 class="deep-h">Where the source article needs adjusting</h4>
+  <p>The article says the inverted index is characteristic of document databases. More precisely: it is the heart of <strong>search engines</strong> (Elasticsearch, Solr, Lucene). Document databases like MongoDB index fields with a B-Tree and have only a simple text index. PostgreSQL has its own, <strong>GIN</strong> (Generalized Inverted Index), which the documentation describes as an inverted index.</p>
+  <h4 class="deep-h">Beyond the list</h4>
+  <p>Search engines store more per term: at which position of the text it appears and how many times, to sort by relevance. The store example shows only the idea, the list of ids.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: GIN indexes", href: "https://www.postgresql.org/docs/current/gin.html" },
+    { label: "PostgreSQL: index types for text search", href: "https://www.postgresql.org/docs/current/textsearch-indexes.html" },
+    { label: "Elastic: text analysis (normalization and tokenization)", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis.html" },
+    { label: "dev.to: inverted indexes, the backbone of efficient search", href: "https://dev.to/surajvatsya/understanding-inverted-indexes-the-backbone-of-efficient-search-3hoe" },
+    { label: "Wikipedia: inverted index", href: "https://en.wikipedia.org/wiki/Inverted_index" },
+  ]} />
+</Deep>
+
+<p>The module has shown six models and four index structures, each good at one question. What is left is to see how to choose among them when the store says what happens most: writing a lot, reading a lot or guaranteeing every cent.</p>
+
+<Flashcards cards={[
+  { q: "What does the inverted index map?",
+    a: "Each term to the documents where it appears. The reverse of going from the document to the words." },
+  { q: "What is the entry for the term <code>pelúcia</code> in the example?",
+    a: "<code>pelúcia → [1042, 1043]</code>." },
+  { q: "What are the three steps of building the index?",
+    a: "Normalization, tokenization and creating the list of documents per term." },
+  { q: "How is a two-word search resolved?",
+    a: "It takes each term's list and intersects them: <code>gato pelúcia</code> returns the orders that are in both lists (1042 and 1043)." },
+  { q: "What is the cost of the inverted index?",
+    a: "Writes get more expensive (it builds the lists) and the index takes extra space." },
+]} />

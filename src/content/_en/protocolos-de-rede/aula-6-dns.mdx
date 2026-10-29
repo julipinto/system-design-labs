@@ -1,0 +1,66 @@
+---
+title: "DNS"
+order: 6
+min: 2
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Lena's phone already knows how to address, deliver and encrypt, but all of that starts from an IP, and she tapped a link with a name. DNS is what turns the name into an IP.</p>
+
+<OneLiner>DNS is the internet's phone book: it turns <code>demo.fidelissauro.dev</code> into an IP address by asking servers that get more and more specific.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and follow the resolver's question to the root, <strong>.dev</strong> and the authoritative server. Then switch to <strong>Resolver cache</strong> and watch the time drop.</p>
+</DoIt>
+<Figure3D path="en/labs/protocolos-de-rede/dns-3d/" poster="labs/protocolos-de-rede/dns-3d-previa.webp" title="Interactive figure: DNS resolution of demo.fidelissauro.dev" alt="Preview of the 3D figure: phone, resolver and the root, .dev TLD and authoritative servers, with the A answer 203.0.113.42" hint="Drag to rotate · Next step or ← → to advance · switch the cache scenario in the panel" />
+
+<HowItWorks>
+<p>People remember names, machines need IPs. Before opening any connection, the phone asks the <strong>resolver</strong> (usually the provider's, or 8.8.8.8, 1.1.1.1), which runs this sequence of questions:</p>
+<ol class="flow steps">
+  <li><strong>Cache:</strong> the browser, the system and the resolver check whether they already know the answer.</li>
+  <li>If nobody knows, the resolver starts at the top. The <strong>root server</strong> doesn't know the IP, but it knows who handles <code>.dev</code>.</li>
+  <li>The <strong>.dev TLD server</strong> doesn't know the IP either, but it knows who the name server for <code>fidelissauro.dev</code> is.</li>
+  <li>The <strong>authoritative server</strong> has the final word and answers with the IP of <code>demo.fidelissauro.dev</code>.</li>
+  <li>The resolver returns the answer and <strong>caches it</strong> for the TTL. Only then does the browser connect to the IP.</li>
+</ol>
+</HowItWorks>
+
+<p>Four servers sound like a lot, but the cache makes the lookup cheap: in the figure's example, about 85 ms with no cache, 5 ms with the resolver's cache and 0 ms with the browser's cache.</p>
+
+<WhyItMatters>
+  <li>DNS is the first step of every request and also a single point of failure.</li>
+  <li>The <strong>TTL</strong> is the balance: high means fewer lookups but a slower failover; low switches IPs fast but generates more lookups.</li>
+  <li>Besides finding the IP, DNS is used for load balancing and routing by region.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <p>The root servers are 13 sets, from <code>a.root-servers.net</code> to <code>m.root-servers.net</code>.</p>
+  <p>Common records: <code>A</code> (IPv4), <code>AAAA</code> (IPv6), <code>CNAME</code> (alias to another name), <code>NS</code> (who is authoritative), <code>MX</code> (email) and <code>TXT</code>.</p>
+  <p>Caching at several levels exists to reduce latency and traffic.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 1034: DNS, concepts", href: "https://www.rfc-editor.org/rfc/rfc1034" },
+    { label: "RFC 1035: DNS, implementation", href: "https://www.rfc-editor.org/rfc/rfc1035" },
+    { label: "IANA: root servers", href: "https://www.iana.org/domains/root/servers" },
+    { label: "root-servers.org: map of the root servers", href: "https://root-servers.org/" },
+  ]} />
+</Deep>
+
+<p class="gancho">DNS only works if the phone already has an IP and knows which resolver to ask. In a café she just walked into, it has none of that. What's left is to see who hands that configuration to whoever just joined the network.</p>
+
+<Flashcards cards={[
+  { q: "What is the chain of a resolution with no cache?",
+    a: "Cache, resolver, root, TLD (.dev), authoritative." },
+  { q: "Who gives the IP: the root, the TLD or the authoritative server?",
+    a: "The authoritative server. Root and TLD only point to the next server." },
+  { q: "Why does almost every lookup cost little?",
+    a: "Cache and TTL: it costs zero or a few ms." },
+]} />

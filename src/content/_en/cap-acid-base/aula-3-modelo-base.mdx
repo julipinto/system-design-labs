@@ -1,0 +1,82 @@
+---
+title: "The BASE model: Basic Availability, Soft-State, Eventual Consistency"
+order: 3
+min: 5
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>ACID makes Lena wait: it locks the row, commits, writes to disk. What if the app answered right away and let the copies sort themselves out? That's what BASE does with the same R$ 100 transfer.</p>
+
+<OneLiner>BASE trades immediate certainty for speed and availability: the system always answers, the state changes bit by bit and, if nobody writes anymore, all the copies end up equal.</OneLiner>
+
+<DoIt>
+  <p>In the figure, make Lena's transfer in São Paulo and read her brother's balance in Recife <strong>right after</strong>. Then wait for the copy to arrive and read again.</p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/acid-3d/?mode=base" poster="labs/cap-acid-base/acid-3d-previa.webp" title="Interactive figure: Lena's transfer and the BASE model" alt="Preview of the 3D figure of Lena's transfer; in BASE mode, three nodes in São Paulo, Rio and Recife converge to the same balance" hint="Drag to rotate · Next step or ← → to move on · switch between A, C, I, D or BASE in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena transfers R$ 100 to her brother and the request lands on the São Paulo node. The balances go from <code>Lena 150, irmão 20, v1</code> to <code>Lena 50, irmão 120, v2</code>. The node answers "ok" in <strong>~5 ms</strong>, without waiting for Rio or Recife: this is <strong>asynchronous replication</strong>.</li>
+  <li>After the "ok", the change travels in the background, first to Rio and then to Recife. In that gap the three nodes <strong>disagree</strong>: this is <strong>soft state</strong>, a state that is still settling by itself.</li>
+  <li>If Lena's brother opens the app in Recife during that gap, he reads <code>R$ 20, v1</code>: a <strong>stale read</strong>. The app answered anyway, and that is what <strong>basically available</strong> means.</li>
+  <li>Finally the replica reaches Recife and all three sit at <code>Lena 50, irmão 120, v2</code>, as long as nobody writes again: this is <strong>eventual consistency</strong>.</li>
+  <li>So far only one replica was receiving the write. What if two accept writes at the same time, like the store during the partition in lesson 1? There's a conflict, and someone has to resolve it: see the three rules in the box below.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Three ways to resolve a write conflict</h3>
+  <p>Back to sales #102 and #103 at the plush cat store.</p>
+  <ul>
+    <li><strong>Last-write-wins:</strong> the highest timestamp wins. During the partition, SP sells Lena's #102 and Recife sells her brother's #103, and both write stock 3. The most recent write wins, Recife's: the stock ends at 3 and #102 is lost, but the right value was 5 − 3 = 2. Simple, but it loses data.</li>
+    <li><strong>Vector clock:</strong> each version carries per-node counters. SP's is <code>{'{'}SP:2, REC:0{'}'}</code> (#101 and #102) and Recife's is <code>{'{'}SP:1, REC:1{'}'}</code> (#101 and #103). Neither came before the other: the system knows they are <strong>concurrent</strong> and asks someone to merge them.</li>
+    <li><strong>CRDT:</strong> each node counts only its own sales (SP: 2, with #101 and #102; REC: 1, with #103). On merge, you add them up: 3 sales, stock 5 − 3 = 2. The result is the same in any order, and nothing is lost.</li>
+  </ul>
+</div>
+
+<WhyItMatters>
+  <li>Cart, storefront, view counters and recommendations can live with data a few seconds late, and in exchange they gain speed and resilience.</li>
+  <li>But "eventual" needs a conflict rule (LWW, vector clock, CRDT) chosen on purpose. Without one, the system loses data silently.</li>
+  <li>Money and the last unit of a stock rarely tolerate this. For those, use a transaction (ACID) or another design.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The three letters</h4>
+  <ul>
+    <li><strong>Basically Available:</strong> part of the data or of the nodes may fail, but the system keeps serving, in a degraded way.</li>
+    <li><strong>Soft state:</strong> the state can change without any new write (replicas converging, a cache expiring by TTL, data that times out).</li>
+    <li><strong>Eventual consistency:</strong> if the writes stop, the copies converge. The promise doesn't say how long it takes.</li>
+  </ul>
+  <h4 class="deep-h">Where the name comes from</h4>
+  <p>BASE was coined as a counterpoint to ACID, in work by Eric Brewer and colleagues on large-scale systems. It isn't a formal standard like ACID: it's a family of choices.</p>
+  <h4 class="deep-h">How long is "eventually"?</h4>
+  <p>Usually the window is close to the propagation time between regions: on the order of milliseconds on a good network. But with a node down or a partition, it can become seconds, minutes or hours. That's why the design has to tolerate the stale read.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Alex DeBrie: eventual consistency in DynamoDB", href: "https://www.alexdebrie.com/posts/dynamodb-eventual-consistency/" },
+    { label: "Wikipedia: CRDT", href: "https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type" },
+  ]} />
+</Deep>
+
+<p>In lessons 1 and 3 we used "consistent" and "available" in their everyday sense. What's left is to see what those words (and the third one, partition) mean exactly in CAP.</p>
+
+<Flashcards cards={[
+  { q: "What does BASE stand for?",
+    a: "Basically Available, Soft state, Eventual consistency." },
+  { q: "What is soft state?",
+    a: "The state changes over time with no new write: replicas converging, a cache expiring." },
+  { q: "What is a stale read?",
+    a: "Reading a replica that doesn't have the newest write yet: the brother reads R$ 20, v1 in Recife when the right value is R$ 120, v2." },
+  { q: "Why can last-write-wins lose data?",
+    a: "It keeps only the write with the highest timestamp and discards the other, even if both were valid." },
+  { q: "What does a CRDT do differently?",
+    a: "It merges the copies by itself and always reaches the same result, in any order, without losing a write." },
+]} />

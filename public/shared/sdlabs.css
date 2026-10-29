@@ -130,3 +130,15 @@ code,kbd,samp,pre{font-family:var(--mono);font-size:.9em}
 /* rótulo de apoio: sans, caixa normal, cor de apoio. Mono fica para dado, código e medida (.data) */
 .label{font:600 var(--fs-label)/1.35 var(--sans);color:var(--muted)}
 .data{font:600 13px/1.3 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* números de destaque (public/shared/readouts.js): 7 segmentos nos widgets, pontos de LED na nota do quiz.
+   Só para número de dado, nunca para palavra. Segmento apagado bem fraco, como mostrador de verdade. */
+.rv-seg,.rv-dots{display:inline-flex;align-items:flex-end;gap:.28em;vertical-align:baseline}
+.rv-seg svg,.rv-dots svg{display:block;overflow:visible}
+.rv-seg .on,.rv-dots .on{fill:currentColor}
+.rv-seg .off{fill:currentColor;opacity:.08}
+.rv-dots .off{fill:currentColor;opacity:.09}
+.rv-unit{font:400 .62em/1 var(--sans);color:var(--muted);letter-spacing:0;padding-bottom:.05em}
+.rv-sweep .on{animation:rv-in 260ms var(--ease-out) both;animation-delay:calc(var(--c,0) * 14ms)}
+@keyframes rv-in{from{opacity:.09}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.rv-sweep .on{animation:none}}

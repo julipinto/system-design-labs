@@ -16,7 +16,11 @@ const slugs = readdirSync('./src/content', { withFileTypes: true })
   .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
   .map((d) => d.name);
 
-export const collections = Object.fromEntries(slugs.map((slug) => [slug, defineCollection({
-  loader: glob({ pattern: '*.mdx', base: `./src/content/${slug}` }),
-  schema: lesson,
-})]));
+// Versão em inglês: src/content/_en/<slug>/, coleção "en-<slug>". Mesmos nomes de arquivo, então as âncoras #aula-... são as mesmas.
+let enSlugs = [];
+try { enSlugs = readdirSync('./src/content/_en', { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name); } catch {}
+
+export const collections = Object.fromEntries([
+  ...slugs.map((slug) => [slug, defineCollection({ loader: glob({ pattern: '*.mdx', base: `./src/content/${slug}` }), schema: lesson })]),
+  ...enSlugs.map((slug) => ['en-' + slug, defineCollection({ loader: glob({ pattern: '*.mdx', base: `./src/content/_en/${slug}` }), schema: lesson })]),
+]);

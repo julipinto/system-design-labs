@@ -1,0 +1,78 @@
+---
+title: "RAID 6 (Striping with Double Parity)"
+order: 11
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>RAID 5's rebuild leaves the store with no margin: while it runs, pedidos.db depends on all the other disks working. A second parity removes that risk. It costs one more disk of space and more expensive writes.</p>
+
+<OneLiner>RAID 6 is a RAID 5 with two parities, so it withstands the loss of two disks at the same time, in exchange for one more disk of space and slower writes.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and let D2 burn out. See A2 and A5 rebuilt from the first parity and notice Q, which stays in reserve. At step 6, D4 burns out too: see P and Q rebuild the two missing blocks.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/raid-3d/?mode=raid6" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Interactive figure: RAID 6 writing blocks, one or two disks failing and the rebuild" alt="Preview of the 3D figure: RAID 6 with disks D2 and D4 burned out and the blocks rebuilt from parities P and Q, 2 of 2 failures used" hint="Drag to rotate · Next step or ← → to advance · switch the RAID level in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>With <strong>5 disks of 1 TB</strong>, each stripe has 3 data blocks and <strong>2 parity blocks</strong>. Both rotate among the disks.</li>
+  <li>The first parity (<strong>P</strong>) is the XOR, same as RAID 5. The second (<strong>Q</strong>) is calculated a different way (Reed-Solomon math), so the two are different.</li>
+  <li>With one failure, RAID 6 does the same as RAID 5: P1 xor A1 xor A3 = 0110, which is A2. And Q stays in reserve.</li>
+  <li>With two failures, P alone isn't enough. With two equations (P and Q), you can find <strong>two unknown blocks</strong>.</li>
+  <li>Capacity: (5 - 2) x 1 TB = <strong>3 TB</strong> usable (60%). It tolerates <strong>2 failures</strong>. Each small write becomes <strong>6 operations</strong> (write penalty 6).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It fixes RAID 5's rebuild risk: if a second disk fails (or a URE shows up) during the rebuild, there is still margin.</li>
+  <li>Recommended for large volumes and data that stays for years, with big disks and many of them.</li>
+  <li>It costs slower writes and one more disk of overhead. For the same 3 TB usable, RAID 6 needs 5 disks and RAID 5 needs 4.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The math</h4>
+  <ul>
+    <li><strong>Minimum:</strong> 4 disks (with 4 disks of 1 TB, 2 TB usable are left).</li>
+    <li><strong>Usable capacity:</strong> (N - 2) x size. 5 x 1 TB: 3 TB (60%).</li>
+    <li><strong>Failures tolerated:</strong> 2.</li>
+    <li><strong>Write penalty:</strong> 6 (read data, old P and Q, write data, new P and Q).</li>
+  </ul>
+  <h4 class="deep-h">Quick comparison with RAID 5 (1 TB disks)</h4>
+  <ul>
+    <li>RAID 5 with 4 disks: 3 TB, 1 failure, write penalty 4.</li>
+    <li>RAID 6 with 5 disks: 3 TB, 2 failures, write penalty 6.</li>
+    <li>Random writes with 150 IOPS per disk: 4 x 150 / 4 = 150 (RAID 5) against 5 x 150 / 6 = 125 (RAID 6).</li>
+  </ul>
+  <h4 class="deep-h">Number of disks</h4>
+  <p>The more disks in the group, the higher the chance of failures during the rebuild. That is why RAID 6 is the common choice for large groups.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "DataStorage: what RAID 6 is", href: "https://datastorage.com.br/post/o-que-e-o-raid-6" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>RAID 6 protects well, but each small write costs 6 operations, and pedidos.db is a database that writes all the time. Next, whether there is a level that combines speed and protection without calculating parity: RAID 10.</p>
+
+<Flashcards cards={[
+  { q: "What does RAID 6 do differently from 5?",
+    a: "Two parities (P and Q): it tolerates two failures at the same time." },
+  { q: "Capacity of RAID 6 with 5 disks of 1 TB?",
+    a: "(5 - 2) x 1 = 3 TB." },
+  { q: "Write penalty of RAID 6?",
+    a: "6." },
+  { q: "How many disks at minimum?",
+    a: "4." },
+  { q: "When to choose RAID 6 over 5?",
+    a: "Many large disks and critical data: it survives a failure during the rebuild." },
+]} />

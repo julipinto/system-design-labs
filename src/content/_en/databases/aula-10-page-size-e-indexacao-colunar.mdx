@@ -1,0 +1,79 @@
+---
+title: "Page size and columnar indexing"
+order: 10
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the six models we talked about "reading a row" as if the disk handed over one row at a time. It does not. The database reads and writes in fixed-size blocks called pages, and the page size decides how many rows come along with each read.</p>
+
+<OneLiner>The database stores data in fixed-size pages (4, 8 or 16 KB) and every read brings a whole page; larger pages favor reading a lot at once, smaller pages favor fetching a single record, and the columnar format puts each column in consecutive segments to read only what the query asks for.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>8 KB and 16 KB pages</strong> mode, compare the 8 KB and 16 KB pages and see how many 2 KB rows fit. Then use the calculator below to find how many pages the 6 rows take at each size.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=page" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: 8 KB and 16 KB pages and how many 2 KB rows fit in each" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<Widget name="pagecalc" title="Rows-per-page calculator" hint="Pick the page size, the row size and the number of rows. See how many pages the table takes and what a lookup of a single order wastes." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The database splits each table into <strong>pages</strong> of the same size. PostgreSQL uses <strong>8 KB</strong>; InnoDB, from MySQL, uses <strong>16 KB</strong>. In the figure, each order takes ~2 KB: 4 rows fit in an 8 KB page and 8 in a 16 KB one.</li>
+  <li>The 6 rows of <code>pedidos</code> then take <strong>2 pages of 8 KB</strong> or <strong>1 page of 16 KB</strong>. Reading order 1042 costs one page read: 8 KB or 16 KB, when only ~2 KB was of interest.</li>
+  <li>That is the <strong>trade-off</strong>. Big page: a single read brings many neighboring rows, and reading many orders in sequence makes fewer trips to disk. Small page: a lookup of a single order brings little junk, and a long read makes more trips.</li>
+  <li>A row larger than the page (an order with a 9 KB field in an 8 KB page) does not fit: the database splits it across more than one page or stores the big field somewhere else.</li>
+  <li>In the <strong>columnar</strong> format, the logic is the same, but the pages and segments hold <strong>a single column</strong>. <code>SUM(valor)</code> reads the <code>valor</code> segments and ignores the rest. Since each segment has similar values, the database compresses them with a dictionary and run-length, and reads even fewer bytes.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The cost of a query is counted in <strong>pages read</strong>, not rows. That number will show up in every index in the next lessons.</li>
+  <li>Each database picks the size based on the use it imagines: transactional (many point lookups) and analytical (long scans) ask for different things.</li>
+  <li>Knowing the size helps you read the database's execution plan, which reports how many pages each step touched.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Who uses which size</h4>
+  <ul>
+    <li><strong>PostgreSQL:</strong> 8 KB, set when the server is compiled (in practice, nobody changes it).</li>
+    <li><strong>MySQL (InnoDB):</strong> 16 KB by default, chosen when the instance is initialized.</li>
+    <li><strong>SQL Server:</strong> always 8 KB.</li>
+  </ul>
+  <p>The source article speaks of a "fixed and configurable" size and lists 4, 8 and 16 KB. That holds for some products, and in several the value is fixed at compile time or at instance creation, not adjustable afterwards.</p>
+  <h4 class="deep-h">The calculator numbers are examples</h4>
+  <p>It divides the page size by the row size and ignores the page header and the table of positions. A real order row is much smaller than 2 KB, so dozens fit per page.</p>
+  <h4 class="deep-h">Columnar indexing in practice</h4>
+  <p>Columnar files like Parquet and SQL Server's columnstore indexes organize the rows into large groups and, inside each group, store each column in a compressed segment. The database keeps the minimum and maximum of each segment, and so it skips whole segments that cannot hold the value being searched.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: database page layout", href: "https://www.postgresql.org/docs/current/storage-page-layout.html" },
+    { label: "MySQL: physical structure of an InnoDB index (16 KB page)", href: "https://dev.mysql.com/doc/refman/8.0/en/innodb-physical-structure.html" },
+    { label: "Microsoft: SQL Server pages and extents architecture", href: "https://learn.microsoft.com/en-us/sql/relational-databases/pages-and-extents-architecture-guide?view=sql-server-ver17" },
+    { label: "Apache Parquet: encodings (dictionary and run-length)", href: "https://parquet.apache.org/docs/file-format/data-pages/encodings/" },
+    { label: "Microsoft: columnstore indexes overview", href: "https://learn.microsoft.com/pt-br/sql/relational-databases/indexes/columnstore-indexes-overview?view=sql-server-ver17" },
+  ]} />
+</Deep>
+
+<p>Knowing the database reads pages, the question becomes how to organize them so that writing does not make the disk wait. What is left is to see how a structure that only appends to the end, the LSM-Tree, does that and what it charges on reads.</p>
+
+<Flashcards cards={[
+  { q: "What is a database page?",
+    a: "A fixed-size block (4, 8 or 16 KB) in which the database reads and writes. Every read brings a whole page." },
+  { q: "How many 2 KB rows fit in an 8 KB page and in a 16 KB one?",
+    a: "4 and 8. The 6 rows of <code>pedidos</code> take 2 pages of 8 KB or 1 of 16 KB." },
+  { q: "What is the trade-off of page size?",
+    a: "Big: fewer reads for data in sequence, but more junk per point lookup. Small: the opposite." },
+  { q: "What is the default size in PostgreSQL and InnoDB?",
+    a: "8 KB in PostgreSQL and 16 KB in InnoDB (MySQL)." },
+  { q: "How does the columnar format reduce reads?",
+    a: "Each column sits in its own compressed segments. The query reads only the segments of the columns it needs." },
+]} />

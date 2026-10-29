@@ -1,0 +1,72 @@
+---
+title: "Consistency levels"
+order: 3
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson each type of database promised a different "consistency". Lena writes order 1042 on the Recife server, Bia queries the orders through the SP server a moment later, and the question is: what should she see? The answer changes with the consistency level.</p>
+
+<OneLiner>Consistency is a ladder: on the top rung (strong), every read sees the last confirmed write; on the bottom (eventual), the copies only agree after a while; and there are rungs in between.</OneLiner>
+
+<DoIt>
+  <p>Imagine Lena writes order 1042 at 10:00:00 in Recife and the SP server only receives the copy at 10:00:02. Answer for each level: <strong>what does Bia see if she queries SP at 10:00:01?</strong></p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Strong consistency (linearizability).</strong> When Lena gets "order confirmed", every read made afterwards, on any server, sees order 1042. To get that, the database confirms the write only after a majority of replicas have written it (Raft, Paxos or synchronous commit). At 10:00:01, Bia either sees 1042 or waits. She never sees the list without it.</li>
+  <li>That strictness has a price. Lena's write has to wait for answers from other servers and, the farther away they are, the longer the wait. In the network partition from module 3, the side without a majority refuses the request: the database chooses <strong>consistency and loses availability (CP)</strong>.</li>
+  <li><strong>Eventual consistency.</strong> Lena gets the confirmation as soon as <em>one</em> server writes, and the other copies receive the write later, asynchronously. At 10:00:01, Bia sees the list <strong>without 1042</strong>. At 10:00:02 the SP server catches up and she sees it. The system converges, and it is fast because it waits for nobody.</li>
+  <li>When two copies accept different writes for the same data, the database needs a rule to decide. <strong>Last-write-wins</strong> keeps the newest timestamp and may discard a good write. <strong>CRDTs</strong> use structures that merge both versions without losing either.</li>
+  <li><strong>Between the two extremes there are rungs.</strong> Reading your own writes (Lena always sees 1042 after writing it, even if Bia does not see it yet) and causal consistency (if order 1044 was placed because of 1042, nobody sees 1044 without 1042) are promises weaker than strong and more useful than eventual.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Each rung of the ladder trades latency and availability for safety. Lena's balance and the plush cat's stock call for the high rung. Bia's "recent orders" list can live with the low one.</li>
+  <li>The choice can be per operation, in the same database: some databases let the program ask for a strong read when it needs one and an eventual read when it does not.</li>
+  <li>If the level is eventual, the program has to know how to handle stale reads and write conflicts. The database does not do that on its own.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Strong is linearizability, not "sequential consistency".</strong> The article treats the two names as synonyms. Sequential consistency only requires everyone to see the writes in the <em>same order</em>, without tying that order to real time. It is a weaker model.</li>
+    <li><strong>"All replicas always return the same data."</strong> More precisely: every read sees the last confirmed write. A replica may be behind internally, as long as the database does not answer the read with it, or asks the leader.</li>
+    <li><strong>"Strong is CA."</strong> The CA of CAP only exists with no network between nodes (a single database). A strong distributed database, during a partition, is CP.</li>
+    <li><strong>"Everything that is not strong is eventual."</strong> There is the ladder from step 5. It is what real databases offer.</li>
+    <li><strong>"A quorum of 2 out of 3 leaves one replica stale, so it is eventual."</strong> If the write and the read both use a majority (R + W &gt; N), the read finds the new write. It stays strong from the point of view of whoever reads with a quorum.</li>
+  </ul>
+  <h4 class="deep-h">The numbers in the example</h4>
+  <p>The times (10:00:00 to 10:00:02) are an example. In practice, the lag window of eventual consistency is usually milliseconds to a few seconds, but it depends on the network and the load.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Wikipedia: linearizability", href: "https://en.wikipedia.org/wiki/Linearizability" },
+    { label: "Wikipedia: sequential consistency", href: "https://en.wikipedia.org/wiki/Sequential_consistency" },
+    { label: "Wikipedia: consistency models", href: "https://en.wikipedia.org/wiki/Consistency_model" },
+    { label: "Wikipedia: eventual consistency", href: "https://en.wikipedia.org/wiki/Eventual_consistency" },
+    { label: "crdt.tech: what CRDTs are", href: "https://crdt.tech/" },
+  ]} />
+</Deep>
+
+<p>With the consistency promise chosen, the database still has to decide how each order is stored inside. What is left is to see how order 1042 lives on disk in the most traditional model, the row of a table.</p>
+
+<Flashcards cards={[
+  { q: "What does strong consistency guarantee?",
+    a: "Once the write is confirmed, every read, on any server, sees that value (linearizability)." },
+  { q: "What does eventual consistency guarantee?",
+    a: "That the copies converge if the writes stop. For a while, different servers may answer different values." },
+  { q: "Why is a strong write slower?",
+    a: "Because it needs confirmation from a majority of replicas before answering. The farther away, the longer the wait." },
+  { q: "What is last-write-wins?",
+    a: "Resolving a conflict by keeping the write with the newest timestamp. Simple, but it may discard a valid write." },
+  { q: "Is there anything between strong and eventual?",
+    a: "Yes: reading your own writes, causal consistency and other intermediate rungs." },
+]} />

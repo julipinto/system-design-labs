@@ -1,0 +1,81 @@
+---
+title: "Document model"
+order: 5
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson Lena showed up in two loose rows, 1042 and 1044, and the database only joined them at query time. For Lena's "My orders" screen, it would be simpler to read everything of hers at once. That is what the document model does.</p>
+
+<OneLiner>In the document model, each record is a self-contained JSON document that carries the related data inside it, and Lena ends up with her orders nested, with no JOIN.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Document model</strong> mode, open Lena's document and find order 1044 without doing any JOIN. Step forward to the question about the product and answer: if the plush cat's price changes, how many documents would you have to touch?</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=doc" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: one JSON document per customer, with Lena's orders 1042 and 1044 nested" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<pre><code>{`{
+  "_id": "lena",
+  "nome": "Lena",
+  "cidade": "Recife",
+  "pedidos": [
+    { "id": 1042, "produto": "gato de pelúcia", "qtd": 1, "valor": 89.90 },
+    { "id": 1044, "produto": "caneca azul",     "qtd": 1, "valor": 19.90 }
+  ]
+}`}</code></pre>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Instead of rows in different tables, the database stores <strong>one document per customer</strong>. Lena's (above) carries her name, her city and the list of her orders, 1042 and 1044.</li>
+  <li>When "My orders" opens, the program asks for the <code>lena</code> document and gets everything in a single read. Since the orders are inside it, <strong>there is no JOIN</strong>. Lena's bill (R$ 89.90 + R$ 19.90 = R$ 109.80) comes out of the same object.</li>
+  <li>The document does not need the same fields as Bia's. If the store wants to record "gift: yes" only on the orders that are gifts, it just writes the field. No table migration is needed for that.</li>
+  <li>The cost shows up when the same data repeats. If Lena's document and Bia's both carry the plush cat's price (R$ 89.90) inside their orders, changing the price means rewriting <strong>both documents</strong>, and every other buyer's too.</li>
+  <li>The database lets you create indexes on fields inside the document, like <code>pedidos.produto</code>. That way the question "who bought a plush cat?" does not have to open every document.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>When the program almost always reads the whole object (Lena and her orders), storing the whole object saves JOINs and reads.</li>
+  <li>The schema lives in the program's head, not in the database. That speeds up changes, and it also makes the program responsible for not writing an order with no value or the wrong type.</li>
+  <li>It is common to use a document database as a read query layer (CQRS): the transactional database writes the orders and a copy in document format feeds the screens.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Common uses</h4>
+  <ul>
+    <li>Product catalog, customer history, patient records.</li>
+    <li>Storing crawler results and aggregating logs.</li>
+    <li>Read layer of a system with CQRS.</li>
+  </ul>
+  <h4 class="deep-h">Where the source article needs adjusting</h4>
+  <p>The article says document databases offer "inverted indexing or full-text search". The most widely used document databases (like MongoDB) index fields with a <strong>B-Tree</strong>, and have a basic text index. A real inverted index, with search by terms and relevance, belongs to search engines (Elasticsearch, Solr). Lesson 14 explains the difference.</p>
+  <h4 class="deep-h">Reference or copy?</h4>
+  <p>There are two ways to link Lena to the plush cat: <strong>embed</strong> (copy the name and price inside the order) or <strong>reference</strong> (store only the product id and look it up later). Embedding reads faster and lets the data go stale. Referencing keeps a single copy of the data and costs a second read. The order stores the price paid at the time of purchase, so embedding the price makes sense there.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "MongoDB: introduction to data modeling", href: "https://www.mongodb.com/docs/manual/core/data-modeling-introduction/" },
+    { label: "MongoDB: index types", href: "https://www.mongodb.com/docs/manual/core/indexes/index-types/" },
+    { label: "Wikipedia: document-oriented database", href: "https://en.wikipedia.org/wiki/Document-oriented_database" },
+  ]} />
+</Deep>
+
+<p>One document per customer answers "everything about Lena" well. What is left is to see what happens when the question is "what is the total of all values", which looks at a single piece of information across all orders of all customers.</p>
+
+<Flashcards cards={[
+  { q: "What is a document in a document database?",
+    a: "A self-contained record in JSON (or BSON) that carries the related data inside it, like Lena with her orders 1042 and 1044." },
+  { q: "What does nesting eliminate?",
+    a: "The JOIN: the orders are inside the customer's document, and one read brings everything." },
+  { q: "What is the cost of embedding the same data in many documents?",
+    a: "Changing that data means rewriting every document that carries it (the cat's price in every buyer's document)." },
+  { q: "Who takes care of the schema in a document database?",
+    a: "The program. The database accepts varied fields, and the program has to respect the contract." },
+]} />

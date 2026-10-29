@@ -1,0 +1,74 @@
+---
+title: "Storage Dimensions: Throughput, Bandwidth, IOPS"
+order: 2
+min: 4
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>Last lesson the database asked for "low latency" and the photos asked for "lots of space". Words aren't enough to pick a disk. We need a calculation, and it has three numbers: IOPS, block and bandwidth.</p>
+
+<OneLiner>IOPS counts how many requests the disk serves per second, bandwidth is the width of the pipe, and real throughput is IOPS times the block size, capped by the pipe.</OneLiner>
+
+<DoIt>
+  <p>In the calculator, click <strong>Database: small random blocks</strong> and look at the bottleneck. Then click <strong>Video: large sequential blocks</strong> and watch the bottleneck move.</p>
+</DoIt>
+<Widget name="io" title="I/O calculator" hint="Disk values are orders of magnitude for study. Switch the disk, the scenario, or move the controls." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>It all starts with an <strong>I/O</strong>: one read or write operation. <strong>IOPS</strong> is how many the disk does per second.</li>
+  <li>Each operation has a size, the <strong>block</strong>. Postgres, for example, reads 8 KB pages.</li>
+  <li>With IOPS and block size you get <strong>throughput</strong>: IOPS x block size. With 3,000 IOPS and 8 KB blocks: 3,000 x 8 KB = 24 MB/s.</li>
+  <li>But the channel has a ceiling too, the <strong>bandwidth</strong>. AWS's default gp3 carries at most 125 MB/s.</li>
+  <li>Both limits apply at the same time, so the <strong>lower one wins</strong>. Small blocks hit the IOPS limit. Large blocks hit the bandwidth limit.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Now we can translate the store's data. pedidos.db does lots of small operations: it needs <strong>IOPS</strong>. A product video is a large file: it needs <strong>bandwidth</strong>.</li>
+  <li>Buying more IOPS when the bottleneck is bandwidth changes nothing, and the reverse is true too. Measure before you pay.</li>
+  <li>Cloud applies <strong>throttling</strong>: the volume is "slow" because it hit the contracted limit, not because it is faulty. Monitor IOPS and MB/s.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Orders of magnitude (examples for study)</h4>
+  <ul>
+    <li><strong>HDD 7200 rpm:</strong> ~150 random IOPS, ~180 MB/s sequential.</li>
+    <li><strong>SATA SSD:</strong> tens of thousands of IOPS, interface ceiling at ~550 MB/s.</li>
+    <li><strong>NVMe:</strong> hundreds of thousands of IOPS, several GB/s.</li>
+    <li><strong>EBS gp3:</strong> 3,000 IOPS and 125 MB/s baseline. You can buy more of each, separately.</li>
+  </ul>
+  <h4 class="deep-h">Random vs sequential</h4>
+  <p>The HDD has to move the head for every random access: that is why it only gets ~150 IOPS. In sequence, the head stays still and the disk reads fast. An SSD barely feels the difference.</p>
+  <h4 class="deep-h">See it on Linux</h4>
+  <pre><code>{"iostat -x 1\n# columns: r/s and w/s (IOPS), rMB/s and wMB/s (throughput), r_await and w_await (latency)"}</code></pre>
+  <h4 class="deep-h">The formula to remember</h4>
+  <p>Real throughput = the lower of (IOPS x block) and (bandwidth). The block size where the two are equal is bandwidth / IOPS. On gp3: 125 MB/s divided by 3,000 gives about 42 KB.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+    { label: "AWS: difference between block, file and object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<p>With the math done, we still need to decide where the disk should sit. The shortest path is plugging it into the server itself. That is DAS.</p>
+
+<Flashcards cards={[
+  { q: "Throughput formula?",
+    a: "IOPS x block size, capped by the bandwidth." },
+  { q: "How much do 3,000 IOPS with 8 KB blocks give?",
+    a: "24 MB/s. Bottleneck: IOPS, because the 125 MB/s bandwidth is more than enough." },
+  { q: "Database and video: who needs what?",
+    a: "Database: IOPS (small random blocks). Video: bandwidth (large sequential blocks)." },
+  { q: "How many IOPS does a 7200 rpm HDD have?",
+    a: "About 150, on random access." },
+  { q: "The volume got slow and the disk is healthy. What should you check?",
+    a: "Throttling: the contracted IOPS or MB/s limit." },
+]} />

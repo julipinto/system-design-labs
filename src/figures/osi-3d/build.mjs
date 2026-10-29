@@ -4,7 +4,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { STAGES } from "../osi/osi-figure.mjs";
+import { STAGES as STAGES_PT } from "../osi/osi-figure.mjs";
+const EN = process.env.FIG_LANG === "en";   // versão em inglês: lê fig3d.en.js e grava em public/en/labs/ (tools/build-3d-en.mjs)
+const STAGES = EN ? (await import("../osi/osi-stages.en.mjs")).STAGES : STAGES_PT;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(HERE, p), "utf8");
@@ -48,19 +50,20 @@ const css = `
   #ctl-osi button:nth-child(n+3),#ctl-osi .sep{display:none!important}
 
 }
-${read("../osi/osi-data.css")}
+${read(EN ? "../osi/osi-data.en.css" : "../osi/osi-data.css")}
 `;
 const reps = [
-  ["<title>Iso 3D</title>", "<title>Modelo OSI em 3D · SDLabs</title>"],
-  ["<i></i>Iso 3D</div>", "<i></i>Modelo OSI · 3D</div>"],
+  ["<title>Iso 3D</title>", EN ? "<title>OSI model in 3D · SDLabs</title>" : "<title>Modelo OSI em 3D · SDLabs</title>"],
+  ["<i></i>Iso 3D</div>", EN ? "<i></i>OSI model · 3D</div>" : "<i></i>Modelo OSI · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-2-modelo-osi">Voltar ao módulo</a>\n<div class="ui" id="info">'],
-  ["/* paste 3D figure modules here */", `const OSI_STAGES = ${JSON.stringify(stages)};\n${read("../osi/osi-data.js")}\n${read("fig3d.js")}`],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-2-modelo-osi">' + (EN ? "Back to module" : "Voltar ao módulo") + '</a>\n<div class="ui" id="info">'],
+  ["/* paste 3D figure modules here */", `const OSI_STAGES = ${JSON.stringify(stages)};\n${read(EN ? "../osi/osi-data.en.js" : "../osi/osi-data.js")}\n${read(EN ? "fig3d.en.js" : "fig3d.js")}`],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }
 s = s.replace('<html lang="en">', '<html lang="pt-BR">');
-const OUT = join(HERE, "../../../public/labs/protocolos-de-rede/osi-3d");
+if (EN) s = s.replace('<html lang="pt-BR">', '<html lang="en">').replaceAll("../../../shared/", "../../../../shared/").replace("shared/ui.pt.js", "shared/ui.en.js");
+const OUT = join(HERE, "../../../public/" + (EN ? "en/" : "") + "labs/protocolos-de-rede/osi-3d");
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, "index.html"), s);
 console.log("wrote", join(OUT, "index.html"), (s.length / 1024).toFixed(0) + " KB");

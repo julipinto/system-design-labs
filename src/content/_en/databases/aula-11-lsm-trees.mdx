@@ -1,0 +1,84 @@
+---
+title: "LSM-Trees"
+order: 11
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson we saw that the database reads and writes pages. Writing a row in the middle of a table forces the disk to jump to the right page, and that is slow. The LSM-Tree avoids the jump: every write goes to the end of a file, in sequence. It is the structure of databases built to write a lot.</p>
+
+<OneLiner>An LSM-Tree writes first to a log and to an in-memory table (the memtable), flushes the memtable into immutable files on disk (SSTables) and, from time to time, merges those files; writing becomes fast and reading has to look in more than one place.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>LSM</strong> mode, write order 1046 and follow the path: WAL, memtable, then the flush to an SSTable, the compaction and the read with a Bloom filter. Then use the simulator below to update order 1042 and see how the read looks for the newest version.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/indices-3d/?mode=lsm" poster="labs/databases/indices-3d-previa.webp" title="Interactive figure: LSM-Tree: order 1046 enters the WAL and the memtable, becomes an SSTable and goes through compaction" alt="Preview of the 3D figure: the orders' B-Tree with root 1043 and the two leaves, the path to order 1042 lit up" hint="Drag to rotate · write to the WAL and memtable, go down to the SSTables and compact · use ← → or Next step" />
+
+<Widget name="lsm" title="LSM-Tree simulator" hint="Write orders, update 1042, delete 1044, compact and then read an order. The example memtable holds 4 entries. See which files each read opens." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The write for <strong>order 1046</strong> arrives. The database notes it at the end of the <strong>WAL</strong> (a write log, on disk, append-only) so it is not lost if the power goes out. That is a sequential write, the cheapest the disk knows how to do.</li>
+  <li>Then it puts it in the <strong>memtable</strong>, a sorted table in memory. At this point the database already answers "written" to the store. No page in the middle of the disk was touched.</li>
+  <li>When the memtable fills up (in the example, at 4 entries), it is <strong>flushed</strong> to disk as an <strong>SSTable</strong>: a file sorted by key and <strong>immutable</strong>. The memtable empties and the matching WAL can be discarded.</li>
+  <li>Updating order 1042 does not touch the SSTable: the database writes a <strong>new version</strong> in the memtable. Deleting 1044 writes a special marker, the <strong>tombstone</strong>. The old versions stay in the old files for now.</li>
+  <li>To read, the database looks at the <strong>memtable</strong>, then at the SSTables from <strong>newest to oldest</strong>, and stops at the first one that has the key. A <strong>Bloom filter</strong> on each SSTable says "this key is certainly not here" and avoids opening the file for nothing.</li>
+  <li>Over time the SSTables pile up and reads get worse. <strong>Compaction</strong> merges several into one, keeps the newest version of each key and throws away the old versions and the deleted pairs (tombstones).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Writing becomes appending to the end, which the disk does well. That is why LSM is the choice of databases that receive millions of writes per second, like logs, sensors and feeds.</li>
+  <li>The price is the read, which may open several SSTables, and the compaction, which spends disk and CPU in the background. It is a cost the database pays to make writes cheap.</li>
+  <li>Cassandra, ScyllaDB and Bigtable use this design. InfluxDB uses a variant, TSM, in the same family.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where the source article needs adjusting</h4>
+  <ul>
+    <li><strong>"LSM keeps all versions, great for auditing."</strong> Compaction discards old versions and tombstones. LSM is <em>not</em> an audit record. For a ledger or audit trail, you model an insert-only table on purpose (a ledger), and you do not count on what compaction has not cleaned yet.</li>
+    <li><strong>DynamoDB as an example of LSM.</strong> The DynamoDB paper (USENIX ATC 2022) describes each replica with a write-ahead log and a <strong>B-tree</strong>. DynamoDB should not be on the LSM list.</li>
+    <li><strong>InfluxDB.</strong> It uses TSM (Time-Structured Merge Tree), with a cache, immutable files and leveled compaction. It is in the same family as LSM, and its documentation does not call it LSM.</li>
+    <li><strong>"At the expense of strong eventual consistency".</strong> The phrase mixes the terms. What LSM does not define is the consistency level: that comes from the database's replication on top.</li>
+  </ul>
+  <h4 class="deep-h">The numbers in the scene (example)</h4>
+  <ul>
+    <li>A 4-entry memtable: orders 1041 to 1044 fill the first one and become SSTable 1. Orders 1045 and 1046 stay in the memtable (and in the WAL).</li>
+    <li>In real databases the memtable is tens of megabytes.</li>
+    <li>The Bloom filter can err on the safe side: say "maybe it is here" when it is not (and the read opens the file for nothing), but never say "it is not here" when it is.</li>
+  </ul>
+  <h4 class="deep-h">What the original paper says</h4>
+  <p>The paper by O'Neil and colleagues (1996) shows that maintaining a B-tree index in real time can double the I/O cost of a transaction with many inserts, and that the LSM defers and batches the index changes. The text itself warns that searches that need an immediate answer lose efficiency in some cases.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "O'Neil et al. (1996): The Log-Structured Merge-Tree (PDF)", href: "https://www.cs.umb.edu/~poneil/lsmtree.pdf" },
+    { label: "Apache Cassandra: storage engine", href: "https://cassandra.apache.org/doc/latest/cassandra/architecture/storage-engine.html" },
+    { label: "Chang et al.: Bigtable, a distributed storage system", href: "https://research.google/pubs/bigtable-a-distributed-storage-system-for-structured-data/" },
+    { label: "RocksDB: compaction wiki", href: "https://github.com/facebook/rocksdb/wiki/Compaction" },
+    { label: "Elhemali et al. (2022): Amazon DynamoDB (USENIX ATC)", href: "https://www.usenix.org/conference/atc22/presentation/elhemali" },
+  ]} />
+</Deep>
+
+<p>The LSM made writing cheap and reading spread across several files. What is left is to see which structure does the opposite: it keeps everything sorted in one place so reads are short, the B-Tree.</p>
+
+<Flashcards cards={[
+  { q: "Why is a write fast in an LSM?",
+    a: "It goes to the end of the WAL and to the memtable, in memory: everything sequential, with no jumping between disk pages." },
+  { q: "What is an SSTable?",
+    a: "A file sorted by key and immutable, created when the memtable fills up." },
+  { q: "How does the LSM update order 1042 and delete 1044?",
+    a: "It writes a new version of 1042 and a tombstone for 1044. The old files do not change; compaction cleans up later." },
+  { q: "In what order does a read search?",
+    a: "Memtable, then SSTables from newest to oldest. The Bloom filter skips the ones that certainly do not have the key." },
+  { q: "What does compaction do?",
+    a: "Merges SSTables, keeps the newest version of each key and removes old versions and tombstones." },
+]} />

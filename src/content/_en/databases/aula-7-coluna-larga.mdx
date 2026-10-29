@@ -1,0 +1,71 @@
+---
+title: "Wide-column model"
+order: 7
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The columnar model from the last lesson asks every row to have the same columns. The store, though, wants a way to write each customer's orders as they arrive, across millions of customers, without a single schema for everyone. That is the ground of the wide-column model, which has a name similar to columnar and is something else.</p>
+
+<OneLiner>In the wide-column model, data is grouped by partition key and each row can have its own columns, so Lena keeps <code>pedido:1042</code> and <code>pedido:1044</code> in one partition and grows sideways with every purchase.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Wide-column</strong> mode, see each partition with a different number of columns, read the whole <code>cliente=Lena</code> partition at once and get to the last step: searching by product, which this database refuses.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=wide" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: one partition per customer, with columns that grow with every order" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <strong>partition key</strong> is <code>cliente</code>. All of Lena's data stays together, and the database uses the key to decide <strong>which server</strong> the partition lives on.</li>
+  <li>Inside Lena's partition, each order is a <strong>dynamic column</strong>: <code>pedido:1042 → {`{gato de pelúcia, 1, 89.90}`}</code> and <code>pedido:1044 → {`{caneca azul, 1, 19.90}`}</code>. Bia, with orders 1043 and 1046, has her own columns, which do not exist in Lena's row.</li>
+  <li>When Lena places a new order, the database <strong>appends a column</strong> to her partition. There is no ALTER TABLE and no other row is touched.</li>
+  <li>Reading everything of Lena's is fast, because the partition sits in one place. Asking "which customers bought a plush cat?" is expensive: without the key, the database would have to look at every partition.</li>
+  <li>Columns are grouped into <strong>column families</strong>: a group the database writes together on disk (for example, the order data in one group and the delivery data in another).</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Columnar and wide-column are not the same thing</h3>
+  <p>In <strong>columnar</strong> (lesson 6) the cut is vertical and it serves to sum one column across millions of rows. In <strong>wide-column</strong> the row still exists, has a key, and it is its set of columns that varies. The two names are confusing, which is why the source article puts them in neighboring sections.</p>
+</div>
+
+<WhyItMatters>
+  <li>It is built to write a lot. Databases like Cassandra, ScyllaDB and Bigtable write by appending (lesson 11) and spread across thousands of servers.</li>
+  <li>It fits sparse data and time series: each row grows with the columns that actually exist.</li>
+  <li>The price is the query: good when you know the partition key, bad for free-form filters. Transactions are limited and JOINs are rare.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Choosing the key is choosing the model</h4>
+  <p>If the key is <code>cliente</code>, "Lena's orders" is cheap and "today's orders" is expensive. If the key is the day, the opposite. In wide-column, you design the table starting from the query that happens most.</p>
+  <h4 class="deep-h">Consistency</h4>
+  <p>These databases choose scale and availability, and so they usually offer eventual consistency, with a tunable quorum (module 3). Lesson 11 shows from the inside how they write so fast.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "ScyllaDB: what a wide-column database is", href: "https://www.scylladb.com/glossary/wide-column-database/" },
+    { label: "ScyllaDB: Cassandra column families", href: "https://www.scylladb.com/glossary/cassandra-column-family/" },
+    { label: "Chang et al.: Bigtable, a distributed storage system", href: "https://research.google/pubs/bigtable-a-distributed-storage-system-for-structured-data/" },
+    { label: "Wikipedia: wide-column store", href: "https://en.wikipedia.org/wiki/Wide-column_store" },
+  ]} />
+</Deep>
+
+<p>Wide-column still has rows, partitions and columns to organize. What is left is to see the simplest model of all, in which the database only knows how to find a value by its key and does not look at what is inside it.</p>
+
+<Flashcards cards={[
+  { q: "What is the partition key in wide-column?",
+    a: "The field that groups the data and decides which server the partition lives on. In the example, <code>cliente</code>." },
+  { q: "How does Lena store her orders in this model?",
+    a: "In the <code>cliente=Lena</code> partition, in dynamic columns: <code>pedido:1042</code> and <code>pedido:1044</code>." },
+  { q: "Why does Lena's new order not require ALTER TABLE?",
+    a: "Each row has its own columns. The database appends a column only to Lena's partition." },
+  { q: "What is the difference from the columnar model?",
+    a: "Columnar stores one file per column to sum fast. Wide-column keeps rows with a key and columns that vary per row, to write a lot and scale." },
+]} />

@@ -1,0 +1,36 @@
+---
+// Network Protocols module (English): the 9 lessons in src/content/_en/protocolos-de-rede/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/protocolos-de-rede.css';
+
+const entries = (await getCollection('en-protocolos-de-rede')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/protocolos-de-rede/quiz/');
+---
+<ModuleLayout
+  title="Network Protocols · SDLabs"
+  description="Network protocols: OSI, IP, TCP/UDP, TLS, DNS, DHCP, HTTP and response time, with interactive labs."
+  module="protocolos-de-rede"
+  heading="Network Protocols"
+  lead="Network protocols on a single page, with labs you can play with to see it happen."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/protocolos-de-rede/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

@@ -1,0 +1,173 @@
+---
+title: "OSI model"
+order: 2
+min: 3
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import { withBase } from '../../../lib/url.js';
+
+<p class="ponte">In lesson 1 the protocols stacked up, but a question remained: how many floors, and what does each one do? The OSI model answers with 7 layers.</p>
+
+<OneLiner>the OSI model splits communication into 7 layers, and each layer wraps the data from the level above with its own header, until it becomes bits.</OneLiner>
+
+<DoIt>
+  <p>In the figure below, click <strong>Next step</strong> and watch Lena's photo go down layer by layer, turn into bits on the cable and come back up on her brother's phone. Also try the <strong>Call · UDP</strong> button.</p>
+</DoIt>
+
+<Figure3D path="en/labs/protocolos-de-rede/osi-3d/" poster="labs/protocolos-de-rede/osi-3d-previa.webp" title="Interactive 3D figure of the OSI model" alt="Preview of the 3D figure: the 7-layer stack with the data slice inside the TCP, IP and MAC boxes" hint="Drag to rotate · Next step or ← → to advance · click a layer to jump to it" />
+
+<HowItWorks>
+<p>Lena, in São Paulo, sends a photo from her phone to her brother in Tokyo. The photo goes down 7 layers, crosses a submarine cable and goes up 7 layers on his phone. In the figure, the 7.68 MB of the photo become 313 KB encrypted and then 215 slices.</p>
+<ol class="flow steps">
+  <li>At the top are <strong>7 Application, 6 Presentation and 5 Session</strong>: what the app says, in what format (or encrypted) and which conversation is open.</li>
+  <li>Below, <strong>4 Transport</strong> cuts the result into slices and carries each one from one process to another, by <strong>port</strong>. TCP or UDP.</li>
+  <li><strong>3 Network</strong> gives each slice an <strong>IP</strong> address and routes it, hop by hop.</li>
+  <li><strong>2 Data Link</strong> delivers to the neighbor on the same local network, by <strong>MAC</strong>. <strong>ARP</strong>, which finds the MAC for an IP, lives here.</li>
+  <li>At the end, <strong>1 Physical</strong> turns the frame into <strong>bits</strong>: light, voltage or radio.</li>
+</ol>
+<div class="callout why" role="note">
+  <h3>SDU, PCI and PDU</h3>
+  <p>In the figure, the header that gets added at each layer is that layer's <strong>PCI</strong>: the control information it adds. What came from above, untouched, is the <strong>SDU</strong>. Together they make the <strong>PDU</strong>: PDU = PCI + SDU.</p>
+</div>
+<div class="mnemonic" role="note">
+  <h3>Mnemonic: Lena's photo</h3>
+  <p class="mn-line"><span class="mn-dir">Bottom to top (Physical to Application):</span>
+    <strong class="mn-phrase"><b>P</b>hoto <b>D</b>ashed <b>N</b>onstop; <b>T</b>okyo <b>S</b>miled, <b>P</b>raised, <b>A</b>pplauded.</strong></p>
+  <p class="mn-line"><span class="mn-dir">Top to bottom (Application to Physical): read the sentence backwards.</span>
+    <strong class="mn-phrase"><b>A</b>pplauded, <b>P</b>raised, <b>S</b>miled <b>T</b>okyo, <b>N</b>onstop <b>D</b>ashed <b>P</b>hoto.</strong></p>
+  <p class="mn-key">P-D-N-T-S-P-A = <b>P</b>hysical, <b>D</b>ata Link, <b>N</b>etwork, <b>T</b>ransport, <b>S</b>ession, <b>P</b>resentation, <b>A</b>pplication.</p>
+</div>
+</HowItWorks>
+
+<p>The photo went down the whole stack, but along the way each device opens the packet only up to one layer. Which one?</p>
+
+<h3 class="sec">Who decides at which layer?</h3>
+<Widget name="equip" title="Devices and layers" hint="Click a device and see how far it opens the packet and where it decides." />
+
+<WhyItMatters>
+  <li>That's why layers work as a vocabulary for diagnosis: the first question is <strong>at which layer did the request die?</strong></li>
+  <li>An <strong>L4 load balancer</strong> decides by IP and port. An <strong>L7</strong> reads the HTTP and routes by path or header.</li>
+  <li>High availability and troubleshooting start by locating the layer.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <p>The first edition of the ISO 7498 standard came out in 1984 (the ITU published the same model as X.200). The 1994 revision is the one called ISO/IEC 7498-1, equivalent to X.200 from 1994. Today OSI is a <strong>conceptual map</strong>: it tells you where each protocol lives and helps with troubleshooting.</p>
+  <h4 class="deep-h">The 7 layers, top to bottom</h4>
+  <p><strong>PDU</strong> (Protocol Data Unit) is the name the "data packet" gets at each layer (PCI + SDU, explained further below).</p>
+  <div class="layers">
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">7</span><h4>Application</h4><span class="pdu">PDU: data</span></div>
+      <p><strong>What it does:</strong> it's the interface between the network and the program. It defines what applications say to each other (requests, responses, commands).</p>
+      <p><strong>Examples:</strong> HTTP, HTTPS, gRPC, WebSockets, SSH, FTP, DNS, DHCP.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> the connection working but the response coming back wrong: 404, 500, an API returning an error, an application timeout.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">6</span><h4>Presentation</h4><span class="pdu">PDU: data</span></div>
+      <p><strong>What it does:</strong> it translates. It handles format, compression and encryption. Fidelis calls it the "translation layer".</p>
+      <p><strong>Examples:</strong> TLS/SSL, JPEG, PNG, gzip, UTF-8, JSON.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> a certificate error, a TLS handshake failure, text with garbled characters or a file that won't open.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">5</span><h4>Session</h4><span class="pdu">PDU: data</span></div>
+      <p><strong>What it does:</strong> it opens, maintains and ends the dialogue between two applications, including long-lived authenticated connections. In practice, this layer is usually implemented inside the application.</p>
+      <p><strong>Examples:</strong> login sessions, RPC, SSH sessions, session tokens.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> the session dropping out of nowhere, having to log in again, a long connection that doesn't recover after an outage.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">4</span><h4>Transport</h4><span class="pdu">PDU: segment (TCP) / datagram (UDP)</span></div>
+      <p><strong>What it does:</strong> it carries data from one process to another (by <strong>port</strong>). It slices into segments, numbers them, controls flow and, in TCP, guarantees delivery and order.</p>
+      <p><strong>Examples:</strong> TCP, UDP, QUIC (over UDP).</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> <code>connection refused</code> (closed port), a connection timeout, many retransmissions, slowness with no error.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">3</span><h4>Network</h4><span class="pdu">PDU: packet</span></div>
+      <p><strong>What it does:</strong> logical addressing (IP) and routing: it decides where the packet goes, hop by hop, until it reaches another network. It's the internet layer.</p>
+      <p><strong>Examples:</strong> IPv4, IPv6, ICMP (<code>ping</code>), routers. ARP, which finds the MAC for an IP on the local network, sits on the border with the data link (layer 2/3); here we treat it as layer 2.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> <code>ping</code> with no reply, <code>no route to host</code>, a wrong route, a packet that dies from TTL.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">2</span><h4>Data Link</h4><span class="pdu">PDU: frame</span></div>
+      <p><strong>What it does:</strong> delivery between two neighboring nodes on the same local network, using <strong>MAC</strong> addresses. It detects errors in the frame.</p>
+      <p><strong>Examples:</strong> Ethernet, Wi-Fi (802.11), PPP, switches, VLAN, ARP.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> having no IP or not even reaching the home router, only some LAN devices talking to each other, a wrong VLAN.</p>
+    </article>
+    <article class="layer">
+      <div class="layer-h"><span class="layer-n">1</span><h4>Physical</h4><span class="pdu">PDU: bits</span></div>
+      <p><strong>What it does:</strong> it transmits bits over the medium: light pulses in fiber, voltage in copper, radio waves in Wi-Fi.</p>
+      <p><strong>Examples:</strong> copper cable, optical fiber, submarine cable, Wi-Fi and 5G radio.</p>
+      <p class="symptom"><strong>When something breaks here, the symptom is</strong> no signal, a disconnected cable, weak Wi-Fi, packet loss from noise.</p>
+    </article>
+  </div>
+  <h4 class="deep-h">Encapsulation and decapsulation</h4>
+  <p>The sender <strong>encapsulates</strong>: at each layer it goes down, the data gets a header (and, at the data link, a trailer too) with that layer's information. It's like putting the letter in an envelope, the envelope in a box, the box on a truck.</p>
+  <ol class="flow">
+    <li><strong>Application (7):</strong> the photo becomes an HTTP request carrying the content (data).</li>
+    <li><strong>Presentation (6) and Session (5):</strong> presentation compresses and encrypts (TLS), and the content is still "data". Session marks the open conversation between the two apps (in practice, this usually lives inside the application).</li>
+    <li><strong>Transport (4):</strong> gets a header with ports and sequence numbers (segment).</li>
+    <li><strong>Network (3):</strong> gets a header with source and destination IP (packet).</li>
+    <li><strong>Data Link (2) and Physical (1):</strong> the data link adds the source and destination MAC of the next hop (frame). The physical layer becomes an electrical signal, light or radio (bits).</li>
+  </ol>
+  <p>Along the way, routers decapsulate only up to layer 3, read the destination IP, rewrite the frame with the MAC of the next hop and send it on. The receiver at the destination does the <strong>decapsulation</strong>: it removes each header from the bottom up until only the photo is left for the app.</p>
+  <h4 class="deep-h">SDU, PCI and PDU, more slowly</h4>
+  <p>Layer N receives an SDU from the layer above, adds its PCI and hands over the PDU. That PDU becomes the SDU of the layer below. The PCI is usually a header, but the data link also adds a trailer: that's the FCS the figure shows at the end of the frame.</p>
+  <h4 class="deep-h">OSI vs TCP/IP vs the 5-layer model</h4>
+  <p>What actually runs on the internet is the <strong>TCP/IP</strong> stack, with 4 layers. OSI has 7. In textbooks, the 5-layer model is the most common middle ground.</p>
+  <div class="rtt-table-wrap">
+  <table class="rtt-table">
+    <thead><tr><th>OSI (7)</th><th>TCP/IP (4)</th><th>Teaching model (5)</th></tr></thead>
+    <tbody>
+      <tr><td>7 Application, 6 Presentation, 5 Session</td><td>Application</td><td>Application</td></tr>
+      <tr><td>4 Transport</td><td>Transport</td><td>Transport</td></tr>
+      <tr><td>3 Network</td><td>Internet</td><td>Network</td></tr>
+      <tr><td>2 Data Link</td><td rowspan="2">Network access</td><td>Data Link</td></tr>
+      <tr><td>1 Physical</td><td>Physical</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Why OSI didn't take over</h4>
+  <ul>
+    <li><strong>It came late:</strong> by the time the standards were ready, TCP/IP was already running on many systems.</li>
+    <li><strong>It was complex:</strong> 7 layers, with session and presentation barely used on their own and functions repeated at several levels.</li>
+    <li><strong>Poor implementations:</strong> the first ones were slow and bureaucratic, while TCP/IP already had working code.</li>
+  </ul>
+  <h4 class="deep-h">Why it's still useful</h4>
+  <ul>
+    <li><strong>Service, interface and protocol:</strong> the service is what the layer offers, the interface is how to ask for it, the protocol is how the two ends agree with each other. You can swap the protocol without changing the interface.</li>
+    <li><strong>Troubleshooting:</strong> the question "at which layer did the request die?" shortens the diagnosis.</li>
+  </ul>
+  <h4 class="deep-h">Peers, SAP and primitives</h4>
+  <ul>
+    <li><strong>Peers (peer entities):</strong> the two ends of the same layer, on different machines, that talk through that layer's protocol.</li>
+    <li><strong>SAP (service access point):</strong> the door through which the layer above asks the layer below for service.</li>
+    <li><strong>Primitives:</strong> request (ask), indication (notify the destination), response (the destination answers) and confirm (confirm to whoever asked).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "ITU-T X.200 (equivalent to ISO/IEC 7498-1:1994), the OSI reference model", href: "https://www.itu.int/rec/T-REC-X.200-199407-I/en" },
+    { label: "osi-model.com: session layer", href: "https://osi-model.com/session-layer/" },
+    { label: "Book \"Computer Networks\", by Andrew Tanenbaum" },
+  ]} />
+</Deep>
+
+<p class="gancho">At layer 3, each slice needs an address that is valid worldwide: it's what the routers read all the way to Tokyo. What's left is to see how IP does that.</p>
+
+<Flashcards cards={[
+  { q: "What is the layer order, bottom to top?",
+    a: "Physical, Data Link, Network, Transport, Session, Presentation, Application. Mnemonic: <strong>Photo Dashed Nonstop; Tokyo Smiled, Praised, Applauded</strong>." },
+  { q: "What are the PDUs, top to bottom?",
+    a: "Data, data, data, segment, packet, frame, bits." },
+  { q: "What is encapsulation?",
+    a: "Going down the layers, each one adding its header. Going up is decapsulation." },
+  { q: "At which layer do the router and the switch work?",
+    a: "Router at 3, switch at 2. TCP/IP merges 7-6-5 into one and 2-1 into another." },
+  { q: "What are SDU, PCI and PDU?",
+    a: "SDU: what came from above. PCI: the layer's header. PDU = PCI + SDU." },
+]} />

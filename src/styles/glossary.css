@@ -12,9 +12,10 @@
 /* a ficha: painel de traço fino */
 .gl-card{position:absolute;z-index:60;width:min(340px,calc(100vw - 16px));background:var(--surface);color:var(--ink);
   border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:14px var(--s-4) var(--s-3);box-shadow:var(--shadow-pop);
-  visibility:hidden;opacity:0;transform:translateY(4px);
-  transition:opacity var(--dur-1) var(--ease-out),transform var(--dur-2) var(--ease-out),visibility 0s linear var(--dur-1)}
-.gl-card.open{visibility:visible;opacity:1;transform:none;transition-delay:0s}
+  visibility:hidden;opacity:0;transform:translateY(-4px);clip-path:inset(0 0 100% 0 round var(--r-3));
+  transition:opacity 200ms var(--ease-out),transform 360ms var(--ease-out),clip-path 360ms var(--ease-out),visibility 0s linear 360ms}
+/* a ficha se desdobra de cima para baixo, saindo da palavra tocada */
+.gl-card.open{visibility:visible;opacity:1;transform:none;clip-path:inset(0 0 0 0 round var(--r-3));transition-delay:0s}
 .gl-card:focus{outline:none}
 .gl-card:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
 .gl-card p{margin:0}
@@ -36,6 +37,7 @@
     border-radius:var(--r-3) var(--r-3) 0 0;border-width:1px 0 0;padding:22px var(--gutter) calc(14px + env(safe-area-inset-bottom));
     box-shadow:0 -14px 32px -8px rgba(0,0,0,.45);transform:translateY(100%)}
   .gl-card::before{content:"";position:absolute;left:50%;top:8px;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line-strong)}
+  .gl-card,.gl-card.open{clip-path:none}
   .gl-card.open{transform:none}
   .gl-name{font-size:19px}
   .gl-def{font-size:17px}

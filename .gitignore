@@ -41,3 +41,5 @@ public/labs/cell-based/*-3d/
 public/labs/disaster-recovery/*-3d/
 public/labs/observabilidade/*-3d/
 public/labs/provas-finais/*-3d/
+# versão em inglês das figuras 3D (gerada por tools/build-3d-en.mjs)
+public/en/labs/*/*-3d/

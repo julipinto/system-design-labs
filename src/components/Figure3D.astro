@@ -3,22 +3,24 @@
 // em public/<path>/. Desktop: iframe que carrega quando a aula aparece. Celular: prévia + botão de tela cheia,
 // para o dedo não ficar preso girando a cena em vez de rolar a página.
 // Moldura: prancha escura nos dois temas (a cena é escura), traço fino; com o foco, a borda passa a sódio, sem halo.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 import { withBase } from '../lib/url.js';
 interface Props { path: string; poster: string; alt: string; title: string; hint?: string; }
-const { path, poster, alt, title, hint = 'Arraste para girar · Próximo passo ou setas do teclado para avançar · clique numa peça para ir até ela' } = Astro.props;
+const { path, poster, alt, title, hint = T.figHint } = Astro.props;
 const src = withBase(path);
 ---
 <figure class="f3d-wrap" data-src={`${src}${src.includes('?') ? '&' : '?'}embed=1`} data-title={title}>
   <div class="f3d-plate">
     <a class="f3d-poster" href={src}>
       <img src={withBase(poster)} alt={alt} width="640" height="560" loading="lazy" />
-      <span class="f3d-cta"><i aria-hidden="true"></i>Abrir a figura 3D</span>
+      <span class="f3d-cta"><i aria-hidden="true"></i>{T.figOpen}</span>
     </a>
   </div>
   <figcaption class="f3d-bar" data-no-gl>
-    <span class="f3d-tag">Figura 3D</span>
+    <span class="f3d-tag">{T.fig}</span>
     <span class="f3d-hint">{hint}</span>
-    <a class="f3d-full" href={src}>Abrir em tela cheia<i aria-hidden="true"></i></a>
+    <a class="f3d-full" href={src}>{T.figFull}<i aria-hidden="true"></i></a>
   </figcaption>
 </figure>
 <script is:inline>

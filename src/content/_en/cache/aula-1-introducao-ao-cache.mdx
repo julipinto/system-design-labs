@@ -1,0 +1,78 @@
+---
+title: "Introduction to caching"
+order: 1
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Module 4 ended with the store well kept: the <code>pedidos</code> table in PostgreSQL, Lena's order 1042 in the right place, the index finding the row in two pages. Lesson 15 left one phrase hanging, "read-heavy workloads call for a cache", and now it has a face. The plush cat page (product 42) got slow because everyone opens it: Lena in Recife, Bia, Caio and Davi, plus thousands more. Every visit makes the database read the same row, which hasn't changed since yesterday, in 40 ms.</p>
+
+<OneLiner>A cache is a copy of the data kept somewhere faster or closer to whoever asks; it pays off when the data is read a lot and changed little.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Aside</strong> mode, step through the request for <code>produto:42</code> and watch the millisecond counter. Compare what it shows after the <strong>first</strong> request with what the <strong>second</strong> one adds. Which of the two reads went to the database?</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=aside" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: the app asks for produto:42: miss, database in 40 ms, saved in Redis for 60 s, hit in 1 ms" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena opens the plush cat page. The app needs the data for <code>produto:42</code> and, before going to the database, <strong>asks the cache</strong>. The key is the name of the copy: <code>produto:42</code>.</li>
+  <li>The cache is empty. That unanswered question is a <strong>miss</strong>. The app then reads the database, which returns <code>{`{ "nome": "gato de pelúcia", "preco": 89.90, "estoque": 3 }`}</code> in <strong>40 ms</strong>.</li>
+  <li>Before answering Lena, the app <strong>saves a copy</strong> in the cache, valid for 60 seconds (the TTL). In Redis, that would be <code>SET produto:42 ... EX 60</code>.</li>
+  <li>The next request arrives, from Lena or someone else. The cache already has the key, and the answer is a <strong>hit</strong>: the data comes out of the cache in <strong>1 ms</strong>, without touching the database.</li>
+  <li>The same copy serves everyone until the 60 seconds run out. When they do, the copy disappears, the next request is a miss and the cycle starts again.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>Speed.</strong> From the database to Redis, 40 ms becomes 1 ms (40 times less). From Redis to a hashmap in the app's memory, 1 ms becomes 0.05 ms. The three numbers are examples, and the ratio between them is what matters.</li>
+  <li><strong>Relief for the database.</strong> Every hit is a read the database didn't have to do. With the store's most viewed page in the cache, the database is free for the orders only it can write.</li>
+  <li><strong>Breathing room in a failure.</strong> If the database goes down for a minute, the copies already in the cache keep being served, until the TTL expires.</li>
+  <li><strong>The price.</strong> The copy can differ from the original. The rest of the module revolves around that.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Why it works: locality</h4>
+  <ul>
+    <li><strong>Temporal locality:</strong> what was read just now tends to be read again soon. Product 42 is read thousands of times and most other products almost never.</li>
+    <li><strong>Spatial locality:</strong> what sits near something that was read tends to be read next. That's why the database reads a whole 8 KB page (module 4) and the CPU reads 64-byte lines, instead of one byte at a time.</li>
+  </ul>
+  <p>If every product were read equally often, the cache would only help if it could hold the whole store.</p>
+  <h4 class="deep-h">Layered caches</h4>
+  <p>Between Lena and the database there are several copies: her browser, the CDN, the app's memory, Redis and, inside the database itself, the 8 KB pages already read, which PostgreSQL keeps in memory (<code>shared_buffers</code>). Each layer holds a piece and asks the next one when it doesn't have it.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article warns that Redis, CDN and reverse proxy don't "define" the cache, they only make it possible. That's right, and worth taking seriously: a Go <code>map</code> with a mutex (lesson 5) is also a cache.</li>
+  </ul>
+  <h4 class="deep-h">When a cache doesn't help</h4>
+  <p>When the data changes every instant, or when almost nobody asks for the same thing twice. In lesson 4 this becomes arithmetic: with 1 ms for the cache and 40 ms for the database, the cache only pays off above a 2.5% hit rate.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Wikipedia: cache (computing)", href: "https://en.wikipedia.org/wiki/Cache_(computing)" },
+    { label: "Wikipedia: locality of reference", href: "https://en.wikipedia.org/wiki/Locality_of_reference" },
+    { label: "Prisma Data Guide: introduction to database caching", href: "https://www.prisma.io/dataguide/managing-databases/introduction-database-caching" },
+  ]} />
+</Deep>
+
+<p>The plush cat copy was saved at 10:00 with the price 89.90. At 10:20, the price in the database changes. What's left to find out is how long that copy can keep saying the old value, and who decides.</p>
+
+<Flashcards cards={[
+  { q: "What is a cache, in one sentence?",
+    a: "A copy of the data kept closer to, or somewhere faster for, whoever asks." },
+  { q: "What is a hit and what is a miss?",
+    a: "Hit: the cache had the data and answered. Miss: it didn't, and the app went to the origin (the database)." },
+  { q: "How much does each read cost in the store example?",
+    a: "Database: 40 ms. Redis: 1 ms. Hashmap in the app's memory: 0.05 ms. These are example numbers." },
+  { q: "Why does a cache work?",
+    a: "Locality: a few items are read many times (product 42), and what was read just now tends to be read again." },
+  { q: "Is a cache the same thing as Redis?",
+    a: "No. Redis, CDN and hashmap only implement the idea. An in-memory map in your program is already a cache." },
+]} />

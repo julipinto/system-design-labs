@@ -1,0 +1,75 @@
+---
+title: "RAID 1 (Mirroring)"
+order: 9
+min: 3
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In RAID 0, D2 died and took A2 and A6 with it, and pedidos.db along with them. The problem is that each block existed in only one place. If each block exists on two disks, losing one stops meaning losing the file.</p>
+
+<OneLiner>RAID 1 writes everything to two identical disks, so if one dies the other keeps serving, at the cost of half the space.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong>, watch each block being written twice, let D2 burn out and check that pedidos.db is still whole. At step 6, D1 burns out too: see what is left when there is no copy anymore.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/raid-3d/?mode=raid1" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Interactive figure: RAID 1 writing blocks, one or two disks failing and the rebuild" alt="Preview of the 3D figure: RAID 6 with disks D2 and D4 burned out and the blocks rebuilt from parities P and Q, 2 of 2 failures used" hint="Drag to rotate · Next step or ← → to advance · switch the RAID level in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store puts <strong>pedidos.db</strong> on 2 disks of 1 TB (D1 and D2).</li>
+  <li>Each write goes to <strong>both disks</strong>: A1 on D1 and D2, then A2 on both. The second is an exact copy (a mirror), so write speed is that of a single disk.</li>
+  <li>On reads, the controller splits the work: A1 comes from D1 and A2 comes from D2, at the same time. <strong>Reads</strong> reach ~2x.</li>
+  <li>When D2 dies, D1 has the same blocks and takes over <strong>with no downtime</strong>. The store doesn't even notice. You swap the disk and the controller copies D1 onto the new one (<strong>rebuild</strong>).</li>
+  <li>The price is space: the capacity is that of a single disk. 2 x 1 TB gives <strong>1 TB usable</strong> (50%).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It is the basics for the operating system, the database and small critical things.</li>
+  <li>Simple to understand and to recover: the disk that survived is already a complete disk.</li>
+  <li>During the rebuild, D1 is the only copy. If it fails now, the file is lost.</li>
+  <li><strong>RAID is not a backup.</strong> If someone deletes a table, the mirror deletes it too, instantly.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The math</h4>
+  <ul>
+    <li><strong>Minimum:</strong> 2 disks.</li>
+    <li><strong>Usable capacity:</strong> the size of 1 disk. 2 x 1 TB = 1 TB (50%).</li>
+    <li><strong>Failures tolerated:</strong> 1 (with N copies, N - 1).</li>
+    <li><strong>Write penalty:</strong> 2 (writes to both disks).</li>
+    <li><strong>Read:</strong> up to 2x, reading from both. <strong>Write:</strong> same as one disk.</li>
+  </ul>
+  <h4 class="deep-h">See it on Linux (mdadm)</h4>
+  <pre><code>{"sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc\ncat /proc/mdstat\n# [UU] = both disks ok, [U_] = one disk dropped (degraded)"}</code></pre>
+  <h4 class="deep-h">Cost</h4>
+  <p>You pay for 2 disks to use 1. In exchange, recovery is fast: just copy the good disk to the new one.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>The mirror protects, but half the space becomes copy. Next, whether we can protect several disks by spending only one extra disk. RAID 5 answers with parity.</p>
+
+<Flashcards cards={[
+  { q: "What does RAID 1 do?",
+    a: "It writes everything to two identical disks (mirror)." },
+  { q: "Capacity of 2 disks of 1 TB in RAID 1?",
+    a: "1 TB, or 50%." },
+  { q: "How many disks can fail in a 2-disk RAID 1?",
+    a: "One." },
+  { q: "Write penalty of RAID 1?",
+    a: "2: each write goes to two disks." },
+  { q: "Does RAID 1 replace backup?",
+    a: "No. A logical wipe (a wrong DELETE) is mirrored too." },
+]} />

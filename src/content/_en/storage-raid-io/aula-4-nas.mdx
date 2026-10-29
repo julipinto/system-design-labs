@@ -1,0 +1,75 @@
+---
+title: "Network Attached Storage (NAS)"
+order: 4
+min: 3
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>Last lesson server B looked for gato.jpg and didn't find it, because the photo was on A's SSD. The store needs A, B and C to see the same folder. The fix is to take the disk out of the server and put it on the network.</p>
+
+<OneLiner>NAS is a file server on the network: many clients use the same folder at the same time, and the speed depends on the network.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch the photo leave server A, cross the network and reach the NAS. Compare the path with the DAS one.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/storage-3d/?mode=nas" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Interactive figure: the same photo saved with NAS" alt="Preview of the 3D figure: a volume of numbered blocks (LBA 2048, 2049…), with only block 2048 being rewritten" hint="Drag to rotate · Next step or ← → to advance · switch the storage type in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store already has <strong>3 web servers</strong> (A, B and C) and all of them need the same photo folder.</li>
+  <li>A <strong>NAS</strong> (<code>nas.loja</code>) keeps the <code>/export/fotos</code> folder and offers it over the network with <strong>NFS</strong> (Linux) or <strong>SMB</strong> (Windows).</li>
+  <li>Each server <strong>mounts</strong> the remote folder at <code>/mnt/nas</code>, as if it were local. The program writes to <code>/mnt/nas/produtos/gatos/gato.jpg</code> and doesn't even notice the network.</li>
+  <li>Underneath, each read or write becomes a conversation over the network. gato.jpg, at 2.4 MB, goes out in 3 <strong>NFS WRITE</strong> messages (1 MB, 1 MB and 0.4 MB).</li>
+  <li>B and C open the same path and get the same photo, with no copy. In exchange, each read adds <strong>latency</strong> and uses the link's <strong>bandwidth</strong>, and the NAS becomes a <strong>bottleneck and a point of failure</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It solves sharing: everyone sees the same file, and if A replaces the photo, B sees the new version.</li>
+  <li>Performance = the lower of the NAS disk and the network. A 1 Gbps link carries only ~125 MB/s, split among the three servers.</li>
+  <li>A 4 KB read takes about 1 ms, against ~0.1 ms for a local SSD. For a database that is usually too slow. For photos, documents and everyday files, it works well.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">NFS vs SMB</h4>
+  <ul>
+    <li><strong>NFS:</strong> Linux and Unix world. Port 2049.</li>
+    <li><strong>SMB:</strong> Windows world (network folders). Port 445.</li>
+  </ul>
+  <h4 class="deep-h">Mounting an NFS folder</h4>
+  <pre><code>{"sudo mount -t nfs nas.loja:/export/fotos /mnt/nas\nls /mnt/nas/produtos/gatos\ndf -h /mnt/nas"}</code></pre>
+  <h4 class="deep-h">Numbers to remember</h4>
+  <ul>
+    <li>1 Gbps network: ~125 MB/s at most. 10 Gbps: ~1.25 GB/s.</li>
+    <li>Round trip on the local network: ~0.2 to 0.5 ms for the trip alone. The 4 KB read ends up at ~1 ms, against ~0.1 ms for local NVMe.</li>
+  </ul>
+  <h4 class="deep-h">Limits</h4>
+  <p>The structure is files in folders. Performance drops with many clients and depends on the network. A lone NAS is also a single point of failure: if its power supply dies, the three servers stall together. In practice you use a NAS with two controllers, disks in RAID and a replica.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Controle.net: DAS (Direct-Attached Storage)", href: "https://www.controle.net/page/storage-das-ou-direct-attached-storage" },
+    { label: "Red Hat: file, block and object storage", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>NAS delivers ready-made folders over the network. But the store's database doesn't want any folder: it wants the raw disk, with the lowest latency possible. Next, a disk that delivers only blocks: block storage.</p>
+
+<Flashcards cards={[
+  { q: "What is NAS?",
+    a: "A file server on the network, used by many clients at the same time." },
+  { q: "NFS and SMB: which belongs to whom?",
+    a: "NFS: Linux and Unix. SMB: Windows." },
+  { q: "What limits NAS speed?",
+    a: "The network's latency and bandwidth, plus the NAS's own disk." },
+  { q: "How much does a 1 Gbps link carry?",
+    a: "About 125 MB/s at most." },
+]} />

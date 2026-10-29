@@ -1,0 +1,75 @@
+---
+title: "RAID 10 (RAID 1+0)"
+order: 12
+min: 4
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>pedidos.db is a write-heavy database, and RAID 5 and RAID 6 charge 4 and 6 operations per small write. RAID 10 combines what we've already seen: mirroring (RAID 1) to protect and stripes (RAID 0) for speed. It calculates no parity at all.</p>
+
+<OneLiner>RAID 10 is mirroring with striping on top: first mirrored pairs, then data spread across the pairs, combining speed and protection at the cost of half the space.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and let D2 burn out: D1, its pair, holds. At step 6, use the <strong>Other pair / Same pair</strong> selector: compare D3 burning out (survives) with D1 burning out (half the data is gone).</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/raid-3d/?mode=raid10" poster="labs/storage-raid-io/raid-3d-previa.webp" title="Interactive figure: RAID 10 writing blocks, one or two disks failing and the rebuild" alt="Preview of the 3D figure: RAID 6 with disks D2 and D4 burned out and the blocks rebuilt from parities P and Q, 2 of 2 failures used" hint="Drag to rotate · Next step or ← → to advance · switch the RAID level in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store wants the best for pedidos.db: <strong>4 disks of 1 TB</strong>.</li>
+  <li>They form <strong>2 mirrored pairs</strong> (RAID 1): D1+D2 and D3+D4. Each pair is a whole "disk".</li>
+  <li>Blocks are striped (RAID 0) across the 2 pairs: A1 goes to pair 1 and is copied onto both of its disks, A2 goes to pair 2, also copied. Reads reach ~4x and writes ~2x.</li>
+  <li>When D2 dies, D1 has A1 and A3, and the other pair doesn't even notice. The rebuild just <strong>copies D1</strong> to the new disk, with no calculation: it is fast and light.</li>
+  <li>Capacity: half, <strong>2 TB</strong> usable (50%). You can lose <strong>one disk per pair</strong> and carry on. If you lose <strong>both disks of the same pair</strong>, you lose everything.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>For write-heavy databases (finance, health, orders), it is the classic choice.</li>
+  <li>The write penalty is just 2 and the rebuild is simple: copy the mirror, without reading the rest.</li>
+  <li>It is expensive: half the space goes to redundancy. Until the rebuild finishes, D1 is the pair's only copy.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The math</h4>
+  <ul>
+    <li><strong>Minimum:</strong> 4 disks, in an even number.</li>
+    <li><strong>Usable capacity:</strong> N / 2 x size. 4 x 1 TB: 2 TB (50%).</li>
+    <li><strong>Failures tolerated:</strong> 1 guaranteed, up to N / 2 if it is one per pair.</li>
+    <li><strong>Write penalty:</strong> 2.</li>
+  </ul>
+  <h4 class="deep-h">What if two disks fail?</h4>
+  <p>With 4 disks (D1, D2 mirrored; D3, D4 mirrored), there are 6 ways to pick 2 disks. In 4 of them the set survives (one from each pair). In 2 (D1 and D2, or D3 and D4) it dies. So there is a 2/3 chance of surviving the second failure.</p>
+  <h4 class="deep-h">Random writes (150 IOPS per disk)</h4>
+  <p>4 x 150 / 2 = 300 IOPS, double RAID 5 with the same 4 disks (4 x 150 / 4 = 150).</p>
+  <h4 class="deep-h">RAID 1+0 vs 0+1</h4>
+  <p>In 1+0, you mirror first and then stripe: a failure affects only one pair. In 0+1 it is the reverse, and one failure takes down a whole side. That is why 1+0 is preferred.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+  ]} />
+</Deep>
+
+<p>That is five levels now, each with its price in space, speed and safety. Next, which one goes with each piece of the store's data. That is what the summary compares.</p>
+
+<Flashcards cards={[
+  { q: "How is RAID 10 built?",
+    a: "Mirrored pairs (RAID 1) with the data striped across them (RAID 0)." },
+  { q: "Capacity of 4 disks of 1 TB in RAID 10?",
+    a: "2 TB, or 50%." },
+  { q: "When do two failed disks kill RAID 10?",
+    a: "When they are both from the same mirrored pair." },
+  { q: "Write penalty of RAID 10?",
+    a: "2." },
+  { q: "What is RAID 10's weak point?",
+    a: "Cost: half the space becomes redundancy." },
+]} />

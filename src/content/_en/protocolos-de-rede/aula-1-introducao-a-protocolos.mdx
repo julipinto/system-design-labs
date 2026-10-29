@@ -1,0 +1,79 @@
+---
+title: "What is a protocol"
+order: 1
+min: 2
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Lena, in São Paulo, sends the cat photo to her brother in Tokyo. The two phones have never met, and still the photo arrives whole. What makes two strangers understand each other?</p>
+
+<OneLiner>a protocol is an agreement on the format and order of messages, so that two systems that have never met can talk.</OneLiner>
+
+<DoIt>
+  <p>Think of the two phones and write down 3 things they need to agree on before talking. Then check them against the steps below.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Before any photo, the two agree on <strong>who speaks first</strong>.</li>
+  <li>Then they agree on the <strong>format</strong> of the messages and what each field means.</li>
+  <li>They also agree on what to do when <strong>something goes wrong</strong>.</li>
+  <li>That agreement is the <strong>protocol</strong>. Without it, the bytes arrive and nobody knows what they are.</li>
+  <li>One protocol can't do everything, so they <strong>stack</strong>: each one solves a piece and serves the one above.</li>
+</ol>
+</HowItWorks>
+
+<p>This agreement didn't come ready-made. The timeline shows the problems that made it grow.</p>
+
+<h3 class="sec">How the internet got here</h3>
+<Widget name="timeline" title="Timeline" hint="Click each milestone to read one sentence. Each one solved a problem left by the one before." />
+
+<WhyItMatters>
+  <li>Choosing a protocol means choosing a trade-off between <strong>performance</strong> and <strong>resilience</strong>.</li>
+  <li>The reason: reliability costs round trips, and round trips cost <strong>latency</strong>.</li>
+  <li>That's why gRPC or REST, TCP or UDP, one connection or several are all protocol decisions.</li>
+  <li>And splitting into layers lets you swap one piece (copper for fiber, HTTP/2 for HTTP/3) without redoing the rest.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <p>HTTP doesn't know how the signal travels over the cable. IP doesn't know what a web page is. This split into layers is the subject of lesson 2.</p>
+  <p>Each lesson in the module starts from the problem the previous one left: the map (OSI model), then who addresses (IP), who transports (TCP and UDP), who protects (TLS), who translates names (DNS), who configures the network (DHCP), who carries the web (HTTP) and, at the end, how long all of this costs.</p>
+  <h4 class="deep-h">Why split into layers</h4>
+  <ul>
+    <li><strong>Independence:</strong> each layer offers services to the one above and uses those of the one below, without knowing how they work inside.</li>
+    <li><strong>Swapping technology:</strong> you can replace the copper cable with fiber, at the physical layer, without touching the application.</li>
+    <li><strong>Interoperability:</strong> equipment and programs from different vendors talk because they follow the same rule at each level.</li>
+  </ul>
+  <h4 class="deep-h">Timeline, in more detail</h4>
+  <ul>
+    <li>The telephone network used circuit switching, centralized and fragile. Baran proposed a distributed, fault-tolerant network that sends data in packets routed independently.</li>
+    <li>In the first ARPANET nodes (1969), the IMPs played the role of what would today be the router.</li>
+    <li>In CSMA/CD, whoever has something to send listens to the medium, transmits if it's free and, if it detects a collision, waits a random time and tries again.</li>
+    <li>January 1, 1983 became known as the flag day: ARPANET stopped accepting the earlier protocols.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "MDN: protocol", href: "https://developer.mozilla.org/en-US/docs/Glossary/Protocol" },
+    { label: "MDN: packet", href: "https://developer.mozilla.org/en-US/docs/Glossary/Packet" },
+  ]} />
+</Deep>
+
+<p class="gancho">If protocols stack up, what's left is to learn which layers make up that stack and what each one does with Lena's photo.</p>
+
+<Flashcards cards={[
+  { q: "What does a protocol define?",
+    a: "Format + order + error rules." },
+  { q: "How are protocols organized?",
+    a: "In stacks: each layer uses the one below and serves the one above." },
+  { q: "What is the price of more guarantees?",
+    a: "More messages exchanged, so more time." },
+  { q: "Why split into layers?",
+    a: "Independence, swapping one technology without affecting the others, and interoperability." },
+]} />

@@ -1,0 +1,123 @@
+---
+// Home (English): index of the modules, one per row, in story order (each module is the store's next problem).
+// Each row's progress comes from the localStorage the focus mode writes (sdl-<module>:done).
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { withBase } from '../../lib/url.js';
+import { otherLangPath, t, hasEn } from '../../lib/i18n.js';
+import '../../styles/home.css';
+
+const ui = t(Astro.url);
+
+interface Mod { n?: number; slug?: string; title: string; lessons?: number; text: string; poster?: string; alt?: string }
+const modules: Mod[] = [
+  { slug: 'protocolos-de-rede', title: 'Network Protocols', lessons: 9, poster: 'labs/protocolos-de-rede/osi-3d-previa.webp', alt: 'Preview of the 3D figure of the OSI model',
+    text: 'OSI and HTTP in 3D figures, IP, TCP and UDP, TLS, DNS, DHCP and response time. With an 80-question quiz.' },
+  { slug: 'storage-raid-io', title: 'Storage, RAID and I/O', lessons: 13, poster: 'labs/storage-raid-io/raid-3d-previa.webp', alt: 'Preview of the 3D figure of RAID',
+    text: 'IOPS and throughput, DAS, NAS, block, file and object storage, and RAID 0, 1, 5, 6 and 10 in 3D figures. With calculators and a 66-question quiz.' },
+  { slug: 'cap-acid-base', title: 'CAP Theorem, ACID and BASE', lessons: 7, poster: 'labs/cap-acid-base/cap-3d-previa.webp', alt: 'Preview of the 3D figure of the CAP theorem',
+    text: 'Consistency, availability and partition tolerance, ACID transactions, eventual consistency and PACELC, with an isolation level simulator. With a 52-question quiz.' },
+  { slug: 'databases', title: 'Databases, Data Models and Indexing', lessons: 15, poster: 'labs/databases/indices-3d-previa.webp', alt: 'Preview of the 3D figure of indexes',
+    text: 'Database types, consistency levels, the six data models, pages, LSM-Tree, B-Tree, hash and inverted index, with calculators and simulators. With a 61-question quiz.' },
+  { slug: 'cache', title: 'Cache Strategies', lessons: 7, poster: 'labs/cache/cache-3d-previa.webp', alt: 'Preview of the 3D figure of cache',
+    text: 'Hit and miss, TTL, eviction (LRU, LFU and FIFO), hit rate, hashmap and Redis, cache-aside, write-through, write-behind and CDN, with a Go proxy read line by line. With a 46-question quiz.' },
+  { slug: 'microsservicos', title: 'Microservices, Monoliths and Domains', lessons: 8, poster: 'labs/microsservicos/monolito-3d-previa.webp', alt: 'Preview of the 3D figure of the monolith',
+    text: 'When and how to split the store\'s program: monolith, microservices, DDD (contexts, aggregates, events), Conway\'s Law and a case study with order 1047, with calculators and simulators. With a 51-question quiz.' },
+  { slug: 'load-balancers', title: 'Load Balancers and Reverse Proxies', lessons: 10, poster: 'labs/load-balancers/balanceador-3d-previa.webp', alt: 'Preview of the 3D figure of the load balancer',
+    text: 'Healthcheck, reverse proxy, round robin, least request, least connection, LOR, IP hash, Maglev and random, layers 4 and 7, and an Envoy lab read line by line. With a 56-question quiz.' },
+  { slug: 'api-gateways', title: 'API Gateways', lessons: 7, poster: 'labs/api-gateways/gateway-3d-previa.webp', alt: 'Preview of the 3D figure of the API Gateway',
+    text: 'The store\'s single front door: routing by method and path, JWT, scopes, rate limiting with token bucket and leaky bucket, throttling, versioning and canary, with Kong read line by line. With a 43-question quiz.' },
+  { slug: 'bff', title: 'Backend for Frontends (BFF)', lessons: 8, poster: 'labs/bff/bff-3d-previa.webp', alt: 'Preview of the 3D figure of the BFF',
+    text: 'A tailor-made backend for each frontend: API composition, channels (app, site and voice), microfrontends, versions, timeout and fallback, and metrics per channel. With a 46-question quiz.' },
+  { slug: 'service-mesh', title: 'Service Mesh', lessons: 6, poster: 'labs/service-mesh/mesh-3d-previa.webp', alt: 'Preview of the 3D figure of a service mesh',
+    text: 'Retry, timeout, mTLS and metrics taken out of the code and moved into the network: control plane and data plane, sidecar, proxyless, eBPF and ambient (ztunnel and waypoint), with calculators and a 35-question quiz.' },
+  { slug: 'concorrencia', title: 'Concurrency and Parallelism', lessons: 10, poster: 'labs/concorrencia/estoque-3d-previa.webp', alt: 'Preview of the 3D figure of the stock with the last cat',
+    text: 'Processes, threads and goroutines, concurrency versus parallelism, the race for the last cat, deadlock, mutex, distributed lock on Redis, spinlock, semaphore and connection pool, with widgets and a 62-question quiz.' },
+  { slug: 'comunicacao-sincrona', title: 'Synchronous Communication', lessons: 8, poster: 'labs/comunicacao-sincrona/chamada-3d-previa.webp', alt: 'Preview of the 3D figure of the call between services',
+    text: 'Call and wait for the response: REST, webhooks, short and long polling, RPC, gRPC with Protobuf, WebSocket and GraphQL, with the real bytes of Davi\'s charge, calculators and a 51-question quiz.' },
+  { slug: 'comunicacao-assincrona', title: 'Asynchronous Communication: Messaging, Events and Streaming', lessons: 10, poster: 'labs/comunicacao-assincrona/kafka-3d-previa.webp', alt: 'Preview of the 3D figure of Kafka',
+    text: 'Messages, commands and events, queues and DLQ, streaming, Kafka with partitions, groups and replication, MQTT for the truck and AMQP on RabbitMQ for the emails, with widgets and a 63-question quiz.' },
+  { slug: 'performance', title: 'Performance, Capacity and Scalability', lessons: 6, poster: 'labs/performance/latencia-3d-previa.webp', alt: 'Preview of the 3D figure of the replica fleet and the 100 orders',
+    text: 'Black Friday in numbers: response time, four signals and percentiles, capacity and bottleneck, vertical and horizontal scaling and the HPA formula, with calculators and a 41-question quiz.' },
+  { slug: 'scale-cube', title: 'Scale Cube', lessons: 6, poster: 'labs/scale-cube/cubo-3d-previa.webp', alt: 'Preview of the 3D figure of the scalability cube',
+    text: 'Three questions to decide where to grow: clone (X), split by function (Y) or split by data (Z). The store in coordinates, the symptoms table, the Z router and the pod math, with widgets and a 37-question quiz.' },
+  { slug: 'sharding', title: 'Sharding and Partitioning', lessons: 10, poster: 'labs/sharding/shards-3d-previa.webp', alt: 'Preview of the 3D figure of the orders table split into shards',
+    text: 'Splitting the 50-million-row orders table: shard key and hot shard, PostgreSQL partitions, ranges, hash, consistent hashing, slots, directory and shuffle sharding, with the author\'s labs read line by line. With widgets and a 57-question quiz.' },
+  { slug: 'replicacao', title: 'Data Replication', lessons: 6, poster: 'labs/replicacao/replicas-3d-previa.webp', alt: 'Preview of the 3D figure of the three sites with the log tape',
+    text: 'The same data in SP, Rio and Recife: Primary/Replica and Primary/Primary, synchronous, asynchronous and semi-synchronous, Lena not seeing her own order, ECST, CDC with Debezium and CRDTs, with calculators and a 41-question quiz.' },
+  { slug: 'cqrs', title: 'CQRS', lessons: 10, poster: 'labs/cqrs/cqrs-3d-previa.webp', alt: 'Preview of the 3D figure of the two models, command and query',
+    text: 'One model to write and another to read: commands and queries, materialized view, read replicas, eventual consistency, SQL and NoSQL, models that join services, dual write, CDC and outbox, with calculators and a 50-question quiz.' },
+  { slug: 'saga', title: 'Saga Pattern', lessons: 10, poster: 'labs/saga/saga-3d-previa.webp', alt: 'Preview of the 3D figure of order 1057 crossing the services',
+    text: 'An order that crosses orders, payments, stock and shipping without a distributed transaction: local steps and compensations, choreography and orchestration, state machine, saga log, dual write and the author\'s lab read through, with Davi\'s 1057, widgets and a 50-question quiz.' },
+  { slug: 'event-sourcing', title: 'Event Sourcing', lessons: 11, poster: 'labs/event-sourcing/eventos-3d-previa.webp', alt: 'Preview of the 3D figure of order 1047 as a tape of events next to the table',
+    text: 'Store what happened as the source of truth and derive the state: order 1047 as events, aggregates, Event Store with expected version, bus, projections, rehydration, snapshot, ordering by version and idempotency, with calculators and a 50-question quiz.' },
+  { slug: 'resiliencia', title: 'Resilience Patterns', lessons: 13, poster: 'labs/resiliencia/chamadas-3d-previa.webp', alt: 'Preview of the 3D figure of the call that crosses the store to the PSP',
+    text: 'Keep selling when the PSP answers in 8 s: availability and error budget, blast radius, healthchecks, idempotency, timeouts, retry with backoff and jitter, circuit breaker, fallback, degradation, backpressure, data layer and bulkheads, with calculators and a 72-question quiz.' },
+  { slug: 'deployment', title: 'Deployment Models', lessons: 12, poster: 'labs/deployment/rollout-3d-previa.webp', alt: 'Preview of the 3D figure of pods switching versions behind the load balancer',
+    text: 'Ship orders 2.5.0 on an ordinary Tuesday without Lena noticing, and be able to go back: rollback, recreate, rolling, blue/green, canary, migrations with real PostgreSQL measurements, shadow, feature flags and rings per shard, with the author\'s labs read through, widgets and a 60-question quiz.' },
+  { slug: 'capacity-planning', title: 'Capacity Planning', lessons: 9, poster: 'labs/capacity-planning/ponto-3d-previa.webp', alt: 'Preview of the 3D figure of the payments queue',
+    text: 'Will Black Friday 2027 hold up? Queueing theory, Little\'s Law and the healthy point, knee curve, load modeling, traffic profiles, projection, end-to-end capacity and the limits sheet, with calculators and a 45-question quiz.' },
+  { slug: 'testes-de-carga', title: 'Load and Stress Testing', lessons: 11, poster: 'labs/testes-de-carga/carga-3d-previa.webp', alt: 'Preview of the 3D figure of the load generator and the checkout chain',
+    text: 'Disprove the 300-orders-per-second plan with k6: load and stress, smoke, average load, spike, breakpoint, open and closed model, goals and percentiles, pre-test and report, with the measured numbers, calculators and a 56-question quiz.' },
+  { slug: 'bulkhead', title: 'Bulkhead Pattern', lessons: 5, poster: 'labs/bulkhead/anteparas-3d-previa.webp', alt: 'Preview of the 3D figure of the connection pool split into compartments',
+    text: 'A hole floods only its own compartment: the orders 20-connection pool and the 23:00 report with the real k6, logical and physical bulkheads, the cost of the split (Erlang C), blast radius, functional and operational sharding and the six reference designs, with calculators and a 35-question quiz.' },
+  { slug: 'cell-based', title: 'Cell-Based Architecture', lessons: 4, poster: 'labs/cell-based/celulas-3d-previa.webp', alt: 'Preview of the 3D figure of the store in four cells',
+    text: 'Does one poisoned order take down the whole stack? The store in four cells: the uneven radius (40 · 33 · 15 · 12%), the structure and the cost of the floor, the router and the map, the passive cell, 2PC and shuffle sharding, with calculators and a 30-question quiz.' },
+  { slug: 'disaster-recovery', title: 'Single Point of Failure and Disaster Recovery', lessons: 5, poster: 'labs/disaster-recovery/desastre-3d-previa.webp', alt: 'Preview of the 3D figure of the São Paulo region going down and the passive cells',
+    text: 'The São Paulo region disappears at 20:40 on Black Friday: single point of failure and the 12-link audit, active and passive redundancy, failover and split brain, backup, pilot light, warm standby and active-active, MTTD, MTTR, MTBF, RTO and RPO, with the lost order 1061, calculators and a 35-question quiz.' },
+  { slug: 'observabilidade', title: 'Observability and Monitoring', lessons: 10, poster: 'labs/observabilidade/sinais-3d-previa.webp', alt: 'Preview of the 3D figure of order 1063 crossing the store and leaving a metric, a log and a span',
+    text: 'Lena waited 1.9 s and the dashboard was green: reliability, monitoring and observability, metrics, logs and traces of order 1063, alerts that arrive in time, SLI, SLO, SLA and error budget, and the USE, RED and four golden signals shortcuts, with the math worked out, widgets and a 58-question quiz.' },
+  { slug: 'provas-finais', title: 'Final Exams', lessons: 7, poster: 'labs/provas-finais/loja-3d-previa.webp', alt: 'Preview of the 3D figure of the whole store map, with the 7 blocks',
+    text: 'Rebuild Lena\'s store from scratch, in order, going through the 28 chapters in 7 blocks: order 1060 and its 14 hops, the 28 numbers, what breaks when you take a piece out and a final exam of 80 questions with a score per block, with widgets and the store map.' },
+];
+---
+<BaseLayout title="SDLabs" description="Visual, interactive System Design labs.">
+<main class="home">
+  <header class="home-head">
+    <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang="pt-BR" lang="pt-BR" aria-label={ui.switchAria}>{ui.switchTo}</a>
+    <h1>SDLabs</h1>
+    <p class="lead">System Design labs you can play with and never forget.</p>
+    <p class="story">One story from start to finish: Lena, from Recife, buys a plush cat at the store, and each module is the next problem the store faces as it grows.</p>
+  </header>
+  <ol class="mods">
+    {modules.map((m, i) => m.slug ? (
+      <li class="mod" data-mod={m.slug} data-total={m.lessons}>
+        <a class="mod-link" href={withBase(hasEn(m.slug!) ? `en/labs/${m.slug}/` : `labs/${m.slug}/`)} hreflang={hasEn(m.slug!) ? undefined : 'pt-BR'}>
+          <span class="mod-n" aria-hidden="true">{m.n ?? i + 1}</span>
+          <div class="mod-body">
+            <h2>{m.title}</h2>
+            <p>{m.text}</p>
+            <div class="mod-meta">
+              <span class="label">{m.lessons} lessons</span>{!hasEn(m.slug!) && <span class="label" lang="pt-BR">In Portuguese for now</span>}
+              <span class="label mod-prog" hidden><span class="mod-bar" aria-hidden="true"></span><span class="mod-prog-t"></span></span>
+            </div>
+          </div>
+          <div class="mod-fig" aria-hidden="true"><img src={withBase(m.poster!)} alt="" width="640" height="560" loading="lazy" /></div>
+        </a>
+      </li>
+    ) : (
+      <li class="mod soon" aria-disabled="true">
+        <div class="mod-link">
+          <span class="mod-n" aria-hidden="true">{m.n ?? i + 1}</span>
+          <div class="mod-body"><h2>{m.title}</h2><p>{m.text}</p></div>
+        </div>
+      </li>
+    ))}
+  </ol>
+  <footer class="home-foot">
+    <p set:html={ui.credit} />
+    <p><a href={withBase('sistema-de-design/')}>Site design system</a></p>
+  </footer>
+</main>
+<script is:inline>
+  // progress saved by each module's focus mode: "3 of 9 understood" + the bar
+  document.querySelectorAll('.mod[data-mod]').forEach(function (li) {
+    var n = 0, total = +li.dataset.total;
+    try { n = (JSON.parse(localStorage.getItem('sdl-' + li.dataset.mod + ':done') || '[]') || []).length; } catch (e) { return; }
+    if (!n) return;
+    var box = li.querySelector('.mod-prog'), bar = li.querySelector('.mod-bar');
+    for (var i = 0; i < total; i++) { var s = document.createElement('i'); if (i < n) s.className = 'done'; bar.appendChild(s); }
+    li.querySelector('.mod-prog-t').textContent = Math.min(n, total) + ' of ' + total + ' understood';
+    box.hidden = false;
+  });
+</script>
+</BaseLayout>

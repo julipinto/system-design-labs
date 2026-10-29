@@ -81,7 +81,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
   .ds-shapes{display:flex;flex-wrap:wrap;gap:var(--s-4);margin:var(--s-3) 0}
   .ds-shape{display:grid;place-items:center;width:96px;height:72px;border:var(--hair) solid var(--line-strong);font:600 12px var(--mono);color:var(--muted);text-align:center}
   .ds-row{display:flex;flex-wrap:wrap;gap:var(--s-3);align-items:center;margin:var(--s-3) 0}
-  .ds-demo-track{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:12px;max-width:320px;flex:1 1 200px}
+  .ds-demo-track{max-width:320px;flex:1 1 200px}
   .ds-home{list-style:none;margin:var(--s-3) 0;padding:0;border-top:var(--hair) solid var(--line)}
   .ds-quiz{max-width:var(--measure)}
 </style>
@@ -168,10 +168,17 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
       <span class="label" style="display:inline-block;padding:10px 14px;border:1px solid color-mix(in srgb,var(--accent-ink) 70%,var(--line));border-radius:var(--r-3);background:var(--surface);color:var(--accent-ink)">"Faça agora": traço de 1px</span>
     </div>
     <h3 class="sec">Movimento</h3>
-    <p>Saída exponencial (<code>--ease-out</code>), 120 a 320 ms, e nada além de estado: a régua cresce, o traço assenta em verde, a ficha sobe. Nada pulsa. Com <code>prefers-reduced-motion</code>, tudo para.</p>
+    <p>Todo movimento responde a algo que a pessoa fez; nada se mexe sozinho nem pulsa. Saída exponencial (<code>--ease-out</code>), 120 a 700 ms, sem quique. O momento principal é o <strong>pacote</strong>: na trilha de aulas, ele anda até a próxima estação quando a pessoa avança. O resto é resposta curta: o botão afunda ao apertar, o check de "Entendi" se desenha, o título da barra entra de baixo, a resposta do flashcard e a ficha do glossário se abrem de cima para baixo. Com <code>prefers-reduced-motion</code>, tudo vira troca instantânea.</p>
     <div class="ds-row">
-      <div class="sdl-content-demo ds-demo-track pg-track" data-ds-track>{Array.from({ length: 7 }, (_, i) => <span class={'pg-seg' + (i < 2 ? ' done' : '') + (i === 2 ? ' cur' : '')}></span>)}</div>
+      <div class="ds-demo-track pg-track" data-ds-track>{Array.from({ length: 7 }, (_, i) => [<span class={'pg-st' + (i < 2 ? ' done' : '')}></span>, i < 6 && <span class={'pg-link' + (i < 2 ? ' lit' : '')}><i></i></span>])}<span class="pg-pkt"></span></div>
       <button type="button" class="btn" data-ds-step>Próxima aula</button>
+    </div>
+    <h3 class="sec">Números de destaque</h3>
+    <p>Dois mostradores, e só para número de dado, nunca para palavra. <strong>7 segmentos</strong> nos widgets: o número que a pessoa está medindo (<code>.sr-fact b</code> ou <code>data-seg7</code>), com a unidade pequena em sans ao lado. <strong>Pontos de LED</strong> só na nota do quiz, como um placar, em sódio. Quando o valor muda, os segmentos acesos entram em varredura. Quem desenha é <code>public/shared/readouts.js</code>; o leitor de tela lê o texto original.</p>
+    <div class="ds-row" style="align-items:flex-end;gap:32px">
+      <span data-seg7 style="font-size:30px;color:var(--ink-hi)">92%</span>
+      <span data-seg7 style="font-size:30px;color:var(--ink-hi)">1480 ms</span>
+      <p class="q-score" style="font-size:54px;color:var(--accent-ink);margin:0">38 de 46</p>
     </div>
     <p class="gancho">Com as peças básicas no lugar, falta montar a aula com elas.</p>
   </Lesson>
@@ -267,15 +274,20 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
         document.querySelectorAll('[data-ds-theme]').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
       });
     });
-    // régua de demonstração: a aula atual vira entendida e o sódio passa para a próxima
+    // trilha de demonstração: a aula atual vira entendida e o pacote anda até a próxima
     var track = document.querySelector('[data-ds-track]'), step = document.querySelector('[data-ds-step]');
-    if (track && step) step.addEventListener('click', function () {
-      var segs = track.children, cur = Array.prototype.findIndex.call(segs, function (s) { return s.classList.contains('cur'); });
-      segs[cur].className = 'pg-seg done';
-      var nx = (cur + 1) % segs.length;
-      if (nx === 0) Array.prototype.forEach.call(segs, function (s) { s.className = 'pg-seg'; });
-      segs[nx].className = 'pg-seg cur';
-    });
+    if (track && step) {
+      var sts = track.querySelectorAll('.pg-st'), lks = track.querySelectorAll('.pg-link'), pk = track.querySelector('.pg-pkt'), cur = 2;
+      var place = function () { var st = sts[cur]; pk.style.left = (st.offsetLeft + st.offsetWidth / 2) + 'px'; };
+      place(); addEventListener('resize', place);
+      step.addEventListener('click', function () {
+        sts[cur].className = 'pg-st done just';
+        var nx = (cur + 1) % sts.length;
+        if (nx === 0) { Array.prototype.forEach.call(sts, function (s) { s.className = 'pg-st'; }); Array.prototype.forEach.call(lks, function (l) { l.className = 'pg-link'; }); pk.classList.remove('moving'); }
+        else { lks[cur].className = 'pg-link lit'; pk.classList.add('moving'); }
+        cur = nx; place();
+      });
+    }
   })();
 </script>
 </ModuleLayout>

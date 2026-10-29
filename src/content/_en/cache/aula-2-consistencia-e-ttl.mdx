@@ -1,0 +1,78 @@
+---
+title: "Consistency and TTL"
+order: 2
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the last lesson the copy of <code>produto:42</code> went into the cache with the price 89.90. But the plush cat's price can change in the database, and the cache doesn't find out. Bia opens the page right after the change and sees 89.90, while the database already says 79.90. Who checks the cache's price against the database's?</p>
+
+<OneLiner>The cache can be out of date, and the TTL is the deadline that limits for how long; when the data can't wait for the deadline, whoever writes to the database also deletes the key.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>TTL</strong> mode, step until the price changes to 79.90 and watch what the <strong>cache</strong> answers and what the <strong>database</strong> answers right after. Keep stepping until the cache's answer changes and see what made it happen. Then, on the clock below, move the moment of the price change and see how long the old data lasts.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=ttl" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: the price changes to 79.90 in the database and Redis still serves 89.90 until the TTL expires" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<Widget name="ttl" title="TTL clock with the old price" hint="The cache was written at t = 0 with a 60 s TTL. Choose when the price changes in the database, choose whether the store deletes the key, and drag the clock to see what Bia reads." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>At <strong>t = 0 s</strong>, the first request is a miss. The app reads the database (89.90) and writes <code>produto:42</code> to the cache with a <strong>60 s TTL</strong>. The key's clock starts counting.</li>
+  <li>At <strong>t = 20 s</strong>, the store owner lowers the price to <strong>79.90</strong>. The write goes to the database, and the database doesn't tell the cache.</li>
+  <li>At <strong>t = 30 s</strong>, Bia opens the page. The cache has the key, so it's a hit, in 1 ms, with <strong>89.90</strong>. The database already says 79.90. This is <strong>stale data</strong>: the cache didn't break, it just fell behind.</li>
+  <li>At <strong>t = 60 s</strong>, the TTL expires and the key disappears. The next request is a miss, reads 79.90 from the database and writes it again, with another 60 s. The stale data lasted <strong>40 s</strong>, from t = 20 to t = 60.</li>
+  <li>Had the owner changed the price at t = 1 s, the stale data would last 59 s. The <strong>worst case is the whole TTL</strong>. To get zero seconds of stale data, the app that writes 79.90 to the database also sends <code>DEL produto:42</code>: the next request is already a miss and brings the new price.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The TTL doesn't fix the difference, it only puts an end to it. The design question is how much stale data the store can tolerate.</li>
+  <li>A product price tolerates a few seconds, and 60 s is a good starting point. A photo tolerates hours. The record of a user who was blocked tolerates nothing: whoever blocks deletes the key right then.</li>
+  <li>A TTL that's too short drops the hit rate, because the key expires before it's read again and the database goes back to receiving everything. A TTL that's too long stretches the stale data.</li>
+  <li>Before caching, ask three things: how often does this change, how often is it read and how much staleness can I take.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Delete or update the key on write</h4>
+  <p>The source article says whoever writes to the original data has the duty to delete the key or update it. Deleting is simpler: the next read brings the new data from the database. Updating the value in the cache requires the write and the update to arrive in the same order, and if two write requests cross, the cache can end up with the older value.</p>
+  <h4 class="deep-h">How Redis expires a key</h4>
+  <p>In two ways. In the <strong>passive</strong> way, the expired key is deleted when someone tries to read it. In the <strong>active</strong> way, Redis periodically tests a sample of keys with a TTL and deletes the ones that expired. The command <code>TTL produto:42</code> returns the seconds left.</p>
+  <h4 class="deep-h">Keys that expire together</h4>
+  <p>If a thousand products were written in the same second with a 60 s TTL, all thousand expire in the same second, and the database gets a thousand misses at once (the cache stampede). One way out is to vary each key's TTL a little (60 s plus or minus a few seconds).</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article says the TTL is "almost mandatory" and, in the cache-aside example, writes the order with TTL <code>0</code>. In the Go Redis client, 0 means <strong>no expiration</strong>. The example stores forever, the opposite of what the text argues. In lesson 6 the example appears corrected.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Redis: EXPIRE command (passive and active expiration)", href: "https://redis.io/docs/latest/commands/expire/" },
+    { label: "Microsoft Azure: cache-aside pattern (expiration and too-short TTL)", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cache-aside" },
+    { label: "Wikipedia: cache stampede", href: "https://en.wikipedia.org/wiki/Cache_stampede" },
+    { label: "RFC 9111: HTTP Caching (fresh response and stale response)", href: "https://datatracker.ietf.org/doc/html/rfc9111" },
+  ]} />
+</Deep>
+
+<p>The TTL solves time, but the cache also has a size. Picture a store cache with only 3 slots, already full, and the fifth product arriving before any TTL expires. What's left to find out is which copy leaves to make room.</p>
+
+<Flashcards cards={[
+  { q: "What is stale data?",
+    a: "A copy that is still in the cache but no longer matches the original. In the example: the cache says 89.90 and the database already says 79.90." },
+  { q: "What does the TTL do and what does it not do?",
+    a: "It makes the key disappear after a deadline (60 s). It doesn't prevent stale data: it only limits how long it lasts." },
+  { q: "What is the worst case of stale data with a 60 s TTL?",
+    a: "The full 60 s: the price changes right after the cache is written." },
+  { q: "How do you get zero seconds of stale data on a price?",
+    a: "Whoever writes 79.90 to the database also deletes <code>produto:42</code> from the cache. The next request is a miss and brings the new price." },
+  { q: "What happens if the TTL is too short?",
+    a: "The key expires before it's read again, the hit rate drops and the database goes back to receiving most of the reads." },
+]} />

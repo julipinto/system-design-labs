@@ -1,0 +1,70 @@
+---
+title: "Storage in System Design"
+order: 1
+min: 3
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>An online store just opened. Every order, every product photo and every backup needs a place to live, and one disk can't serve all three.</p>
+
+<OneLiner>storage is where the system keeps data so it survives a restart, and each kind of data asks for a different kind of disk.</OneLiner>
+
+<DoIt>
+  <p>Think about the <strong>online store</strong>. Write down 3 things it needs to keep (orders, photos, backups). For each one, answer: small or large? Mostly reads or mostly writes? Can it be lost?</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The store keeps <strong>orders</strong>: <strong>pedidos.db</strong>, with 200 GB of small rows, read and written all the time, at random spots.</li>
+  <li>It keeps <strong>photos</strong>: 500,000 files like <strong>gato.jpg</strong> (2.4 MB), about 1.2 TB. Each photo is written once and read many times.</li>
+  <li>It keeps <strong>backups</strong>: a copy of everything each night, written in sequence and almost never read.</li>
+  <li>The three ask for different things: the database needs <strong>low latency</strong>, the photos need <strong>lots of cheap space</strong>, the backup needs <strong>durability</strong>.</li>
+  <li>That is why storage comes in different shapes: <strong>DAS, NAS, block, file and object</strong>, plus the disk arrangements (<strong>RAID</strong>). The next lessons show one at a time.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>A single disk is a <strong>single point of failure</strong>: if it dies, the store stops and the orders are gone. That is the pain RAID, at the end of the module, comes to solve.</li>
+  <li>Picking the wrong storage is expensive: photos on NVMe is a waste, a database on a slow disk stalls checkout.</li>
+  <li>Three numbers guide the choice: <strong>latency</strong>, <strong>IOPS and throughput</strong>, and <strong>cost per TB</strong>.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Typical latency by disk type</h4>
+  <p>Order of magnitude for a random 4 KB read.</p>
+  <ul>
+    <li><strong>HDD</strong> (disk with platters): 5 to 10 ms.</li>
+    <li><strong>SATA SSD:</strong> about 0.2 ms.</li>
+    <li><strong>NVMe:</strong> about 0.1 ms (100 microseconds).</li>
+    <li><strong>Network:</strong> NAS and cloud disks add 0.2 to 0.5 ms of network on top, reaching about 1 ms per read.</li>
+  </ul>
+  <h4 class="deep-h">What "storage" covers</h4>
+  <p>HDDs, SSDs and network solutions like NFS. Distributed systems also bring <strong>sharding</strong> (splitting the data across machines), <strong>replication</strong> (copying to other machines) and resilience, so you don't depend on a single host.</p>
+  <h4 class="deep-h">Module map</h4>
+  <p>Lesson 2: how to measure (IOPS, MB/s). Lessons 3 to 7: where the disk lives and how the data is organized. Lessons 8 to 13: how to combine disks to gain speed and survive failures.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "ByteByteGo: storage systems overview", href: "https://blog.bytebytego.com/p/storage-systems-overview" },
+    { label: "Wikipedia: Standard RAID levels", href: "https://en.wikipedia.org/wiki/Standard_RAID_levels" },
+  ]} />
+</Deep>
+
+<p>Now we need to measure what each kind of data asks for. When the database asks for "low latency", how many operations per second does that mean?</p>
+
+<Flashcards cards={[
+  { q: "Which three kinds of data does the store keep?",
+    a: "Orders (pedidos.db, 200 GB, small and random), photos (like gato.jpg, ~1.2 TB in total) and backups (nightly copy)." },
+  { q: "Why is a single disk a risk?",
+    a: "It is a single point of failure: if it dies, the system stops and the data is lost." },
+  { q: "Typical latency of HDD, SATA SSD and NVMe?",
+    a: "HDD: 5 to 10 ms. SATA SSD: ~0.2 ms. NVMe: ~0.1 ms." },
+  { q: "Which three numbers guide the storage choice?",
+    a: "Latency, IOPS and throughput, cost per TB." },
+]} />

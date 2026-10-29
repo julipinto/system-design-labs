@@ -245,3 +245,4 @@
 .sdl-content .hdr-c.opt{border-style:dashed;color:var(--muted)}
 .sdl-content .hdr-key{font-size:15px;color:var(--muted)}
 
+.sdl-content .seg-f.is-new small:lang(en)::after{content:" · changed"}

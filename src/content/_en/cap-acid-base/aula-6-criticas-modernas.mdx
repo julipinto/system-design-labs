@@ -1,0 +1,83 @@
+---
+title: "Modern critiques of the CAP model"
+order: 6
+min: 5
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>The last lesson ended with a warning: the CP and AP labels are approximations. The modern critiques go further and say that "pick 2 of 3" hides more than it shows. They look at the same store, with the databases in SP, Rio and Recife.</p>
+
+<OneLiner>"Pick 2 of 3" oversimplifies: partitions are rare, consistency and availability are degrees and not switches, and the choice should be made per operation, not for the whole database.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in AP mode, look at sale #101 with a healthy network: <strong>nothing diverges</strong>. Then cut the cable and watch the conflict appear. Switch to CP and compare. Ask: <strong>would this rule work just as well for the shopping cart?</strong></p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=ap" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, choosing availability (AP)" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Partitions are rare.</strong> Most of the time the store has its three databases talking, like in sale #101. Without a partition, you can have consistency and availability together: the theorem only forbids it <em>during</em> the failure.</li>
+  <li><strong>And even during the failure, C and A are degrees.</strong> Between "always the newest data" and "any old data" there are middle grounds: read from the leader, read with a quorum, accept a delay of up to 200 ms.</li>
+  <li><strong>With degrees, the choice becomes per operation.</strong> Inside the same store: checking out the plush cat purchase (refuse in a partition), adding to the cart (always accept), showing the storefront (can be stale).</li>
+  <li><strong>A partition has three phases (Brewer, 2012):</strong> detect (the 3,000 ms timeout expired), enter partition mode (limit what is risky) and recover (merge the versions and fix errors).</li>
+  <li><strong>Recovery is the part people forget, and it's design too.</strong> If #102 and #103 fought over the last unit, the store would cancel one of the orders and give an R$ 20 coupon. The card charge is postponed until the network is back.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>Kleppmann's critique (2015) in 3 lines</h3>
+  <p>It attacks the definitions you saw in lesson 4.</p>
+  <ul>
+    <li>CAP's definitions are narrow: C is linearizability, A is "every request to a live node gets an answer", and only network failures count.</li>
+    <li>Many databases don't fit in any box: it depends on how they're configured and which operation you look at.</li>
+    <li>CAP says nothing about latency: a system that answers in two minutes is still "available" by the definition.</li>
+  </ul>
+</div>
+
+<WhyItMatters>
+  <li>Instead of asking "is our database CP or AP?", ask "what happens to <em>this operation</em> in a partition, and how do we fix it afterward?".</li>
+  <li>A good design decision comes with its recovery plan: detect, limit, merge and compensate.</li>
+  <li>And the latency critique, which CAP leaves out, is the doorway to PACELC (next lesson).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Brewer, twelve years later</h4>
+  <p>In 2012, Brewer himself wrote that CAP forbids only a small part of the possible design space. He argues that subsystems, operations, data and even users can have different choices, and that the focus should be the <strong>invariants</strong>: which rules you protect in a partition and which you can break and fix later.</p>
+  <h4 class="deep-h">Invariants in the store</h4>
+  <ul>
+    <li><strong>Can break and fix:</strong> the cat's stock going to -1 (selling more than there was). You cancel an order.</li>
+    <li><strong>Always protect:</strong> Lena's balance doesn't go negative (<code>CHECK saldo &gt;= 0</code>): an R$ 200 request with R$ 150 in the account is refused.</li>
+    <li><strong>Postpone:</strong> the card charge, until the network is back.</li>
+  </ul>
+  <h4 class="deep-h">The CP and AP labels</h4>
+  <p>Kleppmann suggests dropping the labels and reasoning with precise definitions per operation. The source article has a table of "flavors" with labels per database, and the text itself shows a case where Cassandra appears as CP in one section and AP in another: a good example of why the label alone misleads.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Brewer (2012): CAP Twelve Years Later, on InfoQ", href: "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/" },
+    { label: "Kleppmann (2015): please stop calling databases CP or AP", href: "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html" },
+    { label: "Kleppmann (2015): a critique of the CAP theorem (arXiv)", href: "https://arxiv.org/abs/1509.05393" },
+  ]} />
+</Deep>
+
+<p>Almost all of this is about the moment of failure, but the network is healthy nearly all the time. What's left is to see what a system gives up during all that time, when there is no partition at all. That's the question PACELC asks.</p>
+
+<Flashcards cards={[
+  { q: "Why does \"pick 2 of 3\" mislead?",
+    a: "A partition isn't optional, it's rare, and C and A are degrees. The trade-off only bites during the partition." },
+  { q: "What are the three phases of a partition, according to Brewer (2012)?",
+    a: "Detect, enter partition mode (limit operations) and recover (merge and fix)." },
+  { q: "What does CAP not say?",
+    a: "Nothing about latency: a slow system can still be \"available\" by the definition." },
+  { q: "Why does Kleppmann ask us to stop calling databases CP or AP?",
+    a: "Because many don't fit in a single box: it depends on the configuration and the operation." },
+  { q: "Give an example of compensation after a partition.",
+    a: "Cancel one of the two orders (#102 or #103) and give the customer a coupon." },
+]} />

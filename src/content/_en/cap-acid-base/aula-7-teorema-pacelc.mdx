@@ -1,0 +1,106 @@
+---
+title: "The PACELC theorem"
+order: 7
+min: 6
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>The last lesson left a gap: CAP says nothing about latency, and the network is healthy almost all the time. PACELC fills that gap, and Lena's sale #101 shows the price.</p>
+
+<OneLiner>PACELC completes CAP: if there is a Partition, choose between Availability and Consistency; else (Else), choose between Latency and Consistency, and the "else" is what happens almost all the time.</OneLiner>
+
+<DoIt>
+  <p>In the figure, make sale #101 in São Paulo in <strong>latency</strong> mode and in <strong>consistency</strong> mode. Compare the milliseconds until Lena's "ok" and what her brother, reading in Recife, sees in that time.</p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=pacelc-el" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, PACELC without a partition: latency vs. consistency" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>CAP only looks at the failure. With the network working there is also a price: <strong>distance costs milliseconds</strong>. There are two ways to pay it.</li>
+  <li><strong>Consistent write (EC):</strong> first, SP only answers "ok" after Rio and Recife confirm. Lena waits <strong>~80 ms</strong>, and with a slow network (300 ms between the cities) the wait becomes ~300 ms.</li>
+  <li><strong>Fast write (EL):</strong> the other option is for SP to write and answer in <strong>~5 ms</strong>, sending the copy afterward. In exchange, if her brother checks Recife right after, he still sees <code>estoque 5</code> (v1) instead of 4: a stale read, for about 80 ms.</li>
+  <li><strong>Putting the two halves together:</strong> "PA" or "PC" says what the system does in a partition; "EL" or "EC" says what it does without one. Hence PA/EL, PC/EL, PA/EC and PC/EC.</li>
+  <li><strong>In the store,</strong> each operation picks its own: cart in PA/EL (fast and always up), balance and transfer in PC/EC (correct, even if slower).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap" role="region" aria-label="The four PACELC combinations" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Combination</th><th>In a partition</th><th>Without a partition</th><th>Stock write</th><th>What it's for</th></tr></thead>
+  <tbody>
+    <tr><th>PA/EL</th><td>Availability</td><td>Latency</td><td>~5 ms, copy afterward</td><td>Global scale, cart, feed</td></tr>
+    <tr><th>PC/EL</th><td>Consistency</td><td>Latency</td><td>~5 ms, but refuses in a partition</td><td>Fast day to day, prefers going down over diverging</td></tr>
+    <tr><th>PA/EC</th><td>Availability</td><td>Consistency</td><td>~80 ms, relaxes only on failure</td><td>Rare: strong when normal, flexible on failure</td></tr>
+    <tr><th>PC/EC</th><td>Consistency</td><td>Consistency</td><td>~80 ms always</td><td>Banks, coordination, critical transactions</td></tr>
+  </tbody>
+</table>
+</div>
+
+<WhyItMatters>
+  <li>It answers the interview question: "and when the network is healthy, what do you give up?". Almost always the answer is <strong>latency vs. consistency</strong>.</li>
+  <li>It also explains why "strong" global databases are slow to write and "eventual" databases are fast.</li>
+  <li>Daniel Abadi proposed PACELC in 2010 precisely because CAP doesn't have the L for latency.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">How to classify, according to the source article</h4>
+  <div class="sr-tablewrap" role="region" aria-label="PACELC classification of some databases" tabindex="0">
+  <table class="sr-table">
+    <thead><tr><th>System</th><th>Partition (PAC)</th><th>No partition (ELC)</th><th>Class</th></tr></thead>
+    <tbody>
+      <tr><th>DynamoDB</th><td>A</td><td>L (eventual by default)</td><td>PA/EL</td></tr>
+      <tr><th>Cassandra</th><td>A</td><td>L (eventual by default)</td><td>PA/EL</td></tr>
+      <tr><th>MongoDB</th><td>A (w=1) or C (majority)</td><td>L (eventual secondaries)</td><td>PA/EL or PC/EL</td></tr>
+      <tr><th>Google Spanner</th><td>C</td><td>C</td><td>PC/EC</td></tr>
+      <tr><th>etcd</th><td>C</td><td>C</td><td>PC/EC</td></tr>
+      <tr><th>ZooKeeper</th><td>C</td><td>C</td><td>PC/EC</td></tr>
+      <tr><th>CockroachDB</th><td>C</td><td>C (Raft)</td><td>PC/EC</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>These are classifications from the source article and from Abadi. Several depend on configuration, like MongoDB's <code>w</code>: treat them as a starting point.</p>
+  <h4 class="deep-h">Details of each combination</h4>
+  <ul>
+    <li><strong>PA/EL:</strong> DynamoDB and Cassandra. Accepts divergence to get availability and speed.</li>
+    <li><strong>PC/EL:</strong> Abadi cites Yahoo's PNUTS: asynchronous replication day to day, but it refuses writes in a partition.</li>
+    <li><strong>PA/EC:</strong> unusual. Keeps strong consistency when normal and, on failure, accepts divergence (often with CRDTs).</li>
+    <li><strong>PC/EC:</strong> traditional SQL databases, etcd, Spanner. The price is response time.</li>
+  </ul>
+  <h4 class="deep-h">Quick summary: CAP, PACELC, ACID and BASE</h4>
+  <ul>
+    <li><strong>CAP:</strong> in a partition, C or A.</li>
+    <li><strong>PACELC:</strong> in a partition, A or C. Without a partition, L or C.</li>
+    <li><strong>ACID:</strong> transaction guarantees (A, C, I, D). Goes with higher consistency and latency.</li>
+    <li><strong>BASE:</strong> availability, soft state and eventual consistency. Goes with low latency.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the PACELC theorem (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/pacelc/" },
+    { label: "Abadi (2010): Consistency Tradeoffs in Modern Distributed Database System Design (PDF)", href: "https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf" },
+    { label: "Abadi (2010): problems with CAP", href: "http://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html" },
+    { label: "Wikipedia: PACELC design principle", href: "https://en.wikipedia.org/wiki/PACELC_design_principle" },
+    { label: "ScyllaDB: PACELC glossary", href: "https://www.scylladb.com/glossary/pacelc-theorem/" },
+  ]} />
+</Deep>
+
+<p>With the network cut or healthy, the question is the same: does this operation prefer to wait or to take a risk? Whoever designs a replicated system answers that operation by operation, before the failure.</p>
+
+<Flashcards cards={[
+  { q: "What does PACELC stand for?",
+    a: "If Partition: Availability or Consistency. Else: Latency or Consistency." },
+  { q: "Who proposed PACELC and when?",
+    a: "Daniel Abadi, in 2010." },
+  { q: "Which gap in CAP does PACELC fill?",
+    a: "Behavior without a partition, where the trade-off is latency vs. consistency." },
+  { q: "What is PA/EL?",
+    a: "Availability in a partition and low latency when normal, accepting eventual consistency. E.g. DynamoDB, Cassandra." },
+  { q: "What is PC/EC?",
+    a: "Consistency in both cases, at the cost of response time and, in a partition, availability. E.g. Spanner, etcd." },
+]} />

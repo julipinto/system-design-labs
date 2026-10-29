@@ -42,7 +42,7 @@ Referência de tom: o template *critter atlas* (uberdesigner.ai), uma enciclopé
 | Tipo | `--sans` `--mono`, `--fw-display` 600 · `--fw-title` 600, `--fs-label` 14 (sans) · `--fs-sm` 14,5 · `--fs-body` 17,5 · `--fs-lead` 19 · `--fs-h3` 21 · `--fs-h2` · `--fs-h1` | `--measure` 46rem (~70 caracteres) |
 | Espaço | `--s-1` 4 … `--s-8` 64, `--gutter` 16, `--page` 960, `--tap` 48 | mais espaço acima do título que abaixo |
 | Forma | `--r-1` 3 (código, bit), `--r-2` 6 (controle), `--r-3` 10 (painel), `--r-pill` | |
-| Movimento | `--ease-out`, `--ease-io`, `--dur-1` 120 · `--dur-2` 200 · `--dur-3` 320 ms | só estado; `prefers-reduced-motion` desliga |
+| Movimento | `--ease-out`, `--ease-io`, `--dur-1` 120 · `--dur-2` 200 · `--dur-3` 320 ms; pacote 700 ms | só resposta ao que a pessoa fez; o pacote é o único que anda; `prefers-reduced-motion` desliga |
 
 Apelidos antigos continuam valendo para os widgets e a figura OSI 2D: `--card` = `--surface`, `--fg` = `--ink`, `--accent-2` = `--signal`, `--accent`.
 
@@ -73,11 +73,11 @@ Fontes: Atkinson Hyperlegible Next (variável, com itálico) e Atkinson Hyperleg
 | `Deep` | o texto longo, fechado | entre réguas; ícone + vira − aceso quando abre |
 | `Sources` | 2 a 6 links por aula, dentro do `Deep` | lista com régua fina em cima, seta desenhada em CSS |
 | `Flashcards` | 3 a 5 perguntas no fim | linha tocável; "Ver resposta" é link de texto que vira "Esconder" em sódio |
-| `DoneButton` | automático no fim da `Lesson` | botão sódio; entendida vira contorno verde e o traço da régua fica verde |
+| `DoneButton` | automático no fim da `Lesson` | botão sódio; entendida vira contorno; o check se desenha e a estação da trilha enche |
 | `Widget` | simulador ou calculadora | prancha de traço fino, cantos de 10px, título em sans 18px; a borda esquenta com o foco dentro |
 | `Figure3D` | figura iso-glow com `?mode=` | prancha escura nos dois temas, cantos de 10px; desktop: iframe com borda sódio no foco (sem halo); celular: prévia + botão sódio |
 | Glossário | automático (dados em `src/data/glossary-*.js`) | sublinhado pontilhado; ficha com o nome em 600; gaveta no celular |
-| `ModuleLayout` | toda página de módulo | barra fixa: anterior · aula atual · próxima · quiz; régua com um traço por aula |
+| `ModuleLayout` | toda página de módulo | barra fixa: anterior · aula atual · próxima · quiz; trilha do pacote com uma estação por aula |
 | Home (`src/pages/index.astro`) | um item por módulo, na ordem da história | número em sans (fraco), título 600, prévia da figura no desktop, progresso salvo |
 | Quiz | `public/labs/<módulo>/quiz/` | opção escolhida com `--ring`; certo verde, errado vermelho |
 
@@ -88,7 +88,7 @@ Regras fixadas no refinamento mobile. Valem para tudo até 480px, salvo quando d
 1. **Grade de 4/8px.** Entre blocos da aula (frase, "Faça agora", figura, widget): 24px. Antes de um título de seção (`h3.sec`): 48px, e nada além disso (a legenda solta da figura somava ~30px a mais). Mais espaço acima do título que abaixo.
 2. **Respiro lateral de 20px** (`--gutter` vira 20px até 480px).
 3. **Cabeçalho do módulo curto:** marca e rótulo, título a 28px e a descrição numa linha só, com o botão "mais" (44px de toque) que abre o resto. Sem JS a descrição aparece inteira. Até 400px o rótulo do topo fica só "N aulas".
-4. **Barra fixa continua fixa.** 8px de respiro, setas de 44×48, quiz compacto, título da aula em até duas linhas (nunca "Introdução ao cac…"). Régua: não lida apagada, entendida verde, atual alta em sódio; marco de 5 em 5 é risco de escala no vão.
+4. **Barra fixa continua fixa.** 8px de respiro, setas de 44×48, quiz compacto, título da aula em até duas linhas (nunca "Introdução ao cac…"). Trilha: estação vazia (não lida), cheia (entendida), pacote sódio na atual; encolhe sozinha quando há muitas aulas para a largura.
 5. **Figura 3D:** no celular a legenda vira rótulo no canto da prancha ("Fig N"), em `--on-plate` (a prancha é escura nos dois temas).
 6. **Alvos de toque ≥ 44px** em tudo que não é termo dentro de frase: marca do topo, links do glossário completo, botão fechar da ficha, chips (também de largura), sliders, caixas de marcar (o rótulo inteiro conta), links de ação do quiz. Termos do glossário dentro do texto ficam como texto (exceção de alvo em linha).
 7. **Tabelas e código rolam dentro do bloco** (`.sr-tablewrap`, `pre`). Tabela de resultado de duas colunas (`.pc-table`) deixa o rótulo quebrar, para o valor não virar uma tira de 10px.
@@ -119,3 +119,14 @@ Regras fixadas no refinamento mobile. Valem para tudo até 480px, salvo quando d
 - Capturas em 390×844, 360×780 e 1280×800, claro e escuro, sem scroll lateral e com console limpo (ver CLAUDE.md). A 360px, conferir também os widgets dos 5 módulos em "Ver tudo em uma página": nada pode passar da moldura (ela corta com `overflow:hidden`, então o estouro some em vez de aparecer).
 - Contraste: texto ≥ 4,5:1; borda de controle ≥ 3:1. Os números estão na seção "Cor" da página viva.
 - Antes e depois desta mudança: `docs/design/antes-depois/`.
+
+## Números de destaque (outubro de 2026)
+
+`public/shared/readouts.js` desenha por cima do texto que já existe, então widget e quiz não mudam:
+
+| Onde | Mostrador | Regra |
+|---|---|---|
+| `.sr-fact b` e `[data-seg7]` (widgets) | 7 segmentos | só número com unidade curta; o resto fica em sans |
+| `.q-score` (nota do quiz) | pontos de LED 5×7, sódio | só aqui |
+
+Quiz novo: `index.html` carrega `shared/readouts.js` depois do `quiz.js` (`.maestri/tarefas/quiz-readouts.py` põe a linha em todos).

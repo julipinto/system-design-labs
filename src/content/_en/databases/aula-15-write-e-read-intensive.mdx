@@ -1,0 +1,81 @@
+---
+title: "Write-intensive and read-intensive"
+order: 15
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>The last lesson left the question of how to choose among so many models and indexes. The answer starts with a question about the store itself: what happens most in it? The same store has orders that cannot be wrong, metrics that arrive by the millions and a catalog that Lena browses all day.</p>
+
+<OneLiner>The right database is the one that matches model, index and consistency to the most frequent operation: transactional calls for B-Tree and strong consistency, write-intensive calls for LSM and asynchronous replication, read-intensive calls for replicas, cache and CQRS.</OneLiner>
+
+<DoIt>
+  <p>In the picker below, go through the store's 6 situations. Before opening each answer, say out loud the <strong>model</strong>, the <strong>index</strong> and the <strong>consistency</strong> you would pick.</p>
+</DoIt>
+
+<Widget name="picker" title="Which database for each store situation" hint="Tap a situation and see the model, the index and the consistency that match it, and what you accept losing." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Transactional.</strong> Lena pays for the plush cat: the order is written and the stock goes down, all or nothing. It calls for atomicity, ACID and an immediate read of the last write. The choice is a relational database with a <strong>B-Tree</strong> on keys and secondary indexes. The more replicas confirm the commit, the higher the latency. Vertical scaling, or NewSQL with consensus.</li>
+  <li><strong>Write-intensive.</strong> Millions of events per second arrive (clicks, logs, sensors), and none can be lost. The choice is NoSQL with <strong>LSM</strong> (Cassandra, ScyllaDB) and asynchronous replication. You accept eventual consistency and replicas that lag for a while.</li>
+  <li><strong>Read-intensive.</strong> The catalog and the order list are read a thousand times more than they are written. The choice is a consistent primary database with <strong>read replicas</strong> and a <strong>cache</strong> layer (Redis, Memcached), which are in-memory key-value stores.</li>
+  <li>When the screens need a different format from what the transactional database stores, you use <strong>CQRS</strong>: the transactional database writes the orders and a copy, in a model built for reading (documents, or columnar for the reports), feeds the screens. The source of truth stays protected from read spikes.</li>
+  <li>In a real store, <strong>all of this coexists</strong>: relational for orders, key-value for cart and session, a search engine for "pelúcia", columnar for the month's report. Each one takes care of the question that belongs to it.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Choosing by the fashionable name gets you a database full of features the product does not use and missing what it needs. The most frequent question decides.</li>
+  <li>Each choice has a price said out loud: transactional pays latency, write-heavy pays a more complex read, read-heavy pays possibly stale data.</li>
+  <li>The decision can be revisited. When the usage changes, the database changes, and the lessons in this module give the questions to reassess.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The store's decision table</h4>
+  <ul>
+    <li><strong>Order and payment:</strong> relational, B-Tree, strong consistency (CP on partition).</li>
+    <li><strong>Click events and metrics:</strong> LSM or time series, eventual.</li>
+    <li><strong>Cart and session:</strong> in-memory key-value, with an expiry.</li>
+    <li><strong>Text search:</strong> inverted index.</li>
+    <li><strong>"Whoever bought also bought":</strong> graph.</li>
+    <li><strong>Sales report:</strong> columnar.</li>
+  </ul>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li>The article lists <strong>DynamoDB</strong> among the LSM engines for write-intensive workloads. The DynamoDB paper describes a B-tree and a write-ahead log. DynamoDB serves write-intensive workloads well for other reasons (partitions, replication and managed scale), and not because of LSM.</li>
+    <li>The article says write-intensive scenarios favor eventual consistency "because the system does not wait for replication". It is a tendency, not an obligation: Cassandra and ScyllaDB let you tune the quorum per query.</li>
+  </ul>
+  <h4 class="deep-h">What was left for the next texts</h4>
+  <p>The source article cites read replicas, cache and CQRS as techniques it details in other chapters. Replication, sharding and cache have their own articles by the same author, listed below.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Matheus Fidelis: Data Replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Matheus Fidelis: Sharding and Data Partitioning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Matheus Fidelis: Cache (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Matheus Fidelis: CQRS (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Elhemali et al. (2022): Amazon DynamoDB (USENIX ATC)", href: "https://www.usenix.org/conference/atc22/presentation/elhemali" },
+  ]} />
+</Deep>
+
+<p>The store now knows which database to use for each question, but a single server has limits of disk, memory and failures. What is left is to see how to split the data across several servers (sharding) and how to copy it (replication) without losing the consistency promise each database chose.</p>
+
+<Flashcards cards={[
+  { q: "What does a transactional scenario call for?",
+    a: "Atomicity, ACID and an immediate read of the last write. A relational database with a B-Tree and strong consistency." },
+  { q: "Which structure and which consistency go with write-intensive workloads?",
+    a: "LSM (Cassandra, ScyllaDB), asynchronous replication and eventual consistency." },
+  { q: "How do you scale a read-intensive store?",
+    a: "A consistent primary with read replicas and a key-value cache layer (Redis, Memcached)." },
+  { q: "What is CQRS for?",
+    a: "Writing to the transactional database and serving the screens from a derived read model, protecting the source of truth from spikes." },
+  { q: "Why does a real store use more than one database?",
+    a: "Each question (order, cart, search, report) has a model and an index that serve it better." },
+]} />

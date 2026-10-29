@@ -1,0 +1,80 @@
+---
+title: "Hit, miss and hit rate"
+order: 4
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Now the store's cache stores, forgets by time and forgets by space, and the plush cat page feels faster. But "feels" doesn't work for whoever pays for the server. The store owner asks how much the cache helps, and the answer is a number that comes from a count: how many of the requests it answered on its own.</p>
+
+<OneLiner>Hit rate is the fraction of requests the cache answered (hits ÷ total); with it, the average time becomes arithmetic: h × 1 ms + (1 − h) × (1 + 40) ms.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Aside</strong> mode, step through and watch the panel counters: <strong>hits</strong>, <strong>misses</strong>, <strong>hit rate</strong> and <strong>ms spent so far</strong>. See what each hit and each miss adds to the millisecond total. Then, in the calculator below, start at 8 hits and 2 misses and move the hit rate to see the average time and the database load change.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=aside" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: the app asks for produto:42: miss, database in 40 ms, saved in Redis for 60 s, hit in 1 ms" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<Widget name="hitrate" title="Hit rate and average time calculator" hint="Choose how many requests were hits and how many were misses, and the cache speed. The calculation shows the hit rate, the average time, how much the database receives and whether the cache pays off." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Count the requests for the plush cat page. Out of 10 requests, the cache answered 8 (<strong>8 hits</strong>) and sent 2 to the database (<strong>2 misses</strong>).</li>
+  <li>The <strong>hit rate</strong> is hits ÷ (hits + misses) = 8 ÷ 10 = <strong>80%</strong>. With 800 hits and 200 misses the math gives the same 80%: what counts is the proportion.</li>
+  <li>Each request costs some time. A hit costs <strong>1 ms</strong>. A miss costs the 1 ms of asking the cache plus the 40 ms of the database, <strong>41 ms</strong> (the math doesn't include the time to write the copy to the cache).</li>
+  <li>The <strong>average time</strong> is 0.8 × 1 + 0.2 × 41 = 0.8 + 8.2 = <strong>9 ms</strong>. Without a cache, every request would cost 40 ms. The cache made the page 4.4 times faster.</li>
+  <li>The result changes a lot with the hit rate: 50% gives 21 ms, 90% gives 5 ms and 99% gives 1.4 ms. At 0% the time is 41 ms, <strong>worse than no cache</strong>. The cache only pays off above 1 ÷ 40 = <strong>2.5%</strong>.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The hit rate also tells you how much the database rests. At 80%, it receives 1 in every 5 reads. At 90%, 1 in every 10, and at 99%, 1 in every 100.</li>
+  <li>The last points are worth more than they look. Going from 80% to 90% cuts the average time from 9 to 5 ms and halves the database load.</li>
+  <li>When the hit rate drops, look for the cause: a TTL that's too short (lesson 2), a cache that's too small and evicts all the time (lesson 3), or keys nobody asks for twice.</li>
+  <li>The number has to be tracked in production. A hit rate that suddenly falls often warns of a problem before the database complains.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Three reasons for a miss</h4>
+  <ul>
+    <li><strong>First time:</strong> the key was never in the cache (cold cache).</li>
+    <li><strong>Eviction:</strong> the key was there, but left for lack of space (lesson 3).</li>
+    <li><strong>Expired:</strong> the key was there, but the TTL ran out (lesson 2).</li>
+  </ul>
+  <p>Each reason has a different remedy: warm up the cache, add memory or tune the TTL.</p>
+  <h4 class="deep-h">Cold cache and miss spikes</h4>
+  <p>After restarting the cache, or clearing it entirely, every request becomes a miss until the keys come back. The database receives the entire load at once, and that's when it tends to fall over. The source article warns about this: full or partial clears cause a spike of misses.</p>
+  <h4 class="deep-h">Where the 2.5% limit comes from</h4>
+  <p>With a cache, the average time is 1 + (1 − h) × 40. Without one, 40. The cache wins when 1 + 40 − 40h &lt; 40, that is, when h &gt; 1 ÷ 40. The math is simple on purpose: it ignores writing the copy to the cache and everyday network cost. In practice, the cache stops being worth it well before 2.5%, because it brings the stale data problem from lesson 2.</p>
+  <h4 class="deep-h">Where to read these numbers</h4>
+  <p>Redis counts <code>keyspace_hits</code> and <code>keyspace_misses</code> in the <code>INFO stats</code> command. The hit rate is the first divided by the sum of the two.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "Hostinger: cache hit, cache miss and the miss penalty", href: "https://www.hostinger.com/br/tutoriais/cache-miss/" },
+    { label: "Redis: INFO command (keyspace_hits and keyspace_misses)", href: "https://redis.io/docs/latest/commands/info/" },
+    { label: "Redis: cache eviction strategies", href: "https://redis.io/blog/cache-eviction-strategies/" },
+  ]} />
+</Deep>
+
+<p>The store's 80% assumes a single cache that everyone queries. In practice the app runs in several copies, and each one may have its own cache inside its own memory. What's left to find out is what happens to the hit rate and to the price when the store brings up 3 replicas of the app.</p>
+
+<Flashcards cards={[
+  { q: "How do you calculate the hit rate?",
+    a: "Hits divided by hits plus misses. With 8 hits and 2 misses: 8 ÷ 10 = 80%." },
+  { q: "How much does a miss cost in the store?",
+    a: "41 ms: 1 ms to ask the cache plus 40 ms of the database. A hit costs 1 ms." },
+  { q: "What is the average time at an 80% hit rate?",
+    a: "0.8 × 1 + 0.2 × 41 = 9 ms. Without a cache it would be 40 ms." },
+  { q: "From what hit rate does the cache pay off?",
+    a: "Above 2.5% (1 ÷ 40), in this math. At 0% it would be worse than having no cache: 41 ms against 40." },
+  { q: "Why is raising the hit rate from 80% to 90% worth so much?",
+    a: "The database goes on to receive half the reads (from 20% to 10%) and the average time drops from 9 to 5 ms." },
+]} />

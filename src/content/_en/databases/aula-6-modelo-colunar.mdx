@@ -1,0 +1,70 @@
+---
+title: "Columnar model"
+order: 6
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson ended on a sum: the total of all values. In the two models we have seen, the database opens every whole order just to pick up the <code>valor</code> field. If that is the question that comes in most, it is worth storing the data another way: one column at a time.</p>
+
+<OneLiner>In the columnar model, each column of the table goes into its own file, with all its values together, so a query that looks at one column reads only that file (and compresses it well, too).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Columnar model</strong> mode, step forward to <code>SELECT SUM(valor) FROM pedidos</code> and see which files the database opens. In the last step, the database fetches the whole order 1042: count how many files it has to open.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=column" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: the same table with one file per column; SUM(valor) reads only one file" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The same <code>pedidos</code> table, now cut vertically: one file for <code>id</code>, one for <code>cliente</code>, one for <code>produto</code>, one for <code>qtd</code>, one for <code>valor</code> and one for <code>cidade</code>. Position ties the files together: order 1042 is the second value in each.</li>
+  <li>For <code>SUM(valor)</code>, the database opens <strong>only the <code>valor</code> file</strong>: <code>39.80, 89.90, 89.90, 19.90, 147.00, 19.90</code>. The sum is <strong>R$ 406.40</strong> and the other five files are not even touched.</li>
+  <li>Now compression. Each file only has values of the same type and many repeat. The <code>cidade</code> column has just 3 different values, and the database keeps a dictionary (<code>Rio=0, Recife=1, SP=2</code>) and writes <code>0, 1, 2, 1, 2, 2</code>. If the rows are sorted by city, it becomes <code>Rio×1, Recife×2, SP×3</code>: the <code>SP, SP, SP</code> takes almost nothing.</li>
+  <li>The cost comes from the other side. To return the whole order 1042, the database opens <strong>all 6 files</strong> and picks the second value from each. And writing a new order means appending a value in 6 places.</li>
+  <li>That is why columnar fits <strong>analytics</strong> (sums, averages, reports over millions of rows) and rarely the store's checkout.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The question "how much did we sell this month?" reads one or two columns of millions of rows. Columnar reads only those, and compressed.</li>
+  <li>Fewer bytes read and compressed mean less disk and less network. At terabyte scale, that decides the price of the query.</li>
+  <li>It is the basis of data warehouses and analytics engines (Redshift, BigQuery, SQL Server's columnstore mode).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The numbers in the scene (example)</h4>
+  <ul>
+    <li>Row: reads 2 pages of 8 KB (16 KB) to sum 6 values. Column: reads the <code>valor</code> file, with 6 numbers, a fraction of that.</li>
+    <li>On write, the row model appends 1 row to 1 page. Columnar appends 6 values to 6 files.</li>
+  </ul>
+  <h4 class="deep-h">Dictionary and run-length compression</h4>
+  <p>A dictionary swaps the text for a small number. Run-length encoding stores "value and how many times" instead of repeating it. Both work best when the column has few different values and is sorted.</p>
+  <h4 class="deep-h">Columnar is not wide-column</h4>
+  <p>The name looks the same, and it is something else. Lesson 7 shows the wide-column model, which belongs to the Cassandra and Bigtable family and organizes the rows in a different way.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Microsoft: columnstore indexes overview", href: "https://learn.microsoft.com/pt-br/sql/relational-databases/indexes/columnstore-indexes-overview?view=sql-server-ver17" },
+    { label: "Apache Parquet: documentation", href: "https://parquet.apache.org/docs/" },
+    { label: "Wikipedia: column-oriented DBMS", href: "https://en.wikipedia.org/wiki/Column-oriented_DBMS" },
+  ]} />
+</Deep>
+
+<p>Columnar requires every row to have the same columns, and that does not always match what the store keeps. What is left is to see how to organize the data when each customer has their own set of columns and what matters most is writing a lot, fast.</p>
+
+<Flashcards cards={[
+  { q: "How does the columnar model store the <code>pedidos</code> table?",
+    a: "One file per column, with all its values in sequence. Position ties the files together: order 1042 is the 2nd value in each." },
+  { q: "How many files does <code>SUM(valor)</code> open?",
+    a: "Just one, the <code>valor</code> one. The sum is R$ 406.40." },
+  { q: "Why does the <code>cidade</code> column compress so well?",
+    a: "It has few different values (Rio, Recife, SP). The dictionary swaps each for a number, and with the rows sorted the repetitions (SP×3) take almost nothing." },
+  { q: "What is the weak point of columnar?",
+    a: "Reading or writing a whole order touches every file (6 in the store's table)." },
+]} />

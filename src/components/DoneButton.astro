@@ -1,12 +1,14 @@
 ---
 // Fim da aula: botão "Entendi" (estado salvo pelo focus-mode.js), mensagem e navegação anterior/próxima.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 interface NavLink { href: string; label?: string; primary?: boolean }
 interface Props { prev?: string; next?: string; final?: NavLink }
 const { prev, next, final } = Astro.props;
 const finalLabel = final?.label?.replace(/\s*→$/, '');
 ---
 <div class="lesson-end">
-  <button type="button" class="btn big primary done-btn" aria-pressed="false">Entendi esta aula<i class="ico ico-check" aria-hidden="true"></i></button>
+  <button type="button" class="btn big primary done-btn" aria-pressed="false">{T.done}<i class="ico ico-check" aria-hidden="true"></i></button>
   <p class="done-msg" role="status" aria-live="polite"></p>
-  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev"><i class="ico ico-prev" aria-hidden="true"></i>Aula anterior</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">Próxima aula<i class="ico ico-next" aria-hidden="true"></i></a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{finalLabel}<i class="ico ico-next" aria-hidden="true"></i></a>}</div>
+  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev"><i class="ico ico-prev" aria-hidden="true"></i>{T.prevLesson}</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">{T.nextLesson}<i class="ico ico-next" aria-hidden="true"></i></a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{finalLabel}<i class="ico ico-next" aria-hidden="true"></i></a>}</div>
 </div>

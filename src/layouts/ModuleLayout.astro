@@ -9,6 +9,8 @@ import '../styles/widgets.css';
 import '../styles/glossary.css';
 import Glossary from '../components/Glossary.astro';
 import { glossaries } from '../data/glossary.js';
+import { glossariesEn } from '../data/glossary.en.js';
+import { t as tr, langOf, otherLangPath, hasEn } from '../lib/i18n.js';
 
 interface LessonRef { id: string; title: string }
 interface Props {
@@ -22,22 +24,25 @@ interface Props {
   terms?: typeof glossaries[string]; // glossário próprio (a página do sistema de design usa)
 }
 const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
-const terms = Astro.props.terms ?? glossaries[module] ?? [];
-const label = `${heading} · ${lessons.length} tópicos`;
+const T = tr(Astro.url), en = langOf(Astro.url) === 'en';
+const terms = Astro.props.terms ?? (en ? glossariesEn : glossaries)[module] ?? [];
+const label = `${heading} · ${T.topics(lessons.length)}`;
 ---
 <BaseLayout title={title} description={description}>
   <Fragment slot="head">
     <slot name="head" />
+    <!-- números de destaque dos widgets em 7 segmentos (public/shared/readouts.js) -->
+    <script is:inline defer src={withBase('shared/readouts.js')}></script>
     <!-- módulos são deferidos: no head rodam antes do script da figura, como no site antigo -->
     <script>
       import '../scripts/focus-mode.js';
       import '../scripts/glossary.js';
     </script>
   </Fragment>
-  <div class="sdl-top"><a class="sdl-brand" href={withBase('')} aria-label="SDLabs: voltar para os módulos">SDLabs</a><span class="label">{lessons.length} aulas<span class="sdl-top-more">{terms.length > 0 && ' · glossário'}{quizHref && ' · quiz'}</span></span></div>
+  <div class="sdl-top"><a class="sdl-brand" href={withBase(en ? 'en/' : '')} aria-label={T.brandAria}>SDLabs</a><span class="label">{T.lessons(lessons.length)}<span class="sdl-top-more">{terms.length > 0 && ` · ${T.glossaryLower}`}{quizHref && ' · quiz'}</span></span>{(en || hasEn(module)) && <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang={en ? 'pt-BR' : 'en'} aria-label={T.switchAria}>{T.switchTo}</a>}</div>
   <header class="sdl-hero">
     <h1>{heading}</h1>
-    <div class="sdl-lead"><p id="sdl-lead">{lead}</p><button type="button" class="sdl-lead-more" aria-expanded="false" aria-controls="sdl-lead" hidden><span>mais</span><i class="ico ico-down" aria-hidden="true"></i></button></div>
+    <div class="sdl-lead"><p id="sdl-lead">{lead}</p><button type="button" class="sdl-lead-more" aria-expanded="false" aria-controls="sdl-lead" data-more={T.more} data-less={T.less} hidden><span>{T.more}</span><i class="ico ico-down" aria-hidden="true"></i></button></div>
   </header>
   <script is:inline>
     // celular: a descrição fica numa linha; "mais" abre o resto. Sem JS ela aparece inteira.
@@ -49,27 +54,27 @@ const label = `${heading} · ${lessons.length} tópicos`;
       fit(); addEventListener('resize', fit);
       b.addEventListener('click', function () {
         var open = b.getAttribute('aria-expanded') !== 'true';
-        b.setAttribute('aria-expanded', String(open)); p.classList.toggle('open', open); b.firstChild.textContent = open ? 'menos' : 'mais';
+        b.setAttribute('aria-expanded', String(open)); p.classList.toggle('open', open); b.firstChild.textContent = open ? b.dataset.less : b.dataset.more;
       });
     })();
   </script>
   <main class="sdl-content" data-module={module}>
     <div class="sdl-progress">
       <div class="pg-row">
-        <button type="button" class="pg-step" data-pg="prev" aria-label="Aula anterior"></button>
+        <button type="button" class="pg-step" data-pg="prev" aria-label={T.prevLesson}></button>
         <button type="button" class="pg-status" aria-expanded="false" aria-controls="sdl-panel"><span class="pg-text">{label}</span><span class="pg-caret" aria-hidden="true"></span></button>
-        <button type="button" class="pg-step" data-pg="next" aria-label="Próxima aula"></button>
-        {quizHref && <a class="pg-quizbtn" href={quizHref} aria-label="Fazer o quiz do módulo">Quiz</a>}
+        <button type="button" class="pg-step" data-pg="next" aria-label={T.nextLesson}></button>
+        {quizHref && <a class="pg-quizbtn" href={quizHref} aria-label={T.quizAria}>{T.quiz}</a>}
       </div>
       <div class="pg-meter">
-        <div class="pg-track" role="progressbar" aria-label="Aulas entendidas" aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
+        <div class="pg-track" role="progressbar" aria-label={T.progress} aria-valuemin="0" aria-valuemax={lessons.length} aria-valuenow="0"></div>
         <span class="pg-count">0/{lessons.length}</span>
       </div>
       <div class="pg-panel" id="sdl-panel">
-        {quizHref && <a class="btn big primary pg-quiz" href={quizHref}>Fazer o quiz do módulo<i class="ico ico-next" aria-hidden="true"></i></a>}
-        <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>Ver tudo em uma página</span><i aria-hidden="true"></i></button>
-        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>Glossário ({terms.length} termos) <i class="ico ico-down" aria-hidden="true"></i></button>}
-        <nav class="toc" aria-label="Aulas do módulo">
+        {quizHref && <a class="btn big primary pg-quiz" href={quizHref}>{T.quizCta}<i class="ico ico-next" aria-hidden="true"></i></a>}
+        <button type="button" class="pg-switch" role="switch" aria-checked="false"><span>{T.onePage}</span><i aria-hidden="true"></i></button>
+        {terms.length > 0 && <button type="button" class="pg-glossary" data-gl-open>{T.glossary} ({T.terms(terms.length)}) <i class="ico ico-down" aria-hidden="true"></i></button>}
+        <nav class="toc" aria-label={T.toc}>
           <p class="toc-title label">{label}</p>
           <ol>
             {lessons.map((l, i) => <li><a href={`#${l.id}`}><span>{i + 1}</span> {l.title}</a></li>)}
@@ -81,5 +86,5 @@ const label = `${heading} · ${lessons.length} tópicos`;
     <slot />
     {terms.length > 0 && <Glossary terms={terms} lessons={lessons} />}
   </main>
-  <footer class="sdl-credit">Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</footer>
+  <footer class="sdl-credit" set:html={T.credit}></footer>
 </BaseLayout>

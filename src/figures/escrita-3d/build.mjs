@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(HERE, p), "utf8");
 let s = read("../../../tools/iso-glow/gallery-3d.html");
+const EN = process.env.FIG_LANG === "en";   // versão em inglês: lê fig3d.en.js e grava em public/en/labs/ (tools/build-3d-en.mjs)
 
 const css = `
 #info{pointer-events:auto;max-width:min(470px,calc(100vw - 230px));max-height:calc(100vh - 150px);overflow:auto;bottom:44px;font:13px/1.55 ui-sans-serif,system-ui,sans-serif}
@@ -59,11 +60,12 @@ const reps = [
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
   ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-8-dual-write-pattern">Voltar ao módulo</a>\n<div class="ui" id="info">'],
-  ["/* paste 3D figure modules here */", read("fig3d.js")],
+  ["/* paste 3D figure modules here */", read(EN ? "fig3d.en.js" : "fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }
 s = s.replace('<html lang="en">', '<html lang="pt-BR">');
-const OUT = join(HERE, "../../../public/labs/cqrs/escrita-3d");
+if (EN) s = s.replace('<html lang="pt-BR">', '<html lang="en">').replaceAll("../../../shared/", "../../../../shared/").replace("shared/ui.pt.js", "shared/ui.en.js");
+const OUT = join(HERE, "../../../public/" + (EN ? "en/" : "") + "labs/cqrs/escrita-3d");
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, "index.html"), s);
 console.log("wrote", join(OUT, "index.html"), (s.length / 1024).toFixed(0) + " KB");

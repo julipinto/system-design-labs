@@ -1,0 +1,111 @@
+---
+title: "Cache-aside, write-through, write-behind and CDN"
+order: 6
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson left open the question of who fills the cache and who updates it when the price changes. There are three classic answers, and the difference between them is the order in which the app talks to the cache and to the database. The order decides what Lena reads and, when something goes down, what the store loses.</p>
+
+<OneLiner>Cache-aside reads from the cache and, on a miss, fetches from the database and stores; write-through writes to the database and the cache in the same operation; write-behind writes only to the cache and lets a queue write to the database later.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Through</strong> mode, step through the double write (the price change to 79.90) and see <strong>where the new price shows up first</strong> and how long the write takes. Then switch to <strong>Behind</strong> mode (delayed write), step until Redis goes down before the queue empties and watch what the database says at the end.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cache/cache-3d/?mode=through" poster="labs/cache/cache-3d-previa.webp" title="Interactive figure: double write to Redis and the database, and delayed write with a queue" alt="Preview of the 3D figure: the app, Redis and the database with produto:42; the panel shows 10 requests, 8 hits and 2 misses" hint="Drag to rotate · use ← → or Next step · switch the mode in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Cache-aside (read on demand).</strong> The app asks the cache. On a miss, it reads the database (40 ms), stores the copy with a 60 s TTL and answers. The next request is a hit, in 1 ms. The cache only has what someone already asked for, and the app runs everything.</li>
+  <li><strong>Write-through (double write).</strong> The price changes to 79.90. The app writes to the <strong>database</strong> and, in the same operation, to the <strong>cache</strong>. The write takes the sum of both (in the example, 40 + 1 = 41 ms), and in return no read sees 89.90 again.</li>
+  <li><strong>The order matters.</strong> Writing the database first and the cache after is the safe order. If the cache fails, the old 89.90 stays until the TTL expires (or until a <code>DEL</code>). In the reverse order, the cache would hold a 79.90 the database never received, and the store would sell a price that doesn't exist.</li>
+  <li><strong>Write-behind (delayed write).</strong> The app writes <strong>only to the cache</strong> (1 ms) and answers "saved". A queue and a separate process pass the 79.90 to the database later. The write is the fastest, and the database lags behind the cache until the queue empties.</li>
+  <li><strong>What if Redis goes down before the queue empties?</strong> The 79.90 disappears along with the queue. The database still says 89.90, and the store owner thinks the price changed. It's the only one of the three strategies where acknowledged data is lost.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Strategy</th><th>Read</th><th>Write</th><th>What can go wrong</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Cache-aside</th><td>Hit 1 ms; miss 41 ms</td><td>Goes to the database; the cache waits for TTL or <code>DEL</code></td><td>Stale data until the TTL</td></tr>
+    <tr><th scope="row">Write-through</th><td>Always fresh</td><td>40 + 1 = 41 ms</td><td>Cache fails after the database: stale data</td></tr>
+    <tr><th scope="row">Write-behind</th><td>Always fresh in the cache</td><td>1 ms</td><td>Cache goes down before the queue: lost write</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cache-aside and write-through get along well, and that's what most stores do: read on demand and, when the price changes, write to both. This is the cache-aside snippet, adapted from the article's example to the store (the article's has two errors, explained in Go deeper):</p>
+
+<pre><code>{String.raw`valor, err := rdb.Get(ctx, "produto:"+id).Result()
+if err == redis.Nil { // miss: the cache doesn't have the key
+	err = db.QueryRow("SELECT preco FROM produtos WHERE id = ?", id).Scan(&valor)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// store with a 60 s TTL (0 would store forever)
+	rdb.Set(ctx, "produto:"+id, valor, 60*time.Second)
+}`}</code></pre>
+
+<p>There is also a cache that sits far from the app and close to Lena. Lena opens the page's photo <code>gato.jpg</code> (120 KB), and the photo origin is in São Paulo. A CDN keeps copies on servers spread around (the edges), and it follows the same reasoning as cache-aside: on the 1st access the Recife edge doesn't have the photo (<code>X-Cache: MISS</code>), fetches it from the origin (~50 ms round trip to São Paulo, ~55 ms total for Lena) and stores it. On the 2nd access it answers by itself (<code>X-Cache: HIT</code>), in about <strong>5 ms</strong>, with <code>Age: 12</code>. The TTL here comes from the origin, in the header <code>Cache-Control: public, max-age=3600</code>.</p>
+
+<WhyItMatters>
+  <li>Cache-aside is the starting point when you read far more than you write. It's simple, and if the cache goes down the app goes straight to the database.</li>
+  <li>Write-through fits when the read right after the write has to be fresh. The cost is a slower write and a cache full of data that maybe nobody asks for.</li>
+  <li>Write-behind fits what can be lost: a visit counter, not the price.</li>
+  <li>The CDN does for the photo what Redis does for the product, only closer to Lena. With 55 ms against 5 ms, the difference is visible to the naked eye.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Two other combinations</h4>
+  <ul>
+    <li><strong>Read-through:</strong> the app only talks to the cache, and the cache itself goes to the database on a miss.</li>
+    <li><strong>Write-around:</strong> the write goes only to the database, and the cache updates on the next miss.</li>
+  </ul>
+  <h4 class="deep-h">Corrections to the source article's examples</h4>
+  <ul>
+    <li>In cache-aside, the article compares the error with <code>rdb.Nil</code>. The <code>rdb</code> client has no such field: the right one is <code>redis.Nil</code>, and as it stands the code doesn't compile. The same example writes with TTL <code>0</code>, which in the Go client means "no expiration", against what the article argues about TTL.</li>
+    <li>In write-through, the article writes <code>"pedido:"+pedidoID</code> to the database's <code>id</code> column, but reads the database with the bare <code>pedidoID</code>. The cache key (<code>pedido:1</code>) and the database id (<code>1</code>) are different things, and the prefix only applies in the cache.</li>
+    <li>The write-through text talks about the database failing after the cache is written, but the code writes the database first, which is the safe order.</li>
+  </ul>
+  <h4 class="deep-h">Reading the CDN headers</h4>
+  <ul>
+    <li><code>public</code> lets shared caches, like the CDN, store the response (a <code>private</code> would stay only in the browser).</li>
+    <li><code>max-age=3600</code> says the response is fresh for 3600 s.</li>
+    <li><code>Age: 12</code> is the estimate, in seconds, of the time since the origin generated or validated the response (RFC 9111).</li>
+    <li><code>X-Cache: HIT</code> and <code>MISS</code> are <strong>not standard</strong>. Each CDN picks its own name: Cloudflare uses <code>cf-cache-status</code>, with HIT, MISS, EXPIRED and REVALIDATED.</li>
+  </ul>
+  <h4 class="deep-h">When the photo changes</h4>
+  <p>With <code>max-age=3600</code>, the new photo only shows up after up to an hour. Two ways out: change the file name when the photo changes (<code>gato-v2.jpg</code>) or ask the CDN to delete the copy. The article says these invalidation routines are almost indispensable in a continuous delivery flow.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Caching (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/caching/" },
+    { label: "AWS: database caching patterns with Redis (lazy loading and write-through)", href: "https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html" },
+    { label: "Microsoft Azure: cache-aside pattern", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cache-aside" },
+    { label: "GeeksforGeeks: write-through and write-back", href: "https://www.geeksforgeeks.org/write-through-and-write-back-in-cache/" },
+    { label: "MDN: Cache-Control header", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control" },
+    { label: "Cloudflare: the cf-cache-status header and cache responses", href: "https://developers.cloudflare.com/cache/concepts/cache-responses/" },
+  ]} />
+</Deep>
+
+<p>The CDN stored the 120 KB gato.jpg in Recife following a few rules: a key, a file, a deadline. What's left to find out is how one of these is written, line by line, and what an 85-line proxy still doesn't do.</p>
+
+<Flashcards cards={[
+  { q: "How does cache-aside work?",
+    a: "The app asks the cache. On a miss, it reads the database, stores the copy with a TTL and answers. The next request is a hit." },
+  { q: "What does write-through do with the change to 79.90?",
+    a: "It writes to the database and the cache in the same operation. The write is slower (40 + 1 ms) and the read never sees 89.90." },
+  { q: "Why write the database before the cache?",
+    a: "If the cache fails, the worst case is stale data for a while. In the opposite order, the cache would hold a price the database never received." },
+  { q: "What is lost in write-behind when Redis goes down?",
+    a: "The writes that were still in the queue. The 79.90 disappears and the database stays at 89.90." },
+  { q: "What do X-Cache and Age say in the CDN response?",
+    a: "X-Cache: HIT or MISS (a conventional name, not a standard). Age: 12 says the copy is about 12 s old since the origin generated or validated it." },
+]} />

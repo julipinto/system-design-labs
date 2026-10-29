@@ -1,0 +1,69 @@
+---
+title: "Tuple model (row-based)"
+order: 4
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson ended on a question: how is Lena's order 1042 stored inside? In the most traditional model, the tuple model, it is a whole row, with all the fields together. Let's see what that choice makes easy and what it makes expensive.</p>
+
+<OneLiner>In the tuple model, each row of the table is written whole and in sequence (id, cliente, produto, qtd, valor, cidade), inside fixed-size pages; so reading or writing a whole order is cheap and summing one column across all orders is expensive.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Row model</strong> mode, find order 1042 and see which page it is on. Then step forward to <code>SELECT SUM(valor) FROM pedidos</code> and count how many pages were read.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=row" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: the pedidos table stored row by row in 8 KB pages" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The database stores the <code>pedidos</code> table in <strong>8 KB pages</strong>. In the figure, each row takes ~2 KB (an example, to keep the math round), so <strong>4 rows fit per page</strong>: 1041, 1042, 1043 and 1044 on page 1, and 1045 and 1046 on page 2.</li>
+  <li>Inside the page, the fields of each row sit side by side: <code>1042 | Lena | gato de pelúcia | 1 | 89.90 | Recife</code>. Whoever reads 1042 gets the whole row at once.</li>
+  <li>For <code>SELECT * FROM pedidos WHERE id = 1042</code>, the database reads <strong>page 1 (8 KB)</strong> and returns the row. To write a new order, it appends a row to the page that has space. To change the price, it rewrites the whole row.</li>
+  <li>Now the finance team's question: <code>SELECT SUM(valor) FROM pedidos</code>, which gives <strong>R$ 406.40</strong>. The database only wants the <code>valor</code> field, but it sits inside each row. It has to read the <strong>2 pages</strong> (16 KB) to add up 6 numbers.</li>
+  <li>The pages read stay in a cache in memory. If Lena opens her account again, page 1 is already there and the disk is not even touched.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The store's day-to-day operations take one order at a time: create, look up 1042, fix an address. The whole row in a single page is the right format for that.</li>
+  <li>When the question looks at <strong>one column across many rows</strong> (the sum of all values), the tuple model reads data it will not use. Lesson 6 shows the format that avoids this.</li>
+  <li>Most relational databases (PostgreSQL, MySQL, SQL Server) are row-based. When someone says "SQL database" with no further detail, this is the format behind it.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The numbers in the scene (example)</h4>
+  <ul>
+    <li>A ~2 KB row and an 8 KB page: 4 rows per page. A real order row is usually much smaller (on the order of 100 bytes), so dozens of rows fit per page. The 2 KB is there to keep the figure readable.</li>
+    <li>With 6 rows: 2 pages. The sum reads 2 pages, and so does <code>WHERE id = 1042</code> without an index.</li>
+    <li>Besides the rows, each page holds a header and a table of positions. That is why slightly fewer fit than dividing 8 KB by the row size suggests.</li>
+  </ul>
+  <h4 class="deep-h">And the rest of the order?</h4>
+  <p>In a real store, customer, order and order items live in different tables, linked by foreign keys. To build Lena's bill the database does a <code>JOIN</code>, and lesson 5 shows what changes when all of that fits in a single document.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "PostgreSQL: database page layout", href: "https://www.postgresql.org/docs/current/storage-page-layout.html" },
+    { label: "Microsoft: pages and extents architecture guide", href: "https://learn.microsoft.com/en-us/sql/relational-databases/pages-and-extents-architecture-guide?view=sql-server-ver17" },
+    { label: "Codd (1970): A Relational Model of Data for Large Shared Data Banks", href: "https://www.seas.upenn.edu/~zives/03f/cis550/codd.pdf" },
+  ]} />
+</Deep>
+
+<p>Order 1042 belongs to Lena, who also has 1044, and in the tuple model the two are loose rows that the database only joins at query time. What is left is to see what it would be like to store Lena and her orders as a single object.</p>
+
+<Flashcards cards={[
+  { q: "How does the tuple model store a row?",
+    a: "Whole and in sequence: all the order's fields side by side, inside a page." },
+  { q: "How many rows fit in an 8 KB page in the figure, and why?",
+    a: "4, because each row takes ~2 KB in the example. The 6 rows take 2 pages." },
+  { q: "How many pages does <code>SUM(valor)</code> read in the row model, and what is the result?",
+    a: "Both pages (16 KB), even though it only needs the <code>valor</code> field. The sum is R$ 406.40." },
+  { q: "What kind of operation is the tuple model great for?",
+    a: "Transactional operations on one record at a time: create, read, update and delete an order." },
+]} />

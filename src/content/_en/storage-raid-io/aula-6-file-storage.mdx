@@ -1,0 +1,73 @@
+---
+title: "File Storage"
+order: 6
+min: 3
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>The volume from the last lesson holds the 600 blocks of gato.jpg and nothing else: no name, no folder. Someone has to keep the map that links the name to the blocks. That someone is the filesystem, and what it delivers is file storage.</p>
+
+<OneLiner>file storage organizes data into named folders and files, and the filesystem bridges those names and the disk's blocks.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> and watch gato.jpg get a name, a folder path and a record with size, owner and date.</p>
+</DoIt>
+<Figure3D path="en/labs/storage-raid-io/storage-3d/?mode=file" poster="labs/storage-raid-io/storage-3d-previa.webp" title="Interactive figure: the same photo saved with file storage" alt="Preview of the 3D figure: a volume of numbered blocks (LBA 2048, 2049…), with only block 2048 being rewritten" hint="Drag to rotate · Next step or ← → to advance · switch the storage type in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Data lives in a <strong>folder tree</strong>: <code>/produtos/gatos/gato.jpg</code>. The store uses a managed file storage (AWS's <strong>EFS</strong>), and the three servers mount the same tree at <code>/mnt/efs</code>.</li>
+  <li>The <strong>path + name</strong> identifies the file. Two files can't have the same name in the same folder.</li>
+  <li>To open the file, the system walks folder by folder: root, <code>produtos</code>, <code>gatos</code>, <code>gato.jpg</code>. In each folder it checks whether the server may enter (the <code>x</code> in rwx).</li>
+  <li>On arrival comes the file's record, the <strong>metadata</strong>: owner <code>loja</code>, group <code>web</code>, permission <code>rw-r--r--</code>, 2,457,600 bytes, date. On Linux, that record is the <strong>inode</strong> (gato.jpg's is 1311), which points to blocks 2048 to 2647.</li>
+  <li>Two servers want to edit the same photo? The system gives a <strong>lock</strong> to the first one, and the second waits. Without that, the writes would get mixed up.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>It is what people and programs already know: open, save, move, set permissions. Renaming the <code>gatos</code> folder to <code>felinos</code> is a single operation, with 1 photo or 1 million inside.</li>
+  <li>It works well for shared data organized in folders, like the product photos the team edits.</li>
+  <li>The hierarchy complicates scale: listing a folder with millions of files gets slow.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Seeing the inode</h4>
+  <pre><code>{"ls -li /dados/produtos/gatos/gato.jpg\nstat /dados/produtos/gatos/gato.jpg\nfilefrag -v /dados/produtos/gatos/gato.jpg\n# stat: size, block count, inode, owner, permissions and dates\n# filefrag: which volume blocks the file sits in"}</code></pre>
+  <h4 class="deep-h">Common filesystems</h4>
+  <ul>
+    <li><strong>ext4:</strong> the Linux default, simple and stable.</li>
+    <li><strong>XFS:</strong> good for large files and heavy concurrency.</li>
+    <li><strong>NTFS:</strong> Windows's.</li>
+  </ul>
+  <h4 class="deep-h">Block vs file</h4>
+  <p>Block storage keeps blocks and doesn't know what a file is. The filesystem is the layer that gives those blocks a name and a folder. In file storage, the server (NAS or EFS) delivers that over the network.</p>
+  <h4 class="deep-h">RAID underneath</h4>
+  <p>It is common for the file server to keep its data on a RAID (lessons 8 to 13), for speed and fault tolerance.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on storage", href: "https://fidelissauro.dev/storage/" },
+    { label: "Red Hat: file, block and object storage", href: "https://www.redhat.com/en/topics/data-storage/file-block-object-storage" },
+    { label: "Arch Wiki: file systems", href: "https://wiki.archlinux.org/title/File_systems" },
+    { label: "AWS: difference between block, file and object storage", href: "https://aws.amazon.com/compare/the-difference-between-block-file-object-storage/" },
+  ]} />
+</Deep>
+
+<p>The tree works well for a few photo folders. But the store has 500,000, and each level of the tree is a lookup. Next, how to store millions of files with no tree at all: object storage.</p>
+
+<Flashcards cards={[
+  { q: "How is a file identified?",
+    a: "By the path plus the name, and there can't be two equal names in the same folder." },
+  { q: "What is an inode?",
+    a: "The file's record on Linux: size, owner, dates and where the blocks are." },
+  { q: "What does the filesystem do?",
+    a: "It turns the disk's blocks into named files and folders." },
+  { q: "What is file storage's weak point at large scale?",
+    a: "The hierarchy: folders with millions of files get slow." },
+]} />

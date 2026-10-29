@@ -1,0 +1,71 @@
+---
+title: "Key-value model"
+order: 8
+min: 4
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson still had partitions, families and columns to organize. Now take all of that away: what if the database only knew how to store a value under a name and return it when you say the name? It is the simplest model there is, and it is what holds Lena's cart and session.</p>
+
+<OneLiner>In the key-value model, the database stores (key, value) pairs, finds any value directly by its key and treats the value as a closed block that it does not open.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Key-value</strong> mode, ask for <code>carrinho:lena</code> and watch the answer arrive all at once. In the last step, try asking "which carts have a plush cat?" and see why the database cannot answer on its own.</p>
+</DoIt>
+
+<Figure3D path="en/labs/databases/modelos-3d/?mode=kv" poster="labs/databases/modelos-3d-previa.webp" title="Interactive figure: the key carrinho:lena returning a closed value" alt="Preview of the 3D figure: the six orders stored as rows, in two 8 KB pages, with Lena's row 1042 lit up" hint="Drag to rotate · use ← → or Next step · switch the model in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena puts the plush cat in her cart. The program writes the pair <code>carrinho:lena → {`{1042}`}</code>. The key is a name the program builds and knows; the value is whatever it wants to store.</li>
+  <li>Her login session is another pair: <code>sessao:lena → tok_9f3a</code> (an example token). It can have an expiry, and the database deletes the pair on its own when the time runs out.</li>
+  <li>To read, the program gives the key and the database returns the value. <strong>There is no scan</strong>: the key leads straight to the spot (lesson 13 shows how, with hashing).</li>
+  <li>The value is an <strong>opaque block</strong> (text, number, JSON, a file): the database does not know what is inside. Asking "which carts have 1042?" forces the program to read all of them.</li>
+  <li>Since each pair is independent, it is easy to split the keys across several servers. The database uses the key's hash to pick the server, and to grow it only has to move part of the keys (consistent hashing).</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>For sessions, carts, cache and counters, the question is always "give me the value of this key". Nothing is faster.</li>
+  <li>The simplicity has a cost: the database does not help search, filter or join. If the new question is not "this key", the program does the work.</li>
+  <li>Redis, Valkey and Memcached are the best-known examples, in memory. DynamoDB, MongoDB and others can also be used as key-value, when modeled that way.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What goes in the value</h4>
+  <ul>
+    <li>Text, numbers and booleans.</li>
+    <li>JSON or other serialized formats.</li>
+    <li>Structures the database understands, in some products (lists, sets, counters), which is already a step beyond the opaque value.</li>
+  </ul>
+  <h4 class="deep-h">Memory and durability</h4>
+  <p>When the pair lives only in RAM, restarting the server wipes everything. That is why the cart and the session can live there (if they vanish, Lena starts over), and the <strong>confirmed order</strong> goes to the durable database.</p>
+  <h4 class="deep-h">Access</h4>
+  <p>The protocol is usually simple (commands over TCP or a REST API). Few features, little that can go wrong.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Databases (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/databases/" },
+    { label: "Redis: data types", href: "https://redis.io/docs/latest/develop/data-types/" },
+    { label: "Wikipedia: key-value database", href: "https://en.wikipedia.org/wiki/Key%E2%80%93value_database" },
+    { label: "Wikipedia: consistent hashing", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+  ]} />
+</Deep>
+
+<p>In a key-value pair each thing lives alone and none knows about the others. What is left is to see how to store the links between Lena, the plush cat and Bia, to answer "whoever bought this also bought that".</p>
+
+<Flashcards cards={[
+  { q: "What does a key-value database know how to do?",
+    a: "Store a value under a key and return it when you say the key. Nothing more." },
+  { q: "Why is the value called opaque?",
+    a: "Because the database does not look at what is inside. Filtering by content is the program's job." },
+  { q: "Which pairs does the store keep for Lena?",
+    a: "<code>carrinho:lena → {1042}</code> and <code>sessao:lena</code> → login token." },
+  { q: "How are keys spread across servers?",
+    a: "The key's hash picks the server. With consistent hashing, when a server is added only part of the keys change place." },
+]} />

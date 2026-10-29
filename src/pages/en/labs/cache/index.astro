@@ -1,0 +1,36 @@
+---
+// Caching Strategies module (English): the 7 lessons in src/content/_en/cache/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/cache.css';
+
+const entries = (await getCollection('en-cache')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/cache/quiz/');
+---
+<ModuleLayout
+  title="Caching Strategies · SDLabs"
+  description="Caching strategies: hit and miss, TTL, LRU, LFU and FIFO eviction, hit rate, hashmap and Redis, cache-aside, write-through, write-behind and CDN, with interactive labs."
+  module="cache"
+  heading="Caching Strategies"
+  lead="The plush cat page got slow because everyone opens it. How the store keeps a copy close to whoever asks, how long it can go stale, and what happens when something goes down."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/cache/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

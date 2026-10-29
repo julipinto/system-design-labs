@@ -1,0 +1,80 @@
+---
+title: "The components of CAP"
+order: 4
+min: 5
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In lessons 1 and 3 we talked about "consistent" and "available" databases by intuition. The theorem only holds with exact definitions, and each letter of CAP has its own. Let's take them one at a time, with the plush cat scene.</p>
+
+<OneLiner>In CAP, C is "all replicas look like a single copy", A is "every request to a live node gets an answer" and P is "the system keeps working even with messages lost between nodes".</OneLiner>
+
+<DoIt>
+  <p>In the figure, leave the network healthy and make sale #101. Then cut the cable, make purchase #102 and read from each node. For each read, ask: <strong>did an answer come back?</strong> (A) and <strong>is it the newest value?</strong> (C).</p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=ap" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, choosing availability (AP)" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>C, consistency (linearizable).</strong> Once the write <code>estoque 3, v3</code> (#102) finishes, any read, on any node, sees v3 or something newer. It never goes back to <code>4, v2</code>. It's the illusion that there is only one copy.</li>
+  <li><strong>A, availability.</strong> C demands the newest data. A demands only an answer: every request to a live node gets an answer that is <strong>not an error</strong>, even if the value is old. Recife's 503 in lesson 1 doesn't count as an answer.</li>
+  <li><strong>P, partition tolerance.</strong> This is what makes C and A collide. A partition is when the network loses or delays messages between groups of nodes, and all of them stay alive. Recife is fine, it just can't hear Rio or SP.</li>
+  <li><strong>The quorum helps with C.</strong> With 3 copies, write to W = 2 and read from R = 2. Since R + W = 4 is greater than 3, every read touches at least one copy with the new write. Reading from Rio (3, v3) and Recife (4, v2), the highest version wins: v3.</li>
+  <li><strong>With these three definitions, P isn't optional.</strong> Networks fail. So in practice the choice is what to do <em>during</em> the partition: refuse (C) or answer with what you have (A).</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>The two "C"s, again</h3>
+  <p>Lesson 2 already warned you: the <strong>C in CAP</strong> is linearizability across replicas, the <strong>C in ACID</strong> is the database respecting its rules. A single database respects the C in ACID and has no replicas to disagree. A replicated, linearizable database can accept a negative balance if nobody created the rule. They are different questions.</p>
+</div>
+
+<WhyItMatters>
+  <li>Without defining C and A precisely, "we are CP" or "we are AP" turns into a slogan. The theorem only holds with the definitions above.</li>
+  <li>"Available" in CAP is also stricter than 99.9% uptime: <strong>every</strong> request to a live node needs an answer.</li>
+  <li>The quorum helps, but it proves nothing on its own: you pick R and W according to what each operation can tolerate.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Quorum math with N = 3</h4>
+  <ul>
+    <li><strong>W = 2, R = 2:</strong> R + W = 4 &gt; 3. The read always overlaps with a new copy.</li>
+    <li><strong>W = 1, R = 1:</strong> R + W = 2 &le; 3. Fast, but the read can land on an old copy (stale read).</li>
+    <li><strong>W = 3:</strong> the write only counts with all three. If Recife goes down, writes fail: consistency paid for with availability.</li>
+  </ul>
+  <h4 class="deep-h">Is a quorum alone linearizable?</h4>
+  <p>Not always. In Dynamo-style systems, concurrent writes, clocks and background repairs create cases where R + W &gt; N isn't enough for strict linearizability. Treat the quorum as "probably reads the newest", not as proof.</p>
+  <h4 class="deep-h">How a partition shows up in practice</h4>
+  <ul>
+    <li>A 3,000 ms timeout with no answer: the node doesn't know whether the other one went down or the network did.</li>
+    <li>That's why a partition is, at bottom, a time limit: the shorter the timeout, the sooner the system decides there is a partition.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Kleppmann: please stop calling databases CP or AP (definitions of C, A and P)", href: "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html" },
+    { label: "AWS: the CAP theorem", href: "https://docs.aws.amazon.com/pt_br/whitepapers/latest/availability-and-beyond-improving-resilience/cap-theorem.html" },
+  ]} />
+</Deep>
+
+<p>With C, A and P defined, what's left is to see how real systems combine these choices. That's what the CP, AP and CA combinations show.</p>
+
+<Flashcards cards={[
+  { q: "What is consistency in CAP?",
+    a: "Linearizability: after the write, every read sees the new value, as if there were a single copy." },
+  { q: "What is availability in CAP?",
+    a: "Every request to a live node gets an answer that is not an error." },
+  { q: "What is a network partition?",
+    a: "Live nodes that can't exchange messages: loss or delay on the network." },
+  { q: "With N = 3, W = 2 and R = 2, does the read see the newest write?",
+    a: "Yes: R + W = 4 > 3, so the read overlaps with at least one new copy." },
+  { q: "Are the C in CAP and the C in ACID the same?",
+    a: "No. CAP: replicas look like a single copy. ACID: the database respects its integrity rules." },
+]} />

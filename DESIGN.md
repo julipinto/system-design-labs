@@ -203,7 +203,7 @@ Grafite e tinta fria em quase tudo, com uma cor quente que só aparece onde há 
 - **Sinal** (signal / signal-light): segunda cor, só para dados: segunda série de um gráfico, bits, barras de limite, o rótulo da chamada "Por que" e a transação T1 no simulador. Nunca indica estado ativo.
 
 ### Tertiary
-- **Certo** (ok / ok-light): aula entendida, segmento concluído da régua, resposta certa no quiz, chamada "Para guardar".
+- **Certo** (ok / ok-light): resposta certa no quiz, check de aula entendida, chamada "Para guardar".
 - **Errado** (bad / bad-light): resposta errada, passo que dá errado no simulador, campo inválido.
 
 ### Neutral
@@ -214,7 +214,7 @@ Grafite e tinta fria em quase tudo, com uma cor quente que só aparece onde há 
 - **Traço forte** (line-strong / line-strong-light): borda de controle (3:1 com o chão nos dois temas), as réguas de "Em uma frase" e a borda do widget em uso.
 - **Tinta** (ink / ink-light): texto corrido.
 - **Tinta alta** (ink-hi / ink-hi-light): títulos, negrito, links em repouso, frase-ponte, caixa de marcar do quiz marcada.
-- **Apoio** (muted / muted-light): rótulos ("Em uma frase", "Aula N de T"), dicas, contador da régua.
+- **Apoio** (muted / muted-light): rótulos ("Em uma frase", "Aula N de T"), dicas, contador da trilha ("3/9", sans 600 com algarismos tabulares).
 - **Fraco** (faint / faint-light): marcadores de lista, números do índice e da home, módulo "em breve"; ainda legível (4,7:1 ou mais).
 - **Prancha** (plate): fundo das prévias e do iframe da figura 3D; escuro nos dois temas, porque a cena é escura.
 
@@ -244,10 +244,13 @@ Grafite e tinta fria em quase tudo, com uma cor quente que só aparece onde há 
 - **Body pequeno** (14,5px): dicas de widget, fontes, notas.
 - **Label** (sans 600, 14px, caixa normal, cor de apoio): "Em uma frase:", "Faça agora", "Comando real", título das fontes, rótulo do topo, "9 aulas". A linha "Aula N de T · Leitura ~min" usa sans 500 a 15px.
 - **Número de destaque** (sans 400, 26 a 80px, algarismos tabulares, unidade pequena em cor de apoio ao lado): fatos das calculadoras, pontuação do quiz.
-- **Data** (mono 600, 13px, algarismos tabulares): SQL, IP, comando, chave, contador da régua, saída de calculadora.
+- **Data** (mono 600, 13px, algarismos tabulares): SQL, IP, comando, chave, saída de calculadora.
+- **Mostrador** (desenho, não fonte): número de destaque de widget em 7 segmentos; nota do quiz em pontos de LED (5×7). Ver "Números de destaque".
 
 ### Named Rules
 **A Regra do Rótulo Comum.** Rótulo é texto em caixa normal, sem entreletra larga, sem ponto antes e sem cor de destaque (exceto o do "Faça agora", que é o ativo da aula). Caixa alta com entreletra larga não volta.
+
+**A Regra do Mostrador.** 7 segmentos e pontos de LED são para número de dado, nunca para palavra, título ou rótulo. 7 segmentos no widget; pontos só no placar do quiz.
 
 **A Regra do Mono para Dado.** Mono só para o que é dado, código ou medida. Mono como fantasia de "técnico" não entra.
 
@@ -310,8 +313,14 @@ Os ícones são desenhados em CSS ou SVG com traço, herdando a cor do texto; ne
 
 ### Navigation
 - **Barra de estado:** status em Atkinson 600 a 15px, botões quadrados de 48px com setas desenhadas, "Quiz" em sans. Aberto, o status ganha `--ring` e o caret vira e fica sódio.
-- **Régua:** não lida é traço de 4px em traço forte a 55%; entendida, o mesmo traço em verde; a atual sobe para 12px (10px no celular) em sódio, sem brilho; a atual entendida fica verde com contorno de sódio. O marco a cada 5 aulas é um risco de 1px no vão. Ao marcar "Entendi", o traço cresce e assenta de sódio para verde em 900ms.
+- **Trilha do pacote (signature):** uma estação redonda de 10px por aula, ligadas por trilha pontilhada. Não lida: estação vazia em traço forte. Entendida: estação cheia em tinta. O trecho já percorrido acende em tinta. O **pacote** (retângulo de 14×8, cantos de 2px, sódio; sódio de texto no tema claro) fica na aula atual e anda até a próxima em 700ms quando a pessoa avança. Ao marcar "Entendi", a estação dá um pulinho (escala 1,4 e volta). Com muitas aulas para a largura (menos de 26px por aula), estação e pacote encolhem para 8px e 10×6. Sem risco de escala, sem brilho.
 - **Índice:** linhas de 48px separadas por régua, número mono fraco à esquerda; a aula atual em sódio e peso 600; a concluída leva um check verde desenhado.
+
+### Números de destaque (signature)
+Dois mostradores desenhados em SVG por `public/shared/readouts.js`, por cima do texto que o widget e o quiz já escrevem; o leitor de tela lê o texto original.
+- **7 segmentos** nos widgets: o número que a pessoa está medindo (`.sr-fact b`, ou qualquer elemento com `data-seg7`). Só converte número com unidade curta ("92%", "450/s", "1,5 ms"); hash, nome e texto ficam em sans. Segmento apagado a 8%, inclinação leve, unidade pequena em sans na cor de apoio.
+- **Pontos de LED** só na nota do quiz (`.q-score`): "38/46" em matriz 5×7, sódio, pontos apagados a 9%. É o placar; não aparece em outro lugar.
+- Quando o mesmo número muda, os segmentos acesos entram em varredura (260ms, coluna por coluna).
 
 ### Prancha do widget (signature)
 Fundo de chão, traço fino, cantos de 10px, 24px de respiro (16px no celular). Título em sans 600 a 18px, sem ponto. Com o foco dentro, a borda passa a traço forte.
@@ -332,6 +341,14 @@ Termo com sublinhado pontilhado em traço forte; no hover ou aberto, fica sódio
 Tópicos como cartões com caixa de marcar desenhada (vazia em traço; marcada, cheia em tinta alta com check). Opções como botões de largura total com tecla mono num quadrado de 3px; escolha com `--ring`; certo e errado ganham contorno e um fundo com 12% da cor. Pontuação final como número de destaque (sans 300, até 80px).
 
 ## Do's and Don'ts
+
+### Movimento
+Todo movimento responde a algo que a pessoa fez; nada se mexe sozinho nem pulsa. Saída exponencial (`--ease-out`), sem quique.
+- **O momento principal:** o pacote anda pela trilha até a próxima aula (700ms).
+- **Respostas curtas:** botão afunda a 0,97 ao apertar (120ms); o check de "Entendi" se desenha (420ms); o título da barra entra de baixo quando a aula muda (360ms); a resposta do flashcard e a ficha do glossário se abrem de cima para baixo com recorte (360 a 380ms); número que muda entra em varredura.
+- `prefers-reduced-motion`: tudo vira troca instantânea.
+
+**A Regra do Pacote.** Só uma coisa anda de um lugar para outro na página: o pacote na trilha. O resto do movimento abre, fecha ou confirma no lugar.
 
 ### Do:
 - **Do** use `--accent-ink` para texto e traço ativos e `--accent-fill` para preenchimento.

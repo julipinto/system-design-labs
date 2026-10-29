@@ -1,6 +1,8 @@
 ---
 // Uma aula: <section class="lesson"> com número, título e tempo de leitura; o conteúdo MDX entra no slot
 // e o fim da aula (DoneButton com anterior/próxima) é posto aqui.
+import { t as tr } from '../lib/i18n.js';
+const T = tr(Astro.url);
 import DoneButton from './DoneButton.astro';
 interface NavLink { href: string; label?: string; primary?: boolean }
 interface Props {
@@ -14,7 +16,7 @@ const { id, n, total, title, min, prev, next, final } = Astro.props;
 <section class="lesson" id={id} data-min={min}>
   <header>
     <h2>{title}</h2>
-    <p class="lesson-meta"><span class="lesson-n">Aula {n} de {total}</span><span><span class="lm-word">Leitura </span>~{min} min</span><span class="lesson-done-tag">Entendida<i class="ico ico-check" aria-hidden="true"></i></span></p>
+    <p class="lesson-meta"><span class="lesson-n">{T.lessonOf(n, total)}</span><span><span class="lm-word">{T.reading}</span>~{min} min</span><span class="lesson-done-tag">{T.understood}<i class="ico ico-check" aria-hidden="true"></i></span></p>
   </header>
   <slot />
   <DoneButton prev={prev} next={next} final={final} />

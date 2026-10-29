@@ -1,0 +1,88 @@
+---
+title: "CAP combinations (CP, AP, CA)"
+order: 5
+min: 5
+---
+import Figure3D from '../../../components/Figure3D.astro';
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>With C, A and P well defined, we can put the combinations together. Which one does the plush cat store use? It depends on the operation, and the table below shows what each one costs.</p>
+
+<OneLiner>CP refuses requests during a partition to avoid mistakes, AP always answers and reconciles later, and CA only exists where there is no network between the nodes, like a single database.</OneLiner>
+
+<DoIt>
+  <p>In the figure, pick the <strong>CA</strong> mode and cut the network. See what happens with a single database and with two databases trying to act as one.</p>
+</DoIt>
+<Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=ca" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, the CA case" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
+
+<div class="sr-tablewrap" role="region" aria-label="Table comparing CP, AP and CA" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Combination</th><th>During the partition</th><th>Cost</th><th>At the plush cat store</th></tr></thead>
+  <tbody>
+    <tr><th>CP</th><td>The side without a quorum refuses requests (error or timeout)</td><td>Unavailable for some customers</td><td>Plush cat stock, Lena's transfers, balance</td></tr>
+    <tr><th>AP</th><td>All nodes answer, with the data they have</td><td>Stale reads and conflicts to resolve</td><td>Cart, search, recommendations, view counter</td></tr>
+    <tr><th>CA</th><td>Doesn't tolerate a partition: if the network breaks, the system stops or gets corrupted</td><td>Only works where there is no network between nodes</td><td>The single database from the store's early days</td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>CP.</strong> With the cable cut, Recife (without a majority) returns an error instead of taking a risk. Lena's brother waits a while with no answer, but the copies never diverge: in the end the stock is 2. etcd, Consul and ZooKeeper are the usual examples here.</li>
+  <li><strong>AP.</strong> Here Recife keeps selling and stores <code>estoque 3, v3b</code> (#103) locally, while SP and Rio store <code>3, v3a</code> (#102). When the network is back, the replicas compare versions and reconcile. Cassandra, DynamoDB and CouchDB are the usual examples here.</li>
+  <li><strong>CA.</strong> The third combination is what's left. A single PostgreSQL with the whole store is consistent and available, because there is no other replica to disagree with. If the server goes down, everything goes down. There is no partition tolerance because no partition is possible.</li>
+  <li><strong>In practice, CP and CA look alike:</strong> both lose availability when the network breaks. The real everyday choice is between CP and AP.</li>
+  <li>And that choice is made per operation: payment in CP, cart in AP. One system can mix them.</li>
+</ol>
+</HowItWorks>
+
+<div class="callout why" role="note">
+  <h3>The label is an approximation</h3>
+  <p>The database names above come with a caveat. Many databases let you tune how many replicas confirm the write (W) and how many answer the read (R), as in lesson 4. The same Cassandra can behave more like CP or more like AP depending on R and W, which is why the lists in articles sometimes contradict each other. Use the label to start the conversation, not to end it.</p>
+</div>
+
+<WhyItMatters>
+  <li>It gives you a vocabulary for the design decision: "for this operation, do I prefer to refuse or to answer with what I have?".</li>
+  <li>With it, the myth of having "everything" falls apart: in a distributed system the network fails, so CA is not a real option.</li>
+  <li>And it shows the hidden cost of each choice: an error for the customer (CP) or reconciliation later (AP).</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Examples cited in the source article</h4>
+  <ul>
+    <li><strong>CP:</strong> MongoDB, Couchbase, etcd, Consul, and Cassandra in some configurations.</li>
+    <li><strong>AP:</strong> CouchDB, DynamoDB, SimpleDB and Cassandra in some configurations.</li>
+    <li><strong>CA:</strong> MySQL, MariaDB, PostgreSQL, Oracle, SQL Server, Redis and Memcached as a single instance.</li>
+  </ul>
+  <h4 class="deep-h">Why CP and CA almost blur together</h4>
+  <p>Daniel Abadi argues that both lose availability in a partition. The only difference is that CP planned for it (refuses on purpose) and CA didn't think about the partition.</p>
+  <h4 class="deep-h">What you do afterward, in AP</h4>
+  <p>When the replicas can talk again, they reconcile with last-write-wins, vector clocks or CRDTs (lesson 3). The diverging stock (nodes saying 3, real 2) becomes a business problem: with last-write-wins Lena's #102 is lost, and with a merge someone has to write the rule. If the stock ran out, the store would have to cancel an order, apologize and give a coupon.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
+    { label: "Abadi (2010): problems with CAP", href: "http://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html" },
+    { label: "IBM: what is the CAP theorem", href: "https://www.ibm.com/br-pt/topics/cap-theorem" },
+  ]} />
+</Deep>
+
+<p>If the label is only an approximation, the very idea of "pick 2 of 3" deserves some suspicion. What's left is to see what the modern critiques of CAP say about it.</p>
+
+<Flashcards cards={[
+  { q: "What does a CP system do in a partition?",
+    a: "It refuses requests on the side without a quorum, to avoid risking inconsistent data." },
+  { q: "What does an AP system do in a partition?",
+    a: "All nodes answer with what they have and reconcile the differences later." },
+  { q: "Why doesn't CA really exist in a distributed system?",
+    a: "Because the network fails. CA only holds without a network between nodes, like a single database." },
+  { q: "Which combination for an account balance?",
+    a: "CP: it's better to refuse than to show or write a wrong balance." },
+  { q: "Which combination for the shopping cart?",
+    a: "AP: it's better to accept the item and reconcile later than to bring the store down." },
+]} />

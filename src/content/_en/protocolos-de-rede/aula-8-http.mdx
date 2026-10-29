@@ -1,0 +1,179 @@
+---
+title: "HTTP/1.1, HTTP/2 and HTTP/3"
+order: 8
+min: 3
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">With the network configured, the name resolved and the connection encrypted, Lena's laptop finally asks for the store page. It needs 6 files, and this is where the transport gets in the way again: one stuck response holds back the ones behind it.</p>
+
+<OneLiner>HTTP is the web's request and response protocol, and each version attacks the same problem: head-of-line blocking, when one stuck response holds back the ones behind it.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> until a packet gets lost. Then switch between <strong>HTTP/1.1 · HTTP/2 · HTTP/3</strong> and compare what gets stuck in each version.</p>
+</DoIt>
+<Figure3D path="en/labs/protocolos-de-rede/http-3d/" poster="labs/protocolos-de-rede/http-3d-previa.webp" title="Interactive figure: HTTP/1.1, HTTP/2 and HTTP/3 loading 6 resources" alt="Preview of the 3D figure: browser and server connected, with a lost packet blocking the queue" hint="Drag to rotate · Next step or ← → to advance · switch the version in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>HTTP lives at <strong>layer 7</strong> and follows the <strong>request and response</strong> model: the browser asks for each file and the server answers.</li>
+  <li><strong>HTTP/1.1:</strong> one response at a time on each connection. A slow response blocks the following ones (<strong>head-of-line blocking</strong>, HOL).</li>
+  <li><strong>HTTP/2</strong> attacked this with <strong>multiplexing</strong>: several requests on the same TCP connection. But a lost packet still holds back all the streams (HOL in TCP).</li>
+  <li><strong>HTTP/3</strong> attacks the cause that was left: it swaps TCP for <strong>QUIC, over UDP</strong>. Independent streams: a loss in one doesn't block the others.</li>
+  <li>Another advantage of QUIC: the <strong>Connection ID</strong> instead of IP+port makes the connection survive the switch from Wi-Fi to mobile data.</li>
+</ol>
+</HowItWorks>
+
+<p>HTTP/3 changes the transport, and the new transport is QUIC. It deserves a section of its own.</p>
+
+<h3 class="sec">QUIC: the transport behind HTTP/3</h3>
+<p><strong>In one sentence:</strong> QUIC is a transport protocol built over UDP, which does the work of TCP and TLS together.</p>
+
+<h4 class="deep-h">Are HTTP/3 and QUIC the same thing?</h4>
+<p>No, but they go together. <strong>QUIC is transport</strong>: it sits where TCP and TLS used to sit, and it opens the connection, encrypts, numbers and resends. <strong>HTTP/3 is application</strong>: the same old HTTP (GET, POST, headers, 200/404), only using QUIC underneath.</p>
+<div class="rtt-table-wrap">
+<table class="rtt-table">
+  <thead><tr><th>Layer</th><th>HTTP/1.1 and HTTP/2</th><th>HTTP/3</th></tr></thead>
+  <tbody>
+    <tr><td>Application</td><td>HTTP/1.1 or HTTP/2</td><td>HTTP/3</td></tr>
+    <tr><td>Security</td><td>TLS</td><td rowspan="2">QUIC (with TLS 1.3 already inside)</td></tr>
+    <tr><td>Transport</td><td>TCP</td></tr>
+    <tr><td>Below the transport</td><td>(nothing)</td><td>UDP</td></tr>
+    <tr><td>Network</td><td>IP</td><td>IP</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Think of a letter: <strong>HTTP</strong> is the letter (what you ask for) and <strong>TCP or QUIC</strong> is the courier. HTTP/3 is the same letter with a newer courier. QUIC also serves other things besides HTTP, like DNS over QUIC.</p>
+
+<h4 class="deep-h">Why it exists</h4>
+<ul class="why-list">
+  <li><strong>TCP has HOL blocking between streams.</strong> It delivers bytes in order, so a lost packet holds back everything that came after.</li>
+  <li>Fixing this in TCP is hard: <strong>it lives in the kernel</strong> and changes slowly. Middleboxes (firewalls, NATs) lock in the format and block anything new: that's <strong>ossification</strong>.</li>
+  <li>That's why <strong>QUIC runs in user space</strong>, inside the app or the browser. Updating means shipping a new version, without waiting for the operating system.</li>
+</ul>
+
+<HowItWorks title="How QUIC works">
+<ol class="flow steps">
+  <li><strong>1-RTT handshake</strong> with TLS 1.3 built in. On reconnection, data can go out in <strong>0-RTT</strong>, but an attacker can repeat that first request (<strong>replay</strong>). It's only for requests that are safe to repeat, like a GET.</li>
+  <li>With the connection open, the <strong>streams are independent</strong>: each stream has its own order, and a loss in one stream blocks only that stream.</li>
+  <li>The connection is identified by a <strong>Connection ID</strong>, not by IP and port. When you switch from Wi-Fi to 4G, it carries on.</li>
+  <li><strong>Almost everything is encrypted:</strong> the content and much of the transport header, such as the packet number and acknowledgments. Someone in the middle sees little more than UDP and the destination ID.</li>
+  <li>Since UDP only delivers datagrams, QUIC handles <strong>loss and congestion</strong> on its own: it detects losses and controls the speed.</li>
+</ol>
+</HowItWorks>
+
+<div class="rtt-table-wrap">
+<table class="rtt-table">
+  <thead><tr><th></th><th>TCP + TLS 1.3</th><th>QUIC</th></tr></thead>
+  <tbody>
+    <tr><td>RTTs until data can be sent</td><td>2 (1 TCP + 1 TLS)</td><td>1; on resumption, 0</td></tr>
+    <tr><td>Where it runs</td><td>In the kernel</td><td>In the app or the browser</td></tr>
+    <tr><td>Effect of a loss</td><td>All streams wait</td><td>Only the affected stream waits</td></tr>
+    <tr><td>Network switch</td><td>The connection drops (IP and port change)</td><td>Carries on, by connection ID</td></tr>
+    <tr><td>What stays encrypted</td><td>The content; the TCP header is visible</td><td>The content and much of the header</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4 class="deep-h">What QUIC changes in practice</h4>
+<ul class="why-list">
+  <li><strong>Latency on mobile:</strong> fewer RTTs to start and a connection that survives a network switch.</li>
+  <li><strong>Lossy networks:</strong> a lost packet delays only one stream, not the whole page.</li>
+  <li><strong>Load balancers and firewalls</strong> need to let <strong>UDP/443</strong> through. When that fails, the client falls back to HTTP/2 over TCP. Keep both paths working.</li>
+</ul>
+
+<WhyItMatters>
+  <li>So the HTTP version changes how many connections, how many handshakes and how much a loss hurts.</li>
+  <li>On mobile and unstable networks, HTTP/3 wins. Between services in a datacenter, HTTP/2 or gRPC with a few long connections is the usual choice.</li>
+  <li>Terminating HTTP/3 at a CDN or load balancer is the simplest way to adopt it.</li>
+</WhyItMatters>
+
+<Deep min={1}>
+  <h4 class="deep-h">Extra details on QUIC</h4>
+  <ul>
+    <li><strong>QPACK instead of HPACK:</strong> HTTP/2's HPACK assumes everything arrives in order. In QUIC the streams arrive out of order, so QPACK uses dedicated streams to update the header table without creating HOL.</li>
+    <li><strong>Packet numbers are never reused.</strong> Retransmitted data goes in a new packet, so QUIC measures RTT without ambiguity.</li>
+    <li><strong>Congestion:</strong> RFC 9002 describes an algorithm similar to NewReno, but each implementation may use another, such as CUBIC or BBR.</li>
+    <li><strong>Limit before validating the client:</strong> the server doesn't send more than 3 times what it received. This avoids using QUIC to amplify attacks.</li>
+    <li><strong>How the client discovers HTTP/3:</strong> the server announces it through the <code>Alt-Svc</code> header (or an HTTPS record in DNS). If UDP fails, the browser goes back to TCP.</li>
+  </ul>
+  <Sources items={[
+    { label: "RFC 9000: QUIC, a UDP-based multiplexed and secure transport", href: "https://www.rfc-editor.org/rfc/rfc9000" },
+    { label: "RFC 9001: using TLS to secure QUIC", href: "https://www.rfc-editor.org/rfc/rfc9001" },
+    { label: "RFC 9002: QUIC loss detection and congestion control", href: "https://www.rfc-editor.org/rfc/rfc9002" },
+    { label: "RFC 9114: HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9114" },
+    { label: "RFC 9204: QPACK, field compression for HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9204" },
+  ]} />
+</Deep>
+
+<Deep min={1}>
+  <h4 class="deep-h">Anatomy of a message</h4>
+  <p>Each request has a response (in HTTP/1.1, one at a time per connection; in 2 and 3, several in parallel). A message has <strong>Headers</strong> (metadata such as <code>Content-Type</code>, <code>Authorization</code>, <code>Cache-Control</code>), a <strong>Body</strong> (the data), <strong>Cookies</strong> (session state) and a <strong>Status Code</strong>:</p>
+  <ul>
+    <li><code>1xx</code> informational</li>
+    <li><code>2xx</code> success</li>
+    <li><code>3xx</code> redirection</li>
+    <li><code>4xx</code> client error</li>
+    <li><code>5xx</code> server error</li>
+  </ul>
+  <h4 class="deep-h">The three versions</h4>
+  <div class="versions">
+    <article>
+      <h4>HTTP/1.1 (1997)</h4>
+      <ul>
+        <li>Persistent connections: it reuses TCP instead of opening one per request.</li>
+        <li>Pipelining exists, but in practice a slow response blocks the following ones: <strong>head-of-line blocking</strong>.</li>
+        <li>Browsers work around it by opening ~6 connections per origin.</li>
+      </ul>
+    </article>
+    <article>
+      <h4>HTTP/2 (2015)</h4>
+      <ul>
+        <li><strong>Multiplexing:</strong> several requests and responses at the same time, on the same TCP connection.</li>
+        <li>Resource prioritization and header compression. Server push existed, but fell out of use.</li>
+        <li>But there is still HOL <strong>in TCP</strong>: a lost packet holds back all the streams until it's retransmitted.</li>
+      </ul>
+    </article>
+    <article>
+      <h4>HTTP/3 (QUIC)</h4>
+      <ul>
+        <li>Swaps TCP for <strong>QUIC, over UDP</strong>. The transport handshake and TLS 1.3 happen together.</li>
+        <li>Independent streams: a loss in one doesn't block the others.</li>
+        <li><strong>Connection ID</strong> instead of IP+port: the connection survives the switch from Wi-Fi to mobile data.</li>
+      </ul>
+    </article>
+  </div>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on network protocols (in Portuguese)", href: "https://fidelissauro.dev/protocolos-de-rede/" },
+    { label: "RFC 9110: HTTP semantics", href: "https://www.rfc-editor.org/rfc/rfc9110" },
+    { label: "RFC 9113: HTTP/2", href: "https://www.rfc-editor.org/rfc/rfc9113" },
+    { label: "RFC 9114: HTTP/3", href: "https://www.rfc-editor.org/rfc/rfc9114" },
+    { label: "Cloudflare: one year of HTTP/3 usage", href: "https://blog.cloudflare.com/http3-usage-one-year-on" },
+    { label: "http.cat: status codes to remember", href: "https://http.cat/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Each HTTP version cuts waits, and each wait has a name: DNS, TCP, TLS, server, download. What's left is to see how long a whole request takes and where to cut first.</p>
+
+<Flashcards cards={[
+  { q: "How do HTTP/1.1 and HTTP/2 react to a loss?",
+    a: "1.1: one at a time per connection, HOL in the application. 2: it multiplexes, but TCP still blocks everything." },
+  { q: "What changes in HTTP/3?",
+    a: "QUIC over UDP, independent streams and a combined handshake." },
+  { q: "What is the Connection ID for?",
+    a: "Keeping the session when the network changes." },
+  { q: "What does QUIC do that plain TCP doesn't?",
+    a: "It merges transport and TLS 1.3 into a 1-RTT handshake, has independent streams and encrypts almost the whole header." },
+  { q: "What is the risk of 0-RTT?",
+    a: "Replay: an attacker can repeat the first request. Use it only for requests that are safe to repeat, like GET." },
+  { q: "UDP/443 is blocked. What happens to HTTP/3?",
+    a: "The client falls back to HTTP/2 (or 1.1) over TCP. The site keeps working, just without QUIC's gains." },
+]} />

@@ -112,6 +112,13 @@
 .sdl-content .fc-qt{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 .sdl-content .fc-a{margin:0 0 var(--s-4);padding:var(--s-3) var(--s-4);background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-2);color:var(--ink)}
 .sdl-content .fc-a[hidden]{display:none}
+/* a resposta se abre de cima para baixo */
+.sdl-content .fc-a:not([hidden]){animation:fc-open 380ms var(--ease-out)}
+@keyframes fc-open{from{clip-path:inset(0 0 100% 0 round var(--r-2));transform:translateY(-4px);opacity:.4}to{clip-path:inset(0 0 0 0 round var(--r-2))}}
+@media (prefers-reduced-motion:reduce){.sdl-content .fc-a:not([hidden]){animation:none}}
+/* inglês: o rótulo do flashcard vem do CSS */
+:lang(en) .sdl-content .fc-q::after{content:"Show answer"}
+:lang(en) .sdl-content .fc-q[aria-expanded="true"]::after{content:"Hide"}
 
 /* fim da aula */
 .sdl-content .lesson-end{margin-top:var(--s-7);padding-top:var(--s-5);border-top:var(--hair) solid var(--line)}
@@ -179,23 +186,37 @@
 .sdl-content .pg-step:disabled{opacity:.35;cursor:default}
 .sdl-content .pg-quizbtn{flex:none;display:grid;place-items:center;min-width:60px;min-height:var(--tap);padding:0 12px;border-radius:var(--r-2);border:var(--hair) solid var(--line-strong);background:var(--surface);color:var(--ink-hi);font:600 15px/1 var(--sans);text-decoration:none;transition:border-color var(--dur-1),color var(--dur-1)}
 .sdl-content .pg-quizbtn:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
-/* régua: um traço por aula; o atual acende, o entendido fica verde */
+/* trilha do pacote: uma estação por aula, trilha pontilhada entre elas; o pacote laranja fica na aula atual
+   e anda até a próxima quando a pessoa avança. Estação cheia = aula entendida. */
 .sdl-content .pg-meter{display:flex;align-items:center;gap:var(--s-3);margin-top:10px}
-.sdl-content .pg-track{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:12px}
-/* três estados e só três: não lida = traço baixo e apagado; entendida = traço baixo verde; atual = traço alto em sódio */
-.sdl-content .pg-seg{position:relative;height:4px;border-radius:1px;background:color-mix(in srgb,var(--line-strong) 55%,transparent);transition:height var(--dur-2) var(--ease-out),background var(--dur-2)}
-.sdl-content .pg-seg.done{background:var(--ok)}
-.sdl-content .pg-seg.cur{height:12px;background:var(--accent-fill)}
-/* tema claro: o sódio cheio some no cinza-papel (1,8:1); o segmento atual usa o sódio de texto (5:1) */
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .sdl-content .pg-seg.cur:not(.done){background:var(--accent-ink)}}
-:root[data-theme="light"] .sdl-content .pg-seg.cur:not(.done){background:var(--accent-ink)}
-.sdl-content .pg-seg.cur.done{background:var(--ok);box-shadow:0 0 0 1.5px var(--bg),0 0 0 3px var(--accent-fill)}
-/* marco a cada 5 aulas: um risco de escala no vão, não um traço mais alto (que parecia a aula atual) */
-/* o momento da aula: o traço cresce e assenta de sódio para verde */
-.sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
-@keyframes sdl-settle{0%{background:var(--accent-fill);transform:scaleY(2.2)}100%{transform:none}}
+.sdl-content .pg-track{position:relative;flex:1;display:flex;align-items:center;height:16px;min-width:0}
+.sdl-content .pg-st{position:relative;z-index:1;flex:none;width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg);transition:background var(--dur-2),border-color var(--dur-2)}
+.sdl-content .pg-st.done{background:var(--ink);border-color:var(--ink)}
+.sdl-content .pg-st.just{animation:pg-pop 380ms var(--ease-out)}
+@keyframes pg-pop{40%{transform:scale(1.4)}}
+.sdl-content .pg-link{position:relative;flex:1;height:2px;margin:0 3px;background:radial-gradient(circle,var(--line-strong) 1px,transparent 1.4px) 0 50%/6px 2px repeat-x;opacity:.75}
+.sdl-content .pg-link i{position:absolute;inset:0;width:0;background:radial-gradient(circle,var(--ink) 1.1px,transparent 1.5px) 0 50%/6px 2px repeat-x;transition:width 700ms var(--ease-out)}
+.sdl-content .pg-link.lit i{width:100%}
+.sdl-content .pg-pkt{position:absolute;z-index:2;top:50%;left:0;width:14px;height:8px;margin:-4px 0 0 -7px;border-radius:2px;background:var(--accent-fill);pointer-events:none}
+.sdl-content .pg-pkt.moving{transition:left 700ms var(--ease-out)}
+/* tema claro: o sódio cheio some no cinza-papel (1,8:1); o pacote usa o sódio de texto (5:1) */
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .sdl-content .pg-pkt{background:var(--accent-ink)}}
+:root[data-theme="light"] .sdl-content .pg-pkt{background:var(--accent-ink)}
+.sdl-content .pg-track.dense .pg-st{width:8px;height:8px}
+.sdl-content .pg-track.dense .pg-link{margin:0 1px;background-size:5px 2px}
+.sdl-content .pg-track.dense .pg-link i{background-size:5px 2px}
+.sdl-content .pg-track.dense .pg-pkt{width:10px;height:6px;margin:-3px 0 0 -5px}
+/* a aula mudou: o título da barra entra de baixo */
+.sdl-content .pg-text.swap{animation:pg-swap 360ms var(--ease-out)}
+@keyframes pg-swap{from{transform:translateY(60%);opacity:0}}
+/* Entendi: o botão afunda ao apertar; ao virar "entendida", o check se desenha */
+.sdl-content .btn{transition:transform 120ms var(--ease-out),border-color var(--dur-1),background var(--dur-1),color var(--dur-1)}
+.sdl-content .btn:active{transform:scale(.97)}
+.sdl-content .done-btn.just .ico-check{animation:pg-check 420ms var(--ease-out) 60ms both}
+@keyframes pg-check{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+@media (prefers-reduced-motion:reduce){.sdl-content .pg-st.just,.sdl-content .pg-text.swap,.sdl-content .done-btn.just .ico-check{animation:none}.sdl-content .pg-pkt.moving,.sdl-content .pg-link i{transition:none}.sdl-content .btn:active{transform:none}}
 .sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;order:2;font-size:15px}
-.sdl-content .pg-count{font:600 13px/1 var(--mono);color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+.sdl-content .pg-count{font:600 14px/1 var(--sans);color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 /* painel do índice */
 .sdl-content .pg-panel{margin-top:10px;background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:var(--s-3) var(--s-4)}
 .sdl-content.js .pg-panel{position:absolute;left:var(--gutter);right:var(--gutter);top:100%;margin-top:6px;max-height:min(75vh,560px);overflow:auto;box-shadow:var(--shadow-pop);overscroll-behavior:contain}
@@ -232,9 +253,6 @@
   .sdl-content .pg-step{width:44px}
   .sdl-content .pg-quizbtn{min-width:0;padding:0 10px}
   .sdl-content .pg-meter{margin-top:var(--s-2)}
-  .sdl-content .pg-track{height:10px}
-  .sdl-content .pg-seg.cur{height:10px}
   .sdl-content .pg-count{font-size:14px}
   .sdl-content pre{font-size:14px}
 }
-@media (prefers-reduced-motion:reduce){.sdl-content .pg-seg.just{animation:none}}

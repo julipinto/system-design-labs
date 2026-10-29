@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p) => readFileSync(join(HERE, p), "utf8");
 let s = read("../../../tools/iso-glow/gallery-3d.html");
+const EN = process.env.FIG_LANG === "en";   // versão em inglês: lê fig3d.en.js e grava em public/en/labs/ (tools/build-3d-en.mjs)
 
 const css = `
 #info{pointer-events:auto;max-width:min(470px,calc(100vw - 230px));max-height:calc(100vh - 150px);overflow:auto;bottom:44px;font:13px/1.55 ui-sans-serif,system-ui,sans-serif}
@@ -44,16 +45,17 @@ const css = `
 
 `;
 const reps = [
-  ["<title>Iso 3D</title>", "<title>HTTP/1.1, HTTP/2 e HTTP/3 em 3D · SDLabs</title>"],
+  ["<title>Iso 3D</title>", EN ? "<title>HTTP/1.1, HTTP/2 and HTTP/3 in 3D · SDLabs</title>" : "<title>HTTP/1.1, HTTP/2 e HTTP/3 em 3D · SDLabs</title>"],
   ["<i></i>Iso 3D</div>", "<i></i>HTTP/1.1 · HTTP/2 · HTTP/3 · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-8-http">Voltar ao módulo</a>\n<div class="ui" id="info">'],
-  ["/* paste 3D figure modules here */", read("fig3d.js")],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-8-http">' + (EN ? "Back to module" : "Voltar ao módulo") + '</a>\n<div class="ui" id="info">'],
+  ["/* paste 3D figure modules here */", read(EN ? "fig3d.en.js" : "fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }
 s = s.replace('<html lang="en">', '<html lang="pt-BR">');
-const OUT = join(HERE, "../../../public/labs/protocolos-de-rede/http-3d");
+if (EN) s = s.replace('<html lang="pt-BR">', '<html lang="en">').replaceAll("../../../shared/", "../../../../shared/").replace("shared/ui.pt.js", "shared/ui.en.js");
+const OUT = join(HERE, "../../../public/" + (EN ? "en/" : "") + "labs/protocolos-de-rede/http-3d");
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, "index.html"), s);
 console.log("wrote", join(OUT, "index.html"), (s.length / 1024).toFixed(0) + " KB");
