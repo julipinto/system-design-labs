@@ -1,0 +1,91 @@
+---
+title: "Bulkhead and functional and operational sharding"
+order: 4
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the radius stayed at 60% because of one customer and at 100% because of a service everyone shares. Both holes have the same origin: we split <strong>something</strong> without saying <strong>by which criterion</strong>. Module 15 gave the two axes of the cube, and they become two kinds of bulkhead: one cuts by what the system <strong>does</strong> and the other by <strong>how much and whose</strong>.</p>
+
+<OneLiner>The <strong>functional</strong> bulkhead splits by <strong>function</strong> (Y axis): order, report, delivery. The <strong>operational</strong> one splits by <strong>volume or customer</strong> (Z axis): shards, region. Both only truly isolate if they separate <strong>every</strong> resource on the path.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Functional</strong> scenario, send the 23:00 report to the <strong>Rio replica</strong> and watch the <code>pedidos</code> primary end up with 0 heavy queries. To see the cut by customer (3 shards and the dedicated one), switch to the <strong>Operational</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bulkhead/anteparas-3d/?mode=funcional" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Interactive figure: Functional bulkhead" alt="Preview of the 3D figure: Functional bulkhead" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Functional.</strong> The store has three functions with opposite profiles. <code>pedidos</code> is transactional (p95 ≤ 800 ms). <code>relatorios</code> is analytical: the 23:00 report from module 6, which now <strong>reads from the Rio replica</strong> (module 17) and uses <strong>0%</strong> of the primary's write capacity. <code>entregas</code> is asynchronous, on Kafka. Each one has its own resources.</li>
+  <li><strong>Operational.</strong> The split is by <strong>how much and whose</strong>. The 3 <code>pedidos</code> shards are by <code>cliente_id</code> (module 16), <code>mkt-01</code> gets a <strong>dedicated shard</strong>, and the region is also an operational cut.</li>
+  <li><strong>The topic case.</strong> The newsletter of <strong>50,000 emails</strong> (module 13) already goes through RabbitMQ, separate from the Kafka <code>pedidos</code> topic. If it were on the <strong>same</strong> topic, the 3 <code>entregas</code> consumers, at <strong>40 events/s</strong> each (<strong>120/s</strong>, module 23), would take 50,000 ÷ 120 = <strong>417 s ≈ 7 min</strong> to get to the order events. Separated, the order delay is <strong>0</strong>.</li>
+  <li><strong>Priority.</strong> The same load, three queues: 20 workers split into <strong>high 12</strong> (customer checkout), <strong>normal 6</strong> (refunds and partners) and <strong>low 2</strong> (reprocessing). A burst of <code>low</code>, like the 500/s bot from module 8 or the reconciliation, <strong>never goes past 2 workers</strong>. Checkout keeps its 12.</li>
+  <li><strong>The whole path.</strong> Splitting only the database is not enough. The flow has to stay on the same slice of the <strong>load balancer</strong>, the <strong>application</strong>, the <strong>database</strong> and the <strong>queue</strong>. A single common resource in the middle opens a channel from one end to the other.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="lanes" title="Priority lanes" hint="Workers (20), the split between high, normal and low (12 · 6 · 2) and who causes the burst (the mkt-01 bot or reprocessing). Shows how much each queue serves and who is left over." />
+
+<h3 class="sec">The two cuts side by side</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Type</th><th>Axis</th><th>Question</th><th>In the store</th></tr></thead>
+  <tbody>
+    <tr><th>Functional</th><td>Y (module 15)</td><td>What does the system do?</td><td><code>pedidos</code> · <code>relatorios</code> (Rio replica) · <code>entregas</code> (Kafka)</td></tr>
+    <tr><th>Operational</th><td>Z (module 16)</td><td>How much and whose?</td><td>3 shards by <code>cliente_id</code> · <code>mkt-01</code> shard · region</td></tr>
+    <tr><th>Priority</th><td>inside a function</td><td>What to serve first?</td><td>high 12 · normal 6 · low 2</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The split by function is the one that already came from module 15, and the bulkhead gives it the reason it lacked: the report left the primary not just for tidiness, but so the checkout 503 <strong>does not happen</strong>. The operational split brings back the math from lesson 3: the <code>mkt-01</code> shard's radius is the worst case, and the dedicated one reduces it from 60% to 40%.</p>
+
+<h3 class="sec">And if it goes wrong: the "isolated" shard that shares the inventory</h3>
+
+<p>It is common for shards to start out well isolated and, little by little, begin sharing <strong>global dependencies</strong>: a configuration service, a catalog, an auxiliary database. The dedicated <code>mkt-01</code> shard has its own database, but it keeps calling the <strong>same</strong> <code>estoque</code> and reading the <strong>same global configuration</strong>. A wrong configuration, or an <code>estoque</code> saturated by the bot, hits all 4 shards at once. The article calls this a <strong>hidden channel</strong>. Without separating the whole path, the design has 4 boxes and a single fate.</p>
+
+<WhyItMatters>
+  <li><strong>Functional separates what the system does.</strong> The report goes to the Rio replica, and the primary is left with 0% heavy queries.</li>
+  <li><strong>Operational separates by customer and volume.</strong> The dedicated shard takes the worst case from 60% to 40%.</li>
+  <li><strong>The same topic is the same compartment.</strong> The newsletter on the orders topic delays events by 417 s; on RabbitMQ, by 0.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Deterministic" consistent hashing.</strong> The hash <strong>routes</strong>; the isolation comes from the resources being <strong>separate</strong> per shard. And when N changes (module 16), <strong>25%</strong> of keys migrate and the radius changes with them.</li>
+    <li><strong>Segregate everything, end to end.</strong> The article says this in the sharding section, after calling each shard a "complete or partial bulkhead". Here the difference is the rule: the shard is partial until it separates load balancer, application, database, topic and queue.</li>
+    <li><strong>The report on the replica is physical.</strong> Taking the report off the primary is a functional split that becomes physical: another machine, another disk. The 300 ms lag (module 17) does not matter to it.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Bulkhead Pattern (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Microsoft: Noisy Neighbor antipattern", href: "https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor" },
+    { label: "Author's public repository: examples/sharding (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "AWS Builders' Library: Using load shedding to avoid overload", href: "https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Two cuts and a rule (separate the whole path) still do not say how they fit together. What is left is how these cuts <strong>combine</strong>: priority, criticality, type of use, segment, consistent hashing and tenants. That is lesson 5.</p>
+
+<Flashcards cards={[
+  { q: "What is the functional bulkhead?",
+    a: "The split by function (Y axis of the cube): pedidos, reports on the Rio replica and deliveries on Kafka, each with its own resources." },
+  { q: "And the operational one?",
+    a: "The split by volume or customer (Z axis): 3 shards by cliente_id, the dedicated mkt-01 shard, the region." },
+  { q: "What is the newsletter's delay on the wrong topic?",
+    a: "50,000 emails ÷ 120 events/s from the 3 consumers = 417 s (≈ 7 min) of delay on order events. On a separate queue, 0." },
+  { q: "How do the priority lanes look?",
+    a: "20 workers: high 12 (checkout), normal 6 (refunds, partners) and low 2 (reprocessing). A burst of low never goes past 2." },
+  { q: "What is a hidden channel?",
+    a: "A shared global dependency (inventory, configuration, catalog) that links shards that looked isolated." },
+]} />

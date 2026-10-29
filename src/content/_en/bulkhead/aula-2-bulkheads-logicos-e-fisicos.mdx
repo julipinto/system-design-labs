@@ -1,0 +1,107 @@
+---
+title: "Logical and physical bulkheads"
+order: 2
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the pool of 20 connections was split into 16 + 4 and the customer stopped getting <code>503</code>, but the split applied to only <strong>one</strong> thing, the connections. A <code>pedidos</code> pod has other finite resources: threads, queues, memory, the node it runs on. Splitting everything equally makes no sense. What is missing is <strong>what</strong> to split, and how strongly.</p>
+
+<OneLiner>The <strong>logical</strong> bulkhead splits <strong>execution</strong> resources (threads, queues, connections, limits): it is cheap. The <strong>physical</strong> one splits <strong>infrastructure</strong> (nodes, clusters, zones, regions): it is expensive and stronger.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Physical</strong> scenario, turn on the <strong>memory leak in <code>relatorios</code></strong> first with everything on the same node and then with the two node pools (<code>checkout</code> and <code>batch</code>). To revisit the connection pool sized at 4 + 4, go back to the <strong>Pool</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bulkhead/anteparas-3d/?mode=fisico" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Interactive figure: Logical and physical: the nodes" alt="Preview of the 3D figure: Logical and physical: the nodes" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Thread pool.</strong> Hystrix gives a thread pool <strong>per dependency</strong>: if the call hangs, only the threads in that pool hang. Resilience4j has the <code>FixedThreadPoolBulkhead</code>, with a fixed pool and a bounded queue. The cost is context switching and the queue.</li>
+  <li><strong>Semaphore.</strong> It counts <strong>concurrent</strong> calls and refuses the one that goes over the limit (<code>maxConcurrentCalls</code> in Resilience4j's <code>SemaphoreBulkhead</code>). It runs on the caller's thread, with no queue, and the <em>timeout</em> stays with the client. With asynchronous I/O the semaphore is enough. With a legacy library that <strong>blocks</strong>, only a dedicated pool prevents the hang.</li>
+  <li><strong>Connections, queues and limits.</strong> PgBouncer limits connections per database and user (<code>default_pool_size</code>). PostgreSQL has <code>max_connections</code> of <strong>100</strong>, with 3 reserved for the superuser. Envoy limits connections and pending requests per destination (1,024 by default, in <em>circuit breaking</em>), and Istio exposes this in the <code>DestinationRule</code>'s <code>ConnectionPoolSettings</code>. Queues and topics per domain belong here too.</li>
+  <li><strong>Node pools.</strong> In Kubernetes, <em>taints</em> and <em>tolerations</em> reserve nodes for whoever tolerates them. <code>checkout</code> runs on one node pool and <code>batch</code> on another. This is not a library setting: it is a <strong>separate machine</strong>.</li>
+  <li><strong>Clusters, zones and regions.</strong> Domains with incompatible goals or high criticality get their own cluster. The isolation becomes structural, and the cost goes up with it.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">How much to give each compartment</h3>
+
+<p>Isolating is not enough: the size of each compartment needs a calculation. The rule is <strong>connections = λ × W × headroom</strong>. For interactive traffic (checkout plus status), 0.2 + 0.2 = <strong>0.4</strong> connections in use. With <strong>10×</strong> headroom for variability (module 23), <strong>4</strong> is enough. For batch, the report <strong>wants</strong> 10 × 4 = 40, but the database can only take a few heavy queries at the same time, so it gets a cap of <strong>4</strong>.</p>
+
+<p>By Little, the split pool would be <strong>4 + 4 = 8</strong>. The other <strong>12</strong> connections <strong>go back</strong> to the database's <code>max_connections</code> (100, 97 for non-superusers, modules 11 and 15). <strong>Splitting can save connections.</strong> The lesson 1 k6 used 16 + 4 = 20 only to compare with the single pool at the <strong>same total</strong>; interactive has 40× headroom there, and the cost is idle connections.</p>
+
+<p>And the report? Instead of squeezing it on the primary, the better fix is <strong>physical</strong>: it reads from the <strong>Rio replica</strong> (module 17). The 300 ms lag on Black Friday does not matter for a report, and the heavy query <strong>does not touch the primary</strong>: 0 connections and 0% of the <code>shard</code>'s write capacity.</p>
+
+<h3 class="sec">The split has a price: statistical multiplexing</h3>
+
+<p>A big pool makes better use of its workers: when one becomes free, any flow can use it. This is <strong>statistical multiplexing</strong>. When you split, each compartment faces its own bursts alone. The math is <strong>Erlang C</strong> (the M/M/c queue from module 23). With <strong>12 workers in 1 pool</strong>, 70% load (8.4 erlangs) and service time S = 50 ms, the probability of waiting is <strong>18.4%</strong> and the average wait is <strong>2.6 ms</strong>. The <strong>same 12 in 3 pools of 4</strong>: <strong>42.9%</strong> chance of waiting and <strong>17.9 ms</strong>. At 80% load: 36.9% and 7.7 ms against 59.6% and 37.3 ms.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Design (load 70%)</th><th>Workers</th><th>P(wait)</th><th>Average wait</th></tr></thead>
+  <tbody>
+    <tr><th>1 pool of 12</th><td>12</td><td>18.4%</td><td>2.6 ms</td></tr>
+    <tr><th>3 pools of 4</th><td>12</td><td>42.9%</td><td>17.9 ms</td></tr>
+    <tr><th>3 pools of 5 (matches P)</th><td>15 (+25%)</td><td>19.0%</td><td>4.3 ms</td></tr>
+    <tr><th>3 pools of 6 (matches the wait)</th><td>18 (+50%)</td><td>7.5%</td><td>1.2 ms</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="erlang" title="Multiplexing (Erlang C)" hint="Total workers, number of pools, load (50% to 90%) and service time S. Shows the probability of waiting and the average wait (single pool against split) and how many extra workers make up the difference." />
+
+<p>To <strong>match</strong> the probability of waiting (≈ 18.4%), each pool needs <strong>5</strong> workers: 15 in total, <strong>+25%</strong>. To match the average wait, <strong>6</strong> each, 18 in total, <strong>+50%</strong>. Splitting a pool <strong>worsens the normal case</strong> and <strong>improves the worst case</strong>. That is the trade the bulkhead makes, and that is why compartment size comes from a calculation and not a guess.</p>
+
+<h3 class="sec">And if it goes wrong: logical on a shared node</h3>
+
+<p>Picture <code>relatorios</code> with no memory limits, running on the same <strong>node</strong> as 3 <code>pedidos</code> pods. The <code>pedidos</code> thread pool is intact, but the <strong>node's memory</strong> is not a pool. The leak pressures the node, the kubelet evicts pods (<em>node-pressure eviction</em>) and the OOM killer hits the neighbors. The article calls this <em>shared fate</em>. The logical compartment did not hold, because the resource that ran out was <strong>underneath</strong> it.</p>
+
+<p>The fix is physical, and it completes the logical one: <code>requests</code> and <code>limits</code> on each pod (which set the QoS class, deciding who is evicted first) and <strong>one node pool for <code>checkout</code> and another for <code>batch</code></strong>, with <em>taints</em> and <em>tolerations</em>. This scenario is qualitative: the figure describes the mechanism, and the memory leak was not run on Kubernetes.</p>
+
+<WhyItMatters>
+  <li><strong>Logical is cheap and physical is strong.</strong> A semaphore costs nothing; a node pool costs machines. The more critical the flow, the further down the list the isolation should go.</li>
+  <li><strong>Size comes from a calculation.</strong> Little gives 4 + 4 and returns 12 connections to the database; Erlang C shows what you pay in waiting for splitting.</li>
+  <li><strong>A logical bulkhead alone has a hole.</strong> If the resource that runs out is the node's memory, no thread pool helps.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"If two flows share the same resources, they have no bulkheads".</strong> True for <strong>total</strong> isolation. There is <strong>reservation with borrowing</strong> (a guaranteed part and a shared part), which lowers the cost. The price of a rigid split is losing statistical multiplexing (Erlang C: from 18.4% to 42.9%; +25% workers make up for it).</li>
+    <li><strong>"Thread pool" as the only logical example.</strong> The article does not tell <strong>semaphore</strong> (counts concurrent calls, no queue) apart from <strong>thread pool</strong> (isolates blocking, with a queue and context switching). Hystrix and Resilience4j document both.</li>
+    <li><strong>Sizing is missing.</strong> The article says "partition" and does not say how much. Here the size comes from Little (4 + 4) and the cost from Erlang C.</li>
+    <li><strong>What was not run:</strong> a real Hystrix or Resilience4j and Kubernetes with node pools. The calculations (Little and Erlang C) were redone in Python.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Bulkhead Pattern (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Resilience4j: Bulkhead (semaphore and thread pool)", href: "https://resilience4j.readme.io/docs/bulkhead" },
+    { label: "Hystrix: How it Works (isolation)", href: "https://github.com/Netflix/Hystrix/wiki/How-it-Works" },
+    { label: "Envoy: circuit breaking (limits per destination)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking" },
+    { label: "Kubernetes: taints and tolerations", href: "https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/" },
+    { label: "Kubernetes: node-pressure eviction", href: "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/" },
+  ]} />
+</Deep>
+
+<p class="gancho">What to split and what it costs is already in the math. What is left is <strong>how much damage</strong> each compartment still lets through: with 3 shards, is the radius really 1 ÷ 3? That is the blast radius, in lesson 3.</p>
+
+<Flashcards cards={[
+  { q: "What is a logical bulkhead?",
+    a: "A split of execution resources: thread pool, semaphore, queues, topics, connection pool, limits per destination. It is cheap." },
+  { q: "And the physical one?",
+    a: "A split of infrastructure: nodes, node pools (taints and tolerations), clusters, zones, regions. It is expensive and stronger." },
+  { q: "What is the difference between a semaphore and a thread pool?",
+    a: "The semaphore counts concurrent calls and refuses the excess, with no queue. The thread pool isolates blocking, with a queue and context switching." },
+  { q: "What is the split pool worth by Little's math?",
+    a: "4 + 4 = 8 connections (0.4 in use with 10× headroom, and a cap of 4 for batch). The other 12 go back to max_connections of 100." },
+  { q: "What does the split cost by Erlang C?",
+    a: "12 workers in 1 pool, 70% load: waits 18.4% of the time (2.6 ms). In 3 pools of 4: 42.9% (17.9 ms). Matching it costs +25% workers." },
+]} />

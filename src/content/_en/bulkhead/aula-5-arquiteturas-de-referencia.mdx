@@ -1,0 +1,100 @@
+---
+title: "Reference architectures"
+order: 5
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store ended up with two cuts (by function and by customer) and a rule: separate the whole path. But the store has different problems, and each one calls for a different cut. The article closes with <strong>six reference designs</strong>. Each answers <strong>one question</strong>, and the store uses all six together.</p>
+
+<OneLiner>Six designs (<strong>priority, criticality, type of use, segment, consistent hashing and tenants</strong>) answer six different questions and <strong>combine</strong>. Each one costs something, and the costs add up.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Reference</strong> scenario, turn on <strong>one design at a time</strong> and read the price of each. At the end, turn on all six and see what happens to the number of pods.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bulkhead/anteparas-3d/?mode=referencia" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Interactive figure: The six reference designs" alt="Preview of the 3D figure: The six reference designs" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Priority and criticality.</strong> Priority is what gets served <strong>first</strong> right now (checkout before reprocessing). Criticality is what <strong>must never fail</strong> (<code>pagamentos</code>, with card scope and audit). One changes from moment to moment, the other belongs to the design.</li>
+  <li><strong>Type of use and segment.</strong> The type of use separates the <strong>way</strong> of using (interactive × batch), and the segment separates <strong>who</strong> uses it (individual customer × partner). Batch can be delayed or paused without touching checkout's p95. The partner does not inherit the fate of the regular customer.</li>
+  <li><strong>Consistent hashing.</strong> The <code>cliente_id</code> goes through a hash and lands on a point of the 200-slot ring (module 16). One customer's burst <strong>stays on their shard</strong>. With the module 7 <em>round robin</em> it leaks to the whole fleet, because the balancer distributes without looking at who is sending.</li>
+  <li><strong>Tenants.</strong> <code>mkt-01</code> gets a <strong>reservation and a cap</strong>. The 100 req/s cap on <code>catalogo</code> (10% of 1,000) refuses the excess in <strong>its own compartment</strong>, and the other 900 req/s are guaranteed.</li>
+  <li><strong>Combined.</strong> An <code>mkt-01</code> order goes through the dedicated shard (hashing), the normal lane (priority), the interactive workers (type of use) and the tenant's cap. The six designs do not compete: they are <strong>layers</strong> of the same order.</li>
+</ol>
+</HowItWorks>
+
+<p>Side by side, the six designs ask different questions, split different resources and charge different prices:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Design</th><th>Question it answers</th><th>In the store</th><th>Resource split</th><th>Price</th></tr></thead>
+  <tbody>
+    <tr><th>Priority</th><td>What gets served first?</td><td>checkout (12) · refunds and partners (6) · reprocessing (2)</td><td>workers and queues</td><td>idle capacity in the quiet lanes</td></tr>
+    <tr><th>Criticality</th><td>What must not fail?</td><td><code>pagamentos</code> (card scope, auditable) on its own <strong>node pool</strong> and network</td><td>nodes, namespaces, cluster</td><td>cost of dedicated infrastructure</td></tr>
+    <tr><th>Type of use</th><td>Interactive or batch?</td><td>the 23:00 report and the newsletter on <strong>their own</strong> queue and workers; batch can be delayed or <strong>paused</strong> without touching checkout's p95</td><td>queues, workers, even the pipeline</td><td>two pipelines to operate</td></tr>
+    <tr><th>Segment</th><td>Who can share the fate?</td><td>individual customers × partners (<code>mkt-01</code>, module 8)</td><td>pods and pools per segment</td><td>planning the capacity of each</td></tr>
+    <tr><th>Consistent hashing</th><td>Where does one customer's burst go?</td><td><code>cliente_id</code> → 200-slot ring (module 16): the burst stays <strong>on its shard</strong></td><td>shards</td><td>resharding (module 16)</td></tr>
+    <tr><th>Tenants</th><td>What about the noisy neighbor?</td><td><code>mkt-01</code> with <strong>reservation and cap</strong> (100 req/s on <code>catalogo</code>) and a 2× dedicated shard</td><td>capacity per tenant</td><td>limits to maintain</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">The noisy neighbor, in numbers</h3>
+
+<p>The <code>mkt-01</code> bot (module 8) fires <strong>500 req/s</strong> at <code>catalogo</code>, which has <strong>10 replicas</strong> and <strong>1,000 req/s</strong> of capacity. Without a compartment, the bot consumes <strong>50%</strong> of the fleet and half is left for every other customer. With the <strong>100 req/s cap</strong> for <code>mkt-01</code>, the other <strong>900 req/s</strong> are guaranteed and the bot's <strong>400</strong> excess requests get a <code>429</code> in <strong>its own</strong> compartment.</p>
+
+<Widget name="vizinho" title="Noisy neighbor" hint="Fleet capacity (1,000 req/s), bot (0 to 1,000) and tenant cap (0 to 1,000). Shows what the bot consumes, what is left for the others and the 429." />
+
+<p>The global <em>rate limit</em> from module 8 protects the system from the <strong>total</strong>. The per-tenant bulkhead protects each flow from the <strong>others</strong>. The article describes the <em>noisy neighbor</em> problem and does not list the ways out. They are: <strong>per-tenant cap with reservation</strong>, a queue per tenant, a dedicated shard for the biggest one (module 16), <em>shuffle sharding</em> (2.2% in the worst case) and <em>load shedding</em>.</p>
+
+<h3 class="sec">And if it goes wrong: too many bulkheads</h3>
+
+<p>The opposite fails too. With <strong>3 lanes</strong> (priority) across <strong>4 shards</strong>, there are <strong>12 compartments</strong>. Each one needs <strong>N+1</strong> pods, with 1 working pod and 1 spare in case one goes down: 12 × 2 = <strong>24 pods</strong> where <strong>10</strong> were enough. That is idle capacity, more things to watch (saturation has to be measured <strong>per compartment</strong>) and more things to operate. Each extra split reduces the radius and increases the bill. The question for each design is: <strong>which real incident</strong> does this compartment prevent?</p>
+
+<WhyItMatters>
+  <li><strong>Each design has one question.</strong> Priority, criticality, type of use, segment, hashing and tenant are not synonyms.</li>
+  <li><strong>A cap with reservation is a per-customer bulkhead.</strong> The 500 req/s bot gets a 429 on 400 and the other 900 req/s are guaranteed.</li>
+  <li><strong>More compartments cost pods.</strong> 3 lanes × 4 shards = 12; with N+1 that is 24 pods where 10 were enough.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"The logical bulkhead gets confused with rate limit".</strong> Right, and the rule is the <strong>scope</strong>. But the <strong>per-customer</strong> rate limit (module 8) is a form of <strong>operational</strong> bulkhead when it comes with a <strong>guaranteed reservation</strong> for the others (the 100 req/s cap on <code>mkt-01</code>).</li>
+    <li><strong>Noisy neighbor.</strong> The article describes the problem without listing the ways out: per-tenant cap with reservation, a queue per tenant, a dedicated shard, <em>shuffle sharding</em> and <em>load shedding</em>.</li>
+    <li><strong>The article's references.</strong> The Medium text returns 403 to bots, so it was not cited. The AWS text describes <strong>App Mesh</strong>, a service <strong>discontinued</strong> on 09/30/2026: the page returns 200 with an end-of-support notice. The pattern is still valid (Envoy and Istio); the product is not. It stays only as history. Azure, Failsafe-Go, Resilience4j, Hystrix, Envoy and Istio come in.</li>
+    <li><strong>What the article lacks:</strong> what to do when the compartment fills up (fail fast with <code>503</code> or <code>429</code>, use <em>fallback</em>, a bounded queue), watching saturation per compartment and testing (module 24).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Bulkhead Pattern (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Failsafe-Go: Bulkhead", href: "https://failsafe-go.dev/bulkhead/" },
+    { label: "Microsoft: Bulkhead pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Microsoft: Noisy Neighbor antipattern", href: "https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor" },
+    { label: "Google SRE: Handling Overload", href: "https://sre.google/sre-book/handling-overload/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With this the store has bulkheads by <strong>function</strong>, by <strong>customer</strong> and by <strong>priority</strong>. But it is still <strong>a single stack</strong>: <code>estoque</code>, <code>pagamentos</code> and <code>lb-loja</code> are shared, and an incident in São Paulo still takes down Rio and Recife. What is left is to see what happens if, instead of splitting only the pools, we split the <strong>whole store</strong> into independent pieces, each with its own services, queue and database. That is <em>cell-based</em>, module 26 (the Azure text itself calls it "cell-based architecture").</p>
+
+<Flashcards cards={[
+  { q: "What are the six reference designs?",
+    a: "Priority, criticality, type of use, segment, consistent hashing and tenants. Each answers a different question and they combine." },
+  { q: "What is the difference between priority and criticality?",
+    a: "Priority: what to serve first, right now. Criticality: what must not fail (pagamentos, with card scope, on its own node pool)." },
+  { q: "What does the 100 req/s cap on mkt-01 do to the 500 req/s bot?",
+    a: "It refuses the 400 excess requests with 429 in its own compartment and guarantees the other 900 req/s. Without the cap, the bot would take 50% of the fleet." },
+  { q: "What happens to one customer's burst with consistent hashing?",
+    a: "It stays on their shard. With the module 7 round robin it leaks to the whole fleet." },
+  { q: "What is the price of too many bulkheads?",
+    a: "3 lanes × 4 shards = 12 compartments; with N+1 that is 24 pods where 10 were enough, and more to watch and operate." },
+]} />

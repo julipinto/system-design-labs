@@ -1,0 +1,115 @@
+---
+title: "Introduction to Bulkhead"
+order: 1
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import lojaPool from '../../../../public/labs/bulkhead/lab/loja-pool.js?raw';
+import poolK6 from '../../../../public/labs/bulkhead/lab/pool.js?raw';
+
+<p class="ponte">Module 24 ended with a finding that <code>checkout.js</code> would never have caught: the 23:00 report, running alongside normal traffic, left <strong>1 in 3 checkout orders</strong> and <strong>1 in 10 status checks</strong> with a <code>503</code>. Nobody had made a mistake. Lena's order (<strong>1054</strong>) and its status check share the <strong>same 20-connection pool</strong> to the <code>pedidos</code> database with the module 6 report. Handling the time and failure of each call (module 21) does not fix this. What is missing is handling the <strong>boundary</strong>.</p>
+
+<OneLiner>The <strong>bulkhead</strong> does not stop a part from failing: it <strong>limits how far the failure reaches</strong>. It splits a finite resource into <strong>compartments</strong>, and when one fills up, only it floods.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Pool</strong> scenario, turn on the <strong>23:00 report</strong> with the <strong>single pool</strong> of 20 connections and count how many customer requests (checkout and status) hit a <code>503</code>. Then split the pool into 16 + 4 and repeat. For the ship analogy, switch to the <strong>Hull</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bulkhead/anteparas-3d/?mode=pool" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Interactive figure: The 20-connection pool" alt="Preview of the 3D figure: The 20-connection pool" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The hull.</strong> On a ship, bulkheads are walls that divide the hull into compartments. If one is punctured, only that one fills with water and the rest stays afloat. The wall does not prevent the hole: it prevents the <strong>sinking</strong>. This is the only time the ship appears in this module.</li>
+  <li><strong>The store's pool.</strong> The <code>pedidos</code> database (one shard, modules 11, 15 and 16) serves at most <strong>20 connections</strong> at a time. Three flows use the same 20: <strong>checkout</strong> (<code>POST /pedidos</code>, 10/s, ~20 ms each), <strong>order status</strong> (<code>GET /pedidos/1054</code>, the app's <em>short polling</em> from module 12, 40/s, ~5 ms) and the <strong>23:00 report</strong> (10 queries/s of 4 s).</li>
+  <li><strong>The math.</strong> By Little's Law (module 23), connections in use = rate × time. Checkout: 10 × 0.02 = <strong>0.2</strong>. Status: 40 × 0.005 = <strong>0.2</strong>. Report: 10 × 4 = <strong>40</strong>. Without the report, 0.4 of 20 (2%). With it, <strong>40.4 of 20</strong>: the report alone asks for double the pool.</li>
+  <li><strong>A full pool means instant refusal.</strong> In this model, whoever cannot find a connection gets a <code>503</code> right away, with no queue. It works like a semaphore, the kind in Hystrix and Resilience4j with <code>maxWaitDuration</code> set to zero. The customer's 5 ms queries arrive and all 20 slots are already held by 4 s queries.</li>
+  <li><strong>The split.</strong> With <strong>16</strong> connections for interactive traffic (checkout and status) and <strong>4</strong> for batch, the report can only take its own 4. The customer keeps the 16, of which it needs 0.4.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="pool-little" title="Pool and Little" hint="Rate and time of each flow, pool size and the split between interactive and batch. Shows connections in use (0.2 · 0.2 · 40), whether the pool saturates, batch capacity and job duration." />
+
+<h3 class="sec">What k6 showed</h3>
+
+<p>Little's math says connections will run out. Only a test says <strong>how many</strong> customers get left out. The module's lab is a <strong>model</strong> of the store, not the store: a ~25-line Node server simulates the pool (<code>MODE=shared</code> for 1 pool of 20, <code>MODE=bulkhead</code> for 16 + 4) and k6 v2.3.0 fires the three flows together. The files are in <code>public/labs/bulkhead/lab/</code>.</p>
+
+<CodeLab code={lojaPool} />
+
+<p>The lines that matter. <strong>10</strong> creates the three counters: <code>shared</code> (20), <code>inter</code> (16) and <code>batch</code> (4). <strong>11</strong> picks the counter by mode. <strong>17</strong> is the semaphore: <code>busy &gt;= n</code> returns <code>503</code> without waiting. <strong>18</strong> and <strong>20</strong> take and release the slot. <strong>19</strong> draws the time of each kind from an exponential distribution (mean 20 ms, 5 ms or 4 s).</p>
+
+<CodeLab code={poolK6} />
+
+<p>The k6 script has <strong>three scenarios</strong> with a constant arrival rate: <code>escrita</code> (10/s, the full 80 s), <code>leitura</code> (40/s, the full 80 s) and <code>relatorio</code> (10/s, from <strong>20 s to 50 s</strong>, the 23:00 report squeezed into 30 seconds). The "during" window is 25 s to 50 s. Real outputs, run on 20 and 21/10/2026 on this machine.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Flow (window 25–50 s)</th><th>Single pool of 20</th><th>Pool 16 + 4</th></tr></thead>
+  <tbody>
+    <tr><th>Checkout (POST, 250 requests)</th><td><strong>66.8% ok</strong> · 83 × <code>503</code> · p95 66 ms</td><td><strong>100% ok</strong> · 0 × <code>503</code> · p95 54 ms</td></tr>
+    <tr><th>Order status (GET, ~1,000)</th><td><strong>89.9% ok</strong> · 101 × <code>503</code> · p95 15 ms</td><td><strong>100% ok</strong> · p95 15 ms</td></tr>
+    <tr><th>Report (250 queries of 4 s)</th><td>47.2% ok · 132 × <code>503</code> · p95 12.0 s</td><td><strong>14.0% ok</strong> · 215 × <code>503</code> · p95 7.4 s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Outside the report window, before and after, <strong>every flow stays at 100%</strong> in both pools. So the problem is not the pool of 20 itself, but that it belongs to <strong>everyone</strong> when the report arrives.</p>
+
+<Widget name="k6-pool" title="Shared × separate" hint="The same scenario (pool of 20, report between 20 s and 50 s) with a single pool or 16 + 4: success rate of each flow in the window and p95, next to the k6 numbers." />
+
+<p>Here is how to read it. With the single pool, the report (40 connections asked for 20) <strong>pushes the customer out</strong>: 1 in 3 checkout orders and 1 in 10 status checks get a <code>503</code>. With the 4-connection compartment, the customer <strong>loses nothing</strong> and the <strong>batch pays</strong>: 86% of its queries were refused. The bulkhead did not create capacity. <strong>It chose who waits.</strong></p>
+
+<p>One detail that looks like an error: checkout lost 33% and status only 10%, and both compete for the same slots. That comes from how k6 arrives, at <strong>regular intervals</strong>. The POST and the report arrive every 100 ms, at the same instants, and fight for the same slot. With random (Poisson) arrivals, both rates would be equal.</p>
+
+<h3 class="sec">What the bulkhead is not</h3>
+
+<p>Module 21 already gave four tools for a call that goes badly. The <em>timeout</em> limits the <strong>time</strong> (W). The <em>retry</em> tries again. The <em>circuit breaker</em> cuts off the call that keeps failing. The <em>fallback</em> returns a backup answer. None of them splits the resource. Neither does the <em>rate limit</em> from module 8: it limits the <strong>total</strong> coming in, without saying who gets the slot. The bulkhead limits <strong>L</strong>, the maximum resources held by one flow, whatever W is. The two add up: the timeout shortens each wait and the bulkhead guarantees that, even in the worst case, there is pool left for the others.</p>
+
+<p>Module 21 also already split a pool: the <strong>outbound</strong> one from <code>pagamentos</code> to the PSP, into 50 · 30 · 20 (PSP, shipping, email). Here the resource is the <strong>inbound</strong> one, the database. The idea is the same and the case is different.</p>
+
+<h3 class="sec">And if it goes wrong: the bulkhead punishes the batch</h3>
+
+<p>The 4-connection compartment lets the report serve <strong>4 ÷ 4 s = 1 query per second</strong>, instead of 10. A job of 6,000 queries that took <strong>10 min</strong> now takes <strong>100 min</strong>: it starts at 23:00 and ends at 00:40. Batch tolerates delay, because in production it <strong>queues</strong> (module 13) instead of failing. The customer does not tolerate it. The split is not free: someone always waits.</p>
+
+<WhyItMatters>
+  <li><strong>The failure does not have to be yours.</strong> Lena's order got a <code>503</code> because another flow took the pool, not because checkout had a bug.</li>
+  <li><strong>The math warns you first.</strong> Little already showed 40 connections requested for a pool of 20.</li>
+  <li><strong>The bulkhead chooses who waits.</strong> With 16 + 4, checkout sits at 0% <code>503</code> and the report at 14% success.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"The essence of the bulkhead is not in retry, timeout or fallback".</strong> True, but they <strong>interact</strong>. The <em>timeout</em> limits W and the bulkhead limits L. With the module 21 <em>timeout</em> of 1 s and 20 POST/s per pod (Black Friday 2027, module 23), the worst case is L = 20 × 1 = <strong>20</strong> workers: the whole pool. Only a cap per compartment protects the rest.</li>
+    <li><strong>The lab belongs to SDLabs.</strong> The author's public repository has no bulkhead example. The <code>concurrency-parallelism</code> folders (the thread pool from module 11) and <code>sharding</code> (segregation by key, module 16) are the bridge. The 20-connection pool is a model, and the k6 and its outputs are real.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Bulkhead Pattern (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "Microsoft: Bulkhead pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Wikipedia: Bulkhead (partition)", href: "https://en.wikipedia.org/wiki/Bulkhead_(partition)" },
+    { label: "Google SRE: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows that a shared pool lets the report take down people who are not at fault, and that 16 + 4 solves this case. What is left is <strong>which resources</strong> to split: only connections, or threads, queues, nodes and zones too? That is lesson 2.</p>
+
+<Flashcards cards={[
+  { q: "What does the bulkhead do?",
+    a: "It does not stop the failure: it limits how far it reaches. It splits a finite resource into compartments, and a hole floods only its own." },
+  { q: "How many connections does the 23:00 report ask of the pool of 20?",
+    a: "10 queries/s × 4 s = 40 connections (Little). The customer uses 0.2 + 0.2. The report alone asks for double the pool." },
+  { q: "What did k6 show with the single pool?",
+    a: "In the report window, 33% of checkout orders (83 of 250) and 10% of status checks (101 of ~1,000) got a 503. Outside the window, 0%." },
+  { q: "And with the 16 + 4 pool?",
+    a: "0% of 503 for the customer. The report dropped to 14% success (215 refused of 250): the bulkhead chose who waits." },
+  { q: "What is the price of the compartment of 4?",
+    a: "The report serves 4 ÷ 4 s = 1 query/s. The 6,000-query job goes from 10 min to 100 min (23:00 until 00:40)." },
+]} />

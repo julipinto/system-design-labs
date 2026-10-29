@@ -1,0 +1,99 @@
+---
+title: "Bulkheads and blast radius"
+order: 3
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store learned to pick the resource and the size of each compartment. One question remains, the one that justifies the work: <strong>how much damage</strong> is left when one of them goes down? The article offers a simple table in which more compartments mean less damage. It is right in order of magnitude and it hides three things the store has already seen.</p>
+
+<OneLiner>The <strong>blast radius</strong> is the <strong>fraction of the compartment's traffic</strong> that goes down. The 1 ÷ N table only holds with <strong>uniform</strong> traffic; with one huge customer, the <strong>worst case</strong> is what counts.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Radius</strong> scenario, go from 1 to 3 compartments and read the radius and the availability. Then turn on <code>mkt-01</code> and watch the hot shard climb to 60%.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bulkhead/anteparas-3d/?mode=raio" poster="labs/bulkhead/anteparas-3d-previa.webp" title="Interactive figure: The blast radius" alt="Preview of the 3D figure: The blast radius" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The article's table.</strong> With N compartments and equal traffic, an incident takes down 1 ÷ N. The table below is the article's with the math checked: the article rounds 33.3% and 66.7% to 33% and 66%.</li>
+  <li><strong>Traffic is not uniform.</strong> The radius is the <strong>fraction of the compartment's traffic</strong>, not 1 ÷ N. With <code>mkt-01</code> (module 16), the 3 <code>pedidos</code> shards carry <strong>20% · 20% · 60%</strong>. The average of the three is 33.3%, but the <strong>worst case is 60%</strong>.</li>
+  <li><strong>The dedicated shard.</strong> With 4 shards, <code>mkt-01</code> alone on one and the other three at 20%, it becomes <strong>20% · 20% · 20% · 40%</strong>: the worst case drops to <strong>40%</strong>. The 55.6% efficiency and the 60% radius from module 16 are the same fact seen from two sides.</li>
+  <li><strong>Shuffle sharding.</strong> With fixed groups of 2 replicas out of 10, one noisy customer takes down <strong>20%</strong> of customers. With a <em>shuffle</em> of 2 out of 10 there are 45 pairs: the worst case is 1 ÷ 45 = <strong>2.2%</strong>.</li>
+  <li><strong>What the table hides.</strong> Global dependencies. The 3 shards call the <strong>same</strong> <code>estoque</code>, the <strong>same</strong> <code>pagamentos</code>, the <strong>same</strong> Redis (module 5) and the <strong>same</strong> <code>lb-loja</code>. If <code>estoque</code> goes down, the radius is <strong>100%</strong>, despite the 3 shards.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Bulkheads (N)</th><th>Radius (1 ÷ N)</th><th>Availability during an incident</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>100%</td><td>0%</td></tr>
+    <tr><th>2</th><td>50%</td><td>50%</td></tr>
+    <tr><th>3</th><td><strong>33.3%</strong></td><td><strong>66.7%</strong> (the article says 33% and 66%)</td></tr>
+    <tr><th>5</th><td>20%</td><td>80%</td></tr>
+    <tr><th>10</th><td>10%</td><td>90%</td></tr>
+    <tr><th>20</th><td>5%</td><td>95%</td></tr>
+    <tr><th>50</th><td>2%</td><td>98%</td></tr>
+    <tr><th>100</th><td>1%</td><td>99%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="raio" title="Blast radius" hint="N compartments (1 to 100) and the distribution (uniform, with mkt-01 at 40% or with the dedicated shard). Shows the average and worst-case radius, shuffle sharding (C(n,k)) and the 1 − (1 − p)^N and p^N calculations." />
+
+<h3 class="sec">The radius falls, the number of incidents rises</h3>
+
+<p>There is a second effect the table does not show. Each compartment has its own chance of failing. Suppose each one is down <strong>0.1%</strong> of the time (99.9% availability, p = 0.001). The chance that <strong>some</strong> compartment is down is 1 − 0.999<sup>N</sup>: <strong>0.10%</strong> with 1 compartment, <strong>0.30%</strong> with 3, <strong>1.00%</strong> with 10, <strong>4.88%</strong> with 50 and <strong>9.52%</strong> with 100. The more parts, the more small incidents.</p>
+
+<p>For <strong>one customer</strong> who depends on <strong>one</strong> compartment, unavailability stays at <strong>0.1%</strong>. What changes is the <strong>tail</strong>: the chance that <strong>all</strong> of them are down at the same time is p<sup>N</sup>, or 0.1% with N = 1 and <strong>10<sup>−9</sup></strong> with N = 3. The bulkhead does not improve each customer's mean time to failure. It improves the <strong>size of the incident</strong> and <strong>eliminates the total outage</strong>.</p>
+
+<h3 class="sec">And if it goes wrong: the hot shard and the global inventory</h3>
+
+<p>The first hole is the <strong>hot shard</strong>. <code>mkt-01</code> concentrates 60% of the traffic on one of the 3 shards, and the incident's radius is 60%, not 33%. The dedicated shard brings the worst case to 40%, and that is still not 25%. The second hole is the <strong>hidden channel</strong>: <code>estoque</code> is one service for all shards. When it goes down, the radius is <strong>100%</strong>, and none of the store's splits show up on the incident map. The right calculation starts from drawing the <strong>shared dependencies</strong>, not from the number of shards.</p>
+
+<WhyItMatters>
+  <li><strong>The radius is a fraction of traffic.</strong> 1 ÷ N is the uniform case. With <code>mkt-01</code> the worst case rules: 60% in 3 shards, 40% with the dedicated one.</li>
+  <li><strong>More compartments, more small incidents.</strong> 0.10% chance that some are down with 1; 4.88% with 50. What goes away is the total outage (10<sup>−9</sup>).</li>
+  <li><strong>The global one breaks the math.</strong> A shared <code>estoque</code> has a radius of 100%, whatever the number of shards.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>The table assumes uniform traffic and counts per incident.</strong> With <code>mkt-01</code> the radius is the <strong>largest fraction</strong> (60% in 3 shards, 40% with the dedicated one), not 1 ÷ N. It rounds 33.3% and 66.7% to 33% and 66%.</li>
+    <li><strong>The number of incidents rises with N</strong> (1 − 0.999<sup>N</sup>: 0.10% up to 4.88% with 50), while each customer's expected unavailability stays the same (0.1%) and the total outage disappears (p<sup>N</sup>). The article does not say this.</li>
+    <li><strong>"Each shard is a complete or partial bulkhead".</strong> A <strong>data</strong> shard isolates only the data. The article says later that you need to segregate load balancers, applications, databases, topics and queues. In the store, the 3 <code>pedidos</code> shards share <code>estoque</code>, <code>pagamentos</code>, Redis and <code>lb-loja</code>: the <code>estoque</code> radius is 100%.</li>
+    <li><strong>Missing from the article:</strong> sizing (lesson 2), watching saturation <strong>per compartment</strong> and <strong>testing</strong> (module 24).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on the Bulkhead Pattern (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bulkheads/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Microsoft: Bulkhead pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "Google SRE: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The radius now has a calculation, and the hot shard has a warning. What is left is <strong>what kind of split</strong> this is: separating by what the system does (the report, the order) or by who uses it (<code>mkt-01</code>, the shards)? That is the functional and operational bulkhead, in lesson 4.</p>
+
+<Flashcards cards={[
+  { q: "What is the blast radius?",
+    a: "The fraction of the compartment's traffic that goes down when it fails. The 1 ÷ N table only holds with uniform traffic." },
+  { q: "What is the worst case for 3 shards with mkt-01?",
+    a: "60% (fractions 20% · 20% · 60%). With the dedicated shard, 4 shards at 20% · 20% · 20% · 40%: the worst case drops to 40%." },
+  { q: "What does shuffle sharding of 2 out of 10 do?",
+    a: "There are 45 pairs: the worst case takes down 1 ÷ 45 = 2.2% of customers, against 20% with fixed groups of 2 out of 10." },
+  { q: "What happens to incidents when N goes up?",
+    a: "Each one is smaller, but there are more: with each compartment at 99.9%, the chance that some are down goes from 0.10% (1) to 4.88% (50). The total outage goes to p^N (10^-9 with 3)." },
+  { q: "What does the blast radius table hide?",
+    a: "Global dependencies: the 3 shards call the same estoque, pagamentos, Redis and lb-loja. If estoque goes down, the radius is 100%." },
+]} />
