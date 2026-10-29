@@ -21,7 +21,7 @@
 
 /* coluna de leitura de 65ch; widgets, figuras e grades têm largura própria */
 .sdl-content .lesson>*:not(.widget):not(.osi-wrap):not(.f3d-wrap):not(details.deep){max-width:var(--measure)}
-.sdl-content .deep>*:not(.layers):not(.versions):not(.map):not(.rtt-table-wrap):not(.hdr-pair):not(.sr-tablewrap){max-width:var(--measure)}
+.sdl-content .deep-in>*:not(.layers):not(.versions):not(.map):not(.rtt-table-wrap):not(.hdr-pair):not(.sr-tablewrap){max-width:var(--measure)}
 .sdl-content .lesson{padding-top:var(--s-6);scroll-margin-top:104px}
 @media (max-width:560px){.sdl-content .lesson{padding-top:var(--s-5);scroll-margin-top:84px}.sdl-content .lm-word{display:none}.sdl-content .widget{padding:var(--s-4)}}
 .sdl-content .lesson[hidden]{display:none}
@@ -78,16 +78,20 @@
 .sdl-content details.deep{margin:var(--s-7) 0 0}
 /* o "Aprofundar" ocupa a largura larga (tabelas e figuras de dentro precisam), mas as réguas dele seguem a coluna de texto */
 .sdl-content details.deep>summary{max-width:var(--measure);border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line)}
-.sdl-content details.deep[open]>summary{margin-bottom:var(--s-4)}
 .sdl-content details.deep>summary{cursor:pointer;padding:var(--s-4) 0;font-weight:700;font-size:18px;color:var(--ink-hi);min-height:var(--tap);list-style:none;display:flex;align-items:center;gap:var(--s-3);max-width:var(--measure)}
 .sdl-content details.deep>summary::-webkit-details-marker{display:none}
 .sdl-content details.deep>summary::before{content:"";flex:none;width:22px;height:22px;border:var(--hair) solid var(--line-strong);border-radius:50%;
-  background:linear-gradient(var(--ink-hi),var(--ink-hi)) center/10px 1.5px no-repeat,linear-gradient(var(--ink-hi),var(--ink-hi)) center/1.5px 10px no-repeat;transition:transform var(--dur-2) var(--ease-out)}
-.sdl-content details.deep[open]>summary::before{background:linear-gradient(var(--accent-ink),var(--accent-ink)) center/10px 1.5px no-repeat;border-color:var(--accent-ink);box-shadow:var(--ring)}
+  color:var(--ink-hi);background:linear-gradient(currentColor,currentColor) center/10px 1.5px no-repeat,linear-gradient(currentColor,currentColor) center/1.5px 10px no-repeat;transition:background-size var(--dur-3) var(--ease-out),color var(--dur-2),border-color var(--dur-2),box-shadow var(--dur-2)}
+/* aberto: a barra vertical do + encolhe até sumir e o ícone vira − (".closing" já desfaz isso enquanto a altura recolhe) */
+.sdl-content details.deep[open]:not(.closing)>summary::before{background-size:10px 1.5px,1.5px 0;color:var(--accent-ink);border-color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content details.deep>summary:hover::before{border-color:var(--accent-ink)}
 .sdl-content details.deep>summary:focus-visible{border-radius:var(--r-2)}
-.sdl-content details.deep>summary+*{margin-top:var(--s-2)}
-.sdl-content details.deep>*:last-child{margin-bottom:var(--s-5)}
+/* o conteúdo mora em .deep-body > .deep-in; a altura anima por grid-template-rows (0fr→1fr), sem medir nada no JS */
+.sdl-content .deep-body{display:grid;grid-template-rows:1fr}
+.sdl-content .deep-in{min-height:0;padding-top:var(--s-4)}
+.sdl-content .deep.anim .deep-in{overflow:hidden}
+.sdl-content .deep-in>*:first-child{margin-top:0}
+.sdl-content .deep-in>*:last-child{margin-bottom:var(--s-5)}
 /* o parágrafo que segue o Aprofundar (o "Falta saber…") não encosta na régua */
 .sdl-content details.deep+p:not(.gancho){margin-top:var(--s-5)}
 /* "Aprofundar" fechado logo antes do gancho: uma régua só (a do Aprofundar), sem duas linhas paralelas */
@@ -221,11 +225,15 @@
 .sdl-content .pg-text.swap{animation:pg-swap 360ms var(--ease-out)}
 @keyframes pg-swap{from{transform:translateY(60%);opacity:0}}
 /* Entendi: o botão afunda ao apertar; ao virar "entendida", o check se desenha */
-.sdl-content .btn{transition:transform 120ms var(--ease-out),border-color var(--dur-1),background var(--dur-1),color var(--dur-1)}
+.sdl-content .btn{transition:transform 120ms var(--ease-out),border-color var(--dur-2),background var(--dur-2),color var(--dur-2),box-shadow var(--dur-2)}
 .sdl-content .btn:active{transform:scale(.97)}
 .sdl-content .done-btn.just .ico-check{animation:pg-check 420ms var(--ease-out) 60ms both}
 @keyframes pg-check{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
-@media (prefers-reduced-motion:reduce){.sdl-content .pg-st.just,.sdl-content .pg-text.swap,.sdl-content .done-btn.just .ico-check{animation:none}.sdl-content .pg-link i{transition:none}.sdl-content .btn:active{transform:none}}
+/* a mensagem de "entendida" aparece (o :empty vira :not(:empty) e a animação roda uma vez); o check novo do índice se desenha */
+.sdl-content .done-msg:not(:empty){animation:pg-msg 320ms var(--ease-out)}
+@keyframes pg-msg{from{opacity:0;transform:translateY(-4px)}}
+.sdl-content .toc-ck.fresh{animation:pg-check 420ms var(--ease-out) 80ms both}
+@media (prefers-reduced-motion:reduce){.sdl-content .done-msg:not(:empty),.sdl-content .toc-ck.fresh{animation:none}.sdl-content details.deep>summary::before{transition:none}.sdl-content .pg-st.just,.sdl-content .pg-text.swap,.sdl-content .done-btn.just .ico-check{animation:none}.sdl-content .pg-link i{transition:none}.sdl-content .btn:active{transform:none}}
 .sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;order:2;font-size:15px}
 .sdl-content .pg-count{font:600 14px/1 var(--sans);color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 /* painel do índice */

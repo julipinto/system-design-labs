@@ -27,12 +27,29 @@ const src = withBase(path);
   (function () {
     const wrap = document.currentScript.previousElementSibling;
     if (!wrap || !matchMedia('(min-width: 720px)').matches) return;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const mount = () => { if (wrap.querySelector('iframe') || !wrap.offsetParent) return;
+      const plate = wrap.querySelector('.f3d-plate'), poster = wrap.querySelector('.f3d-poster');
       const f = document.createElement('iframe'); f.className = 'f3d-frame'; f.src = wrap.dataset.src; f.loading = 'lazy';
       f.title = wrap.dataset.title; f.allow = 'fullscreen';
       // com o mouse em cima, a figura recebe o foco: as setas do teclado passam a funcionar sem precisar clicar
       f.addEventListener('pointerenter', () => { try { f.focus({ preventScroll: true }); } catch (e) {} });
-      wrap.querySelector('.f3d-poster').replaceWith(f); };
+      if (still) { poster.replaceWith(f); return; }
+      // sem salto: a cena monta por cima da prévia (a prancha mantém a altura dela e recorta); quando a cena carrega,
+      // ela aparece em fade e a prancha cresce até a altura da cena. A cena nunca é redimensionada durante a troca.
+      const h0 = poster.offsetHeight;
+      plate.style.height = h0 + 'px'; plate.style.overflow = 'hidden';
+      f.style.cssText = 'position:absolute;left:0;top:0;opacity:0';
+      plate.appendChild(f);
+      let shown = false;
+      const reveal = () => { if (shown) return; shown = true;
+        const h1 = f.offsetHeight, ease = 'cubic-bezier(.16,1,.3,1)';
+        f.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: ease }); f.style.opacity = '';
+        plate.style.height = h1 + 'px';
+        const grow = plate.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 360, easing: ease });
+        grow.onfinish = () => { poster.remove(); f.style.cssText = ''; plate.style.height = ''; plate.style.overflow = ''; }; };
+      f.addEventListener('load', () => requestAnimationFrame(reveal));
+      setTimeout(reveal, 6000); };
     // a cena 3D trava a página por ~1,5 s ao iniciar: espera a troca de aula e o pacote da trilha assentarem
     // (900 ms visível) e o navegador ficar ocioso; até lá a prévia fica no lugar
     let timer = 0;

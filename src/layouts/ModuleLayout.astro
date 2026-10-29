@@ -52,9 +52,22 @@ const label = `${heading} · ${T.topics(lessons.length)}`;
       hero.classList.add('clamp');
       function fit() { if (b.getAttribute('aria-expanded') !== 'true') b.hidden = p.scrollHeight <= p.clientHeight + 1; }
       fit(); addEventListener('resize', fit);
+      var still = matchMedia('(prefers-reduced-motion: reduce)').matches, anim = null;
       b.addEventListener('click', function () {
         var open = b.getAttribute('aria-expanded') !== 'true';
-        b.setAttribute('aria-expanded', String(open)); p.classList.toggle('open', open); b.firstChild.textContent = open ? b.dataset.less : b.dataset.more;
+        b.setAttribute('aria-expanded', String(open)); b.firstChild.textContent = open ? b.dataset.less : b.dataset.more;
+        if (anim) { anim.cancel(); anim = null; }
+        // a altura da descrição anima (texto de poucas linhas, uma vez por toque); fechar mantém o texto inteiro até recolher
+        var ease = 'cubic-bezier(.16,1,.3,1)';
+        if (still) { p.classList.toggle('open', open); return; }
+        if (open) {
+          var h0 = p.offsetHeight; p.classList.add('open'); var h1 = p.offsetHeight;
+          anim = p.animate({ height: [h0 + 'px', h1 + 'px'], overflow: ['hidden', 'hidden'] }, { duration: 320, easing: ease });
+        } else {
+          var h1c = p.offsetHeight; p.classList.remove('open'); var h0c = p.offsetHeight; p.classList.add('open');
+          var a = anim = p.animate({ height: [h1c + 'px', h0c + 'px'], overflow: ['hidden', 'hidden'] }, { duration: 260, easing: ease, fill: 'forwards' });
+          a.onfinish = function () { p.classList.remove('open'); a.cancel(); anim = null; };
+        }
       });
     })();
   </script>

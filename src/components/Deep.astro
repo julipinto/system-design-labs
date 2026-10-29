@@ -1,5 +1,6 @@
 ---
 // <details> "Aprofundar (N min)": o texto longo, fechado por padrão.
+// O conteúdo fica em .deep-body > .deep-in para a altura animar por grid-template-rows (ver lesson.css).
 import { t as tr } from '../lib/i18n.js';
 const T = tr(Astro.url);
 interface Props { min: number }
@@ -7,5 +8,36 @@ const { min } = Astro.props;
 ---
 <details class="deep">
   <summary>{T.deep} ({min} min)</summary>
-  <slot />
+  <div class="deep-body"><div class="deep-in"><slot /></div></div>
 </details>
+<script>
+  // abrir e fechar animam a altura (0fr↔1fr); sem JS ou com movimento reduzido, o <details> nativo troca seco.
+  // Um listener só na página (o script é deduplicado pelo bundler), por delegação.
+  const w = window as any;
+  if (!w.__sdlDeep) {
+    w.__sdlDeep = true;
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+    const EASE = 'cubic-bezier(.16,1,.3,1)';
+    document.addEventListener('click', (e) => {
+      const sum = (e.target as Element).closest?.('details.deep > summary');
+      if (!sum || still.matches) return;
+      const d = sum.parentElement as HTMLDetailsElement & { _a?: Animation | null };
+      const body = d.querySelector(':scope > .deep-body') as HTMLElement | null;
+      if (!body) return;
+      e.preventDefault();
+      if (d._a) { d._a.cancel(); d._a = null; }
+      const opening = !d.open || d.classList.contains('closing');
+      d.classList.remove('closing');
+      d.classList.add('anim');
+      if (opening) {
+        d.open = true;
+        const a = d._a = body.animate({ gridTemplateRows: ['0fr', '1fr'], opacity: [0, 1] }, { duration: 340, easing: EASE });
+        a.onfinish = () => { d.classList.remove('anim'); d._a = null; };
+      } else {
+        d.classList.add('closing');
+        const a = d._a = body.animate({ gridTemplateRows: ['1fr', '0fr'], opacity: [1, 0] }, { duration: 260, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' });
+        a.onfinish = () => { d.open = false; d.classList.remove('closing', 'anim'); a.cancel(); d._a = null; };
+      }
+    });
+  }
+</script>

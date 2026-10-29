@@ -73,7 +73,8 @@ import { animate } from 'motion';
     tocLinks.forEach(function (a, i) {
       var ck = a.querySelector('.toc-ck');
       if (done[lessons[i] && lessons[i].id]) {
-        if (!ck) { ck = document.createElement('span'); ck.className = 'ico ico-check toc-ck'; ck.setAttribute('aria-label', EN ? 'understood' : 'entendida'); a.appendChild(ck); }
+        // o check do índice se desenha só quando a aula é concluída agora (não na carga da página)
+        if (!ck) { ck = document.createElement('span'); ck.className = 'ico ico-check toc-ck' + (rendered ? ' fresh' : ''); ck.setAttribute('aria-label', EN ? 'understood' : 'entendida'); a.appendChild(ck); }
       } else if (ck) a.removeChild(ck);
       if (i === cur) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
     });
@@ -93,24 +94,64 @@ import { animate } from 'motion';
     });
   }
 
-  function show(i, scroll) {
+  /* troca de aula no modo foco: a atual sai rápido para o lado de onde a pessoa veio e a nova entra do lado para onde ela foi.
+     A rolagem e o pacote rodam no instante da troca (commit), depois da saída, para não brigar com a animação. */
+  var pending = -1, swapTok = 0, swapOut = null;
+  var EASE = 'cubic-bezier(.16,1,.3,1)';
+  function swap(i, scroll, dir) {
+    var old = lessons[cur], tok = ++swapTok;
+    pending = i;
+    if (swapOut) swapOut.cancel();
+    var out = swapOut = old.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(' + (-dir * 10) + 'px)' }], { duration: 110, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+    out.onfinish = function () {
+      if (tok !== swapTok) return;          // outra troca começou: ela cuida do resto
+      out.cancel(); swapOut = null; pending = -1;
+      commit(i, scroll);
+      lessons[i].animate([{ opacity: 0, transform: 'translateX(' + (dir * 18) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE });
+    };
+  }
+  function show(i, scroll, dir) {
+    if (dir && !still && mode === 'focus' && i !== cur && !lessons[cur].hidden) swap(i, scroll, dir);
+    else { swapTok++; if (swapOut) { swapOut.cancel(); swapOut = null; } pending = -1; commit(i, scroll); }
+  }
+  function commit(i, scroll) {
     cur = i; save('cur', lessons[i].id);
     if (mode === 'focus') lessons.forEach(function (l, k) { l.hidden = k !== i; });
     render();
     if (scroll) lessons[i].scrollIntoView();
   }
   function setHash(id) { try { if (location.hash !== '#' + id) location.hash = id; } catch (e) { /* ignora */ } }
-  function go(i) { if (i < 0 || i >= N) return; closePanel(); show(i, true); setHash(lessons[i].id); }
+  function at() { return pending >= 0 ? pending : cur; }   // aula de destino, se uma troca está no ar
+  function go(i) { if (i < 0 || i >= N) return; if (i === at()) { closePanel(); if (pending < 0) show(i, true); return; } closePanel(); show(i, true, i > at() ? 1 : -1); setHash(lessons[i].id); }
 
-  /* índice */
-  function openPanel() { panel.hidden = false; statusBtn.setAttribute('aria-expanded', 'true'); var a = tocLinks[cur]; if (a) a.focus(); }
-  function closePanel(back) { if (panel.hidden) return; panel.hidden = true; statusBtn.setAttribute('aria-expanded', 'false'); if (back) statusBtn.focus(); }
-  statusBtn.addEventListener('click', function () { panel.hidden ? openPanel() : closePanel(); });
+  /* índice: abre com recorte de cima para baixo e os itens entram em fila curtíssima (16 ms cada, só na abertura); fecha pelo mesmo caminho */
+  var panelOpen = false, panelAnim = null;
+  function openPanel() {
+    if (panelAnim) { panelAnim.cancel(); panelAnim = null; }
+    panelOpen = true; panel.hidden = false; statusBtn.setAttribute('aria-expanded', 'true');
+    if (!still) {
+      panelAnim = panel.animate([{ clipPath: 'inset(0 -40px 100% -40px)', transform: 'translateY(-6px)', opacity: .5 }, { clipPath: 'inset(0 -40px -40px -40px)', transform: 'none', opacity: 1 }], { duration: 300, easing: EASE });
+      tocLinks.forEach(function (a, k) {
+        a.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: 40 + Math.min(k, 12) * 16, easing: EASE, fill: 'backwards' });
+      });
+    }
+    var a = tocLinks[cur]; if (a) a.focus({ preventScroll: true });
+  }
+  function closePanel(back) {
+    if (!panelOpen) return;
+    panelOpen = false; statusBtn.setAttribute('aria-expanded', 'false');
+    if (back) statusBtn.focus();
+    if (panelAnim) { panelAnim.cancel(); panelAnim = null; }
+    if (still) { panel.hidden = true; return; }
+    var a = panelAnim = panel.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-4px)' }], { duration: 150, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+    a.onfinish = function () { if (panelAnim === a) { panel.hidden = true; a.cancel(); panelAnim = null; } };
+  }
+  statusBtn.addEventListener('click', function () { panelOpen ? closePanel() : openPanel(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePanel(true); });
-  document.addEventListener('click', function (e) { if (!panel.hidden && !bar.contains(e.target)) closePanel(); });
+  document.addEventListener('click', function (e) { if (panelOpen && !bar.contains(e.target)) closePanel(); });
   tocLinks.forEach(function (a, i) { a.addEventListener('click', function (e) { e.preventDefault(); go(i); }); });
-  prevBtn.addEventListener('click', function () { go(cur - 1); });
-  nextBtn.addEventListener('click', function () { go(cur + 1); });
+  prevBtn.addEventListener('click', function () { go(at() - 1); });
+  nextBtn.addEventListener('click', function () { go(at() + 1); });
 
   /* botões do fim da aula */
   lessons.forEach(function (ls, i) {
@@ -121,7 +162,7 @@ import { animate } from 'motion';
       render();
     });
     Array.prototype.forEach.call(ls.querySelectorAll('[data-nav]'), function (a) {
-      a.addEventListener('click', function (e) { e.preventDefault(); go(i + (a.getAttribute('data-nav') === 'next' ? 1 : -1)); });
+      a.addEventListener('click', function (e) { e.preventDefault(); go(at() + (a.getAttribute('data-nav') === 'next' ? 1 : -1)); });
     });
     /* flashcards */
     Array.prototype.forEach.call(ls.querySelectorAll('.fc-q'), function (q, k) {
@@ -170,10 +211,10 @@ import { animate } from 'motion';
   /* botão voltar / hash colado */
   window.addEventListener('hashchange', function () {
     var i = hashIdx();
-    if (i < 0) return;
+    if (i < 0 || i === pending) return;   // a troca animada já está a caminho desta aula
     closePanel();
     if (mode === 'all') { if (i !== cur) { cur = i; save('cur', lessons[i].id); render(); } }
-    else if (i !== cur || lessons[i].hidden) show(i, true);
+    else if (i !== cur || lessons[i].hidden) show(i, true, i > cur ? 1 : -1);
   });
 
   /* início */
