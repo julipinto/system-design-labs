@@ -133,41 +133,41 @@
   <button data-act="cabin">Cabin lights<kbd>C</kbd></button>
   <button data-act="door">Cabin doors<kbd>D</kbd></button>
   <div class="sep"></div>
-  <button data-act="iso">Iso view<kbd>I</kbd></button>
+  <button data-act="iso">Vista isométrica<kbd>I</kbd></button>
   <label class="rng">Edge detail <output id="edv">30°</output><input id="ed" type="range" min="12" max="70" step="1" value="30"></label>
 </div>
 <div class="ui ctl hide" id="ctl-tw" style="top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;">
   <button data-tw="demo">Demo<kbd>▶</kbd></button>
   <button data-tw="Enter">Return carriage<kbd>↵</kbd></button>
   <div class="sep"></div>
-  <button data-tw="iso">Iso view<kbd></kbd></button>
+  <button data-tw="iso">Vista isométrica<kbd></kbd></button>
 </div>
 <div class="ui ctl hide" id="ctl-dr" style="top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;">
   <button data-dr="demo">Demo pattern<kbd>▶</kbd></button>
   <button data-dr="play">Play / stop<kbd>space</kbd></button>
   <div class="sep"></div>
-  <button data-dr="iso">Iso view<kbd></kbd></button>
+  <button data-dr="iso">Vista isométrica<kbd></kbd></button>
 </div>
 <div class="ui ctl hide" id="ctl-cs" style="top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;">
   <button data-cs="demo">Demo<kbd>▶</kbd></button>
   <button data-cs="play">Play / stop<kbd>space</kbd></button>
   <button data-cs="stop">Stop<kbd>S</kbd></button>
   <div class="sep"></div>
-  <button data-cs="iso">Iso view<kbd></kbd></button>
+  <button data-cs="iso">Vista isométrica<kbd></kbd></button>
 </div>
 <div class="ui ctl hide" id="ctl-tm" style="top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;">
   <button data-tm="demo">Demo<kbd>▶</kbd></button>
   <button data-tm="start">Start / stop<kbd>space</kbd></button>
   <button data-tm="reset">Reset<kbd>R</kbd></button>
   <div class="sep"></div>
-  <button data-tm="iso">Iso view<kbd></kbd></button>
+  <button data-tm="iso">Vista isométrica<kbd></kbd></button>
 </div>
 <div class="ui ctl hide" id="ctl-vm" style="top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;">
   <button data-vm="demo">Demo<kbd>▶</kbd></button>
   <button data-vm="coin">Insert coin<kbd>space</kbd></button>
   <button data-vm="clear">Clear / refund<kbd>esc</kbd></button>
   <div class="sep"></div>
-  <button data-vm="iso">Iso view<kbd></kbd></button>
+  <button data-vm="iso">Vista isométrica<kbd></kbd></button>
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
@@ -2905,7 +2905,7 @@ for (const [id, F] of Object.entries(EXTRA)) {
   VIEWS[id] = { target: F.view.target, dir: new THREE.Vector3(1, 1, 1).normalize(), dist: () => F.view.dist * Math.max(1, 1.45 / persp.aspect), min: 1, cam: null, info: F.info, hint: F.hint };
   const panel = document.createElement('div'); panel.className = 'ui ctl hide'; panel.id = 'ctl-' + id;
   panel.style.cssText = 'top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;';
-  [...F.panel, null, ['Iso view', '', () => act.iso(), 'iso']].forEach(b => {
+  [...F.panel, null, ['Vista isométrica', '', () => act.iso(), 'iso']].forEach(b => {
     if (!b) { const sp = document.createElement('div'); sp.className = 'sep'; panel.appendChild(sp); return; }
     const el = document.createElement('button'); el.innerHTML = `${b[0]}<kbd>${b[1]}</kbd>`; if (b[3]) el.dataset.x = b[3];
     el.addEventListener('click', () => { b[2](); el.blur(); }); panel.appendChild(el);
