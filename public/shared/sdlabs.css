@@ -139,12 +139,17 @@ code,kbd,samp,pre{font-family:var(--mono);font-size:.9em}
 .rv-seg .off{fill:currentColor;opacity:.08}
 .rv-dots .off{fill:currentColor;opacity:.09}
 .rv-unit{font:400 max(12px,.62em)/1 var(--sans);color:var(--muted);letter-spacing:0;padding-bottom:.05em}
-.rv-sweep .on{animation:rv-in 260ms var(--ease-out) both;animation-delay:calc(var(--c,0) * 14ms)}
+/* varredura: nota do quiz (pontos) acende por coluna; mostrador de 7 segmentos só nos dígitos que mudaram (.sw, posto por readouts.js quando o valor assenta) */
+.rv-dots.rv-sweep .on{animation:rv-in 260ms var(--ease-out) both;animation-delay:calc(var(--c,0) * 14ms)}
+.rv-seg .sw .on{animation:rv-seg-in 240ms var(--ease-out) both;animation-delay:calc(var(--c,0) * 40ms)}
 @keyframes rv-in{from{opacity:.09}to{opacity:1}}
-@media (prefers-reduced-motion:reduce){.rv-sweep .on{animation:none}}
+@keyframes rv-seg-in{from{opacity:.2}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.rv-dots.rv-sweep .on,.rv-seg .sw .on{animation:none}}
 
-/* o gato de pelúcia (shared/cat.svg) nos fechamentos: traço em tinta, laço em sódio; entra com um pulinho */
-.sdl-cat{width:96px;color:var(--ink);--cat-accent:var(--accent-ink);margin:var(--s-3) 0 0;animation:sdl-cat-in 620ms cubic-bezier(.34,1.56,.64,1) both}
+/* o gato de pelúcia (shared/cat.svg) nos fechamentos: traço em tinta, laço em sódio; sobe com mola suave (excesso de ~1,5%) e o fade é à parte */
+.sdl-cat{width:96px;color:var(--ink);--cat-accent:var(--accent-ink);margin:var(--s-3) 0 0;transform-origin:50% 100%;
+  animation:sdl-cat-up 720ms linear(0,0.055,0.181,0.333,0.485,0.621,0.735,0.825,0.893,0.941,0.974,0.995,1.007,1.013,1.015,1.015,1.013,1.011,1.008,1.006,1.004,1.003,1.002,1.001,1) both,sdl-cat-fade 240ms var(--ease-out) both}
 .sdl-cat svg{display:block;width:100%;height:auto}
-@keyframes sdl-cat-in{from{opacity:0;transform:translateY(10px) scale(.86)}}
+@keyframes sdl-cat-up{from{transform:translateY(14px) scale(.9)}}
+@keyframes sdl-cat-fade{from{opacity:0}}
 @media (prefers-reduced-motion:reduce){.sdl-cat{animation:none}}

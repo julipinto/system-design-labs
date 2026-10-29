@@ -35,7 +35,7 @@
       if (ch === ':') { out += '<circle class="on" cx="' + (x + 1.4 * k) + '" cy="' + (7 * k) + '" r="' + (1.3 * k) + '"/><circle class="on" cx="' + (x + 1.4 * k) + '" cy="' + (15 * k) + '" r="' + (1.3 * k) + '"/>'; x += 4 * k + gap; continue; }
       if (ch === ' ') { x += 5 * k; continue; }
       var on = D7[ch] || '';
-      out += '<g transform="translate(' + x + ' 0) scale(' + k + ') skewX(-6) translate(1.2 0)">';
+      out += '<g class="dg" transform="translate(' + x + ' 0) scale(' + k + ') skewX(-6) translate(1.2 0)">';
       for (var n in SEGS) out += '<polygon class="' + (on.indexOf(n) >= 0 ? 'on' : 'off') + '" points="' + SEGS[n] + '"/>';
       out += '</g>'; x += 12 * k + gap;
     }
@@ -66,13 +66,32 @@
   var NUM = /^\s*(-?[\d][\d.,: ]*)\s*(%|[A-Za-zµ°/]{1,6}(?:\/[A-Za-z]{1,3})?)?\s*$/;
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function paint(el, text, html, unit) {
+  function paint(el, text, html, unit, seg) {
     var changed = el.__rv !== undefined && el.__rv !== text;
     el.__rv = text; el.__busy = true;
     el.setAttribute('aria-label', text); el.setAttribute('role', 'img');
     el.innerHTML = html + (unit ? '<span class="rv-unit" aria-hidden="true">' + unit + '</span>' : '');
-    el.classList.toggle('rv-sweep', changed && !reduce);
+    if (seg) {
+      /* mostrador: pinta já no valor novo, sem animar; a varredura só vem quando o valor assenta (SETTLE ms sem mudar),
+         e só nos dígitos que mudaram desde a última vez. Assim, arrastar um controle deslizante não faz o número piscar. */
+      el.classList.remove('rv-sweep');
+      if (el.__base === undefined) el.__base = seg;
+      el.__cur = seg;
+      if (changed && !reduce) { clearTimeout(el.__t); el.__t = setTimeout(function () { sweepSeg(el); }, SETTLE); }
+    } else el.classList.toggle('rv-sweep', changed && !reduce);
     el.__busy = false;
+  }
+  var SETTLE = 180;
+  function sweepSeg(el) {
+    var gs = el.querySelectorAll('svg g.dg'), base = el.__base || '', cur = el.__cur || '', off = gs.length - base.length, n = 0;
+    el.__base = cur;
+    if (gs.length !== cur.length) return;
+    for (var i = 0; i < gs.length; i++) {
+      var bi = i - off;
+      if (base.charAt(bi) === cur.charAt(i) && bi >= 0) continue;
+      gs[i].style.setProperty('--c', n++);
+      gs[i].classList.add('sw');
+    }
   }
   function doSeg(el) {
     if (el.__busy) return;
@@ -82,7 +101,7 @@
     if (!m || m[1].replace(/\D/g, '').length > 9) { el.classList.remove('rv-seg'); return; }
     el.classList.add('rv-seg');
     var h = Math.round(parseFloat(getComputedStyle(el).fontSize) * 0.9) || 22;
-    paint(el, text.trim(), seg7(m[1].trim(), h), m[2]);
+    paint(el, text.trim(), seg7(m[1].trim(), h), m[2], m[1].replace(/[^\d-]/g, ''));
   }
   function doScore(el) {
     if (el.__busy || el.querySelector('svg')) return;
@@ -97,14 +116,53 @@
     Array.prototype.forEach.call(root.querySelectorAll('.sr-fact b, [data-seg7]'), doSeg);
     Array.prototype.forEach.call(root.querySelectorAll('.q-score'), doScore);
   }
+  /* barras (.sr-fill): o widget manda a largura nova (muitas vezes recriando a barra). Aqui a largura vale na hora e a barra
+     "vem" do tamanho anterior por scaleX (só transform, nada de animar width). O tamanho anterior fica guardado por widget + posição. */
+  var memo = {}, wid = 0;
+  function fillKey(f) {
+    var w = f.closest('[data-widget]'); if (!w) return null;
+    if (!w.__wid) w.__wid = ++wid;
+    var all = w.querySelectorAll('.sr-fill'), i = Array.prototype.indexOf.call(all, f);
+    return w.__wid + ':' + i;
+  }
+  function doFill(f) {
+    var wd = parseFloat(f.style.width); if (isNaN(wd)) return;
+    var k = fillKey(f), prev = f.__w !== undefined ? f.__w : (k ? memo[k] : undefined);
+    f.__w = wd; if (k) memo[k] = wd;
+    if (reduce || prev === undefined || wd <= 0 || Math.abs(prev - wd) < 0.5 || !f.animate) return;
+    if (f.__a) f.__a.cancel();
+    f.__a = f.animate([{ transform: 'scaleX(' + (prev / wd) + ')' }, { transform: 'scaleX(1)' }], { duration: 320, easing: 'cubic-bezier(.16,1,.3,1)' });
+  }
+  function fills(node) {
+    if (!node || node.nodeType !== 1) return;
+    if (node.classList.contains('sr-fill')) doFill(node);
+    else if (node.querySelectorAll) Array.prototype.forEach.call(node.querySelectorAll('.sr-fill'), function (f) { if (f.__w === undefined) doFill(f); });
+  }
+  /* linha do tempo (.ib-tl): o widget recria a lista toda a cada passo; só os passos além do que já havia entram (sobem 4px e aparecem) */
+  function steps(list) {
+    var n = list.children.length, prev = list.__n || 0;
+    list.__n = n;
+    if (reduce || n <= prev || !list.animate) return;
+    for (var i = prev; i < n; i++) list.children[i].animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.16,1,.3,1)' });
+  }
   function start() {
     scan(document);
+    Array.prototype.forEach.call(document.querySelectorAll('.ib-tl'), function (l) { l.__n = l.children.length; });
+    Array.prototype.forEach.call(document.querySelectorAll('.sr-fill'), function (f) { var k = fillKey(f), wd = parseFloat(f.style.width); f.__w = wd; if (k && !isNaN(wd)) memo[k] = wd; });
     var pending = false;
     new MutationObserver(function (list) {
+      var tl = [];
+      for (var j = 0; j < list.length; j++) {
+        var r = list[j];
+        if (r.type === 'attributes') { if (r.target.classList.contains('sr-fill')) doFill(r.target); continue; }
+        for (var a = 0; a < r.addedNodes.length; a++) fills(r.addedNodes[a]);
+        if (r.target.classList && r.target.classList.contains('ib-tl') && r.addedNodes.length) tl[tl.length] = r.target;
+      }
+      for (var q = 0; q < tl.length; q++) if (tl.indexOf(tl[q]) === q) steps(tl[q]);
       // os widgets reescrevem o próprio HTML a cada mudança: varre de novo na próxima pintura
-      for (var i = 0; i < list.length; i++) { var t = list[i].target; if (t.__busy || (t.parentNode && t.parentNode.__busy)) continue;
+      for (var i = 0; i < list.length; i++) { if (list[i].type === 'attributes') continue; var t = list[i].target; if (t.__busy || (t.parentNode && t.parentNode.__busy)) continue;
         if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; scan(document); }); } }
-    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style'] });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

@@ -5,7 +5,8 @@
 /* rótulo de grupo, chips de escolha, nota de rodapé */
 .sdl-content .sr-sub{font:600 var(--fs-label)/1.3 var(--sans);color:var(--muted);margin:var(--s-4) 0 6px}
 .sdl-content .sr-chips{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:0 0 10px}
-.sdl-content .sr-chips .chip{min-height:44px}
+.sdl-content .sr-chips .chip{min-height:44px;transition:border-color var(--dur-1),color var(--dur-1),background-color var(--dur-1),box-shadow var(--dur-2) var(--ease-out),transform var(--dur-1) var(--ease-out)}
+.sdl-content .sr-chips .chip:active{transform:scale(.97)}
 .sdl-content .sr-chips .chip[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--surface);box-shadow:var(--ring)}
 .sdl-content .sr-note{color:var(--muted);font-size:13.5px;margin:6px 0 0}
 
@@ -25,6 +26,7 @@
 .sdl-content .ib-tl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 /* cada passo: traço fino; o passo atual acende, o que dá errado fica vermelho */
 .sdl-content .ib-step{border:var(--hair) solid var(--line);border-radius:var(--r-2);padding:10px var(--s-3);background:var(--surface);min-width:0;transition:border-color var(--dur-2),box-shadow var(--dur-2)}
+/* passo novo da linha do tempo: a entrada é posta por readouts.js (o widget recria a lista inteira a cada passo; só o último entra) */
 .sdl-content .ib-step.now{border-color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .ib-step.flag{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
 .sdl-content .ib-head{display:flex;justify-content:space-between;align-items:center;gap:var(--s-2);margin-bottom:6px}
@@ -48,9 +50,10 @@
 .sdl-content table.ib-matrix th,.sdl-content table.ib-matrix td{border:var(--hair) solid var(--line);padding:2px;text-align:center}
 .sdl-content table.ib-matrix thead th{font:700 12px var(--mono);color:var(--muted);padding:6px 2px}
 .sdl-content table.ib-matrix tbody th{font:700 12px var(--mono);width:44px;color:var(--ink-hi)}
-.sdl-content .ib-cell{width:100%;min-height:44px;border:var(--stroke) solid transparent;border-radius:var(--r-1);font:700 12px var(--mono);cursor:pointer;background:var(--bg);color:var(--ink)}
+.sdl-content .ib-cell{transition:border-color var(--dur-1),background-color var(--dur-1),transform var(--dur-1) var(--ease-out);width:100%;min-height:44px;border:var(--stroke) solid transparent;border-radius:var(--r-1);font:700 12px var(--mono);cursor:pointer;background:var(--bg);color:var(--ink)}
 .sdl-content .ib-cell.yes{color:var(--bad)}
 .sdl-content .ib-cell.no{color:var(--ok)}
+.sdl-content .ib-cell:active{transform:scale(.97)}
 .sdl-content .ib-cell.sel{border-color:var(--accent-ink);background:var(--surface)}
 
 /* calculadora: controles (slider, número, select), barras comparadas, veredito e fatos */
@@ -63,10 +66,11 @@
 .sdl-content .sr-bars{display:grid;gap:var(--s-2);margin:var(--s-3) 0}
 .sdl-content .sr-bar{display:grid;grid-template-columns:96px 1fr;gap:var(--s-2);align-items:center;font:600 12px var(--mono);color:var(--muted)}
 .sdl-content .sr-track{position:relative;height:26px;background:var(--sunken);border:var(--hair) solid var(--line);border-radius:var(--r-1);overflow:hidden}
-.sdl-content .sr-fill{position:absolute;inset:0 auto 0 0;background:var(--line-strong);min-width:2px;transition:width var(--dur-3) var(--ease-out)}
+.sdl-content .sr-fill{position:absolute;inset:0 auto 0 0;background:var(--line-strong);min-width:2px;transform-origin:0 50%}   /* a largura nova vale na hora; readouts.js anima o tamanho com scaleX */
 .sdl-content .sr-fill.win{background:var(--accent-fill)}
 .sdl-content .sr-fill.cap{background:var(--signal)}
 .sdl-content .sr-lbl{position:absolute;right:6px;top:4px;padding:0 4px;border-radius:2px;background:var(--sunken);color:var(--ink-hi);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sdl-content .sr-verdict,.sdl-content .ib-verdict{transition:border-color var(--dur-2),box-shadow var(--dur-2)}
 .sdl-content .sr-verdict{border:var(--hair) solid var(--accent-ink);border-radius:var(--r-2);padding:10px var(--s-3);margin:10px 0;font-size:15px;background:var(--surface)}
 .sdl-content .sr-verdict strong{color:var(--accent-ink)}
 .sdl-content .sr-verdict.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
@@ -90,3 +94,5 @@
 
 /* campo de texto dos widgets (chave do proxy, caminho do gateway) */
 .sdl-content .ck-in{width:100%;min-height:44px;padding:var(--s-2) 10px;border:var(--hair) solid var(--line-strong);border-radius:var(--r-2);background:var(--sunken);color:var(--ink-hi);font:14px var(--mono);box-sizing:border-box;margin:0 0 6px}
+
+@media (prefers-reduced-motion:reduce){.sdl-content .sr-chips .chip:active,.sdl-content .ib-cell:active{transform:none}}

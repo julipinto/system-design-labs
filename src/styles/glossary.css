@@ -12,10 +12,13 @@
 /* a ficha: painel de traço fino */
 .gl-card{position:absolute;z-index:60;width:min(340px,calc(100vw - 16px));background:var(--surface);color:var(--ink);
   border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:14px var(--s-4) var(--s-3);box-shadow:var(--shadow-pop);
-  visibility:hidden;opacity:0;transform:translateY(-4px);clip-path:inset(0 0 100% 0 round var(--r-3));
-  transition:opacity 200ms var(--ease-out),transform 360ms var(--ease-out),clip-path 360ms var(--ease-out),visibility 0s linear 360ms}
-/* a ficha se desdobra de cima para baixo, saindo da palavra tocada */
-.gl-card.open{visibility:visible;opacity:1;transform:none;clip-path:inset(0 0 0 0 round var(--r-3));transition-delay:0s}
+  --ox:50%;--oy:0px;transform-origin:var(--ox) var(--oy);
+  visibility:hidden;opacity:0;transform:scale(.97);
+  /* fechada, a ficha é um ponto na palavra tocada (--ox/--oy, postos por glossary.js): abre e fecha pelo mesmo caminho */
+  clip-path:inset(var(--oy) calc(100% - var(--ox)) calc(100% - var(--oy)) var(--ox) round var(--r-3));
+  transition:opacity 160ms var(--ease-out),transform 280ms var(--ease-out),clip-path 280ms var(--ease-io),visibility 0s linear 280ms}
+/* a ficha se desdobra a partir da palavra tocada */
+.gl-card.open{visibility:visible;opacity:1;transform:none;clip-path:inset(0 0 0 0 round var(--r-3));transition-duration:200ms,360ms,360ms,0s;transition-timing-function:var(--ease-out);transition-delay:0s}
 .gl-card:focus{outline:none}
 .gl-card:focus-visible{outline:2px solid var(--accent-fill);outline-offset:2px}
 .gl-card p{margin:0}
@@ -35,10 +38,12 @@
 @media (max-width:639.98px){
   .gl-card{position:fixed;left:0;right:0;bottom:0;top:auto!important;width:auto;max-height:70vh;overflow:auto;
     border-radius:var(--r-3) var(--r-3) 0 0;border-width:1px 0 0;padding:22px var(--gutter) calc(14px + env(safe-area-inset-bottom));
-    box-shadow:0 -14px 32px -8px rgba(0,0,0,.45);transform:translateY(100%)}
+    box-shadow:0 -14px 32px -8px rgba(0,0,0,.45);transform:translateY(100%);transform-origin:50% 100%;
+    transition:opacity 120ms linear 160ms,transform 300ms var(--ease-io),visibility 0s linear 300ms}
   .gl-card::before{content:"";position:absolute;left:50%;top:8px;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line-strong)}
   .gl-card,.gl-card.open{clip-path:none}
-  .gl-card.open{transform:none}
+  /* sobe de baixo como folha, com mola suave (excesso de ~1,5%); fecha por ease sem mola */
+  .gl-card.open{transform:none;transition:opacity 120ms linear,transform 560ms linear(0,0.055,0.181,0.333,0.485,0.621,0.735,0.825,0.893,0.941,0.974,0.995,1.007,1.013,1.015,1.015,1.013,1.011,1.008,1.006,1.004,1.003,1.002,1.001,1),visibility 0s}
   .gl-name{font-size:19px}
   .gl-def{font-size:17px}
   .gl-seen a{min-height:var(--tap);display:inline-flex;align-items:center}
@@ -62,4 +67,4 @@
 .gl-item dd a{white-space:nowrap;font:600 14px var(--sans);display:inline-flex;align-items:center;min-height:44px;margin:-10px 0 -10px 4px;vertical-align:middle}
 @media (min-width:900px){.gl-list{grid-template-columns:1fr 1fr;column-gap:var(--s-6)}}
 
-@media (prefers-reduced-motion:reduce){.gl-card{transition:none}}
+@media (prefers-reduced-motion:reduce){.gl-card,.gl-card.open{transition:none}}

@@ -37,7 +37,8 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
   .mod-link{grid-template-columns:64px 1fr 220px;align-items:start}
   .mod-n{font-size:20px;line-height:1.4}
   .mod-fig{display:block;position:relative;border:var(--hair) solid var(--line);border-radius:var(--r-2);overflow:hidden;background:var(--plate);aspect-ratio:8/5;transition:border-color var(--dur-2),box-shadow var(--dur-3) var(--ease-out)}
-  .mod-fig img{display:block;width:100%;height:100%;object-fit:cover;opacity:.82;transition:opacity var(--dur-3) var(--ease-out)}
+  .mod-fig img{display:block;width:100%;height:100%;object-fit:cover;opacity:.82;transform-origin:50% 50%;transition:opacity var(--dur-3) var(--ease-out),transform 520ms var(--ease-out)}
+  a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img{transform:scale(1.035)}
   a.mod-link:hover .mod-fig,a.mod-link:focus-visible .mod-fig{border-color:var(--line-strong)}
   a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img{opacity:1}
 }
@@ -63,10 +64,17 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .home .map-pkt{background:var(--accent-ink)}}
 :root[data-theme="light"] .home .map-pkt{background:var(--accent-ink)}
 /* estação: anel no nível do título; cheia quando o módulo está completo; contorno sódio quando está em andamento */
-.home .mod-link::before{content:"";position:absolute;left:-28px;top:calc(var(--s-5) + 9px);width:12px;height:12px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg);z-index:1;transition:border-color var(--dur-2),background var(--dur-2)}
+.home .mod-link::before{content:"";position:absolute;left:-28px;top:calc(var(--s-5) + 9px);width:12px;height:12px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg);z-index:1;transition:border-color var(--dur-2),background var(--dur-2),transform var(--dur-2) var(--ease-out)}
 .home .mod.done .mod-link::before{background:var(--ink);border-color:var(--ink)}
 .home .mod.going .mod-link::before{border-color:var(--accent-ink)}
-.home a.mod-link:hover::before,.home a.mod-link:focus-visible::before{border-color:var(--ink)}
+.home a.mod-link:hover::before,.home a.mod-link:focus-visible::before{border-color:var(--ink);transform:scale(1.18)}
+/* o título acompanha a estação: 2px para dentro (resposta ao ponteiro, volta ao sair) */
+.home .mod h2{transition:color var(--dur-2),transform var(--dur-3) var(--ease-out)}
+.home a.mod-link:hover h2,.home a.mod-link:focus-visible h2{transform:translateX(2px)}
+.home a.mod-link:active h2{transform:translateX(2px) scale(.995)}
+/* o pacote pousou: a estação confirma com um respiro (escala 1 → 1,35 → 1), uma vez */
+.home .mod.landed .mod-link::before{animation:st-land 560ms var(--ease-out) both}
+@keyframes st-land{0%{transform:scale(1)}35%{transform:scale(1.35)}100%{transform:scale(1)}}
 /* parada de bloco: um risco atravessando a trilha e o nome do bloco em rótulo */
 .home .mod-block{position:relative;padding:var(--s-6) 0 0;border-bottom:var(--hair) solid var(--line)}
 .home .mod-block:first-child{padding-top:var(--s-5)}
@@ -87,3 +95,9 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
 .home .map-cat svg{display:block;width:100%;height:auto}
 .home .map-end p{margin:0 0 var(--s-4);color:var(--muted);font-size:16px}
 @media (max-width:759.98px){.home .map-end{padding-left:26px}.home .map-end::before{left:7px}.home .map-cat{width:76px;margin-left:-46px}}
+
+@media (prefers-reduced-motion:reduce){
+  .home .mod-link::before,.home .mod h2,.mod-fig img{transition:none}
+  .home a.mod-link:hover h2,.home a.mod-link:focus-visible h2,.home a.mod-link:active h2,a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img,.home a.mod-link:hover::before,.home a.mod-link:focus-visible::before{transform:none}
+  .home .mod.landed .mod-link::before{animation:none}
+}

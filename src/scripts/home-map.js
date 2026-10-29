@@ -35,8 +35,10 @@ if (list) {
     lit.style.height = y + 'px';
     if (first && !still && y > 40) {
       first = false;
-      animate(pkt, { y: [0, y] }, { type: 'spring', stiffness: 60, damping: 16, mass: 1, delay: 0.25 });
-      animate(lit, { clipPath: ['inset(0 0 100% 0)', 'inset(0 0 0% 0)'] }, { type: 'spring', stiffness: 60, damping: 16, mass: 1, delay: 0.25 });
+      const sp = { type: 'spring', stiffness: 60, damping: 16, mass: 1, delay: 0.25 };
+      // o pacote pousou: a estação "de onde parou" confirma com um respiro (CSS .landed)
+      animate(pkt, { y: [0, y] }, sp).finished.then(() => here.classList.add('landed'), () => {});
+      animate(lit, { clipPath: ['inset(0 0 100% 0)', 'inset(0 0 0% 0)'] }, sp);
     } else { first = false; animate(pkt, { y }, { duration: 0 }); }
   };
   place();

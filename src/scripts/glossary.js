@@ -106,7 +106,7 @@
   function lessonNum(id) { var ls = Array.prototype.slice.call(root.querySelectorAll('.lesson')); for (var i = 0; i < ls.length; i++) if (ls[i].id === id) return i + 1; return 0; }
 
   function place(btn) {
-    if (!isDesktop()) { card.style.left = card.style.top = ''; return; }
+    if (!isDesktop()) { card.style.left = card.style.top = ''; card.style.removeProperty('--ox'); card.style.removeProperty('--oy'); return; }
     var r = btn.getClientRects()[0] || btn.getBoundingClientRect();
     var w = card.offsetWidth, h = card.offsetHeight, gap = 8;
     var left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
@@ -114,12 +114,17 @@
     var top = below ? r.bottom + gap : r.top - gap - h;
     card.style.left = (left + window.scrollX) + 'px';
     card.style.top = (top + window.scrollY) + 'px';
+    // origem da abertura/fechamento: o centro da palavra, em coordenadas da ficha
+    var ox = Math.min(Math.max(0, r.left + r.width / 2 - left), w), oy = below ? 0 : h;
+    card.style.setProperty('--ox', ox + 'px'); card.style.setProperty('--oy', oy + 'px');
   }
 
   function open(btn, pin) {
     var t = byName[btn.getAttribute('data-term')];
     if (!t) return;
     clearTimeout(timer);
+    var swap = card.classList.contains('open') && cur && cur !== btn && !(reduce && reduce.matches);   // troca de termo com a ficha aberta
+    var before = swap && isDesktop() ? card.getBoundingClientRect() : null;
     if (cur && cur !== btn) cur.setAttribute('aria-expanded', 'false');
     cur = btn; pinned = !!pin;
     btn.setAttribute('aria-expanded', 'true');
@@ -140,6 +145,17 @@
     card.setAttribute('aria-hidden', 'false');
     card.classList.add('open');
     place(btn);
+    if (swap) {
+      // conteúdo novo entra por baixo (fade + 4px) e, no desktop, a ficha desliza da posição anterior para a nova
+      [elName, elDef, card.querySelector('.gl-meta')].forEach(function (n, i) {
+        n.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: i * 30, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+      });
+      if (before) {
+        var now = card.getBoundingClientRect(), dx = before.left - now.left, dy = before.top - now.top;
+        if (card.__glide) card.__glide.cancel();
+        if (dx || dy) card.__glide = card.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.16,1,.3,1)' });
+      }
+    }
     if (!isDesktop()) {
       var r = btn.getBoundingClientRect(), room = window.innerHeight - card.offsetHeight - 24;
       if (r.bottom > room) window.scrollBy({ top: r.bottom - room, behavior: reduce && reduce.matches ? 'auto' : 'smooth' });
