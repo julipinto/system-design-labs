@@ -1,0 +1,121 @@
+---
+title: "Introduction to Event Sourcing"
+order: 1
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Module 19 ended with a saga log: 7 lines that tell what happened to order 1057 and where its state comes from. That log was already a <strong>list of facts</strong>, but only for the saga. Lena's order <strong>1047</strong> (the one from module 6) lives in an <code>pedidos</code> table that keeps only the <strong>last</strong> state: <code>entregue</code>. <strong>How</strong> it got there stayed in events <code>e-501</code> to <code>e-505</code>, and Kafka deletes those after 7 days (module 13). What is missing is a record of what <strong>happened</strong>, not only what is left.</p>
+
+<OneLiner><strong>Event Sourcing</strong> stores each <strong>change</strong> as an immutable fact and <strong>derives</strong> the state from those facts. The current state is a <strong>consequence</strong> of the events, not the source.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Table</strong> scenario, step through the 5 events of order 1047 and watch the table on the left turn into <code>entregue</code> while the tape on the right keeps <strong>every step</strong>. Notice that the table only knows the last value, and that one of the five events (<code>e-503</code>) is not on the order's tape.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/eventos-3d/?mode=tabela-x-eventos" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Interactive figure: Table × events" alt="Preview of the 3D figure: Table × events" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Today's table.</strong> On 06/18/2026 order 1047 was born as <code>criado</code> and went through three <code>UPDATE pedidos SET status = …</code>: <code>pago</code>, <code>enviado</code>, <code>entregue</code>. Each one <strong>erased</strong> the previous value. One row was left, with <code>entregue</code>.</li>
+  <li><strong>The facts.</strong> In Event Sourcing the same story becomes <strong>five rows that only get appended</strong> (table below). Each one says something that <strong>already happened</strong>, with its <code>evento_id</code> and the time.</li>
+  <li><strong>The state.</strong> To know how 1047 is doing, the system <strong>folds</strong> the order's 4 events in order: <code>criado</code>, <code>pago</code>, <code>enviado</code>, <code>entregue</code>. The result is <code>{`{status: entregue, versao: 4}`}</code>, and you can stop at any point along the way.</li>
+  <li><strong>The boundary.</strong> <code>e-503</code> (<code>EstoqueReservado</code>) is a fact about <strong>stock</strong>, not the order: it lives in its own event flow, the <em>stream</em> <code>estoque-GATO-042</code>. A <em>stream</em> is the list of events of <strong>one</strong> subject, and lesson 3 shows who decides what goes into it.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Stream</th><th>Version</th><th>evento_id</th><th>Type</th><th>When</th><th>Data</th></tr></thead>
+  <tbody>
+    <tr><th><code>pedido-1047</code></th><td>1</td><td><code>e-501</code></td><td><code>PedidoCriado</code></td><td>14:02:10.000</td><td>customer <code>lena-77</code>, 1 cat (<code>GATO-042</code>, 7,990), shipping 1,500, total <strong>9,490</strong></td></tr>
+    <tr><th><code>pedido-1047</code></th><td>2</td><td><code>e-502</code></td><td><code>PedidoPago</code></td><td>14:02:11.000</td><td>9,490 cents, card</td></tr>
+    <tr><th><code>estoque-GATO-042</code></th><td>2</td><td><code>e-503</code></td><td><code>EstoqueReservado</code></td><td>14:02:11.050</td><td>order 1047, qty 1 (stock <strong>3 → 2</strong>)</td></tr>
+    <tr><th><code>pedido-1047</code></th><td>3</td><td><code>e-504</code></td><td><code>PedidoEnviado</code></td><td>14:30:00</td><td>tracking <code>LA123456789BR</code></td></tr>
+    <tr><th><code>pedido-1047</code></th><td>4</td><td><code>e-505</code></td><td><code>PedidoEntregue</code></td><td>06/19 10:40:00</td><td>no data</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Values are in cents, the times are the ones from module 6, and <code>e-505</code> is the only new id. The <code>evento_id</code> is <strong>global</strong> (the whole store) and the <code>versao</code> is <strong>per stream</strong>: that is why stock has its own version 2.</p>
+
+<h3 class="sec">What Event Sourcing is and what it is not</h3>
+
+<p>Martin Fowler separates four patterns that tend to show up together in event-driven systems: <em>event notification</em> (the event only notifies), <em>event-carried state transfer</em> (the event carries the data, module 17), <strong>Event Sourcing</strong> (the events are the source of truth) and CQRS (separate write and read models, module 18). They are <strong>four</strong> different patterns. This module is about <strong>one</strong> of them. The store already uses the other three, and none of the three requires storing events as the truth.</p>
+
+<p>The source article warns right at the start that the "systemic complexities are high". The rest of the module walks through where they show up, in this order:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Lesson</th><th>The question it answers</th></tr></thead>
+  <tbody>
+    <tr><th>2</th><td>What changes when you only append instead of replacing?</td></tr>
+    <tr><th>3</th><td>Who decides whether an event can happen?</td></tr>
+    <tr><th>4</th><td>Where do the events live, and how do you stop a race between two commands?</td></tr>
+    <tr><th>5</th><td>How do the facts reach whoever needs them?</td></tr>
+    <tr><th>6 to 8</th><td>How do you read (projections), rebuild (rehydration) and speed up (snapshot)?</td></tr>
+    <tr><th>9 and 10</th><td>What if the events arrive out of order or twice?</td></tr>
+    <tr><th>11</th><td>What does it cost, and when is it worth it?</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: Event Sourcing as a fad</h3>
+
+<p>Think of an address book that changes twice a year and that nobody needs to audit. Storing each change as an event <strong>costs all of this</strong>: versioned events, projections for each screen, rehydration, idempotency in every consumer. And <strong>nobody uses</strong> the history. The gain from Event Sourcing is being able to answer "how did we get here?" and rebuild what got broken. Without that question, the store pays the bill and gets nothing.</p>
+
+<WhyItMatters>
+  <li><strong>The table hides the path.</strong> Three <code>UPDATE</code>s leave only <code>entregue</code>; the events keep the four steps of 1047.</li>
+  <li><strong>State becomes a computation.</strong> Folding the events in order gives the state at any point, including the one at 14:15.</li>
+  <li><strong>It is one pattern among four.</strong> Event Sourcing, CQRS, <em>event notification</em> and <em>event-carried state transfer</em> are independent.</li>
+  <li><strong>The cost is real.</strong> The article talks about high complexity, and the pattern only pays off where the history is used.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Fowler's four patterns, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Pattern</th><th>Idea</th><th>Where the store already uses it</th></tr></thead>
+    <tbody>
+      <tr><th><em>Event notification</em></th><td>the event says something happened; whoever wants details asks</td><td>the 72 B version of <code>PedidoCriado</code> (module 18)</td></tr>
+      <tr><th><em>Event-carried state transfer</em></th><td>the event carries the data, and the consumer keeps its own copy</td><td>the 336 B <code>PedidoCriado</code> (modules 17 and 18)</td></tr>
+      <tr><th>Event Sourcing</th><td>the events <strong>are</strong> the source of truth; the state is derived</td><td>nothing yet: this is this module</td></tr>
+      <tr><th>CQRS</th><td>separate write model and read model</td><td>the <code>meus_pedidos</code> table (module 18)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Event Sourcing "in event-driven systems".</strong> The article presents Event Sourcing as an <em>event-driven</em> systems pattern and ties projections to CQRS. In Fowler the four patterns are <strong>independent</strong>: Event Sourcing <strong>does not require</strong> CQRS or a bus, and the <em>Event Bus</em> <strong>is not</strong> the Event Store (the article says so in one sentence and blurs it in the others). Lesson 5 comes back to this.</li>
+    <li><strong>The article's References.</strong> Two Medium posts, Wikipedia, a text about an <em>event bus</em> in Go and Microsoft's text on integration events (communication between services, not Event Sourcing) are left out of this module's sources. In are the author's lab, Fowler, Microsoft, AWS, Axon, event-driven.io, microservices.io and Greg Young.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Event Sourcing", href: "https://martinfowler.com/eaaDev/EventSourcing.html" },
+    { label: "Martin Fowler: What do you mean by “Event-Driven”?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "microservices.io: Event sourcing", href: "https://microservices.io/patterns/data/event-sourcing.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows it can keep the facts instead of the last value. What is left is what today's table <strong>hides</strong>: which questions only the events answer, and which ones the table answers better.</p>
+
+<Flashcards cards={[
+  { q: "What is Event Sourcing?",
+    a: "Storing each change as an immutable fact and deriving the state from the events. The current state is a consequence; the source of truth is the list of events." },
+  { q: "What does the pedidos table keep of order 1047, and what does it lose?",
+    a: "Only the last state, entregue. The three UPDATEs erased pago, enviado and the time of each step. Events e-501, e-502, e-504 and e-505 keep the path." },
+  { q: "Why is e-503 not in the pedido-1047 stream?",
+    a: "Because EstoqueReservado is a stock fact: it lives in the estoque-GATO-042 stream, version 2. The evento_id is global (store-wide) and the version is per stream." },
+  { q: "Are Event Sourcing and CQRS the same thing?",
+    a: "No. Fowler lists four independent patterns: event notification, event-carried state transfer, Event Sourcing and CQRS. One does not require the others." },
+  { q: "When is Event Sourcing not worth it?",
+    a: "In an address book that rarely changes and whose history nobody uses: the store pays for events, versions and projections with no gain." },
+]} />

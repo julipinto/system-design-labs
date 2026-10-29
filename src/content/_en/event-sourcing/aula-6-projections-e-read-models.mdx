@@ -1,0 +1,105 @@
+---
+title: "Projections and read models"
+order: 6
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson <code>PedidoEnviado</code> left the Store, went through the bus and reached whoever listens. What is left is what that listener does with it. Lena opens the tracking screen and wants to see <code>enviado</code>, <strong>now</strong>, without the system having to re-read the events of 1047 on every tap. The Store was built to <strong>write</strong> at volume; for reading, the store builds something else. That something is the <strong>projection</strong>.</p>
+
+<OneLiner>The <strong>projection</strong> listens to the events and maintains a <strong>read model</strong>: the CQRS of module 18, with the Event Store in place of the write database. It is a <strong>pure function</strong> of the events, and that is why the model is <strong>disposable</strong>: it can be rebuilt.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Projection</strong> scenario, let the events of 1047 turn into the status model. Then <strong>break the projection</strong> (it starts writing the wrong status), <strong>delete the model</strong> and <strong>reprocess</strong> from the Store. Notice that the Store did not change at all.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/replay-3d/?mode=projecao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Interactive figure: Projections and read models" alt="Preview of the 3D figure: Projections and read models" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The Store is not for querying.</strong> It is optimized for writing events at volume, and only keeps "what happened". For "how is 1047 doing?" you would have to fold its events. For "which orders are <code>enviado</code>?" you would have to fold those of <strong>all</strong> orders.</li>
+  <li><strong>The projection reads the events and writes the model.</strong> For each event that arrives, it applies a small rule: <code>PedidoEnviado</code> sets <code>status = enviado</code> and <code>rastreio = LA123456789BR</code> on 1047's row. The result is the <strong>read model</strong>, in the shape of the screen.</li>
+  <li><strong>Several models, one Store.</strong> In the store: <code>meus_pedidos</code> (module 18), the <strong>status of 1047</strong> (the tracking screen) and revenue by city. Each one has its own projection and its own database, and all of them read the <strong>same</strong> events.</li>
+  <li><strong>Same sequence, same result.</strong> The projection is a <strong>pure function</strong> of the events: it does not look at the clock (<code>now()</code>) or call an external service. The same 4 events of 1047, on any machine at any time, give the same model.</li>
+  <li><strong>That is why it is disposable.</strong> If the model gets corrupted, you delete it and <strong>reprocess</strong> from the start. The Store is the truth; the model is only the copy, and the copy can be remade.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Three ways to maintain the model</h3>
+
+<p>The article describes three, which differ in <strong>when</strong> the model is up to date and in <strong>who pays</strong> for it:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Way</th><th>How it works</th><th>What it gives</th><th>What it costs</th></tr></thead>
+  <tbody>
+    <tr><th>Transactional</th><td>the projection is written <strong>in the same transaction</strong> as the event, in the same database</td><td>reads always up to date, no lag</td><td>weighs on the Store and becomes a bottleneck at volume</td></tr>
+    <tr><th>Semi-synchronous</th><td>the Store commits and publishes; the projection updates right after, in another process</td><td>the Store keeps only the write: the "source of truth", and the model is the "safe derived state"</td><td>a lag of a few milliseconds, and only works where waiting is acceptable</td></tr>
+    <tr><th>Asynchronous</th><td>the events travel over the bus and each domain builds its own model</td><td>decoupled from the Store; each team picks its own database</td><td>eventual consistency, and each rebuild requires sending the events in full</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The author's lab has both sides. According to the README, the <code>ledger</code> updates <strong>transactional</strong> models (<code>accounts</code> and <code>transactions</code>) inside the <strong>same SQL transaction</strong> as the event and only then publishes to Kafka. The balance (ScyllaDB) and the statement (MongoDB) are <strong>asynchronous</strong> models, built by consumers. It was read, not executed.</p>
+
+<Widget name="reconstruir" title="Rebuild a read model" hint="Store events (millions) and the model's write rate (1,000 to 100,000 per second): how long it takes to reprocess everything (200 million at 20,000/s = 10,000 s = 2 h 47 min). The bottleneck is not reading the Store." />
+
+<h3 class="sec">What if it goes wrong: the projection with a bug</h3>
+
+<p>A <em>deploy</em> of the status projection starts writing <code>enviado</code> for <code>PedidoEntregue</code>. For two hours the screen shows <code>enviado</code> for orders already delivered. Fixing the code does not fix the <strong>rows already written</strong>. But the events are intact in the Store. The fix is to <strong>delete the model and reprocess from the start</strong>.</p>
+
+<p>The math: 200 million events (50 million orders × 4) at 20,000 per second (the module 18 rate) is 10,000 s, or <strong>2 h 47 min</strong>. Reading the Store is <strong>not</strong> the bottleneck: measured on PostgreSQL 14, it returns ~555 thousand events per second, so reading the 200 million would take about 6 minutes. What takes time is <strong>writing</strong> to the model. Without the Event Store, with only the Kafka topic (7 days), there would be <strong>nowhere</strong> to rebuild from.</p>
+
+<WhyItMatters>
+  <li><strong>The Store writes and the model answers.</strong> The screen reads a ready-made row, in its own shape, instead of folding events.</li>
+  <li><strong>The projection is a pure function.</strong> Same sequence of events, same model; no <code>now()</code> and no external call.</li>
+  <li><strong>The model is disposable.</strong> Got corrupted? Delete and reprocess. It costs time (2 h 47 min for the 200 million), not data.</li>
+  <li><strong>The bottleneck is writing, not reading.</strong> The Store delivers ~555 thousand events/s; the model takes 20,000/s.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The store's models</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Model</th><th>Events it consumes</th><th>Who reads it</th></tr></thead>
+    <tbody>
+      <tr><th>order status</th><td><code>PedidoCriado</code>, <code>PedidoPago</code>, <code>PedidoEnviado</code>, <code>PedidoEntregue</code></td><td>Lena's tracking screen</td></tr>
+      <tr><th><code>meus_pedidos</code></th><td>the same ones, plus the item events</td><td>the order list (module 18)</td></tr>
+      <tr><th>revenue by city</th><td><code>PedidoPago</code></td><td>the 11 PM report</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Projections are deterministic with respect to the current state".</strong> The sentence is confusing. The projection is deterministic with respect to the <strong>sequence of events</strong> (same input, same output), and that is why it is disposable. "Read Models are not just caches" is right: they are derived representations and can be rebuilt.</li>
+    <li><strong>Projections "based on CQRS".</strong> The article ties the two together. In Fowler, Event Sourcing and CQRS are independent patterns: you can project without separating command and query models, and you can have CQRS without events as the truth.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "event-driven.io: Guide to Projections and Read Models", href: "https://event-driven.io/en/projections_and_read_models_in_event_driven_architecture/" },
+    { label: "Microsoft Learn: Event Sourcing pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+  ]} />
+</Deep>
+
+<p class="gancho">Rebuilding a whole model takes hours, and that is fine: it is rare. Day to day is different. Each <strong>command</strong> needs the state of <strong>one</strong> aggregate before it decides. What is left is how to rebuild <strong>a single</strong> aggregate, and what that costs.</p>
+
+<Flashcards cards={[
+  { q: "What is a projection?",
+    a: "The process that listens to the events and maintains a derived read model. It is the CQRS of module 18 with the Event Store in place of the write database." },
+  { q: "What are the three ways to maintain the model?",
+    a: "Transactional (in the same transaction as the event: always up to date, but weighs on the Store), semi-synchronous (the Store publishes and the projection updates right after) and asynchronous (over the bus, decoupled, eventual consistency)." },
+  { q: "Why should the projection be a pure function of the events?",
+    a: "Same sequence, same result, no now() and no external call. Only then is the model disposable: you can delete it and rebuild it." },
+  { q: "How long does it take to rebuild a model of 200 million events?",
+    a: "At 20,000 events/s: 10,000 s, or 2 h 47 min. Reading the Store (~555 thousand events/s) is not the bottleneck; writing to the model is." },
+  { q: "What happens if the store only has the Kafka topic?",
+    a: "The 7-day retention deleted the events. Without the Event Store there is nowhere to rebuild the corrupted model from." },
+]} />

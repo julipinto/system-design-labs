@@ -1,0 +1,115 @@
+---
+title: "Idempotency"
+order: 10
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import mongo from '../../../lab-code/event-sourcing/statement_pkg_mongodb_client.go?raw';
+import stmt from '../../../lab-code/event-sourcing/statement_listeners_transaction_listener.go?raw';
+
+<p class="ponte">Last lesson the version let the consumer ignore the old event. But 1047's <code>e-502</code> arrived <strong>twice with the same version</strong>, and "version not higher" only works for whoever keeps the last state. And stock, which <strong>adds up</strong>? Module 6 already showed the damage: the duplicated <code>PedidoPago</code> and the cat's balance going from 3 to 2 and then to <strong>1</strong>, for a single order. That is the <strong>idempotency</strong> problem.</p>
+
+<OneLiner>The same event can arrive more than once (delivery is "at least once", the relay resends, rehydration republishes). A consumer is <strong>idempotent</strong> when <strong>processing again does not change the result</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Idempotency</strong> scenario, deliver <code>e-502</code> to stock <strong>twice</strong>, first with no protection (the balance goes <strong>3 → 2 → 1</strong>) and then with the processed table (<strong>3 → 2</strong>). For the "what if it goes wrong" (replaying the whole period on an unprotected consumer), switch to the button that reprocesses everything.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/replay-3d/?mode=idempotencia" poster="labs/event-sourcing/replay-3d-previa.webp" title="Interactive figure: Idempotency" alt="Preview of the 3D figure: Idempotency" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Where the duplicate comes from.</strong> The bus delivers <strong>at least once</strong> (lesson 5), the outbox relay resends if it does not know whether the message arrived, the consumer crashes after applying and before acknowledging, and rehydration (lesson 7) republishes the whole period on purpose.</li>
+  <li><strong>The Store blocks its own.</strong> The <code>UNIQUE (evento_id)</code> refuses to write <code>e-502</code> a second time: <code>ERROR: duplicate key value violates unique constraint "eventos_evento_id_key"</code>, with <code>Key (evento_id)=(e-502) already exists</code>. Measured on PostgreSQL 14.</li>
+  <li><strong>The consumer needs its own.</strong> There are three ways, depending on the model. <strong>(a) By version</strong>, in a last-state model: the duplicate has the same version and does not pass <code>versao &lt; $v</code> (lesson 9). <strong>(b) By already-processed <code>evento_id</code></strong>, in a model that adds up: an <code>eventos_processados</code> table keeps the id, and its <code>INSERT</code> goes <strong>in the same transaction</strong> that applies the effect. <strong>(c) By natural key</strong>: the destination uses an identifier of the fact itself as the key, and the second write is refused.</li>
+  <li><strong>Reprocessing requires all of them.</strong> Reprocessing a period (lesson 7) sends the events again to <strong>all</strong> consumers. It takes just one that is not idempotent for the replay to turn into mass duplication.</li>
+</ol>
+</HowItWorks>
+
+<p>Way (b) in SQL, in the stock consumer (the store's example):</p>
+
+<pre><code>{`BEGIN;
+INSERT INTO eventos_processados (evento_id) VALUES ('e-502')
+  ON CONFLICT DO NOTHING;
+-- 0 rows inserted = already processed: COMMIT without applying anything
+UPDATE estoque SET saldo = saldo - 1 WHERE sku = 'GATO-042';
+COMMIT;`}</code></pre>
+
+<p>The <strong>same transaction</strong> is what matters: if the consumer crashed after the <code>UPDATE</code> and before writing the id, the retry would apply it again. With both in the same <code>COMMIT</code>, either both go in or neither does.</p>
+
+<Widget name="idempotencia" title="Idempotency" hint="Deliver e-502 to stock 1 to 5 times, with and without the processed table, in a last-state or a sum model. It shows the balance (3 → 2 against 3 → 1)." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's statement goes to MongoDB with <code>movimentacao_id</code> as the document's <code>_id</code>: that is way <strong>(c)</strong>, natural key. The README says this is "for idempotency". It was <strong>read, not executed</strong>.</p>
+
+<CodeLab code={stmt} from={44} to={55} />
+
+<CodeLab code={mongo} from={79} to={95} />
+
+<ol class="flow steps">
+  <li>Lines 45 and 46 of the listener put <code>movimentacao_id</code> in the document's <code>ID</code> field, which becomes the <code>_id</code>.</li>
+  <li>Line 85 inserts. If the same <code>movimentacao_id</code> arrives again, MongoDB refuses with the duplicate key error (code <strong>11000</strong>).</li>
+  <li>Lines 87 to 90 <strong>ignore</strong> that error and return <code>nil</code>. The duplicate disappears with no effect. Notice that the <strong>key belongs to the fact</strong>, not to the bus event: if the same movement were resent with another <code>evento_id</code>, the natural key would still block it.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the processed table that never stops growing</h3>
+
+<p>The <code>eventos_processados</code> table gets one row per event. At 30 orders per second, with 4 events per order, that is 120 rows per second: ~10.4 million per day and ~72.6 million in 7 days, <strong>in the worst case</strong> (if the peak lasted the whole week). Nobody cleans it, the index grows, writes slow down, the <code>COMMIT</code> of each event gets slower. The fix is a <strong>window</strong>: keep the ids of 7 days (the same as the topic retention) and delete the rest. Outside the window, the <strong>version</strong> decides. A duplicate from 8 days ago is no longer a bus problem: it can only come from a deliberate replay, which the operator controls.</p>
+
+<WhyItMatters>
+  <li><strong>The duplicate is normal.</strong> "At least once", retries and replay guarantee it.</li>
+  <li><strong>Without protection, it adds up wrong.</strong> <code>e-502</code> twice takes stock from 3 to 2 and then to 1.</li>
+  <li><strong>Each model has its own way.</strong> Version for last state, <code>evento_id</code> for sums, natural key where the fact has an id.</li>
+  <li><strong>Replay depends on it.</strong> Reprocessing the whole period is only safe if all consumers are idempotent.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The three ways, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Way</th><th>Suits</th><th>How it blocks the duplicate</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><th>by version</th><td>last state (status of 1047)</td><td><code>WHERE versao &lt; $v</code></td><td>almost none; fails if the model adds up</td></tr>
+      <tr><th>by <code>evento_id</code></th><td>sums (stock balance)</td><td>processed table, in the same transaction</td><td>one row per event, to be pruned by window</td></tr>
+      <tr><th>by natural key</th><td>document that has the fact's id</td><td>repeated <code>_id</code> refused (11000)</td><td>none; the key has to belong to the fact</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article and to the lab</h4>
+  <ul>
+    <li><strong>"Idempotency is fundamental" without the how.</strong> The article asks for "strong idempotency keys" and version control in every domain, and does not separate the two cases: <strong>last state</strong> (version is enough) and <strong>sums</strong> (needs the <code>evento_id</code>). The widget lets you see the difference.</li>
+    <li><strong>The lab.</strong> It covers the statement (natural key in MongoDB) and the balance (version in ScyllaDB). In the files read there is no processed table, and that makes sense: its two models keep the last value, they do not add up events.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Author's repository: event-source-distributed-ledger (README, movimentacao_id)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "microservices.io: Idempotent Consumer", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "MongoDB: error codes (11000)", href: "https://www.mongodb.com/docs/manual/reference/error-codes/" },
+    { label: "PostgreSQL: INSERT (ON CONFLICT)", href: "https://www.postgresql.org/docs/current/sql-insert.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now the store keeps facts, rebuilds state, orders and ignores duplicates. What is left is what all of that <strong>costs</strong> and when it is worth paying.</p>
+
+<Flashcards cards={[
+  { q: "What is an idempotent consumer?",
+    a: "One for which processing the same event again does not change the result. It is needed because delivery is 'at least once' and rehydration republishes." },
+  { q: "What happens to the cat's balance if e-502 arrives twice at a consumer that adds up?",
+    a: "It goes from 3 to 2 and then to 1, for a single order. With the processed table it stays at 2." },
+  { q: "What are the three ways to be idempotent?",
+    a: "(a) By version, in the last-state model. (b) By already-processed evento_id, in the same transaction, in the model that adds up. (c) By natural key, like MongoDB's _id = movimentacao_id, ignoring error 11000." },
+  { q: "Why does the processed evento_id go in the same transaction as the effect?",
+    a: "So that both go in or neither does. If the consumer crashed between the effect and the record, the retry would apply it again." },
+  { q: "How do you keep the processed table from growing forever?",
+    a: "With a window (7 days, like the topic retention). Outside it, the version decides." },
+]} />

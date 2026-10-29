@@ -1,0 +1,92 @@
+---
+title: "Traditional persistence × Event Sourcing"
+order: 2
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the <code>pedidos</code> table showed its flaw: 1047 became <code>entregue</code> and the path vanished. But hiding the history is only half the difference. The other half is the <strong>verb</strong>: the table <strong>replaces</strong>, and Event Sourcing only <strong>appends</strong>. Let's look at what each approach does with the same three operations, and which questions each one answers.</p>
+
+<OneLiner>In the traditional model each operation (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>) <strong>replaces</strong> the state. In Event Sourcing every operation is an <strong>insert</strong>, and to know "how is it now" you have to <strong>add up</strong> the events. Writing gets cheap and reading gets more expensive.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Table</strong> scenario, click <strong>Back to 14:15</strong> and read the status of 1047 <strong>from the events</strong>: the answer is <code>pago</code>, version 2. Then ask the same question of the table, which can only say <code>entregue</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/eventos-3d/?mode=tabela-x-eventos" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Interactive figure: Table × events" alt="Preview of the 3D figure: Table × events" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The article's example.</strong> A payment gets <code>PagamentoCriado</code> (<code>INSERT</code>, <code>status=criado</code>), <code>PagamentoConfirmado</code> (<code>UPDATE</code>, <code>confirmado</code>) and <code>PagamentoEstornado</code> (<code>UPDATE</code>, <code>estornado</code>). At the end there is <strong>one</strong> row, <code>estornado</code>. Order 1047 is the same story: three <code>UPDATE</code>s and the row says <code>entregue</code>.</li>
+  <li><strong>The same case with events.</strong> The three operations become three <strong>inserts</strong> into an events table. Nothing is deleted and nothing is changed. Whoever wants the state reads the order's events and <strong>adds them up</strong> (lesson 7 shows the computation).</li>
+  <li><strong>Which questions only the events answer.</strong> "What was the status at 14:15?" (<code>pago</code>, version 2). "How many times did the address change?" (count the <code>EnderecoAlterado</code> events). "What did each app version show Lena?" (fold up to the time she looked). The table answers none of them, because the old data was overwritten.</li>
+  <li><strong>Which question the table answers better.</strong> "Which orders are <code>enviado</code> <strong>right now</strong>?" The table has an index on status and returns the list directly. With events you would have to fold each order's stream to find out each one's state. That is why Event Sourcing always comes with read models (lesson 6).</li>
+</ol>
+</HowItWorks>
+
+<Widget name="armazenamento" title="Storage: events × state" hint="Events per order (2 to 10) and orders (1 to 50 million): how many GB the Event Store takes (~263 B per event) against the module 16 pedidos table (140 GB at 50 million rows)." />
+
+<h3 class="sec">The space math</h3>
+
+<p>The module 16 <code>pedidos</code> table has 50 million rows and <strong>140 GB</strong> with indexes. With 4 events per order that is <strong>200 million</strong> events. Measured on PostgreSQL 14 (table and indexes, small payload), each event takes ~<strong>263 B</strong>, so the Event Store would be ~<strong>52.6 GB</strong>. It is an estimate: the real <code>PedidoCriado</code> is 336 B of JSON alone.</p>
+
+<p>Two cautions about this math. It does <strong>not</strong> say Event Sourcing saves space: the <code>pedidos</code> table still exists as a <strong>read model</strong>, so the 52.6 GB adds to the 140 GB. And it holds for orders that change <strong>4 times</strong>. An entity that changes 10 times a day grows much more, which is what the widget lets you test.</p>
+
+<h3 class="sec">What if it goes wrong: fixing a mistake in the past</h3>
+
+<p>Say the <code>PedidoPago</code> was recorded with the wrong amount. In the table, an <code>UPDATE</code> fixes it. In Event Sourcing the event is <strong>immutable</strong>: it happened, and the history records that it happened that way. The fix is to write <strong>another event</strong>, a <code>PagamentoCorrigido</code>, that states the right amount. Two costs come with it. Every <strong>projection</strong> has to know how to handle the correction event, and whoever reads the history sees the mistake <strong>and</strong> the fix. Microsoft describes the same path: to undo an effect, you append a compensating event.</p>
+
+<WhyItMatters>
+  <li><strong>Replace or append is the whole difference.</strong> The table swaps the value; the events only grow.</li>
+  <li><strong>Writing becomes inserting.</strong> No operation deletes anything, and the history comes for free.</li>
+  <li><strong>Reading costs more.</strong> "How is it now" requires adding up the events, and the article warns that this calls for optimizations (lessons 6 and 8).</li>
+  <li><strong>Each one answers different questions.</strong> Events say "how did we get here"; the table says "what is it now, by status".</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The three operations, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Article event</th><th>Traditional</th><th>Event Sourcing</th></tr></thead>
+    <tbody>
+      <tr><th><code>PagamentoCriado</code></th><td><code>INSERT</code>, <code>status=criado</code></td><td><code>INSERT</code> of an event, version 1</td></tr>
+      <tr><th><code>PagamentoConfirmado</code></th><td><code>UPDATE</code>, <code>confirmado</code> (erases <code>criado</code>)</td><td><code>INSERT</code> of an event, version 2</td></tr>
+      <tr><th><code>PagamentoEstornado</code></th><td><code>UPDATE</code>, <code>estornado</code> (erases <code>confirmado</code>)</td><td><code>INSERT</code> of an event, version 3</td></tr>
+      <tr><th>"How is it now?"</th><td>read the row</td><td>fold the 3 events</td></tr>
+      <tr><th>"How was it at version 2?"</th><td>impossible</td><td>fold up to version 2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: immutable, but how do you fix things?</h4>
+  <ul>
+    <li><strong>Immutability with no way out.</strong> The article talks about immutable events and does not say <strong>how to fix</strong> a mistake (a correction event, as above), <strong>how to evolve the format</strong> of an old event (schema version and <em>upcasting</em>, lesson 7) or what to do with <strong>personal data</strong> in a log you cannot edit (lesson 11).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Event Sourcing", href: "https://martinfowler.com/eaaDev/EventSourcing.html" },
+    { label: "Microsoft Learn: Event Sourcing pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing" },
+  ]} />
+</Deep>
+
+<p class="gancho">With events you only append, and the state comes from adding them up. But adding <strong>anything</strong> to that list would be a disaster: a <code>PedidoEnviado</code> before the order is paid should not even get in. What is left is who <strong>decides</strong> whether an event can happen.</p>
+
+<Flashcards cards={[
+  { q: "What does the traditional model do on each operation, and Event Sourcing?",
+    a: "The traditional model replaces the state (INSERT, UPDATE, DELETE). Event Sourcing only appends: every operation is an insert, and the current state comes from adding up the events." },
+  { q: "Which question do events answer and the table does not?",
+    a: "'What was the status of 1047 at 14:15?' From the events: pago, version 2. The table already overwrote that value with entregue." },
+  { q: "Which question does the table answer better?",
+    a: "'Which orders are enviado right now?', with an index on status. With events you would have to fold each order's stream; that is why read models exist." },
+  { q: "How much space does the orders Event Store take?",
+    a: "4 events per order × 50 million = 200 million events × ~263 B ≈ 52.6 GB (estimate with a small payload), added to the 140 GB of the pedidos table, which becomes a read model." },
+  { q: "How do you fix a PedidoPago recorded with the wrong amount?",
+    a: "You do not edit it: you write a correction event (PagamentoCorrigido), and every projection has to know how to handle it." },
+]} />

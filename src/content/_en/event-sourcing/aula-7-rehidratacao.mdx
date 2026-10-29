@@ -1,0 +1,109 @@
+---
+title: "Rehydration"
+order: 7
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import rehydrate from '../../../lab-code/event-sourcing/ledger_internal_listeners_rehydratate_listener.go?raw';
+
+<p class="ponte">Last lesson rebuilding a whole <strong>model</strong> took hours, and that is fine, because it is rare. What happens all the time is smaller and more demanding: before accepting an <code>Enviar</code>, the <code>Pedido</code> aggregate needs to know what state 1047 is in. And the Store only keeps events. What is left is rebuilding its state right now, on every command. That job has a name: <strong>rehydrating</strong>.</p>
+
+<OneLiner><strong>Rehydrating</strong> is rebuilding an aggregate's state by <strong>folding</strong> its events in order. It happens on <strong>every command</strong> (load the aggregate before deciding) and on every reprocessing. The cost grows with the <strong>size of the stream</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Rehydration</strong> scenario, rehydrate <code>estoque-CANECA-007</code>, which has <strong>1,000,000 events</strong>, and read the millisecond counter: ~1,800 ms. Then look at order 1047, which folds only 4 events.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/replay-3d/?mode=rehidratacao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Interactive figure: Rehydration" alt="Preview of the 3D figure: Rehydration" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Starts empty and folds.</strong> The initial state of <code>pedido-1047</code> is nothing. <code>PedidoCriado</code> leads to <code>{`{status: criado, cliente: lena-77, total: 9490}`}</code>. <code>PedidoPago</code> changes the status to <code>pago</code>. <code>PedidoEnviado</code> sets <code>enviado</code> and the tracking <code>LA123456789BR</code>. <code>PedidoEntregue</code> leaves <code>entregue</code>. Result: <code>{`{pedido_id: 1047, status: entregue, total_centavos: 9490, rastreio: LA123456789BR, versao: 4}`}</code>. "Folding" is this: applying each event to the state, in order.</li>
+  <li><strong>On every command.</strong> To decide whether <code>Enviar</code> is accepted, the <code>Pedido</code> folds its events and only then applies the rule (lesson 3). With 4 events it costs almost nothing. That is why the aggregate should be <strong>small</strong>.</li>
+  <li><strong>The cost is linear.</strong> On a stream of <strong>1,000,000 events</strong> (<code>estoque-CANECA-007</code>), reading everything in order and adding it up took <strong>1,935 · 1,801 · 1,770 ms</strong> in 3 runs: ~555 thousand events per second. Twice the events, twice the time.</li>
+  <li><strong>To recover a domain.</strong> If <code>meus-pedidos</code> lost data, the application <strong>republishes</strong> the events so it can rebuild itself. That is the author's lab <code>rehydratate</code>, with an optional date filter.</li>
+  <li><strong>To audit.</strong> "What was the status of 1047 at 14:15?" is folding only up to version 2 (<code>14:02:11</code>) and stopping: <code>pago</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="rehidratar" title="Rehydrate order 1047" hint="Choose up to which version to fold (0 to 4) or the time (14:02:10 up to 06/19 10:40). It shows the state the events give and, next to it, the traditional table, which only has the last one." />
+
+<h3 class="sec">The stream of the hot SKU</h3>
+
+<p><code>estoque-CANECA-007</code> was built just to measure: for every 100 events, one <code>EstoqueAjustado +100</code> and 99 <code>EstoqueReservado −1</code>, and the final balance is <strong>10,000</strong>. Table and indexes take <strong>263 MB</strong> (~263 B per event, with a small payload). On Black Friday the blue mug gets ~20% of the 30 orders per second: <strong>6 events/s</strong> on the stream, <strong>86,400</strong> in 4 hours (8 PM to midnight). The million arrives in <strong>1.9 days</strong> of continuous peak (1,000,000 ÷ 6 ÷ 86,400), or months on ordinary days. Even so, by the end of that time, each command for the mug would carry <strong>1.8 s</strong> of rehydration. Lesson 8 fixes that.</p>
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's <code>rehydratate/listener.go</code> rehydrates to <strong>recover</strong>, not to decide. It receives a request (an <code>aggregate_id</code>, with optional dates), fetches <strong>all</strong> the aggregate's events ordered by version (lines 98 to 118) and folds, republishing the balance (lines 126 to 161). It was read, not executed.</p>
+
+<CodeLab code={rehydrate} from={98} to={118} />
+
+<CodeLab code={rehydrate} from={126} to={161} />
+
+<ol class="flow steps">
+  <li>Line 102 orders by <code>version ASC</code>: the stream's order, the same guarantee as lesson 4.</li>
+  <li>Lines 104 to 110 filter by <code>occurred_at</code> when there are dates. The code does not use a snapshot: it reads <strong>everything</strong> (lesson 8 explains).</li>
+  <li>For each event, the <code>switch</code> applies the rule and, on lines 152 and 158, <strong>republishes</strong> the transaction and the balance to the other domains. This is rehydration as <strong>recovery</strong>.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong</h3>
+
+<p><strong>(a) Rehydrating with an event in an old format.</strong> The 2026 <code>PedidoCriado</code> recorded <code>frete</code> as a number (<code>1500</code>). A year later the code started expecting <code>frete_centavos</code>. The new code reads the old event, does not find the field and computes a wrong total. The event <strong>cannot be edited</strong>. The solution is <em>upcasting</em>: on read, convert the old event to the current format, before folding (Axon describes this pattern). The schema version goes in the event, and each format change gets a converter.</p>
+
+<p><strong>(b) Republishing everything to a domain that is not idempotent.</strong> The recovery resends, for example, the 4 events of 1047 to <code>estoque</code>. If <code>estoque</code> applies each <code>PedidoPago</code> as "−1", the balance goes down <strong>again</strong>, as if the order had been placed once more. Rehydration is only safe if <strong>every consumer</strong> can receive the same event twice: lesson 10.</p>
+
+<WhyItMatters>
+  <li><strong>Rehydrating is folding in order.</strong> The 4 events of 1047 give <code>entregue</code>, version 4; stopping at version 2 gives <code>pago</code>.</li>
+  <li><strong>It happens on every command.</strong> That is why the aggregate has to be small and the stream cannot grow without limit.</li>
+  <li><strong>The cost is linear.</strong> 1 million events take ~1,800 ms (measured, ~555 thousand/s).</li>
+  <li><strong>It serves two uses.</strong> Deciding (command) and recovering (republishing for whoever lost data), and the second requires idempotent consumers.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The three measurements of the million</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Run</th><th>Time</th><th>Events per second</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>1,935 ms</td><td>~517 thousand</td></tr>
+      <tr><th>2</th><td>1,801 ms</td><td>~555 thousand</td></tr>
+      <tr><th>3</th><td>1,770 ms</td><td>~565 thousand</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Measured on a local PostgreSQL 14.24, on 10/20/2026, with a Python client reading via <code>psql COPY</code>. The milliseconds change from machine to machine; the shape (linear in the size of the stream) does not.</p>
+  <h4 class="deep-h">Corrections to the source article and to the lab</h4>
+  <ul>
+    <li><strong>Evolving the format.</strong> The article talks about immutable events and does not say how the <strong>format</strong> changes over time. It is <em>upcasting</em> (Axon): converters that take the old event to the new format on read.</li>
+    <li><strong>The lab.</strong> <code>rehydratate</code> republishes for <strong>recovery</strong>, it does not rehydrate to decide: each <code>ledger</code> command reads only the <code>MAX(version)</code>. And, from what the code shows, a date filter that <strong>excludes</strong> <code>ContaCriada</code> makes the loop skip all the movements (lines 139 to 142: "account was not created yet"), so partial recovery by date only works if the cutoff includes the creation. Read, not executed.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Author's repository: event-source-distributed-ledger (rehydratate)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "Axon Framework: event versioning and upcasting", href: "https://docs.axoniq.io/axon-framework-reference/4.11/events/event-versioning/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Rehydrating 1047 is instant; rehydrating the mug, after 1 million events, costs 1.8 s <strong>per command</strong>. What is left is how to avoid re-reading the whole million every time.</p>
+
+<Flashcards cards={[
+  { q: "What is rehydrating?",
+    a: "Rebuilding an aggregate's state by folding its events in order: start empty and apply each event. It happens on every command and on every reprocessing." },
+  { q: "What does rehydrating order 1047 produce?",
+    a: "{pedido_id: 1047, status: entregue, total_centavos: 9490, rastreio: LA123456789BR, versao: 4}. Stopping at version 2, the state is pago." },
+  { q: "How much does it cost to rehydrate 1 million events?",
+    a: "~1,800 ms measured (1,935, 1,801 and 1,770 ms), about 555 thousand events per second. The cost is linear in the size of the stream." },
+  { q: "What is upcasting?",
+    a: "Converting, on read, an event in an old format (frete as a number) to the current format (frete_centavos) before folding. It avoids editing immutable events." },
+  { q: "Why can republishing everything be dangerous?",
+    a: "A consumer that is not idempotent applies each event again: stock would go down once more for every republished PedidoPago." },
+]} />

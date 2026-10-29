@@ -1,0 +1,117 @@
+---
+title: "Order, versioning and last-write-wins"
+order: 9
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import scylla from '../../../lab-code/event-sourcing/balance_pkg_scylla_scylla.go?raw';
+
+<p class="ponte">Last lesson the snapshot solved the cost of reading <strong>one</strong> stream, which the Store hands back in version order. But the tracking screen does not read from the Store: it receives the events over the bus. And the bus, with partitions, retries and parallel consumers, <strong>does not deliver in the order the Store wrote</strong>. If the projection applies the old event on top of the new one, the model ends up wrong.</p>
+
+<OneLiner>The Store guarantees order <strong>within the stream</strong>; whoever consumes <strong>does not receive it</strong>. That is why the consumer uses each event's <strong>version</strong> so it does not apply the old on top of the new. The "highest wins" rule holds <strong>in the consumer</strong>, with <strong>version</strong> (not with a clock).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Version</strong> scenario, shuffle the arrival of the 5 events of 1047 and compare "<strong>last to arrive wins</strong>" with "<strong>apply only if the version is higher</strong>". For the "what if it goes wrong" (version 2 that never arrives), look at the button that simulates the gap.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/replay-3d/?mode=versao" poster="labs/event-sourcing/replay-3d-previa.webp" title="Interactive figure: Order and version" alt="Preview of the 3D figure: Order and version" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The Store orders.</strong> In <code>pedido-1047</code> the versions are 1, 2, 3, 4: <code>e-501</code>, <code>e-502</code>, <code>e-504</code>, <code>e-505</code>. It is a <strong>local</strong> order, guaranteed by the <code>UNIQUE (stream_id, versao)</code> from lesson 4.</li>
+  <li><strong>The bus shuffles.</strong> The events leave in order, but reach the status read model in another one: <code>e-501</code> (v1), <code>e-504</code> (v3), <code>e-505</code> (v4), <code>e-502</code> (v2) and <code>e-502</code> again (v2, duplicate). The article says this is not a failure: it is the expected behavior of eventual consistency.</li>
+  <li><strong>"Last to arrive wins" gets it wrong.</strong> The projection writes whatever arrived last. It goes through <code>criado</code>, <code>enviado</code>, <code>entregue</code> and then the late <code>e-502</code> takes it back: the end is <strong><code>pago</code>, version 2</strong>. Wrong: the order was already delivered. (If <code>e-505</code> had arrived last, the rule would get it right by <strong>luck</strong>.)</li>
+  <li><strong>"Apply only if the version is higher" gets it right.</strong> The projection keeps the version it already applied and compares. <code>e-501</code> applies (0 → 1), <code>e-504</code> applies (1 → 3), <code>e-505</code> applies (3 → 4), and the <strong>two <code>e-502</code>s are discarded</strong> (2 is not greater than 4). End: <strong><code>entregue</code>, version 4</strong>. Measured on PostgreSQL 14.24.</li>
+  <li><strong>The version comes from the Store.</strong> Each event has a unique <code>evento_id</code> and an increasing <code>versao</code>, assigned <strong>by the Store</strong>, without looking at anyone's clock.</li>
+</ol>
+</HowItWorks>
+
+<p>In SQL, the rule is a condition in the update itself (the store's example, the same principle as the lab):</p>
+
+<pre><code>{`UPDATE status_pedido
+   SET status = $status, versao = $versao
+ WHERE pedido_id = 1047
+   AND versao < $versao;   -- 2 does not overwrite 4`}</code></pre>
+
+<Widget name="ordem" title="Order and version" hint="The arrival of the 5 events of 1047 (drag or use the buttons to shuffle) and the rule: last to arrive, higher version, or higher version plus waiting for the missing one. It shows the final state and the discards." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's balance lives in ScyllaDB and uses exactly this rule, as a <strong>lightweight transaction</strong> (LWT): the <code>UPDATE</code> only applies <code>IF version &lt; ?</code>. The README says the balance consumer uses LWT "to apply only higher versions". <code>InsertInitialBalance</code> uses <code>IF NOT EXISTS</code>, so the initial balance is written once. It was <strong>read, not executed</strong>.</p>
+
+<CodeLab code={scylla} from={70} to={90} />
+
+<ol class="flow steps">
+  <li>Line 71 creates the initial balance only if it <strong>does not exist</strong> (<code>IF NOT EXISTS</code>).</li>
+  <li>Line 82 is the lesson's rule: <code>UPDATE … SET balance = ?, version = ? WHERE id = ? IF version &lt; ?</code>. A balance of version 3 does not replace one of version 4.</li>
+  <li>The condition goes <strong>together</strong> with the write, inside the database itself. Checking the version in the application and writing afterwards would be two operations, with the same race problem as lesson 4.</li>
+</ol>
+
+<h3 class="sec">Version or timestamp</h3>
+
+<p>The article offers both options: the last valid event "by timestamp or version". The <strong>timestamp</strong> depends on a clock, and the 120 ms skew from module 17 shows up again here: two events of the same order with their times swapped because of a lagging machine. The <strong>version</strong> is assigned by the Store, with no clock at all, and grows by 1 within the stream. In a status model, version is the right choice. And the Event Store <strong>never</strong> does LWW: it only appends. The "highest wins" rule belongs to the <strong>consumer</strong>.</p>
+
+<h3 class="sec">The limit of the rule</h3>
+
+<p>Discarding the lower version suits <strong>last-state</strong> models (the status of 1047: what matters is the newest). In a model that <strong>adds up</strong>, like the stock balance, it is dangerous: if the version 2 event (a reservation of −1) arrives late and the consumer discards it as "lower version", the deduction is <strong>lost</strong>. There the defense is <strong>idempotency by <code>evento_id</code></strong> (lesson 10) and <strong>commutative operations</strong>, which give the same result in any order: the idea behind the CRDTs of module 17.</p>
+
+<h3 class="sec">What if it goes wrong: the version that skips</h3>
+
+<p>The consumer received version 1 and version 3. Version 2 <strong>never arrived</strong> (the message was lost, or is still stuck in a partition). The "only if the version is higher" rule would apply 3 without hesitation, and the model would have a <strong>gap</strong>: it never learned the order was paid. The defense is for the consumer to <strong>detect</strong> <code>versao ≠ last + 1</code> and wait, or ask the Store for version 2, or rebuild the aggregate. That is the widget's third rule: "higher version and wait for the missing one".</p>
+
+<WhyItMatters>
+  <li><strong>The Store's order does not reach the consumer whole.</strong> The bus shuffles; the version is what lets you unshuffle.</li>
+  <li><strong>Last to arrive wins gets it wrong.</strong> The late <code>e-502</code> takes 1047 back to <code>pago</code>, version 2.</li>
+  <li><strong>Only the higher version gets the status right.</strong> It ends at <code>entregue</code>, version 4, discarding both <code>e-502</code>s.</li>
+  <li><strong>The rule has a limit.</strong> In models that add up, discarding by version loses data; there the <code>evento_id</code> applies.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The three rules, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Rule</th><th>End state on the example arrival</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr><th>last to arrive wins</th><td><code>pago</code>, v2 (wrong)</td><td>none, and no protection</td></tr>
+      <tr><th>higher version only</th><td><code>entregue</code>, v4</td><td>one condition in the <code>UPDATE</code>; the event that skips disappears</td></tr>
+      <tr><th>higher version and wait for the missing one</th><td><code>entregue</code>, v4</td><td>buffer and a timeout to wait</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The example arrival was generated to show the error: <code>e-501</code> (v1), <code>e-504</code> (v3), <code>e-505</code> (v4), <code>e-502</code> (v2) and <code>e-502</code> again. In any order "higher version only" ends the same; "last wins" depends on who arrives last.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>LWW "by timestamp or version".</strong> The timestamp depends on a clock (module 17: 120 ms behind) and the Store never does LWW. The rule holds <strong>in the consumer</strong>, with <strong>version</strong>, and only for <strong>last-state</strong> models; models that add up need the <code>evento_id</code> (lesson 10).</li>
+    <li><strong>"Global order".</strong> The article says consumption order "is not globally guaranteed by default". That is what you would expect: the Store only guarantees order <strong>per stream</strong>, and the bus, per key.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "ScyllaDB: Lightweight Transactions (LWT)", href: "https://opensource.docs.scylladb.com/stable/features/lwt.html" },
+    { label: "Author's repository: event-source-distributed-ledger (README, balance ingestion)", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "SDLabs module 17 (Data Replication): clocks and CRDTs" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the version, the consumer ignores the old event and waits for the missing one. But what about the <strong>same</strong> event arriving twice, with the same version? What is left is what happens when the same event arrives <strong>twice</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What does the Event Store guarantee about order?",
+    a: "Order within each stream, by version. Whoever consumes over the bus does not receive it: partitions, retries and parallel consumers shuffle the arrival." },
+  { q: "What does 'last to arrive wins' do to 1047?",
+    a: "With the arrival e-501, e-504, e-505, e-502, e-502, it ends at pago, version 2: wrong, the order was already delivered." },
+  { q: "What does the 'apply only if the version is higher' rule do?",
+    a: "It applies e-501, e-504 and e-505 and discards both e-502s: it ends at entregue, version 4. In SQL: UPDATE … WHERE pedido_id = … AND versao < $v." },
+  { q: "Why version and not timestamp?",
+    a: "The timestamp depends on a clock (the 120 ms skew from module 17). The version is assigned by the Store, with no clock." },
+  { q: "When does the rule of discarding the lower version get it wrong?",
+    a: "In models that add up (the stock balance): discarding the late v2 event loses the deduction. There, idempotency by evento_id and commutative operations apply." },
+]} />

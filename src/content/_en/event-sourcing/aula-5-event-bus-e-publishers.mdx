@@ -1,0 +1,106 @@
+---
+title: "Event Bus and publishers"
+order: 5
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import txListener from '../../../lab-code/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
+
+<p class="ponte">Last lesson <code>PedidoEnviado</code> went into the Event Store as version 3 of <code>pedido-1047</code>, in order and without a race. But the Store is a <strong>log</strong>: nobody reads from it on every screen. Whoever needs the facts (<code>estoque</code>, <code>meus-pedidos</code>, billing) is <strong>outside</strong>, and someone has to carry them there. That is the job of the <strong>Event Bus</strong>.</p>
+
+<OneLiner>The <strong>Event Store</strong> is the <strong>source of truth</strong>; the <strong>Event Bus</strong> carries the <strong>consequences</strong> of the events to other services. <strong>Publishers</strong> read the events already committed in the Store and publish them to topics, queues or buses.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Bus</strong> scenario, advance <code>e-504</code> (<code>PedidoEnviado</code>) from the Store to the bus. Then <strong>take the publisher down right after the commit</strong>: the event stays in the Store and does not go out. Watch the position of the last published event bring <code>e-504</code> back.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/eventos-3d/?mode=bus" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Interactive figure: Publisher and bus" alt="Preview of the 3D figure: Publisher and bus" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Store first, bus after.</strong> <code>pedidos</code> writes <code>PedidoEnviado</code> to the Store. Only <strong>after</strong> it is committed does the <em>publisher</em> read it and publish it (Kafka, RabbitMQ, SQS, NATS or Pulsar, depending on the SLA). The article sums it up: the Store is the <em>golden source</em>; the bus is the means of projecting the consequences.</li>
+  <li><strong>The publication can only go out if the write succeeded.</strong> The article asks for the publication to be "atomic" with the write and does not say how. It is the same debt as module 18: if publishing and writing are two writes, one can fail without the other. The way out is the <strong>outbox</strong> or <strong>CDC</strong>, which module 18 showed.</li>
+  <li><strong>Order holds per stream.</strong> The publisher uses <code>pedido_id</code> as the message key (module 13): all of 1047's events go to the same partition, and the order of one order is kept. Between different orders there is no order, and there does not need to be.</li>
+  <li><strong>Delivery is "at least once".</strong> The bus may deliver the same event twice (the relay resends, the consumer crashes and re-reads). That is why the consumer has to be <strong>idempotent</strong>, lesson 10.</li>
+  <li><strong>More than one bus.</strong> The article's example is a bank account: a <strong>new account</strong> event goes to the domains that need to create the base structure; then each confirmed <strong>transaction</strong> goes to another bus, from which the balance and the statement are composed. In the store it is the same: one topic for the order, another for stock.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's README says it "only publishes the topics <strong>after</strong> a successful commit". The excerpt is from <code>saveEventTx</code> and what comes after it, in <code>transaction/listener.go</code>. It was <strong>read, not executed</strong>.</p>
+
+<CodeLab code={txListener} from={274} to={298} />
+
+<ol class="flow steps">
+  <li>Lines 274 to 276 leave the function if the transaction failed: nothing is published.</li>
+  <li>Line 288 <strong>publishes after</strong> the transaction has already committed (<code>publishConfirmation</code>). The event is already in the Store.</li>
+  <li>If the publication fails (lines 289 to 298), the code <strong>only logs the error</strong> and moves on. Further down the function ends successfully. This is the <strong>dual write</strong> from module 18: the event <strong>exists</strong> in the Store and <strong>never</strong> reaches the read models.</li>
+</ol>
+
+<p>The lab has a way out, only by hand: <code>rehydratate</code> (lesson 7) reads the Store again and <strong>republishes</strong>. Nothing triggers it on its own.</p>
+
+<h3 class="sec">What if it goes wrong: the event is in the Store and never went out</h3>
+
+<p>The process crashes <strong>between</strong> the commit and the publish. <code>PedidoEnviado</code> exists in <code>pedido-1047</code>, and Kafka never received it. <code>meus-pedidos</code> keeps showing <code>pago</code>. No error shows up anywhere, because the write to the Store succeeded and the publication was never even attempted.</p>
+
+<p>The defense is for the publisher to <strong>read the Store itself</strong> instead of depending on whoever wrote: it keeps the <strong>position of the last published event</strong> and, when it comes back (or every few seconds), publishes everything after that position. The event that was left behind goes out, <strong>at least once</strong>, and the (idempotent) consumer absorbs the duplicate. That is what the lab's <code>rehydratate</code> does by hand.</p>
+
+<WhyItMatters>
+  <li><strong>Store and bus have different roles.</strong> The Store keeps the truth; the bus delivers the consequences. One does not replace the other.</li>
+  <li><strong>Publishing is a second write.</strong> Without outbox or CDC, the window between commit and publish loses events (the dual write from module 18).</li>
+  <li><strong>Order comes from the key.</strong> With <code>pedido_id</code> as the key, each order stays in one partition and keeps its order.</li>
+  <li><strong>The Store is the safety net.</strong> With the position of the last published event, a forgotten event comes back on its own.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where each guarantee lives</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Guarantee</th><th>Who provides it</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><th>Order within the stream</th><td>Event Store</td><td><code>versao</code> and <code>UNIQUE (stream_id, versao)</code></td></tr>
+      <tr><th>Order per order on the bus</th><td>Event Bus</td><td>key <code>pedido_id</code>, one partition</td></tr>
+      <tr><th>Event is not lost</th><td>publisher</td><td>outbox, CDC or reading the Store by position</td></tr>
+      <tr><th>No duplicate effect</th><td>consumer</td><td>idempotency (lesson 10)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>One caution for whoever reads the Store by position: if the position is the <code>id</code> of a <code>bigserial</code>, two transactions can commit out of <code>id</code> order, and a publisher that only reads "everything with an id greater than the last one" can skip an event that had not committed yet. That is the reason to prefer CDC or the outbox (module 18) over a plain <code>SELECT … WHERE id &gt; ?</code>.</p>
+  <h4 class="deep-h">Corrections to the source article and to the lab</h4>
+  <ul>
+    <li><strong>The Event Bus is not the Event Store.</strong> The article says so in one sentence and blurs it in the others. The bus is <strong>not mandatory</strong>: Event Sourcing exists without it.</li>
+    <li><strong>"Atomic" publication.</strong> The article asks that the event only go out when the write succeeds, without saying how. It is the outbox or CDC (module 18). The lab publishes <strong>after the commit</strong>, with the dual-write window.</li>
+    <li><strong>Kafka as a store.</strong> It serves the bus, not the store (lesson 4).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Axon Framework: events infrastructure (Event Bus and Event Store)", href: "https://docs.axoniq.io/axon-framework-reference/4.11/events/infrastructure/" },
+    { label: "Author's repository: event-source-distributed-ledger", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "SDLabs module 18 (CQRS): dual write, CDC and outbox" },
+  ]} />
+</Deep>
+
+<p class="gancho">The Store keeps and the bus delivers. What is left is what whoever <strong>listens</strong> does with the events: how <code>PedidoEnviado</code> becomes a tracking screen that Lena can read in one millisecond.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between Event Store and Event Bus?",
+    a: "The Store is the source of truth (the log of facts). The bus carries the consequences of those facts to other services. The bus is not mandatory; the Store is." },
+  { q: "What does the publisher do?",
+    a: "It reads the events already committed in the Store and publishes them to topics, queues or buses (Kafka, RabbitMQ, SQS, NATS, Pulsar)." },
+  { q: "How does the publication become atomic with the write?",
+    a: "With the outbox or CDC from module 18. The author's lab publishes after the commit, with the dual-write window." },
+  { q: "What happens if the process crashes between the commit and the publish?",
+    a: "The event exists in the Store and never goes out: stock does not reserve and the screen does not update. The defense is for the publisher to read the Store by the position of the last published event." },
+  { q: "Which guarantees does the bus give?",
+    a: "Order per stream (key pedido_id) and at-least-once delivery. No duplicate effect only if the consumer is idempotent." },
+]} />

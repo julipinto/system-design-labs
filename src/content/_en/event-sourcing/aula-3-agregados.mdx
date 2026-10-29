@@ -1,0 +1,105 @@
+---
+title: "Aggregates"
+order: 3
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson left a list that only grows, and a question: who stops anything from getting into it? A <code>PedidoEnviado</code> for an order that has not even been paid would be a <strong>false</strong> fact, and since the event is immutable, the falsehood would stay forever. Someone has to check the rule <strong>before</strong> the fact exists. That someone is called the <strong>aggregate</strong>.</p>
+
+<OneLiner>The <strong>aggregate</strong> is the unit that <strong>decides</strong>, <strong>validates</strong> and <strong>orders</strong> the events of one subject: a <em>stream</em>, a consistency boundary. It receives <strong>commands</strong> (imperative, can be refused) and emits <strong>events</strong> (past tense, always true).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Aggregate</strong> scenario, send the <code>Enviar</code> command while the order is still <code>criado</code> and watch the <strong>refusal</strong>: no event is born. Then send <code>Pagar</code> and then <code>Enviar</code>, and watch the <code>PedidoEnviado</code> go onto the tape with the next version.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/eventos-3d/?mode=agregado" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Interactive figure: The aggregate" alt="Preview of the 3D figure: The aggregate" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Two aggregates in the store.</strong> The <code>Pedido</code> (stream <code>pedido-&lt;id&gt;</code>, in the <code>pedidos</code> service) and the <code>Estoque</code> (stream <code>estoque-&lt;sku&gt;</code>). Each has its own internal state, its own rules and its own queue of events.</li>
+  <li><strong>The command asks.</strong> <code>Pagar</code>, <code>Enviar</code>, <code>Reservar</code> are imperatives: they say what you <strong>want</strong> to happen. They can be refused. Nobody writes anything just because it was asked.</li>
+  <li><strong>The rule decides.</strong> The <code>Pedido</code> accepts <code>Pagar</code> only in <code>criado</code> and <code>Enviar</code> only in <code>pago</code>. The <code>Estoque</code> accepts <code>Reservar</code> while the balance is above 0 and <strong>refuses</strong> at a balance of 0. To decide, the aggregate first rebuilds its state from its own events (the rehydration of lesson 7).</li>
+  <li><strong>The event records.</strong> Once the command is accepted, a fact in the past is born: <code>PedidoPago</code>, <code>PedidoEnviado</code>, <code>EstoqueReservado</code>. It goes at the end of the stream with the next version and <strong>never changes again</strong>.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Aggregate</th><th>Command</th><th>Current state</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><th><code>pedido-1047</code></th><td><code>Pagar</code></td><td><code>criado</code></td><td>accepts: <code>PedidoPago</code> (<code>e-502</code>, version 2)</td></tr>
+    <tr><th><code>pedido-1047</code></th><td><code>Enviar</code></td><td><code>criado</code></td><td><strong>refuses</strong>: not paid yet</td></tr>
+    <tr><th><code>pedido-1047</code></th><td><code>Enviar</code></td><td><code>pago</code></td><td>accepts: <code>PedidoEnviado</code> (<code>e-504</code>, version 3)</td></tr>
+    <tr><th><code>estoque-GATO-042</code></th><td><code>Reservar</code> (order 1047)</td><td>balance 3</td><td>accepts: <code>EstoqueReservado</code> (<code>e-503</code>, version 2; balance 3 → 2)</td></tr>
+    <tr><th><code>estoque-GATO-042</code></th><td><code>Reservar</code></td><td>balance 0</td><td><strong>refuses</strong>: out of stock</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">Whose fact is it</h3>
+
+<p>One design choice is worth noting, because it decides where each event lives. <code>PedidoPago</code> is a fact about the <strong>order</strong>: the <code>pedidos</code> service records it when <code>pagamentos</code> notifies it, and keeps the <code>evento_id</code> <code>e-502</code> in the <strong>metadata</strong>. <code>EstoqueReservado</code> is a fact about <strong>stock</strong>: it goes into the <code>estoque-GATO-042</code> stream as version 2 (version 1 is the initial balance, +3). That is why order 1047 has 4 events in its stream, not 5.</p>
+
+<p>The size of the aggregate is a design decision: <strong>small</strong>. One order, one SKU. Never "the store". The reason shows up below.</p>
+
+<h3 class="sec">What if it goes wrong: the aggregate that is too big</h3>
+
+<p>Suppose all of the store's stock is <strong>one</strong> aggregate, with a single stream. On Black Friday the store gets 30 orders per second, and each one needs a <code>Reservar</code>: that is <strong>30 commands per second on the same stream</strong>. Each command reads the state, decides and tries to write the next version, and two at the same time fight for the <strong>same</strong> version (the conflict from lesson 4). The stream turns into a queue. The fix is one stream <strong>per SKU</strong>: the cat (<code>estoque-GATO-042</code>) and the mug (<code>estoque-CANECA-007</code>) stop fighting.</p>
+
+<p>There is a second, quieter failure: the <strong>event that lies</strong>. If the command goes through the wrong rule (say, an <code>Enviar</code> accepted while the order is in <code>criado</code>), the <code>PedidoEnviado</code> is born, is "true" for everyone and is <strong>permanent</strong>. Fixing it takes another event (lesson 2). That is why the rule lives <strong>inside</strong> the aggregate, before the fact.</p>
+
+<WhyItMatters>
+  <li><strong>The aggregate protects the truth of the log.</strong> Only events the rule accepted get in; a refused one leaves no trace in the stream.</li>
+  <li><strong>Command and event are different.</strong> The command is imperative and can fail; the event is past tense and never fails.</li>
+  <li><strong>One stream, one consistency boundary.</strong> Inside it, order and rule are guaranteed; across streams, they are not.</li>
+  <li><strong>Small is better.</strong> One SKU per stream: 30 commands/s get spread out instead of landing in one queue.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Command × event, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Command</th><th>Event</th></tr></thead>
+    <tbody>
+      <tr><th>Tense</th><td>imperative: <code>Pagar</code></td><td>past: <code>PedidoPago</code></td></tr>
+      <tr><th>Can it be refused?</th><td>yes, by the aggregate's rule</td><td>no: it already happened</td></tr>
+      <tr><th>How many per outcome</th><td>several can try</td><td>one per accepted change</td></tr>
+      <tr><th>Where it lives</th><td>only in transit</td><td>in the stream, forever</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">What the article says and what we add</h4>
+  <ul>
+    <li><strong>The definition.</strong> The article describes the aggregate as the unit "that decides which events can occur, in what order and under which conditions". That is right. Two things are missing: the <strong>size</strong> (a big aggregate becomes a bottleneck, as above) and the separation between <strong>command</strong> (can fail) and <strong>event</strong> (fact). Fowler defines the domain event as the record of something that affects the domain and <strong>already happened</strong>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "AWS Prescriptive Guidance: Event sourcing pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html" },
+    { label: "Greg Young: CQRS Documents (PDF)", href: "https://cqrs.wordpress.com/wp-content/uploads/2010/11/cqrs_documents.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">The aggregate decides and orders, and the result is a sequence of events with versions. What is left is <strong>where</strong> those events live, and what stops two commands from writing the same version at the same time.</p>
+
+<Flashcards cards={[
+  { q: "What is an aggregate?",
+    a: "The unit that decides, validates and orders the events of one subject: a stream, a consistency boundary. In the store, an order or a SKU." },
+  { q: "What is the difference between a command and an event?",
+    a: "The command is imperative (Pagar) and the rule can refuse it. The event is past tense (PedidoPago): it already happened and never changes again." },
+  { q: "What does the Pedido aggregate refuse?",
+    a: "Enviar while the order is still in criado (it only accepts Enviar in pago) and Pagar outside criado. Nothing is written to the stream when the command is refused." },
+  { q: "Whose facts are EstoqueReservado and PedidoPago?",
+    a: "EstoqueReservado belongs to stock (stream estoque-GATO-042, version 2, e-503). PedidoPago belongs to the order (e-502, version 2 of pedido-1047); pedidos records it when pagamentos notifies it." },
+  { q: "Why should the aggregate be small?",
+    a: "A stream with all the stock would receive 30 commands/s and turn into a queue of conflicts. One stream per SKU spreads the load." },
+]} />

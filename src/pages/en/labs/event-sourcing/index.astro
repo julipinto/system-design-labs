@@ -1,0 +1,36 @@
+---
+// Event Sourcing module (English): the 11 lessons in src/content/_en/event-sourcing/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/event-sourcing.css';
+
+const entries = (await getCollection('en-event-sourcing')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/event-sourcing/quiz/');
+---
+<ModuleLayout
+  title="Event Sourcing · SDLabs"
+  description="Store what happened as the source of truth and derive the state: events, aggregates, Event Store and expected version, Event Bus, projections, rehydration, snapshot, ordering by version and idempotency, with Lena's order 1047, widgets and a quiz."
+  module="event-sourcing"
+  heading="Event Sourcing"
+  lead={'Lena\'s order 1047 shows up as "delivered" in a table, and the path to get there stayed in events that Kafka deletes after 7 days. How to store what happened as the source of truth, derive the state from the events and not get lost when they arrive out of order or twice.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/event-sourcing/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

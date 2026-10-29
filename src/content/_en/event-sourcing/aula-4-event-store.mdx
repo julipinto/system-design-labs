@@ -1,0 +1,143 @@
+---
+title: "Event Store"
+order: 4
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import eventsTable from '../../../lab-code/event-sourcing/ledger_database_migrations_000003_create_events_table.up.sql?raw';
+import appendEvent from '../../../lab-code/event-sourcing/ledger_database_migrations_000005_create_append_event_function.up.sql?raw';
+import txListener from '../../../lab-code/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
+
+<p class="ponte">Last lesson the aggregate decided that <code>PedidoEnviado</code> could get in, and it received the stream's next version. But get in <strong>where</strong>? It needs a place that keeps each stream in order, never deletes anything and <strong>stops two commands from taking the same version</strong>. That place is the <strong>Event Store</strong>.</p>
+
+<OneLiner>The <strong>Event Store</strong> is an <strong>append-only log</strong>, with one stream per aggregate and events in <strong>version</strong> order. The guarantees that matter are two: <strong>do not lose the order</strong> of the stream and <strong>do not accept two events at the same version</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Store</strong> scenario, fire <strong>two <code>Reservar</code> commands at the same time</strong> on <code>estoque-GATO-042</code>, both with expected version 2. Watch the second one <strong>wait</strong> and then fail, and read the real PostgreSQL error in the panel.</p>
+</DoIt>
+
+<Figure3D path="en/labs/event-sourcing/eventos-3d/?mode=store" poster="labs/event-sourcing/eventos-3d-previa.webp" title="Interactive figure: The Event Store" alt="Preview of the 3D figure: The Event Store" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The table.</strong> The store uses PostgreSQL with the same idea as the author's lab: <code>eventos(id, stream_id, versao, evento_id, tipo, dados jsonb, metadados jsonb, ocorrido_em)</code>, with two <code>UNIQUE</code> constraints: <code>(stream_id, versao)</code> (the <code>eventos_stream_versao</code> constraint) and <code>(evento_id)</code> (<code>eventos_evento_id_key</code>). Data and metadata are kept in <code>jsonb</code>, which makes the table <strong>agnostic</strong> to the event type.</li>
+  <li><strong>The stream of 1047.</strong> Written with 4 calls of <code>append_evento(…, 0)</code> through <code>(…, 3)</code>, the <code>SELECT versao, evento_id, tipo, dados FROM eventos WHERE stream_id = 'pedido-1047' ORDER BY versao</code> returns the 4 rows of the table below, in version order.</li>
+  <li><strong>The expected version.</strong> <code>append_evento(stream, evento_id, tipo, dados, versao_esperada)</code> reads the stream's <code>MAX(versao)</code>, <strong>refuses</strong> if it differs from the expected one and, if it matches, inserts <code>versao + 1</code>. This is <strong>optimistic concurrency</strong>: the command says "I read up to version 2, write 3", and the Store only accepts if the stream is still at 2.</li>
+  <li><strong>What the check really blocks.</strong> With the stream already at version 4, <code>append_evento('pedido-1047', 'e-502', …, 2)</code> returns <code>ERROR: Concurrency conflict: expected version 2, but current is 4</code>. And the same <code>e-502</code> with the right version (4) returns <code>ERROR: duplicate key value violates unique constraint "eventos_evento_id_key"</code>, with the detail <code>Key (evento_id)=(e-502) already exists</code>: the <code>UNIQUE (evento_id)</code> blocks the repeated event.</li>
+  <li><strong>The race.</strong> The hard case is when both checks happen <strong>at the same time</strong>. That is what the widget and the figure show, with the measured numbers right below.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>versao</th><th>evento_id</th><th>tipo</th><th>dados (summary)</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>e-501</code></td><td><code>PedidoCriado</code></td><td>customer <code>lena-77</code>, 1 cat, total 9,490</td></tr>
+    <tr><td>2</td><td><code>e-502</code></td><td><code>PedidoPago</code></td><td>9,490 cents, card</td></tr>
+    <tr><td>3</td><td><code>e-504</code></td><td><code>PedidoEnviado</code></td><td>tracking <code>LA123456789BR</code></td></tr>
+    <tr><td>4</td><td><code>e-505</code></td><td><code>PedidoEntregue</code></td><td>no data</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">The real race</h3>
+
+<p>Two <code>Reservar</code> commands reach <code>estoque-GATO-042</code> at the same time, <strong>both with expected version 2</strong>. It was run with two sessions (PostgreSQL 14, on 10/20/2026). Session A opens a transaction, calls <code>append_evento(…, 2)</code>, sleeps for 2 s and commits. Half a second later session B calls <code>append_evento(…, 2)</code>.</p>
+
+<ol class="flow steps">
+  <li>Both read <code>MAX(versao) = 2</code>. <strong>The function's check passes in both</strong>: neither saw the other, because A has not committed yet.</li>
+  <li>In <code>pg_stat_activity</code>, session A shows up as <code>Timeout / PgSleep</code> and <strong>B as <code>Lock / transactionid</code></strong>: B is <strong>waiting for A</strong>, because both try to insert version 3 and the <code>UNIQUE</code> can only accept one.</li>
+  <li>When A commits, B fails with <code>ERROR: duplicate key value violates unique constraint "eventos_stream_versao"</code> and <code>Key (stream_id, versao)=(estoque-GATO-042, 3) already exists</code>. <strong>Not</strong> with the function's friendly message.</li>
+  <li>The stream ends up with <code>v1 e-lab-0, v2 e-503, v3 e-lab-A</code>. B has to <strong>re-read the stream</strong> (now at version 3) and <strong>decide again</strong>: with the new balance, can it still reserve? If so, it writes version 4.</li>
+</ol>
+
+<p>There is one lesson: the <code>MAX(versao)</code> check <strong>alone does not prevent the race</strong>, because both sessions read 2. What prevents it is the <code>UNIQUE (stream_id, versao)</code> constraint. The function's check only gives a better message in the easy case, when the conflict is <strong>old</strong>.</p>
+
+<Widget name="conflito" title="Version conflict" hint="Two commands with the same expected version. Choose with or without UNIQUE (stream_id, versao) and see who passes, who gets the error and the retry. Then change the commands per second and the time of each attempt to see when the stream becomes a bottleneck." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The author's lab has the same design, for the accounts of a <em>ledger</em>. Everything below was <strong>read in the code and not executed</strong>. The table has <code>UNIQUE(aggregate_id, version)</code> (lines 12 and 13) and GIN indexes on <code>event_data</code> and <code>metadata</code> (lines 29 and 30):</p>
+
+<CodeLab code={eventsTable} from={1} to={20} />
+
+<p>The <code>append_event</code> function is the one the store copied: it reads <code>COALESCE(MAX(version), 0)</code> (lines 15 to 17), compares with <code>p_expected_version</code> (line 20) and inserts <code>v_current_version + 1</code> (line 39).</p>
+
+<CodeLab code={appendEvent} from={1} to={44} />
+
+<p>The Go service does not call this function. It does the same in <code>saveEventTx</code> in <code>ledger/internal/listeners/transaction/listener.go</code>: it reads <code>MAX(version)</code> (lines 328 to 334) and inserts <code>version + 1</code> (line 364).</p>
+
+<CodeLab code={txListener} from={328} to={372} />
+
+<p>If the <code>INSERT</code> fails on a repeated version, the code calls <code>isVersionConflict</code> and counts the error in the <code>EventsVersionConflictsTotal</code> metric. The retry is <strong>not</strong> in the Store: it belongs to the caller, which re-reads and recomputes.</p>
+
+<h3 class="sec">Where to keep the events</h3>
+
+<p>The article says a relational or non-relational database is the best fit and cites EventStoreDB (today <strong>Kurrent</strong>) and Kafka as options, "considering their trade-offs". PostgreSQL is what the lab uses, and it is what the store uses here. A dedicated event database comes with the stream and the expected version built in. Kafka is another story, and it is the first "what if it goes wrong".</p>
+
+<h3 class="sec">What if it goes wrong</h3>
+
+<p><strong>(a) The version lock only in the application.</strong> The function checks <code>MAX(versao)</code>, but the table has no <code>UNIQUE (stream_id, versao)</code>. In the race above both sessions would pass, and the stream would have <strong>two version 3s</strong>. From then on any rehydration is ambiguous: which of the two v3s comes first? The derived state depends on the tie-break, and the log, which was the source of truth, is broken. (This is a consequence of the design, not measured; the widget shows the two versions side by side.)</p>
+
+<p><strong>(b) Kafka as the Event Store for aggregates.</strong> To keep an order's stream the Store needs two things: <strong>append only if the expected version matches</strong> and <strong>read all the events of this aggregate</strong>. Kafka gives neither per key: there is no "append only if the last version is N", and reading one aggregate requires scanning the whole partition. On top of that, retention (7 days in module 13) deletes what the Store <strong>cannot</strong> delete, and compaction keeps only the last value per key. Kafka is good for the <strong>bus</strong> (next lesson) and weak for the <strong>store</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>The Store is a log, not a state table.</strong> You only append; each stream has versions 1, 2, 3 with no gaps.</li>
+  <li><strong>The expected version is optimistic concurrency.</strong> "I read up to 2, write 3", and the Store refuses if someone got there first.</li>
+  <li><strong>The lock is the constraint, not the function.</strong> Measured: both sessions read 2, B waits on <code>transactionid</code> and fails on <code>eventos_stream_versao</code>.</li>
+  <li><strong>The retry belongs to the caller.</strong> Whoever receives the conflict re-reads the stream and decides again.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The three storage options</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Option</th><th>Expected version</th><th>Read a stream</th><th>Retention</th></tr></thead>
+    <tbody>
+      <tr><th>PostgreSQL (<code>UNIQUE</code>)</th><td>yes, with <code>UNIQUE (stream_id, versao)</code></td><td>index on <code>(stream_id, versao)</code></td><td>whatever you decide; nothing deletes on its own</td></tr>
+      <tr><th>Event database (Kurrent)</th><td>native, per stream</td><td>native</td><td>the database's own</td></tr>
+      <tr><th>Kafka</th><td>not per key</td><td>scan the partition</td><td>7 days (or compaction)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Metadata: who and why</h4>
+  <p>Events say <strong>what and when</strong>. For "who asked" and "why", the <code>metadados</code> column keeps the <code>correlation_id</code> (the whole flow), the <code>causation_id</code> (which event caused this one) and the <code>trace_id</code> from module 6. The order's <code>e-502</code>, for example, carries in its metadata the id of the <code>pagamentos</code> event that originated it.</p>
+  <h4 class="deep-h">Corrections to the source article and to the lab</h4>
+  <ul>
+    <li><strong>"Temporal and absolute order".</strong> The Store guarantees order <strong>per stream</strong> (the <code>versao</code>). Global order is neither required nor cheap. The table's <code>id bigserial</code> is only insertion order, not causality between aggregates.</li>
+    <li><strong>Event Store on Kafka.</strong> The article lists it next to databases. For aggregates it does not append by version or read by aggregate; it serves the <strong>bus</strong>, not the <strong>store</strong>.</li>
+    <li><strong>Concurrency control.</strong> The article mentions it in the introduction and does not develop it. It is the <strong>expected version</strong> plus the <code>UNIQUE (stream_id, versao)</code>. In the lab, the check alone <strong>is not the lock</strong> (reproduced: session B waits and fails on <code>unique_aggregate_version</code>); the lock is the constraint, and the retry belongs to the caller.</li>
+    <li><strong>Auditing.</strong> The lab's <code>metadata JSONB</code> exists and carries only the <code>correlationID</code>. The user and the cause are missing.</li>
+    <li><strong>A detail read, not executed.</strong> <code>isVersionConflict</code> (lines 401 to 405) compares the error message with the text <code>duplicate key value violates unique constraint</code> by <strong>exact equality</strong>. The real PostgreSQL message also carries the constraint name in quotes, so, from what the code shows, the metric would probably not count the conflict.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Event Sourcing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/event-sourcing/" },
+    { label: "Author's repository: event-source-distributed-ledger", href: "https://github.com/msfidelis/event-source-distributed-ledger" },
+    { label: "PostgreSQL: constraints, including UNIQUE", href: "https://www.postgresql.org/docs/current/ddl-constraints.html" },
+    { label: "Kurrent: documentation", href: "https://docs.kurrent.io/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The Store keeps the facts in order and blocks the race between two commands. But whoever needs them is <strong>outside</strong> the Store: stock, the screen, billing. What is left is how the events <strong>reach</strong> whoever needs them.</p>
+
+<Flashcards cards={[
+  { q: "What does the Event Store guarantee?",
+    a: "That the stream does not lose its order (versions 1, 2, 3…) and that two events do not take the same version. It is an append-only log, one stream per aggregate." },
+  { q: "What does the expected version do in append_evento?",
+    a: "It reads the stream's MAX(versao) and refuses if it differs from the expected one; if it matches, it inserts versao + 1. It is optimistic concurrency." },
+  { q: "Who stops the race between two commands, the function or the UNIQUE?",
+    a: "The UNIQUE (stream_id, versao). Both sessions read 2 and pass the check; B waits on Lock/transactionid and fails on eventos_stream_versao." },
+  { q: "What does the command that got the conflict do?",
+    a: "It re-reads the stream, recomputes with the new state and decides again. The retry belongs to the caller, not the Store." },
+  { q: "Why is Kafka weak as an Event Store for aggregates?",
+    a: "It does not append only if the version matches, it does not read one aggregate without scanning the partition, and retention (7 days) deletes what the Store cannot delete. It serves the bus." },
+]} />
