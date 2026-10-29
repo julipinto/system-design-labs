@@ -1,0 +1,91 @@
+---
+title: "Spinlocks"
+order: 9
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In both versions from the last lesson Caio kept trying the lock and going back to sleep, and each wait cost milliseconds. In some locks the wait is so short that sleeping and waking up costs more than the work itself. For those cases there is the opposite path: don't sleep, and keep spinning around the lock until it is released. That is the spinlock.</p>
+
+<OneLiner>A spinlock is a lock in which whoever waits does not sleep: it keeps <strong>spinning</strong> in a loop, asking "is it free?" until it gets it. It only pays off when the critical section is shorter than the cost of sleeping and waking up.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Spin</strong> scenario, compare the two lines: the mutex with sleeping goroutines and the spinlock with 7 spinning goroutines. Read the CPU counter in each. In the <em>"what if it goes wrong"</em> step, the critical section starts lasting 5 ms: what does the counter show?</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=spin" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Spinlock × mutex" alt="Preview of the 3D figure: Spinlock × mutex" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>In a regular mutex, the goroutine that cannot get the lock <strong>sleeps</strong>, and the runtime wakes it when the lock is released. Sleeping and waking has a cost, on the order of microseconds.</li>
+  <li>In a spinlock, the goroutine does not sleep. It repeats the question "is <code>state</code> 0?" and, the instant it is, swaps it to 1, all in a single step. That step is the atomic <strong>compare-and-swap</strong> operation (<code>CompareAndSwapInt32</code>): nobody can squeeze in between the comparison and the swap.</li>
+  <li>When is it worth it? When the critical section is <strong>smaller than the cost of sleeping and waking up</strong>. In the store, that is the case of incrementing the <code>reservas_total</code> counter, which takes about 20 ns: spinning for a moment is cheaper than sleeping.</li>
+  <li>The other side is the price: while spinning, the goroutine <strong>uses CPU</strong>. Whoever spins for 20 ns does not notice. Whoever spins for milliseconds burns a whole core just to wait.</li>
+  <li>In Go you almost never write a spinlock: the <code>sync.Mutex</code> already spins a little before sleeping. Spinlocks show up in the <strong>kernel</strong> and in nanosecond sections.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`func (s *SpinLock) Lock() {
+	for !atomic.CompareAndSwapInt32(&s.state, 0, 1) {
+		runtime.Gosched() // Lets other goroutines run
+	}
+}
+
+func (s *SpinLock) Unlock() {
+	atomic.StoreInt32(&s.state, 0)
+}`}</code></pre>
+
+<h3 class="sec">What if it goes wrong: a spinlock around a database call</h3>
+
+<p>Someone puts a spinlock around <code>reservar</code>, whose lock now covers <strong>5 ms</strong> of database. On an 8-core node, 1 goroutine holds the lock for 5 ms and the other <strong>7 spin, each on its own core</strong>. That is 7 of 8 cores burning for nothing: <strong>87.5%</strong> of the node's CPU spent waiting, while the useful work uses 1 core.</p>
+
+<p>On a <strong>1 vCPU</strong> pod it is worse. Whoever spins occupies the only core, and whoever holds the lock only runs again when the scheduler takes the spinner off, so it can release it. Each turn of the loop delays exactly the lock that everyone is waiting for.</p>
+
+<p>The lab's spinlock softens this: it calls <code>runtime.Gosched()</code> on each turn, which yields to other goroutines. That is why it is, in practice, a <em>yielding lock</em>, not a pure spinlock. Even so, it does not respect arrival order: in the article's log, 10 friends fight for the lock, each one uses it for 1 s (<strong>10 s</strong> in total), and the order of entry was 10, 3, 5, 1, 9, 2, 8, 7, 4, 6. Friend 6 was last. Without a queue, the starvation from lesson 6 is possible.</p>
+
+<WhyItMatters>
+  <li><strong>Sleeping costs too.</strong> For a wait of nanoseconds, spinning is the cheapest.</li>
+  <li><strong>Spinning costs CPU.</strong> If the wait lasts milliseconds, the spinlock becomes waste: 7 cores out of 8 is 87.5%.</li>
+  <li><strong>The section decides.</strong> Spinlock only for a very short section; a database or network call, never.</li>
+  <li><strong>Day to day, use <code>sync.Mutex</code>.</strong> It already spins a little before sleeping and has a starvation mode.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>spinlock/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments and printed messages are in Portuguese, as in the original). There are 10 goroutines, each one holds the "grill" for 1 s.</p>
+  <pre><code>{" 1  package main\n 2  \n 3  import (\n 4  \t\"fmt\"\n 5  \t\"runtime\"\n 6  \t\"sync\"\n 7  \t\"sync/atomic\"\n 8  \t\"time\"\n 9  )\n10  \n11  type SpinLock struct {\n12  \tstate int32\n13  }\n14  \n15  // Método do SpinLock para \"travar a grelha\"\n16  // Cria um loop ativo (spin) que aguarda o valor do state ter o valor de 1\n17  // Quando entrar na condição de `Unlock()`, libera o runtime para executar outras goroutines\n18  func (s *SpinLock) Lock() {\n19  \tfor !atomic.CompareAndSwapInt32(&s.state, 0, 1) {\n20  \t\truntime.Gosched() // Permite que outras goroutines sejam executadas\n21  \t}\n22  }\n23  \n24  // Método do SpinLock para \"destravar a grelha\"\n25  // Seta o valor da propriedade `state` para 0\n26  func (s *SpinLock) Unlock() {\n27  \tatomic.StoreInt32(&s.state, 0)\n28  }\n29  \n30  // Função para simular o tempo de preparo de cada atividade do churrasco\n31  func grelhar(amigo int, lock *SpinLock, wg *sync.WaitGroup) {\n32  \tfmt.Printf(\"Amigo %d está esperando para usar a grelha\\n\", amigo)\n33  \tlock.Lock() // Trava as demais Goroutines para usar a grelha\n34  \n35  \tfmt.Printf(\"Amigo %d está grelhando seu almoço\\n\", amigo)\n36  \ttime.Sleep(1 * time.Second) // Simulando o tempo para grelhar\n37  \n38  \tfmt.Printf(\"Amigo %d terminou de usar a grelhar\\n\", amigo)\n39  \tlock.Unlock() // Destrava a grelha para a proxima goroutine (amigo)\n40  \n41  \tdefer wg.Done() // Decrementa o contador de Goroutines\n42  }\n43  \n44  func main() {\n45  \tvar wg sync.WaitGroup\n46  \tvar lock SpinLock\n47  \n48  \t// Define a quantidade de gente no churrasco\n49  \tvar amigosNoChurrasco = 10\n50  \n51  \t// Cria go routines para colocar todos os amigos para esperar a grelha liberar\n52  \tfor i := 1; i <= amigosNoChurrasco; i++ {\n53  \t\twg.Add(1)                 // Incrementa o contador dos WaitGroups das Goroutines\n54  \t\tgo grelhar(i, &lock, &wg) // Inicia a preparação da comida\n55  \t}\n56  \n57  \twg.Wait()\n58  \tfmt.Println(\"O churrasco terminou :/\")\n59  \n60  }"}</code></pre>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The code comment says the spinlock "releases the runtime when it enters <code>Unlock()</code>", but <code>Gosched()</code> runs on <strong>every turn of the loop</strong> in <code>Lock</code>, not in <code>Unlock</code>. That loop is a "yielding lock". A pure spinlock does not yield: it spins nonstop until it gets it.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Example code from the article in Matheus Fidelis's public repository (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Oracle: Using Spinlocks (the article's reference)", href: "https://docs.oracle.com/cd/E37838_01/html/E61057/ggecq.html" },
+    { label: "Linux kernel documentation: spinlocks", href: "https://www.kernel.org/doc/html/latest/locking/spinlocks.html" },
+    { label: "OSTEP: Locks (spin locks, test-and-set and compare-and-swap)", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-locks.pdf" },
+    { label: "Go: package sync/atomic", href: "https://pkg.go.dev/sync/atomic" },
+  ]} />
+</Deep>
+
+<p class="gancho">The spinlock, the mutex and the lock in Redis have one thing in common: they let <em>one</em> in at a time. But <code>estoque</code> has another limit, which is not a single slot: PostgreSQL accepts a fixed number of connections. What's missing is how to let ten in at a time, and what to do with the 11th, who also wants in: that is the semaphore.</p>
+
+<Flashcards cards={[
+  { q: "What does the spinlock do instead of sleeping?",
+    a: "It spins in a loop, repeating an atomic compare-and-swap until it gets the lock." },
+  { q: "When does the spinlock pay off?",
+    a: "When the critical section is smaller than the cost of sleeping and waking up, on the order of microseconds. Example: incrementing reservas_total (about 20 ns)." },
+  { q: "How much CPU is burned with a spinlock around 5 ms of database on an 8-core node?",
+    a: "1 goroutine holds the lock and 7 spin on 7 of the 8 cores: 87.5% of the CPU spent waiting." },
+  { q: "Why is the lab's spinlock not a pure spinlock?",
+    a: "Because it calls runtime.Gosched() on every turn of the loop, yielding. A pure spinlock does not yield." },
+  { q: "Why does almost nobody write a spinlock in Go?",
+    a: "Because sync.Mutex already spins a little before sleeping and also has a starvation mode. Spinlocks show up in the kernel and in nanosecond sections." },
+]} />

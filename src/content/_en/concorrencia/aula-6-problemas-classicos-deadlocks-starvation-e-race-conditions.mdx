@@ -1,0 +1,179 @@
+---
+title: "Classic problems: deadlocks, starvation and race conditions"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">The last lesson left a warning: when two things touch the same data, order stops being neutral. The store now has exactly that case. There is <strong>1</strong> plush cat left in <code>GATO-042</code>, and at 14:02:10.000 Bia (SP) clicks "buy". Two milliseconds later, at 14:02:10.002, Caio (Rio) clicks too. <code>estoque-1</code> serves both at the same time, with the code below.</p>
+
+<pre><code>{String.raw`func reservar(sku string) error {
+    q := lerQuantidade(sku)   // SELECT quantidade FROM estoque WHERE sku = 'GATO-042'   (2 ms)
+    if q < 1 { return ErrSemEstoque }
+    baixar(sku)               // UPDATE estoque SET quantidade = quantidade - 1 WHERE sku = 'GATO-042'   (2 ms)
+    return nil
+}`}</code></pre>
+
+<OneLiner>When several parts touch the same data without coordination, the result depends on who arrives first: that is the <strong>race condition</strong>. The locks that solve it bring two problems of their own, <strong>deadlock</strong> and <strong>starvation</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Race</strong> scenario, move through the steps and look at what Bia and Caio read in the database: do both read 1? At the end, what is the stock? Then press the <strong>Deadlock</strong> button to see the lesson's second problem, reserve against cancel. In the widget below, click "all orders" and count how many of the 6 give −1.</p>
+</DoIt>
+
+<Widget name="corrida" title="Bia × Caio: every possible order" hint="Each customer does 2 steps: check and decrement. See the 6 ways to interleave the 4 steps and the final stock of each. Then add the mutex and see what's left." />
+
+<Figure3D path="en/labs/concorrencia/estoque-3d/?mode=race" poster="labs/concorrencia/estoque-3d-previa.webp" title="Interactive figure: Race: read and decrement without a lock" alt="Preview of the 3D figure: Race: read and decrement without a lock" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>At t = 0 Bia clicks, and her <code>reservar</code> runs the <code>SELECT</code>: it reads <strong>1</strong>. The <code>SELECT</code> takes 2 ms.</li>
+  <li>At t = 2 she passes the <code>if q &lt; 1</code> and starts the <code>UPDATE</code>. At the same instant Caio clicks, and his <code>SELECT</code> also reads <strong>1</strong>, because Bia's <code>UPDATE</code> has not committed yet.</li>
+  <li>At t = 4 Bia's <code>UPDATE</code> commits and the quantity becomes <strong>0</strong>. Caio, who had already read 1, passes the <code>if</code> with stale data and starts his <code>UPDATE</code>.</li>
+  <li>At t = 6 Caio's <code>UPDATE</code> commits and the quantity becomes <strong>−1</strong>. Bia's order <strong>1049</strong> (cat 79.90 + SP shipping 9.00 = 88.90) is created, and Caio's would be too. Two reservations for a single cat.</li>
+  <li>The race window is the interval between <strong>checking and decrementing</strong>: 2 ms. It is the classic <em>check-then-act</em>: the decision rests on a read, and the world changes before the action.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>t (ms)</th><th>Bia</th><th>Caio</th><th><code>quantidade</code></th></tr></thead>
+  <tbody>
+    <tr><th>0</th><td><code>SELECT</code> reads 1</td><td>(has not arrived yet)</td><td>1</td></tr>
+    <tr><th>2</th><td>passes the <code>if</code>; starts the <code>UPDATE</code></td><td><code>SELECT</code> reads 1</td><td>1</td></tr>
+    <tr><th>4</th><td><code>UPDATE</code> commits → 0</td><td>passes the <code>if</code>; starts the <code>UPDATE</code></td><td>0</td></tr>
+    <tr><th>6</th><td>order 1049 created</td><td><code>UPDATE</code> commits → −1</td><td><strong>−1</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>It is not bad luck. Each customer does 2 steps (check and decrement), and there are <strong>6</strong> ways to interleave the 4 steps, keeping each one's order. In only 2 of them one order finishes completely before the other starts (<code>B1 B2 C1 C2</code> and <code>C1 C2 B1 B2</code>), and the stock ends at 0. In the other <strong>4</strong>, both read 1 before any decrement, and the stock goes to −1. The widget above shows all 6.</p>
+
+<h3 class="sec">Deadlock: reserve against cancel</h3>
+
+<p>To fix the race, the team adds a lock. But the store has more than one resource to lock. At 14:02:10.500 the payment for 1049 is confirmed and, at the same instant, Bia regrets it and clicks "cancel". Two operations start together: <code>reservar(1049)</code> locks <code>estoque:GATO-042</code> and then <code>pedido:1049</code>; <code>cancelar(1049)</code> locks <code>pedido:1049</code> and then <code>estoque:GATO-042</code>.</p>
+
+<Widget name="deadlock" title="Reserve × cancel: in what order to lock?" hint="Choose the order in which each operation takes the two locks. With crossed orders, the cycle appears and nobody moves. Check 'global order' and the cycle goes away." />
+
+<ol class="flow steps">
+  <li>t = 0: the reserve (R) locks the <code>estoque</code>.</li>
+  <li>t = 1: the cancel (C) locks the <code>pedido</code>.</li>
+  <li>t = 2: R wants the <code>pedido</code>, which C holds, and waits.</li>
+  <li>t = 3: C wants the <code>estoque</code>, which R holds, and waits. It is a <strong>cycle</strong>, and nobody moves.</li>
+</ol>
+
+<p>For a deadlock to happen, the four Coffman conditions (1971) must hold together: <strong>mutual exclusion</strong> (the lock has a single owner), <strong>hold and wait</strong> (whoever has one lock asks for another), <strong>no preemption</strong> (nobody takes the lock from whoever has it) and <strong>circular wait</strong> (R waits for C, who waits for R). Removing any one undoes the deadlock.</p>
+
+<p>The worst comes later. After the client's 2 s timeout (module 10), Bia sees an error. But the two goroutines <strong>stay stuck holding the locks</strong>, and every future reservation of the cat hangs waiting for a lock that never lets go. The fix is a <strong>global order</strong> (always <code>estoque</code> before <code>pedido</code>, in every operation), or a <code>TryLock</code> with a time limit, or a single lock. PostgreSQL finds the cycle on its own: after <code>deadlock_timeout</code> (default <strong>1 s</strong>), it aborts one of the transactions with <code>ERROR: deadlock detected</code> (SQLSTATE <code>40P01</code>) and the other goes on.</p>
+
+<h3 class="sec">Starvation: nobody locks, Caio just is never served</h3>
+
+<p><code>marketplace-xyz</code> (the partner from module 8) syncs the stock by calling <code>reservar</code> in a loop: 4 ms at a time, no pause. Caio tries to grab the lock <strong>every 50 ms</strong>. The lock, with no queue, is always taken when he arrives, and he gives up at <strong>10 s</strong>. There was no deadlock, nothing stopped: he just was never served. That is <em>starvation</em>, and it happens when the lock has no queue.</p>
+
+<p>Go's <code>sync.Mutex</code> avoids this. If a waiter goes past <strong>1 ms</strong>, the mutex enters <em>starvation mode</em> and starts handing the lock over in arrival order (FIFO). The lab's spinlock (lesson 9) takes no such care: in the article's log, among 10 friends, friend 6 was served last (order 10, 3, 5, 1, 9, 2, 8, 7, 4, 6).</p>
+
+<h3 class="sec">Race between events: the order that goes backwards</h3>
+
+<p>The race also exists outside the program, between messages. <code>pagamentos</code> publishes two events for order 1049: <code>PagamentoPendente</code> (version 1) and <code>PedidoPago</code> (version 2). <code>pedidos</code> receives them <strong>in the wrong order</strong>. Without protection, <code>PagamentoPendente</code> arrives last and the order <strong>goes back</strong> from "pago" (paid) to "aguardando_pagamento" (awaiting payment). The protection is a conditional write by version: it only applies if the version that arrived is greater than the stored one.</p>
+
+<pre><code>{String.raw`-- PedidoPago arrives first (version 2): applied
+UPDATE pedidos SET status = 'pago', event_version = 2
+WHERE id = 1049 AND event_version < 2;
+-- 1 row
+
+-- PagamentoPendente arrives late (version 1): ignored
+UPDATE pedidos SET status = 'aguardando_pagamento', event_version = 1
+WHERE id = 1049 AND event_version < 1;
+-- 0 rows: the state does not regress`}</code></pre>
+
+<p>The <code>event_version</code> column is new in the <code>pedidos</code> table from module 4 (in this module it is an example). It ties in with the <code>PedidoCriado</code> and <code>PedidoPago</code> events from module 6, and ordering inside a partition comes back in module 13.</p>
+
+<WhyItMatters>
+  <li><strong>A race is not a rare bug.</strong> 4 of 6 interleavings give −1. In a slow test it may never show up, and on Black Friday it shows up all the time.</li>
+  <li><strong>Locking has a cost.</strong> Each new lock can create a deadlock, and a lock without a queue can create starvation.</li>
+  <li><strong>A deadlock makes no noise.</strong> Nobody crashes: the goroutines stay stuck and requests pile up until the service looks dead.</li>
+  <li><strong>The race applies between events too.</strong> A conditional write by version keeps the old message from undoing the new one.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The same defect in the lab</h4>
+  <p>This is <code>race_condition/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). One hundred goroutines do <code>grelhados++</code> without a lock. The article shows the outputs 97, 96, 100, 99, 97, 100 and 99, when the expected value was always 100. Running with <code>go run -race main.go</code> flags the race right away.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Variável compartilhada para contar os alimentos grelhados
+10  var grelhados int = 0
+11  
+12  // Função para simular o tempo de preparo de um alimento na churrasqueira
+13  func grelhar() {
+14  	grelhados++
+15  	time.Sleep(time.Millisecond * 100)
+16  }
+17  
+18  func main() {
+19  
+20  	// Wait Group para esperar todas as goroutines terminarem
+21  	var wg sync.WaitGroup
+22  
+23  	// Alimentos disponíveis pra colocar na grelha
+24  	var alimentosChurrasco = 100
+25  
+26  	// Simula a concorrência pela grelha
+27  	for i := 0; i < alimentosChurrasco; i++ {
+28  		wg.Add(1) // Adiciona 1 alimento ao contador do WaitGroup
+29  		go func() {
+30  			grelhar()       // Inicia o processo de grelhar o alimento
+31  			defer wg.Done() // Remove um contador do wait group da grelha
+32  		}()
+33  	}
+34  
+35  	wg.Wait() // Espera que todas as goroutines chamem Done()
+36  
+37  	fmt.Println("Total de itens grelhados na churrasqueira:", grelhados)
+38  
+39  }`}</code></pre>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>The event example is not last-write-wins.</strong> The article says the problem is "made worse when the architecture does not adopt last-write-wins" and then shows <code>event_version &lt; N</code>, which is a <em>version guard</em>. Real LWW decides by the clock <strong>timestamp</strong> and loses writes when clocks diverge (Kleppmann, <em>Designing Data-Intensive Applications</em>, chapters 5 and 8). This lesson calls the example a conditional write by a monotonic version.</li>
+    <li><strong>The lab counter is misleading.</strong> The result varies between 96 and 100 because the 100 ms <code>Sleep</code> comes <em>after</em> the increment: few goroutines meet inside <code>grelhados++</code> at the same time. The race exists even in the runs that give 100, because the increment has three steps (read, add, write). Only <code>-race</code> guarantees there is no race.</li>
+  </ul>
+  <h4 class="deep-h">Deadlock in Go and in PostgreSQL</h4>
+  <p>The Go runtime only warns about a deadlock when <em>all</em> goroutines are blocked (<code>fatal error: all goroutines are asleep</code>). On a server with other goroutines alive, the cycle goes by silently. PostgreSQL, on the other hand, has a detector: after <code>deadlock_timeout</code> it looks for the cycle, aborts one transaction and lets the other continue.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Coffman, Elphick and Shoshani (1971): System Deadlocks, ACM Computing Surveys (copy on the Internet Archive)", href: "https://web.archive.org/web/2020/https://dl.acm.org/doi/10.1145/356586.356588" },
+    { label: "OSTEP: Common concurrency problems (deadlock and race conditions)", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-bugs.pdf" },
+    { label: "PostgreSQL: deadlock_timeout and lock management", href: "https://www.postgresql.org/docs/current/runtime-config-locks.html" },
+    { label: "Go: the race detector (go run -race)", href: "https://go.dev/doc/articles/race_detector" },
+    { label: "Kleppmann: Designing Data-Intensive Applications (last write wins)", href: "https://dataintensive.net/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The race left the cat at −1, and the fix with two locks, with no order, created the deadlock. What's missing is how a single lock, placed the right way, closes the 2 ms window: that is the <code>mutex</code>, and what happens to Caio while he waits.</p>
+
+<Flashcards cards={[
+  { q: "How do Bia and Caio take the stock to −1?",
+    a: "Both read 1 before any decrement (t = 0 and t = 2). Bia decrements to 0 at t = 4, and Caio, with stale data, decrements to −1 at t = 6. The window is the one between checking and decrementing: 2 ms." },
+  { q: "Of the 6 possible orders of 2 steps each, how many give −1?",
+    a: "4 give −1. Only the 2 in which one whole order finishes before the other starts (B1 B2 C1 C2 and C1 C2 B1 B2) work out." },
+  { q: "What are the 4 Coffman conditions for a deadlock?",
+    a: "Mutual exclusion, hold and wait, no preemption and circular wait. Removing one undoes the deadlock." },
+  { q: "How do you avoid the deadlock between reserve and cancel?",
+    a: "A global lock order (always estoque before pedido), TryLock with a time limit, or a single lock. PostgreSQL detects the cycle after 1 s and aborts a transaction (40P01)." },
+  { q: "What is starvation, and how does sync.Mutex avoid it?",
+    a: "Someone is never served because the lock is always taken when they try. If a waiter goes past 1 ms, the mutex enters starvation mode and hands over in order (FIFO)." },
+  { q: "How does the version guard keep the order from going back from paid to awaiting payment?",
+    a: "UPDATE ... WHERE id = 1049 AND event_version < N. The version 1 event arriving after the version 2 one hits 0 rows and is ignored." },
+]} />

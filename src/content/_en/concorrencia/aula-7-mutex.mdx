@@ -1,0 +1,156 @@
+---
+title: "Mutex"
+order: 7
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the stock of <code>GATO-042</code> went to −1 because Bia and Caio read 1 before either of them decremented, and a 2 ms window between checking and decrementing let both through. The most direct way to close that window is to make the second one wait for the first to finish. Inside a process, what does that is the <code>mutex</code>.</p>
+
+<OneLiner>A mutex (mutual exclusion) is a lock with two operations, <code>Lock</code> and <code>Unlock</code>: only one goroutine at a time enters the <strong>critical section</strong>, the stretch that reads and decrements the stock, and the others wait.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Mutex</strong> scenario, move through the steps and watch the gate open only for Bia. Note at what instant Caio arrives, how long he waits and what he reads when he gets in. Then press the <strong>Conditional</strong> button and compare: with no in-memory lock at all, what prevents the double sale?</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/estoque-3d/?mode=mutex" poster="labs/concorrencia/estoque-3d-previa.webp" title="Interactive figure: Mutex on one replica" alt="Preview of the 3D figure: Mutex on one replica" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>sync.Mutex</code> goes around <code>reservar</code>. The <code>Lock</code> sits before the read, and <code>defer mu.Unlock()</code> guarantees the lock is released when the function ends, by any path.</li>
+  <li>Bia enters at t = 0 and leaves at t = 4: 2 ms of the <code>SELECT</code> plus 2 ms of the <code>UPDATE</code>. Her critical section is 4 ms long.</li>
+  <li>Caio arrives at t = 2 and finds the lock taken. He <strong>waits 2 ms</strong>, until t = 4. He gets in, and his <code>SELECT</code> reads <strong>0</strong> at t = 6. He gets <code>409 out of stock</code>, 4 ms after arriving.</li>
+  <li>Result: <code>quantidade = 0</code>, order <strong>1049</strong> is Bia's and Caio is left without an order. The 2 ms window was closed because the check and the decrement now happen together.</li>
+  <li>That has a cost. With a 4 ms critical section, the replica serves at most 1 s ÷ 4 ms = <strong>250 reservations per second of the same SKU</strong>, even if the CPU can handle 500.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`var mu sync.Mutex
+
+func reservar(sku string) error {
+    mu.Lock()
+    defer mu.Unlock()
+    q := lerQuantidade(sku)
+    if q < 1 { return ErrSemEstoque }
+    baixar(sku)
+    return nil
+}`}</code></pre>
+
+<h3 class="sec">What if it goes wrong: the lock that does not release and the section that is too big</h3>
+
+<p>Two slips turn the mutex into a problem. The first is forgetting the <code>defer</code>. If the code writes <code>mu.Unlock()</code> only at the end and the <code>if q &lt; 1 &#123; return ErrSemEstoque &#125;</code> comes before it, whoever gets the <code>409</code> leaves the function <strong>without releasing the lock</strong>. From then on every reservation of the cat waits forever.</p>
+
+<p>The second is the section that is too big. The lab's <code>mutex/main.go</code> sleeps <strong>100 ms with the mutex locked</strong>. With 100 items, that is 100 × 100 ms = <strong>10 s</strong> in series. If the <code>Sleep</code> were outside the lock, the total would drop to about 100 ms, because all 100 would sleep at the same time. The rule is to lock <strong>only what needs it</strong>: the read and the decrement, never a call to another service or the <code>Sleep</code>.</p>
+
+<h3 class="sec">Lock first or check afterwards</h3>
+
+<p>The mutex is an <strong>in-memory</strong> lock. The database has its own, and the article splits them into two strategies. The <strong>pessimistic lock</strong> locks before acting: Caio waits for Bia's <code>COMMIT</code>.</p>
+
+<pre><code>{String.raw`BEGIN;
+SELECT quantidade FROM estoque WHERE sku = 'GATO-042' FOR UPDATE;
+UPDATE estoque SET quantidade = quantidade - 1 WHERE sku = 'GATO-042';
+COMMIT;`}</code></pre>
+
+<p>The <strong>optimistic lock</strong> acts and checks at the end, with a conditional write. There is no in-memory lock and no Redis, and it works with any number of replicas:</p>
+
+<pre><code>{String.raw`UPDATE estoque SET quantidade = quantidade - 1
+WHERE sku = 'GATO-042' AND quantidade > 0;
+-- Bia: 1 row affected     -> order 1049
+-- Caio: 0 rows affected   -> 409 out of stock`}</code></pre>
+
+<p>Which one to choose depends on how often the conflict happens. When the conflict is the rule, as with the last cat, the pessimistic one pays off: Caio waits once and that's it. When the conflict is rare, the optimistic one pays off more, because it only repeats the operation if it gets 0 rows. The difference from the version guard in lesson 6 is in the question: the optimistic one checks "did anyone touch it since I read?", and the version guard decides "which version wins?".</p>
+
+<WhyItMatters>
+  <li><strong>One lock closes the window.</strong> The check and the decrement become a single step from the others' point of view.</li>
+  <li><strong>The lock is a bottleneck on purpose.</strong> A 4 ms section gives 250 reservations/s of the same SKU; shrinking the section raises the ceiling.</li>
+  <li><strong>Forgetting to release is fatal.</strong> Use <code>defer</code> right after the <code>Lock</code>.</li>
+  <li><strong>The database knows how to lock too.</strong> <code>FOR UPDATE</code> and the <code>UPDATE ... AND quantidade &gt; 0</code> solve it with no mutex in the code.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>mutex/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). It is the same <code>race_condition</code> from lesson 6 with a <code>sync.Mutex</code> around <code>grelhados++</code>. Note the 100 ms <code>time.Sleep</code> <strong>inside</strong> the critical section.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Variável compartilhada para contar os alimentos grelhados
+10  var grelhados int = 0
+11  
+12  // Variável de Mutex
+13  var grelhaOcupada sync.Mutex
+14  
+15  // Função para simular o tempo de preparo de um alimento na churrasqueira
+16  func grelhar() {
+17  	grelhaOcupada.Lock() // Trava o acesso ao contador (grelha)
+18  
+19  	fmt.Println("Grelhando um alimento na churrasqueira")
+20  	grelhados++
+21  	time.Sleep(time.Millisecond * 100)
+22  
+23  	fmt.Println("Liberando a grelha pro proximo alimento")
+24  	grelhaOcupada.Unlock() // Destrava o acesso ao contador (grelha)
+25  }
+26  
+27  func main() {
+28  
+29  	// Wait Group para esperar todas as goroutines terminarem
+30  	var wg sync.WaitGroup
+31  
+32  	// Alimentos disponíveis pra colocar na grelha
+33  	var alimentosChurrasco = 100
+34  
+35  	// Simula a concorrência pela grelha
+36  	for i := 0; i < alimentosChurrasco; i++ {
+37  		wg.Add(1) // Adiciona 1 alimento ao contador do WaitGroup
+38  		go func() {
+39  			grelhar()       // Inicia o processo de grelhar o alimento
+40  			defer wg.Done() // Remove um contador do wait group da grelha
+41  		}()
+42  	}
+43  
+44  	wg.Wait() // Espera que todas as goroutines chamem Done()
+45  
+46  	fmt.Println("Total de itens grelhados na churrasqueira:", grelhados)
+47  
+48  }`}</code></pre>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>"Lock and unlock must respect a priority: only whoever locked unlocks."</strong> What the article describes is <em>ownership</em>, not priority. And in Go the <code>sync.Mutex</code> <strong>does not enforce an owner</strong>: the documentation says one goroutine is allowed to lock and another to unlock. The "whoever locks, unlocks" rule is code discipline, not a language guarantee.</li>
+  </ul>
+  <h4 class="deep-h">Go's mutex on the inside</h4>
+  <p>Before sleeping, the <code>sync.Mutex</code> spins a little waiting for the lock to be released (a brief spin, lesson 9), and only then puts the goroutine to sleep. There is also <code>TryLock</code>, which tries and returns <code>false</code> if the lock is taken, but the Go documentation warns that correct uses of it are rare.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Example code from the article in Matheus Fidelis's public repository (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Go: package sync (Mutex, Lock, Unlock, TryLock)", href: "https://pkg.go.dev/sync" },
+    { label: "PostgreSQL: explicit locking and SELECT ... FOR UPDATE", href: "https://www.postgresql.org/docs/current/explicit-locking.html" },
+    { label: "OSTEP: Locks", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-locks.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">With one replica, the mutex closed the window and the cat went to Bia. But Black Friday brings up the second replica: the load balancer sends Bia to <code>estoque-1</code> and Caio to <code>estoque-2</code>, and each one has its own <code>sync.Mutex</code>, in different memories. What's missing is how a lock comes to hold across processes.</p>
+
+<Flashcards cards={[
+  { q: "What does the mutex do in reservar, and how long does Caio wait?",
+    a: "It lets only one goroutine at a time into the critical section. Caio arrives at t = 2, waits 2 ms, reads 0 at t = 6 and gets 409." },
+  { q: "What is the maximum number of reservations per second of the same SKU with a 4 ms critical section?",
+    a: "1 s ÷ 4 ms = 250 per second, on that replica." },
+  { q: "Why use defer right after the Lock?",
+    a: "Because without it a return before the Unlock leaves the lock stuck forever, and every future reservation of the cat waits endlessly." },
+  { q: "Why does the Sleep inside the lab's lock cost 10 s?",
+    a: "100 items × 100 ms in series. With the Sleep outside the lock, the total would drop to about 100 ms. Lock only what you need." },
+  { q: "What is the difference between a pessimistic and an optimistic lock?",
+    a: "Pessimistic locks first (FOR UPDATE): conflict is the rule. Optimistic acts and checks at the end (UPDATE ... AND quantidade > 0): conflict is rare, and it only repeats if it gets 0 rows." },
+]} />

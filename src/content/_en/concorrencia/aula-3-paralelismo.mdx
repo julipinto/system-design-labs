@@ -1,0 +1,172 @@
+---
+title: "Parallelism"
+order: 3
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson <code>estoque-1</code> reached 500 orders per second because 90% of each order was waiting. <code>relatorios</code> is the opposite. Every day at 23:00 it closes the day by reading 400 thousand rows of <code>itens_pedido</code> and spends the whole time calculating, without waiting for anyone. For that work, interleaving orders does not help; what's missing is another core. That is parallelism.</p>
+
+<OneLiner>Parallelism is running parts of the work <strong>at the same time</strong>, each on its own core; it pays off for work that uses CPU, but the part that cannot be split limits the gain.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>4 cores</strong> scenario, move through the steps: the 4 slices of 100 thousand rows, the final 2 s sum and the total. Then, in the widget below, leave 4 cores and the serial part at 5% and see the <strong>3.5×</strong> point. Go up to 8 cores and answer in your head: does the speedup double?</p>
+</DoIt>
+
+<Widget name="amdahl" title="How much does the 23:00 close speed up?" hint="Choose how many cores relatorios has and which part of the work cannot be split. The curve shows the speedup; the dot marks your choice. The real report has 4 cores and about 5% serial." />
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=quatro-nucleos" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Parallelism on 4 cores" alt="Preview of the 3D figure: Parallelism on 4 cores" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><code>relatorios</code> runs on a <strong>4 vCPU</strong> pod. At 23:00 it reads the day's <strong>400 thousand rows</strong> and sums values per SKU. Each row spends CPU, and together they spend <strong>40 s</strong> on a single core. It waits for no one, so the concurrency from lesson 2 does not help: one core, 40 s.</li>
+  <li>The work splits well, because each row is independent. The program cuts the 400 thousand into <strong>4 slices of 100 thousand</strong> and hands one to each core. The 4 run at the same time, and each takes 40 s ÷ 4 = <strong>10 s</strong>.</li>
+  <li>After the slices comes what does not split: adding up the 4 partial results and saving the day's summary, <strong>2 s</strong> on a single core. The total is 10 s + 2 s = <strong>12 s</strong>, against 40 s + 2 s = <strong>42 s</strong> sequentially.</li>
+  <li>The speedup is 42 ÷ 12 = <strong>3.5×</strong>, not 4×. Amdahl's law explains it: the serial part is 2 ÷ 42 = <strong>4.8%</strong>, and it does not shrink with more cores. The formula is 1 ÷ (0.048 + 0.952 ÷ N). With 4 cores it gives 3.5; with 8 it gives <strong>6.0</strong>, not 8; with infinite cores the ceiling is 21×.</li>
+  <li>The repository's lab uses the same idea with a barbecue: 16 tasks sliced among 8 "friends" (<code>numCPU = 8</code>, <code>sliceSize = 2</code>). Friend 1 takes picanha + ribs and needs <strong>12 s</strong>; friend 3 takes chilling the beer + organizing the fridge and needs <strong>2 s</strong>. The sum of the 8 is 12+5+2+5+7+4+6+8 = <strong>49 s</strong>. The total time is the slowest one's, 12 s, and the speedup is 49 ÷ 12 = <strong>4.1×</strong> on 8 "CPUs", an efficiency of 51%.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">An honest warning: the lab does not prove CPU parallelism</h3>
+
+<p>Both of the lab's tasks use <code>time.Sleep</code>. Sleeping does not spend CPU, so the same program would take the <strong>same 12 s on a single core</strong>. What the lab shows is overlapping waits, the concurrency from lesson 2, just written with 8 goroutines. Real parallelism shows up in <code>relatorios</code>, where each slice calculates: without 4 cores, the 12 s become 42.</p>
+
+<h3 class="sec">What if it goes wrong: slicing by count and not by time</h3>
+
+<p>The lab slices by <strong>number of tasks</strong>: 2 for each friend. But the tasks do not cost the same. Friend 1 gets the two heaviest (12 s) and friend 3 the two lightest (2 s). Six friends finish and wait for friend 1. The ideal would be to divide by <strong>time</strong>: 49 s ÷ 8 ≈ <strong>6.1 s</strong> per friend, twice the speed. In <code>relatorios</code> dividing by count works, because every row costs the same, 0.1 ms. When the cost varies, slice by cost, or let the cores pick up work from a queue.</p>
+
+<WhyItMatters>
+  <li><strong>Parallelism is for CPU.</strong> If the work only waits, concurrency already solves it; if it calculates, it needs cores.</li>
+  <li><strong>The gain is never N×.</strong> The serial part (the 2 s of summing and saving) is a ceiling: with 4.8% of it, 4 cores give 3.5× and 8 give 6.0×.</li>
+  <li><strong>An uneven slice wastes a core.</strong> The total time is the slowest slice's, not the average.</li>
+  <li><strong>Test with work that uses CPU.</strong> A lab with <code>Sleep</code> looks parallel and is not.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>parallelism/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). The <code>sliceSize</code> is <code>(16 + 8 − 1) ÷ 8 = 2</code>, and the loop cuts the list two by two, one goroutine per slice.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"runtime"
+ 6  	"sync"
+ 7  	"time"
+ 8  )
+ 9  
+10  type Atividade struct {
+11  	Nome        string
+12  	Tempo       int
+13  	Responsavel int
+14  }
+15  
+16  // Função para simular o tempo de preparo de cada atividade do churrasco - Agor aceita uma lista de atividades
+17  func preparar(atividades []Atividade, churrasco chan<- Atividade, amigo int, wg *sync.WaitGroup) {
+18  	defer wg.Done()
+19  	for _, atividade := range atividades {
+20  		atividade.Responsavel = amigo // Identifica um responsável pela tarefa
+21  		fmt.Printf("Amigo %v começou a prepação de %s...\n", amigo, atividade.Nome)
+22  		time.Sleep(time.Duration(atividade.Tempo) * time.Second)
+23  		churrasco <- atividade
+24  	}
+25  }
+26  
+27  func main() {
+28  
+29  	// Canal das atividades que compõe o churrasco
+30  	churrasco := make(chan Atividade)
+31  
+32  	// Wait Group para esperar todas as goroutines terminarem
+33  	var wg sync.WaitGroup
+34  
+35  	// Recuperando o número de CPU's (pessoas) disponíveis para ajudar no churrasco
+36  	numCPU := runtime.NumCPU()
+37  
+38  	fmt.Printf("Número de CPU's (amigos) pra ajudar no churrasco: %v.\n", numCPU)
+39  
+40  	// Lista de Atividades do Churrasco - Atividade / Tempo de Execução / Amigo Responsável
+41  	tarefas := []Atividade{
+42  		{"picanha", 5, 0},
+43  		{"costela", 7, 0},
+44  		{"linguica", 3, 0},
+45  		{"salada", 2, 0},
+46  		{"gelar cerveja", 1, 0},
+47  		{"organizar geladeira", 1, 0},
+48  		{"queijo", 3, 0},
+49  		{"caipirinha", 2, 0},
+50  		{"panceta", 4, 0},
+51  		{"espetinhos", 3, 0},
+52  		{"abacaxi", 3, 0},
+53  		{"limpar piscina", 1, 0},
+54  		{"molhos", 2, 0},
+55  		{"pão de alho", 4, 0},
+56  		{"arroz", 4, 0},
+57  		{"farofa", 4, 0},
+58  	}
+59  
+60  	fmt.Printf("Número tarefas do churrasco: %v.\n", len(tarefas))
+61  
+62  	// Dividindo lista de tarefas do churrasco entre os CPU's (amigos) disponíveis
+63  	// Efetuando o balanceamento arrendondando a divisão sempre pra cima para evitar
+64  	// que alguém CPU (amigo) fique sem fazer nada :)
+65  	sliceSize := (len(tarefas) + numCPU - 1) / numCPU
+66  	fmt.Printf("Número tarefas pra cada CPU (amigo): %v.\n", sliceSize)
+67  
+68  	// Dividindo as tarefas entre as CPUs (amigos)
+69  	for i := 0; i < len(tarefas); i += sliceSize {
+70  		end := i + sliceSize
+71  		amigo := end / 2
+72  		if end > len(tarefas) {
+73  			end = len(tarefas)
+74  		}
+75  		wg.Add(1)
+76  		go preparar(tarefas[i:end], churrasco, amigo, &wg)
+77  	}
+78  
+79  	go func() {
+80  		wg.Wait()        // Espera que todas as goroutines chamem Done()
+81  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+82  	}()
+83  
+84  	for atividade := range churrasco {
+85  		fmt.Printf("Amigo %v terminou de preparar %s...\n", atividade.Responsavel, atividade.Nome)
+86  	}
+87  
+88  }`}</code></pre>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong><code>time.Sleep</code> hides what the example claims to show.</strong> The lab demonstrates overlapping waits; CPU parallelism needs work that calculates, like <code>relatorios</code>.</li>
+    <li><strong><code>runtime.NumCPU()</code> inside a pod.</strong> It reads the CPUs of the <em>machine</em>, not the container's limit. On a 1 vCPU pod on a 16-core node, it returns 16, and the program creates too many slices. The default <code>GOMAXPROCS</code> started respecting the cgroup CPU limit from Go 1.25 on, but <code>NumCPU()</code> still returns the machine's CPUs. In a pod, read <code>runtime.GOMAXPROCS(0)</code> (or use the pod's limit) to decide the number of slices.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Example code from the article in Matheus Fidelis's public repository (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Amdahl (1967): Validity of the single processor approach to achieving large scale computing capabilities (copy on the Internet Archive)", href: "https://web.archive.org/web/2018/https://dl.acm.org/doi/10.1145/1465482.1465560" },
+    { label: "Go: container-aware GOMAXPROCS (Go 1.25)", href: "https://go.dev/blog/container-aware-gomaxprocs" },
+    { label: "Rob Pike: Concurrency is not parallelism (Go blog)", href: "https://go.dev/blog/waza-talk" },
+    { label: "pthreads(7): threads on Linux", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+  ]} />
+</Deep>
+
+<p class="gancho"><code>relatorios</code> parallelized inside one pod, with 4 threads sharing the same memory. But there is another way to run things at the same time: start more pods, each with its own memory, like <code>estoque-1</code> and <code>estoque-2</code>. What's missing is where each kind of parallelism lives, and what breaks when the work goes from one process to several.</p>
+
+<Flashcards cards={[
+  { q: "How long does relatorios' 23:00 close take, sequentially and in 4 slices?",
+    a: "Sequential: 40 s of CPU + 2 s to sum and save = 42 s. In 4 slices of 100 thousand rows on 4 cores: 10 s + 2 s = 12 s. A 3.5× speedup." },
+  { q: "Why is the speedup 3.5× and not 4×?",
+    a: "Because the serial part (summing the 4 partial results and saving, 2 s out of 42, or 4.8%) does not shrink. That is Amdahl's law: 1 ÷ (0.048 + 0.952 ÷ N)." },
+  { q: "And with 8 cores, how much does it speed up?",
+    a: "6.0×, not 8×. With infinite cores the ceiling is 21× (42 ÷ 2)." },
+  { q: "What does the lab's parallel barbecue really demonstrate?",
+    a: "Overlapping waits: the tasks use time.Sleep, which does not spend CPU. The same program would take the same 12 s on a single core." },
+  { q: "What goes wrong when slicing by number of tasks instead of time?",
+    a: "Friend 1 gets 12 s and friend 3 gets 2 s. The total time is the slowest one's; the ideal was 49 ÷ 8 ≈ 6.1 s." },
+]} />

@@ -1,0 +1,152 @@
+---
+title: "HTTP and REST"
+order: 2
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import booksMain from '../../../lab-code/comunicacao-sincrona/books-main.go?raw';
+import booksHandlers from '../../../lab-code/comunicacao-sincrona/books-handlers.go?raw';
+
+<p class="ponte">In the last lesson the charge <code>c-7731</code> stayed at the PSP without anyone knowing, because the call from <code>pagamentos</code> was as uncertain as the text that carried it. So it is worth opening that text. The most common call between services is HTTP, with the REST style on top, and Davi's order fits in a few lines you can read one by one.</p>
+
+<OneLiner>REST is a style for naming things (resources) with URIs and acting on them with HTTP methods; each call carries everything the server needs to know, and the response status says what happened.</OneLiner>
+
+<DoIt>
+  <p>In the figure, go to the step where order 1050 becomes text and count the bytes: headers plus body. Then follow the response back and notice what repeats if the call happens a second time. Finally, open the step <strong>"What if it fails"</strong> and count how many orders the store records when the app tries again.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/chamada-3d/?mode=rest" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Interactive figure: REST: HTTP/1.1 and JSON" alt="Preview of the 3D figure: REST: HTTP/1.1 and JSON" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>The request.</strong> These are the real bytes of <code>pedidos</code> calling <code>pagamentos</code> (HTTP/1.1 in plain text; with the mesh TLS from module 10 the content is the same, only encrypted). The headers take <strong>157 B</strong> and the body, <strong>53 B</strong>: <strong>210 B</strong>.
+
+<pre><code>{String.raw`POST /cobrancas HTTP/1.1
+Host: pagamentos:8080
+User-Agent: pedidos-go/1.0
+Accept: application/json
+Content-Type: application/json
+Content-Length: 53
+
+{"pedido_id":1050,"valor_centavos":2890,"meio":"pix"}`}</code></pre>
+  </li>
+  <li>
+  <strong>The response.</strong> The PSP has not confirmed yet, so <code>pagamentos</code> returns <code>202 Accepted</code>, "I accepted it, it is pending". The <code>Location</code> header points to the new resource. That is <strong>106 B</strong> of headers and <strong>44 B</strong> of body: <strong>150 B</strong>.
+
+<pre><code>{String.raw`HTTP/1.1 202 Accepted
+Content-Type: application/json
+Content-Length: 44
+Location: /cobrancas/c-7731
+
+{"cobranca_id":"c-7731","status":"pendente"}`}</code></pre>
+  </li>
+  <li><strong>What it costs.</strong> Round trip, <strong>360 bytes per call</strong>. Since HTTP/1.1 is text, all the headers go again on every call, and call number 1,000 repeats <code>User-Agent</code> and <code>Accept</code> just like the first.</li>
+  <li><strong>The style.</strong> Fielding described REST in his 2000 thesis with five ideas. <strong>Resources</strong> have a name (<code>/pedidos/1050</code>) and <strong>methods</strong> say the action. The call is <strong>stateless</strong>: each one carries the JWT from module 8, and the server keeps no session. The response can be <strong>cached</strong>: <code>GET /produtos/42</code> comes back with <code>ETag: "v7"</code> and, next time, <code>If-None-Match: "v7"</code> gets <code>304 Not Modified</code> with no body (the cache from module 5). There are <strong>layers</strong>: the gateway and the load balancer in the middle (modules 7 and 8) do not need to be known to the caller. And the <strong>interface is uniform</strong>, the same for every resource.</li>
+  <li><strong>The methods.</strong> RFC 9110 defines what each one guarantees. A <strong>safe</strong> method changes nothing on the server. An <strong>idempotent</strong> one can be repeated and the final result is the same. The table below shows what holds for each one.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <thead><tr><th scope="col">Method</th><th scope="col">Safe</th><th scope="col">Idempotent</th><th scope="col">In the store</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">GET</th><td>yes</td><td>yes</td><td><code>GET /api/v1/pedidos/1050</code> → 200</td></tr>
+    <tr><th scope="row">HEAD</th><td>yes</td><td>yes</td><td>only the headers of the order</td></tr>
+    <tr><th scope="row">PUT</th><td>no</td><td>yes</td><td><code>PUT /api/v1/pedidos/1050</code> replaces the whole order</td></tr>
+    <tr><th scope="row">DELETE</th><td>no</td><td>yes</td><td><code>DELETE /api/v1/pedidos/1050</code> → 204</td></tr>
+    <tr><th scope="row">POST</th><td>no</td><td><strong>no</strong></td><td><code>POST /api/v1/pedidos</code> → 201 + <code>Location: /api/v1/pedidos/1050</code></td></tr>
+    <tr><th scope="row">PATCH</th><td>no</td><td><strong>no</strong></td><td>depends on how the change is described</td></tr>
+  </tbody>
+</table></div>
+
+<p>A query with filters goes in the <strong>query string</strong>: <code>GET /api/v1/pedidos?cliente=davi-12&amp;status=pago&amp;limit=10</code>. And the status says what happened, in the store's vocabulary:</p>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <thead><tr><th scope="col">Status</th><th scope="col">When it happens in the store</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">201</th><td>order created</td></tr>
+    <tr><th scope="row">202</th><td>charge accepted, still pending</td></tr>
+    <tr><th scope="row">401 and 403</th><td>no token and no scope (module 8)</td></tr>
+    <tr><th scope="row">404</th><td>an order that does not exist</td></tr>
+    <tr><th scope="row">409</th><td>out of stock: what Caio got in module 11</td></tr>
+    <tr><th scope="row">429</th><td>bot blocked by the gateway (module 8)</td></tr>
+    <tr><th scope="row">503 and 504</th><td>service down (the retry from module 10) and gateway with no answer</td></tr>
+  </tbody>
+</table></div>
+
+<h3 class="sec">The lab: a Books API in Go</h3>
+
+<p>The author's public repository has a books API (Go, Fiber v2 and PostgreSQL 15) that plays the same role as <code>pedidos</code>: <code>books</code> is the equivalent of <code>pedidos</code>. The routes, <code>main.go</code> unchanged (the line numbers are the file's own; the comments and messages in the file are in Portuguese):</p>
+
+<CodeLab code={booksMain} from={39} to={48} />
+
+<p>Each route is an HTTP method plus a path: <code>GET</code> lists or fetches, <code>POST</code> creates and returns <code>201</code>, <code>PUT</code> replaces the whole book (all fields are required, as PUT demands) and <code>DELETE</code> answers <code>204</code>. The <code>README</code> and <code>test-api.sh</code> call <code>localhost:3000</code>. Now <code>CreateBook</code> and <code>DeleteBook</code>, in <code>handlers.go</code>, where the code and the theory disagree:</p>
+
+<CodeLab code={booksHandlers} from={96} to={133} />
+
+<CodeLab code={booksHandlers} from={188} to={206} />
+
+<ol class="flow steps">
+  <li><strong>POST with a repeated ISBN returns 500.</strong> The <code>isbn</code> column is <code>UNIQUE</code>, so the second insert of the same book fails, and the <code>if err != nil</code> on line 126 answers <code>500 Erro ao criar livro</code> ("Error creating book"). A client error (it already exists) becomes a server error. The right status would be <strong>409</strong>, the same one the store's <code>estoque</code> uses.</li>
+  <li><strong>DELETE answers 204 even when the id does not exist.</strong> The code calls <code>result.RowsAffected()</code> and ignores the number. Deleting what is already gone leaves the same final state, and that is why DELETE is idempotent, but the client does not learn whether it deleted something or there was nothing to begin with.</li>
+</ol>
+
+<h3 class="sec">What if it fails: the app tries again</h3>
+
+<ol class="flow steps">
+  <li>Davi's app sends <code>POST /api/v1/pedidos</code>. The <code>pedidos</code> creates order 1050 and the charge, but the response is slow and the app gives up waiting.</li>
+  <li>The app <strong>tries again</strong>. Since POST is not idempotent, the server treats the second call as a new order: <strong>two orders</strong> are born (1050 and another) and two charges of 28.90.</li>
+  <li>That is why the mesh from module 10 only retries idempotent operations on its own.</li>
+  <li>The fix has two paths. The header <code>Idempotency-Key: 3f9a…</code> (an IETF draft): the server stores the key and, on the second call with the same key, returns the response of the first. Or the client generates the order id and calls <code>{`PUT /pedidos/{id}`}</code>, which gives the same result when repeated.</li>
+</ol>
+
+<WhyItMatters>
+  <li>Knowing what HTTP writes on the wire helps you read captures and logs: <code>Content-Length: 53</code> matches the body, and <code>Location</code> says where the new resource ended up.</li>
+  <li>The 360 bytes repeated on every call are the price of text. In lesson 5 the same order becomes 11 bytes of body.</li>
+  <li>Method and status are a public agreement between the caller and the responder. It is what lets the gateway, the cache and the mesh act without knowing the store: repeating a GET is safe, repeating a POST can charge twice.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"REST is the main approach".</strong> What most "REST" APIs do is HTTP with JSON, without hypermedia: level 2 of the Richardson maturity model. Fielding (2008) says that without hypermedia driving the client, it is not REST. That is why the lesson says "HTTP API in the REST style".</li>
+    <li><strong>Idempotency table.</strong> The article is right to say that PATCH "depends". It lacks marking which methods are <strong>safe</strong> (GET and HEAD) and citing RFC 9110 as the source. And <code>PUT</code> "creates or updates" is true, but it answers 201 when it creates and 200 or 204 when it updates.</li>
+  </ul>
+  <h4 class="deep-h">The Richardson levels, one line each</h4>
+  <ul>
+    <li><strong>Level 0:</strong> a single address, everything through POST. <strong>Level 1:</strong> resources with their own URI. <strong>Level 2:</strong> HTTP methods and status codes used properly. <strong>Level 3:</strong> the response carries links and the client follows them (hypermedia).</li>
+  </ul>
+  <h4 class="deep-h">Why the lab uses 204 on DELETE</h4>
+  <p>RFC 9110 allows 200, 202 or 204 for a successful DELETE. What it does not ask for is hiding from the client that the resource never existed; returning 404 in that case is a design choice, and idempotency holds either way.</p>
+  <Sources items={[
+    { label: "RFC 9110: HTTP Semantics (methods, status, validators)", href: "https://www.rfc-editor.org/rfc/rfc9110.html" },
+    { label: "RFC 9112: HTTP/1.1", href: "https://www.rfc-editor.org/rfc/rfc9112.html" },
+    { label: "Fielding, 2000 thesis, ch. 5: Representational State Transfer", href: "https://ics.uci.edu/~fielding/pubs/dissertation/rest_arch_style.htm" },
+    { label: "Fielding, \"REST APIs must be hypertext-driven\" (2008)", href: "https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven" },
+    { label: "Martin Fowler, Richardson Maturity Model", href: "https://martinfowler.com/articles/richardsonMaturityModel.html" },
+    { label: "IETF draft for the Idempotency-Key header", href: "https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Davi's call now has bytes, a method and a status, and the retry showed what a repeated POST costs. But his screen still does not know when the Pix lands: he pays at 14:05:23 and the PSP is the first to find out. What is left is how that notice gets back, whether the screen asks, the server holds the response, or the PSP calls the store.</p>
+
+<Flashcards cards={[
+  { q: "How many bytes does the <code>POST /cobrancas</code> call for order 1050 use, round trip?",
+    a: "210 B of request (157 of headers + 53 of body) and 150 B of response (106 + 44): 360 bytes per call, with all the headers repeated every time." },
+  { q: "Which HTTP methods are safe and which are idempotent?",
+    a: "Safe: GET and HEAD. Idempotent: GET, HEAD, PUT and DELETE. POST and PATCH are not idempotent (RFC 9110)." },
+  { q: "What does <code>304 Not Modified</code> do?",
+    a: "It answers, with no body, that the cached copy is still valid: the client sent <code>If-None-Match: \"v7\"</code> and the ETag is still the same." },
+  { q: "Davi's app tried the POST again. What happened and how do you fix it?",
+    a: "2 orders and 2 charges of 28.90 were created, because POST is not idempotent. Fix: the Idempotency-Key header, or PUT with an id generated by the client." },
+  { q: "What does the lab's POST return with a repeated ISBN, and what would be correct?",
+    a: "It returns 500, because the unique key violation falls into 'Erro ao criar livro'. The correct one would be 409." },
+]} />

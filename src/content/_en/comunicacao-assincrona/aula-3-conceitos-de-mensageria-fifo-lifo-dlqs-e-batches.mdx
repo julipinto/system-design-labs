@@ -1,0 +1,89 @@
+---
+title: "Messaging concepts: FIFO, LIFO, DLQs and batches"
+order: 3
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store separated what travels: command, event and document. Now the message has to wait somewhere until someone reads it, and that place has rules. Who leaves first? Can it leave in reverse order? Can one message go to several places at once? And what do you do with the one nobody can process? We will go through each of these rules using the emails from <code>notificacoes</code>.</p>
+
+<OneLiner>A <strong>queue</strong> delivers in arrival order (FIFO), a <strong>stack</strong> in reverse order (LIFO), <strong>fanout</strong> copies the message to several queues, and the <strong>DLQ</strong> keeps the one that failed, so the main queue can move on.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>FIFO</strong> scenario, step forward with the → key and watch the emails for orders 1049, 1050 and 1051 leave in that order. Then press the <strong>DLQ</strong> button, the "what if it goes wrong": the email for 1051 fails, and you count the attempts until the message goes to <code>emails.dlq</code>. Write down how much time passes between them.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/fila-3d/?mode=fifo" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Interactive figure: Queue (FIFO) and stack (LIFO)" alt="Preview of the 3D figure: Queue (FIFO) and stack (LIFO)" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>emails</code> queue receives the emails for orders <strong>1049, 1050 and 1051</strong>, in that order. <code>Enqueue</code> puts at the <strong>end</strong>; <code>Dequeue</code> takes from the <strong>front</strong>. 1049 leaves, then 1050, then 1051: this is <strong>FIFO</strong> (<em>first in, first out</em>). It is the same program as in the lab, which enqueues "Pizza, Hamburger, Churrasco" and takes them out in that order.</li>
+  <li>The order has a price. A slow consumer <strong>holds back the ones behind it</strong>: if the email for 1049 takes 30 s, the one for 1051 waits along with it. And global order only exists with <strong>one</strong> consumer; with several reading the same queue, each one finishes when it finishes, and 1051 can leave before 1050.</li>
+  <li>The <strong>stack</strong> (LIFO, <em>last in, first out</em>) does the opposite: what went in last comes out first. In the store the right use is <strong>undo</strong>. The actions for order 1051 push <code>pagar</code>, <code>reservar estoque</code> and <code>criar remessa</code>, and the undo comes out in reverse order: <strong>cancel the shipment, return the stock, refund the payment</strong> (this comes back in the compensation of module 19). The stack is a data structure inside the program, and brokers almost never offer a LIFO queue.</li>
+  <li><strong>Fanout</strong> is the 1-to-N copy: the same message goes to N queues, one per interested party. It is what happens when <code>PedidoPago</code> has to reach <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code>, each with its own queue and its own pace.</li>
+  <li>That leaves the case where the message is not processed. <code>notificacoes</code> tries to send the email for order 1051 and the provider answers <code>550 invalid address</code>. It tries <strong>3 times</strong>, waiting 1 s, 5 s and 30 s, and the message goes to the <strong>DLQ</strong> (<em>dead letter queue</em>), <code>emails.dlq</code>, with the reason attached. The main queue moves on to 1052. The DLQ is monitored: an alert fires if it goes above 0.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Batch: two things with the same name</h3>
+
+<p>"Batch" shows up in two senses in this area, and mixing them up gets in the way. The first is <strong>batch processing</strong>: collect the whole day and process it at once. The 23:00 close of module 11, with 400 thousand rows, which went from 42 s to 12 s, is a batch.</p>
+
+<p>The second is the <strong>batch on send</strong>, a decision made by the producer. With <code>linger.ms = 200</code>, the producer waits up to 200 ms before sending, to collect events. At 40 events per second in each partition, <strong>8 events</strong> pile up per batch: that is <strong>5 sends per second</strong> per partition, 15 in total, instead of 120. That is <strong>8× fewer requests</strong>, at the cost of up to 200 ms of delay on each event.</p>
+
+<h3 class="sec">What if it goes wrong: the bad message and the batch that waits</h3>
+
+<p>Without a DLQ, the invalid email for 1051 goes back to the queue and fails again, and again. This is the <strong>poison message</strong>: it sits at the front of the queue and <strong>blocks the partition</strong>, here <code>p0</code> (lesson 5 explains partitions; for now, think of a queue). At 40 events per second, the queue behind it grows by <strong>2,400 events per minute</strong> (40 × 60).</p>
+
+<p>The second mistake is the batch with low traffic. With <code>linger.ms = 200</code> and almost no events arriving, <code>PedidoPago</code> waits the full 200 ms without any other event coming to make a batch. The producer delayed Lena's payment for nothing. The value of <code>linger.ms</code> is a trade between throughput and delay.</p>
+
+<WhyItMatters>
+  <li><strong>Order has a price.</strong> A slow consumer holds back everyone behind it, and several consumers lose global order.</li>
+  <li><strong>LIFO is the undo.</strong> Cancel the shipment, return the stock, refund the payment: reverse order is the right way to undo.</li>
+  <li><strong>The DLQ protects the queue.</strong> A bad message is set aside after 3 attempts, and the others move on.</li>
+  <li><strong>Batching on send trades delay for throughput.</strong> 8 events per send give 8× fewer requests and up to 200 ms more.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>queue/main.go</code> from the author's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). <code>Enqueue</code> does an <code>append</code> at the end and <code>Dequeue</code> returns the first item and cuts the slice.</p>
+  <pre><code>{" 1  package main\n 2  \n 3  import (\n 4  \t\"fmt\"\n 5  )\n 6  \n 7  // Interface genérica para implementar os métodos de enfileiramento\n 8  type Queue []interface{}\n 9  \n10  // Adiciona um item ao fim da fila\n11  func (q *Queue) Enqueue(item interface{}) {\n12  \t*q = append(*q, item)\n13  }\n14  \n15  // Remove o primeiro item da fila e o retorna\n16  func (q *Queue) Dequeue() interface{} {\n17  \tif len(*q) == 0 {\n18  \t\treturn nil\n19  \t}\n20  \titem := (*q)[0]\n21  \t*q = (*q)[1:]\n22  \treturn item\n23  }\n24  \n25  func main() {\n26  \tqueue := Queue{}\n27  \n28  \t// Itens a serem adicionados na Queue\n29  \titems := []string{\n30  \t\t\"Pizza\",\n31  \t\t\"Hamburger\",\n32  \t\t\"Churrasco\",\n33  \t}\n34  \n35  \t// Adicionando os itens na ordem da lista\n36  \tfor _, item := range items {\n37  \t\tfmt.Println(\"Input:\", item)\n38  \t\tqueue.Enqueue(item)\n39  \t}\n40  \n41  \tfmt.Println()\n42  \n43  \t// Removendo os itens em ordem de chegada na lista\n44  \tfmt.Println(\"Output:\", queue.Dequeue())\n45  \tfmt.Println(\"Output:\", queue.Dequeue())\n46  \tfmt.Println(\"Output:\", queue.Dequeue())\n47  }"}</code></pre>
+  <p>And the part of <code>stack/main.go</code> that changes: the stack takes from the <strong>top</strong>, the last index. In the rest of the file, <code>main</code> pushes the same three items and the output is Churrasco, Hamburger, Pizza.</p>
+  <pre><code>{" 7  type Stack []interface{}\n 8  \n 9  // Push adiciona um item ao topo da pilha\n10  func (s *Stack) Push(item interface{}) {\n11  \t*s = append(*s, item)\n12  }\n13  \n14  // Pop remove o item do topo da pilha e o retorna\n15  func (s *Stack) Pop() interface{} {\n16  \tif len(*s) == 0 {\n17  \t\treturn nil\n18  \t}\n19  \tindex := len(*s) - 1\n20  \titem := (*s)[index]\n21  \t*s = (*s)[:index]\n22  \treturn item\n23  }"}</code></pre>
+  <h4 class="deep-h">A real stack for the store</h4>
+  <p>Swapping the lab's items for the actions of 1051, <code>Pop</code> returns <code>criar remessa</code>, <code>reservar estoque</code> and <code>pagar</code>, and each one becomes the inverse action. The lab program does not do that: it only shows the output order.</p>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li><strong>LIFO "in messaging".</strong> The article says LIFO is used "also in queues in the messaging concept". Message brokers are FIFO or do not guarantee order; the stack is a data structure. Kafka's order only holds <strong>within the partition</strong>; RabbitMQ's is lost with several consumers and with requeueing; standard SQS has none (the FIFO kind has a <em>message group</em>).</li>
+    <li><strong><code>batch.size</code> and <code>linger.ms</code>.</strong> The article treats the batch as "1 item at a time" and "a batch of 1000 events". In Kafka, <code>batch.size</code> is in <strong>bytes</strong> (default 16384, 16 KiB, in the Java client), and <code>linger.ms</code> is the wait time to fill the batch (default 0 up to Kafka 3.x and 5 ms from 4.0). For "1 event per send" the right setting is <code>linger.ms = 0</code>, and even then the client groups whatever is already in the send queue.</li>
+    <li><strong>DLQ in Kafka.</strong> The article treats the DLQ as a general feature. In RabbitMQ it exists as a <em>dead letter exchange</em> (lesson 9). In Kafka there is <strong>no native DLQ</strong> for consumers: the team creates a topic like <code>pedidos.dlq</code> and the logic to send messages there (lesson 5).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Enterprise Integration Patterns: Dead Letter Channel", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/DeadLetterChannel.html" },
+    { label: "RabbitMQ: Dead Letter Exchanges", href: "https://www.rabbitmq.com/docs/dlx" },
+    { label: "Apache Kafka: producer configs (linger.ms and batch.size)", href: "https://kafka.apache.org/40/generated/producer_config.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">In all these structures the message disappears when someone acknowledges it: the queue is a corridor the messages pass through once. But <code>antifraude</code>, which just arrived, wants to read the day's events that have already gone by. We still need to see what changes when the message <em>stays</em> after being read: that is data streaming.</p>
+
+<Flashcards cards={[
+  { q: "In what order do emails 1049, 1050 and 1051 leave a FIFO queue?",
+    a: "1049, 1050, 1051: Enqueue puts at the end, Dequeue takes from the front." },
+  { q: "What is a stack (LIFO) for in the store?",
+    a: "Undo: cancel the shipment, return the stock, refund the payment, in the reverse order of pay, reserve and create shipment." },
+  { q: "How does the DLQ handle the invalid email for order 1051?",
+    a: "3 attempts (1 s, 5 s, 30 s), then it goes to emails.dlq with the reason. The main queue moves on, and the DLQ has an alert if it goes above 0." },
+  { q: "What is a poison message without a DLQ?",
+    a: "A message that always fails and goes back to the front: it blocks the partition. At 40 events/s the queue grows by 2,400 per minute." },
+  { q: "How much does linger.ms = 200 save at 40 events/s per partition?",
+    a: "Batches of 8 events: 5 sends/s per partition instead of 40 (15 versus 120 in total), 8× fewer requests, at the cost of up to 200 ms." },
+]} />

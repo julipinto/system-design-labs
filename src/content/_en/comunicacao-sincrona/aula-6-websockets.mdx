@@ -1,0 +1,111 @@
+---
+title: "WebSockets"
+order: 6
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import chatServer from '../../../lab-code/comunicacao-sincrona/chat-server.go?raw';
+
+<p class="ponte">gRPC solved how the <code>pedidos</code> calls the <code>pagamentos</code>, but in it, as in REST, the one asking is always the client. Lena, with order <strong>1048</strong> "on its way", wants to see the truck moving on the app's map without touching anything. Asking for the position every 5 s repeats the short polling problem from lesson 3, only now with an authentication on every question.</p>
+
+<OneLiner>WebSocket is a connection that starts as an HTTP call, becomes an open channel in both directions and lets the server send a message whenever it wants, without being asked.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step through the handshake and notice the <code>101</code> response: from there on, the same connection carries frames. Follow the truck positions arriving every 5 s and look at the size of each one. Get to the <strong>"What if it fails"</strong> step and see what the app does when the connection dies without warning.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/espera-3d/?mode=websocket" poster="labs/comunicacao-sincrona/espera-3d-previa.webp" title="Interactive figure: WebSocket: Lena's tracking" alt="Preview of the 3D figure: WebSocket: Lena's tracking" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>The "upgrade" request.</strong> Lena's app opens a connection with an ordinary HTTP call, but asking to switch protocols (RFC 6455, with the example key from the RFC itself):
+
+<pre><code>{String.raw`GET /rastreio/1048 HTTP/1.1
+Host: api.loja.com.br
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13`}</code></pre>
+  </li>
+  <li>
+  <strong>The response that changes everything.</strong> The server accepts with <code>101 Switching Protocols</code>. The <code>Sec-WebSocket-Accept</code> is the SHA-1 of the client's key plus <code>258EAFA5-E914-47DA-95CA-C5AB0DC85B11</code>, in base64: proof that the server understood the request.
+
+<pre><code>{String.raw`HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=`}</code></pre>
+  </li>
+  <li><strong>One frame at a time.</strong> After the <code>101</code>, <strong>the same TCP connection</strong> starts carrying <strong>frames</strong>, in both directions.</li>
+  <li><strong>The real message.</strong> Every 5 s the server pushes the truck position: <code>{`{"pedido":1048,"lat":-8.0476,"lng":-34.877,"eta_min":42}`}</code>, <strong>56 B</strong> of text. From server to client, the frame has <strong>2 B</strong> of header: <strong>58 B</strong>. From client to server, the mandatory mask adds 4 B: 62 B. The <code>eta_min</code> holds for the last mile, on delivery day, and the position comes from the truck over MQTT, in module 13.</li>
+  <li><strong>Against short polling.</strong> Asking for the position would be <code>GET /api/v1/pedidos/1048/posicao</code>, with the JWT from module 8: about <strong>317 B</strong> (190 for the request and 127 for the response) every 5 s. With <strong>1,000 orders on the way</strong> on Black Friday, that is 200 messages per second × 58 B = ~11.6 KB/s, against 200 req/s × 317 B = ~63 KB/s and 200 authentications per second at the gateway.</li>
+  <li><strong>Keeping it alive and closing.</strong> A <strong>ping</strong> every 20 s (an example) and the <strong>pong</strong> back show the other side is there. The polite close is a <code>close</code> frame with code 1000.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The lab: a chat in Go</h3>
+
+<p>The author's public repository has a chat with <code>gorilla/websocket</code>: the server listens on port <strong>8080</strong>, on the route <code>/ws</code>, and a terminal client connects, sends and receives lines. The <code>server_chat.go</code>, unchanged (the comments in the file are in Portuguese):</p>
+
+<CodeLab code={chatServer} />
+
+<p>Three pieces do the work: the <code>clients</code> map (line 12) holds the connections, the <code>broadcast</code> channel (line 13) receives each message and <code>messages</code> (line 16) keeps the history, which each new client receives on joining (lines 46 to 51). The <code>handleMessages</code> goroutine reads the channel and writes to all the <code>clients</code>. With module 11 in mind, you can find <strong>four real problems</strong>:</p>
+
+<ol class="flow steps">
+  <li><strong>The <code>clients</code> map has no mutex.</strong> Each new connection does <code>clients[ws] = true</code> (line 44), <code>handleConnections</code> does <code>delete</code> on exit (line 58) and <code>handleMessages</code> walks the map (line 73), all in different goroutines. The <code>mutex</code> on line 17 only protects <code>messages</code>. Go can stop the program with <code>fatal error: concurrent map writes</code>.</li>
+  <li><strong>Two writers on the same connection.</strong> gorilla accepts <strong>one</strong> writer per connection at a time. The server writes the history (<code>WriteJSON</code>, line 49) and, from another goroutine, the broadcast (<code>WriteMessage</code>, line 75), and the two can run together on a client that just joined.</li>
+  <li><strong><code>log.Fatal</code> on upgrade.</strong> If the <code>Upgrade</code> fails (a client that sent a bad request), line 40 calls <code>log.Fatal</code>, which ends the program. One bad client takes down the whole server, with all the others connected.</li>
+  <li><strong>Two output formats.</strong> The history goes out as JSON (<code>WriteJSON</code>) and the broadcast goes out as text <code>usuario: mensagem</code> (line 74). Whoever reads has to handle both.</li>
+</ol>
+
+<h3 class="sec">What if it fails</h3>
+
+<ol class="flow steps">
+  <li><strong>Dead connection with no warning.</strong> Lena's phone switches from 4G to Wi-Fi. The old connection dies with no FIN, and the app keeps waiting for a position that never arrives. Fix: ping and pong with a deadline (no pong, close and reopen), <strong>reconnection with backoff and jitter</strong> and resuming from the last message number received (<code>ultimo_seq</code>), so the app asks only for what it missed.</li>
+  <li><strong>Mass reconnection.</strong> The WebSocket pod restarts in a deploy and the <strong>1,000</strong> connections come back in the same second. With a random jitter of 0 to 30 s, about 33 reconnections per second arrive, and the server can take it.</li>
+</ol>
+
+<WhyItMatters>
+  <li>WebSocket flips the role HTTP had: the server can now speak first. That is why it fits tracking, chat and live dashboards.</li>
+  <li>An open connection is state. Each one is stuck to a pod, takes memory and needs a way to be resumed, things the stateless REST from lesson 2 did without.</li>
+  <li>The lab shows how that state turns into the bugs from module 11: a shared map of connections, one writer per connection, an error that must not take anyone down.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"HTTP creates a new TCP connection for each request".</strong> That was only true in HTTP/1.0. HTTP/1.1 reuses the connection (keep-alive) and HTTP/2 multiplexes the calls. What WebSocket brings is the <strong>server being able to send without being asked</strong> and <strong>2 to 14 bytes</strong> of header per message.</li>
+    <li><strong>"Guaranteeing retransmission of lost messages".</strong> Retransmitting is TCP's job. What the application loses are the messages sent <strong>while it was disconnected</strong>, and that is what <code>ultimo_seq</code> recovers.</li>
+  </ul>
+  <h4 class="deep-h">Server-Sent Events: the alternative</h4>
+  <p>The tracking only goes from the server to the app, and for that SSE (WHATWG HTML) is enough: one direction, text, automatic reconnection by the browser with the <code>Last-Event-ID</code> header. WebSocket pays off when the client also needs to send messages, as in a chat.</p>
+  <Sources items={[
+    { label: "RFC 6455: the WebSocket protocol", href: "https://www.rfc-editor.org/rfc/rfc6455.html" },
+    { label: "gorilla/websocket: chat example", href: "https://github.com/gorilla/websocket/tree/main/examples/chat" },
+    { label: "gorilla/websocket: documentation (concurrency)", href: "https://pkg.go.dev/github.com/gorilla/websocket" },
+    { label: "WHATWG HTML: Server-Sent Events", href: "https://html.spec.whatwg.org/multipage/server-sent-events.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Lena already sees the truck move, and the store now has REST, RPC, gRPC and WebSocket. The app, though, still builds the home screen with four calls, one for each piece, and each call brings fields the screen does not even use. What is left is how the client can ask, in a single query, for exactly the fields it needs, which is GraphQL.</p>
+
+<Flashcards cards={[
+  { q: "What does <code>101 Switching Protocols</code> change?",
+    a: "From it on, the same TCP connection stops speaking HTTP and starts carrying WebSocket frames, in both directions." },
+  { q: "How many bytes does the position of order 1048 take over WebSocket?",
+    a: "56 B of text + 2 B of frame header = 58 B from server to client. From client to server, +4 B of mask: 62 B." },
+  { q: "With 1,000 orders on the way, how much does WebSocket save over polling?",
+    a: "200 messages/s × 58 B = ~11.6 KB/s, against 200 req/s × 317 B = ~63 KB/s and 200 authentications per second at the gateway." },
+  { q: "What are the 4 problems of the lab's chat server?",
+    a: "A clients map with no mutex, two writers on the same connection, log.Fatal on the upgrade error and history in JSON with broadcast in text." },
+  { q: "Lena's connection died with no warning. How does the app recover?",
+    a: "Ping and pong with a deadline, reconnection with backoff and jitter, and resuming from the last message number (ultimo_seq)." },
+]} />

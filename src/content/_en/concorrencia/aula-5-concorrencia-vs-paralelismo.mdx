@@ -1,0 +1,87 @@
+---
+title: "Concurrency vs parallelism"
+order: 5
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the previous lessons two cases showed up: <code>estoque-1</code>, with 1 vCPU and many orders, and <code>relatorios</code>, with 4 vCPU and 4 slices. One is concurrency and the other is parallelism, but the words are easy to mix up. If someone asks what the difference is, the answer fits in two sentences.</p>
+
+<OneLiner>Concurrency is <strong>structure</strong>: splitting the problem into independent parts. Parallelism is <strong>execution</strong>: running parts at the same time. You can have one without the other.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>1 core</strong> scenario, look at <code>estoque-1</code> with many orders and a single core: that is concurrency without parallelism. Then press the <strong>4 cores</strong> button to see <code>relatorios</code> with 4 slices on 4 cores: there you have both. In each one, ask: are the parts independent? Is more than one running at the same instant?</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=um-nucleo" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Concurrency on 1 vCPU" alt="Preview of the 3D figure: Concurrency on 1 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Concurrency</strong> is the way to <em>organize</em> the work. Each <code>estoque</code> order, each <code>relatorios</code> slice, is a part that can move along without waiting for the others. Rob Pike, the author of Go, summed it up like this: concurrency is dealing with lots of things at once.</li>
+  <li><strong>Parallelism</strong> is the way to <em>execute</em>. Two parts run at the same instant, each on a core. For Pike, it is doing lots of things at once, and that requires hardware: more than one core.</li>
+  <li>With the two questions, "was the work split into independent parts?" and "does more than one run at the same instant?", the store fits in a grid of 4 cells, in the table below.</li>
+  <li>Concurrency <strong>allows</strong> parallelism, but does not guarantee it. The same concurrent program runs interleaved on 1 core and in parallel on 4, without changing a line. That is why it is worth writing the structure once and letting the hardware decide how much of it runs together.</li>
+  <li>To know which of the two is missing, look at what the order does with its time. If it <strong>waits</strong> more than it calculates (<code>estoque</code>: 18 ms of waiting against 2 of CPU), concurrency solves it. If it <strong>calculates</strong> all the time (<code>relatorios</code>), it needs parallelism.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Without parallelism (1 core at a time)</th><th>With parallelism (several cores together)</th></tr></thead>
+  <tbody>
+    <tr><th>With concurrency</th><td><code>estoque-1</code>: 1 vCPU, many interleaved orders</td><td><code>relatorios</code>: 4 slices on 4 vCPU</td></tr>
+    <tr><th>Without concurrency</th><td>a program that serves a single order, from start to finish</td><td>two replicas of <code>estoque</code>, each serving one order at a time (external parallelism)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: 4 threads on a 1 vCPU pod</h3>
+
+<p>Someone reads "parallelism speeds up <code>relatorios</code>" and starts 4 calculation threads on a <strong>1 vCPU</strong> pod, expecting the close to be 4 times faster. But there are not 4 cores, there is 1. The 4 threads take turns on it, and the total work is still 4 × 10 s = <strong>40 s</strong> of CPU, plus the cost of the context switches. The result is the same as or worse than a single thread.</p>
+
+<p>Concurrency without parallelism does not speed up calculation. The number of threads that helps is limited by the number of cores the pod really has, not by the number the code decided to create.</p>
+
+<WhyItMatters>
+  <li><strong>Two questions, four cells.</strong> "Was it split?" and "does it run together?" are enough to classify any case.</li>
+  <li><strong>Structure first.</strong> A well-split program gets parallelism for free when the hardware shows up.</li>
+  <li><strong>Simple diagnosis.</strong> Waiting calls for concurrency, calculation calls for parallelism.</li>
+  <li><strong>The core is the limit.</strong> More threads than cores speeds up nothing, it only spends context switches.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Why the grid has a weak cell</h4>
+  <p>The "without concurrency, with parallelism" cell is the hardest to illustrate with a service. The two <code>estoque</code> replicas work to fit the concept, but each one, in practice, serves many orders and is concurrent inside. The cleanest example comes from hardware: a SIMD instruction does the <em>same</em> calculation on several pieces of data at the same time, inside a single line of execution. There is parallelism, and there are no independent parts interleaved.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Parallelism, in general, is concurrent, but not all concurrency is parallel."</strong> It is a simplification. Pike treats the two as different concepts, structure against execution, and there is parallelism without concurrency (the SIMD case above).</li>
+    <li><strong>"Concurrency means having no control over the order."</strong> The unpredictable order comes from the scheduler, which decides who runs when, and not from concurrency itself. A loop with <code>select</code> over channels, for example, can be perfectly deterministic. That is why lesson 6 speaks of a <em>race condition</em> as a defect, and not as something natural to concurrency.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Rob Pike: Concurrency is not parallelism (Go blog)", href: "https://go.dev/blog/waza-talk" },
+    { label: "OSTEP: Concurrency, an introduction", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-intro.pdf" },
+    { label: "Go: container-aware GOMAXPROCS", href: "https://go.dev/blog/container-aware-gomaxprocs" },
+  ]} />
+</Deep>
+
+<p class="gancho">Concurrency and parallelism promise to do more things at the same time, and the promise has a price: when two of those things touch the same data, order stops being neutral. The store has 1 cat and two customers, Bia and Caio, who click "buy" 2 ms apart. What's missing is what happens to the stock in that race.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between concurrency and parallelism, according to Pike?",
+    a: "Concurrency is structure: splitting the problem into independent parts. Parallelism is execution: running parts at the same time. You can have one without the other." },
+  { q: "In which cell of the grid is estoque-1, and in which is relatorios?",
+    a: "estoque-1 (1 vCPU, many orders) has concurrency without parallelism. relatorios (4 vCPU, 4 slices) has concurrency and parallelism." },
+  { q: "How do you know whether the problem calls for concurrency or parallelism?",
+    a: "If the order waits more than it calculates, concurrency. If it calculates all the time, parallelism." },
+  { q: "What happens with 4 calculation threads on a 1 vCPU pod?",
+    a: "It is still 4 × 10 s = 40 s of CPU, plus the context switches. Without cores, there is no gain." },
+  { q: "An example of parallelism without concurrency?",
+    a: "A SIMD instruction: the same calculation on several pieces of data at the same time, inside a single line of execution." },
+]} />

@@ -1,0 +1,94 @@
+---
+title: "Architectural convergence"
+order: 8
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson GraphQL closed the list of ways for the <code>pedidos</code> and the screens to talk, and none of them beat all the others. REST is easy to understand and expensive in bytes, gRPC is lean and asks for a contract, WebSocket pushes and holds a connection, GraphQL lets the client choose and demands defenses. What is left is deciding where each one goes in Davi's order, from the app to the PSP.</p>
+
+<OneLiner>Each protocol pays off where its own problem shows up: REST at the outside door, gRPC between services, WebSocket where the server needs to push, webhook with third parties and GraphQL when the client needs different shapes of the same data.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step through order 1050 from Davi's app to the PSP and note, at each hop, which protocol the store uses. Then follow the webhook back and see where the Pix notice comes in. Get to the <strong>"What if it fails"</strong> step and see what happens to the clients when a field in the <code>.proto</code> changes.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/chamada-3d/?mode=converge" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Interactive figure: Each protocol in its place" alt="Preview of the 3D figure: Each protocol in its place" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Outside: REST/JSON.</strong> The app, the website and partners call the <code>gw-loja</code> (module 8) with REST and JSON. The contract is simple to understand and works in any client. If the company wants, GraphQL takes the place of the <code>bff-app</code>.</li>
+  <li><strong>Inside: gRPC.</strong> Between services, the <code>pedidos</code> calls the <code>pagamentos</code> in gRPC (or in REST, where the team does not want to distribute a <code>.proto</code>). The call is balanced per call, not per connection, and with mTLS from the mesh (module 10).</li>
+  <li><strong>For real time: WebSocket or SSE.</strong> Lena's tracking (order 1048) uses an open connection, and since it only goes from the server to the app, SSE works too.</li>
+  <li><strong>With third parties: webhook and REST.</strong> The <code>pagamentos</code> calls the PSP in REST, and the PSP notifies back by webhook, with a signature. The notice feeds the long polling or the WebSocket on Davi's screen.</li>
+  <li><strong>The gateway translates.</strong> The app's <code>POST /api/v1/pedidos</code> can become <code>Pedidos.Criar</code> in gRPC on the inside. This is called transcoding (Envoy has a gRPC-JSON transcoder filter). The browser, in turn, does not speak plain gRPC and needs gRPC-Web.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <caption>One row per protocol</caption>
+  <thead><tr><th scope="col">Protocol</th><th scope="col">Who starts</th><th scope="col">Format</th><th scope="col">State</th><th scope="col">What it costs</th><th scope="col">When to choose it</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">REST</th><td>client</td><td>JSON in text</td><td>stateless</td><td>repeated bytes: 360 B per call</td><td>outside door, partners, anyone who is not Go</td></tr>
+    <tr><th scope="row">short polling</th><td>client</td><td>JSON</td><td>stateless</td><td>2,500 req/s with 5,000 screens</td><td>few screens, a delay of seconds is fine</td></tr>
+    <tr><th scope="row">long polling</th><td>client</td><td>JSON</td><td>held connection</td><td>5,000 open connections</td><td>rare notice, no WebSocket</td></tr>
+    <tr><th scope="row">webhook</th><td>third party</td><td>signed JSON</td><td>stateless</td><td>signature, resend, duplicates</td><td>the PSP notifying the Pix</td></tr>
+    <tr><th scope="row">RPC (net/rpc)</th><td>client</td><td>gob</td><td>connection</td><td>Go only, no deadline</td><td>almost never today</td></tr>
+    <tr><th scope="row">gRPC</th><td>client (or streaming)</td><td>Protobuf</td><td>HTTP/2 connection</td><td>distributing and versioning the .proto</td><td>between internal services</td></tr>
+    <tr><th scope="row">WebSocket</th><td>both</td><td>text or binary</td><td>open connection</td><td>memory per connection, reconnection</td><td>tracking, chat, live dashboard</td></tr>
+    <tr><th scope="row">GraphQL</th><td>client</td><td>JSON</td><td>stateless</td><td>N+1, query cost, cache</td><td>several clients, different shapes</td></tr>
+  </tbody>
+</table></div>
+
+<p>The article's rule, in one line: <strong>REST at the outside door</strong> (an easy-to-understand contract), <strong>gRPC inside</strong> (a strong, light contract) and <strong>GraphQL</strong> when the client needs different shapes of the same data. The rest of the table is what the store learned along the way.</p>
+
+<h3 class="sec">What if it fails: the contract changes by email</h3>
+
+<ol class="flow steps">
+  <li>The <code>pagamentos</code> team distributes the <code>.proto</code> by email, and three clients copy it: the <code>pedidos</code>, the <code>relatorios</code> and the <code>bff-app</code>.</li>
+  <li>In version 2, the <code>pagamentos</code> changes a field. Each client keeps using the old file, which still compiles.</li>
+  <li>All three break on <strong>different days</strong>, each one when it receives the first new message, and nobody connects the failure to the change.</li>
+  <li>The fix is one of process: a <strong>single contract repository</strong>, the version in the package name (<code>loja.pagamentos.v1</code>, <code>v2</code>) and a <strong>compatibility check in CI</strong> that rejects the change that breaks clients.</li>
+</ol>
+
+<WhyItMatters>
+  <li>Choosing a single protocol for the whole store gives a bad design somewhere. The table exists to choose per hop: who calls, what travels and what gets expensive.</li>
+  <li>The gateway that translates leaves the outside world with the simple contract and the inside with the strong contract, without one knowing the other.</li>
+  <li>The failure in this lesson is not a network technique. It is contract governance, and it is the one that shows up most when services and teams grow.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the article says about convergence</h4>
+  <p>Exposing gRPC directly to clients at scale is laborious, and distributing and versioning protobufs is a complicated task. So the article proposes exposing a domain with a REST contract and using a lighter protocol, like gRPC, between the services of that domain, and extends the idea to GraphQL.</p>
+  <h4 class="deep-h">Two translation tools</h4>
+  <p>grpc-gateway generates a REST server from the <code>.proto</code> and Envoy's gRPC-JSON transcoder filter does the same in the proxy. gRPC-Web is a dialect of gRPC that the browser can speak.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis (convergence, fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "CNCF: integration challenges of gRPC and REST in microservices", href: "https://www.cncf.io/blog/2022/02/11/integration-challenges-in-microservices-architecture-with-grpc-rest/" },
+    { label: "Envoy: gRPC-JSON transcoder filter", href: "https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter" },
+    { label: "grpc-gateway", href: "https://github.com/grpc-ecosystem/grpc-gateway" },
+    { label: "gRPC-Web", href: "https://github.com/grpc/grpc-web" },
+  ]} />
+</Deep>
+
+<p class="gancho">What is left is what did not fit in any call. Every call in this module waits for someone, and the <code>PedidoPago</code> of order 1050 has to reach the <code>estoque</code>, the <code>entregas</code> and the <code>notificacoes</code>. Making three calls in a row makes Davi's payment three answers slower and, if the <code>entregas</code> is down, the failure comes back to him. How do you notify all three without waiting for any, and without losing the notice if one of them is down? That is the question of module 13, Asynchronous Communication.</p>
+
+<Flashcards cards={[
+  { q: "Which protocol does the store use outside, and which inside?",
+    a: "Outside, REST with JSON at the gw-loja. Inside, between services, gRPC with mTLS from the mesh. Tracking uses WebSocket or SSE, and the PSP notifies by webhook." },
+  { q: "What does the gateway do when it transcodes?",
+    a: "It translates the app's POST /api/v1/pedidos into Pedidos.Criar, a gRPC call on the inside. Envoy has the gRPC-JSON transcoder filter." },
+  { q: "Does the browser speak gRPC?",
+    a: "Not plain gRPC. It needs gRPC-Web." },
+  { q: "How do you keep the change of one field from breaking the 3 clients of pagamentos?",
+    a: "A single contract repository, the version in the package (v1, v2) and a compatibility check in CI." },
+  { q: "Why is making 3 calls in a row to notify <code>PedidoPago</code> bad?",
+    a: "It makes Davi's payment 3 answers slower and, if the entregas is down, the failure comes back to him. The way out is to notify without waiting: module 13." },
+]} />

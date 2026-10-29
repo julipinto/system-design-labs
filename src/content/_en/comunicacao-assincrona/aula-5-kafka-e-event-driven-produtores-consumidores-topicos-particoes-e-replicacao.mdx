@@ -1,0 +1,120 @@
+---
+title: "Kafka and event-driven: producers, consumers, topics, partitions and replication"
+order: 5
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store decided to keep events in a log, for 7 days, so any group can read from its own point. That is what Kafka does. But a log on a single server would be a single point of failure and a bottleneck, and Black Friday reaches 120 events per second. To fit the log across several brokers and several consumers, Kafka splits it into <strong>partitions</strong> and copies each one. Let's go through the <code>pedidos</code> topic piece by piece.</p>
+
+<OneLiner>The topic is an <strong>append-only log split into partitions</strong>; the <strong>offset</strong> is the position of each event in the partition; the <strong>key</strong> decides the partition, and each <strong>consumer group</strong> keeps its own offset.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Key</strong> scenario, watch the key of each order go through <code>murmur2 mod 3</code> and land on a partition: 1051 goes to <strong>p0</strong>. Then use the buttons of the other scenarios, one at a time: the consumer groups and their pointers, the replicas with the leader and the followers, and the partitions, the "what if it goes wrong" where the topic goes from 3 to 6. In the widget, type <strong>1051</strong> and change the number of partitions from 3 to 6.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/kafka-3d/?mode=chave" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Interactive figure: The key picks the partition" alt="Preview of the 3D figure: The key picks the partition" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>pedidos</code> topic has <strong>3 partitions</strong> (p0, p1, p2) and <strong>replication factor 3</strong>, on the brokers <code>kafka-1</code>, <code>kafka-2</code> and <code>kafka-3</code>. This is what the <code>kafka-topics --describe</code> command shows: each partition with its leader, its replicas and the ISR, the set of in-sync replicas.<pre><code>{`Topic: pedidos  PartitionCount: 3  ReplicationFactor: 3
+  Partition: 0  Leader: 1  Replicas: 1,2,3  Isr: 1,2,3
+  Partition: 1  Leader: 2  Replicas: 2,3,1  Isr: 2,3,1
+  Partition: 2  Leader: 3  Replicas: 3,1,2  Isr: 3,1,2`}</code></pre></li>
+  <li>The <strong>producer</strong> sends each event with a <strong>key</strong>, the <code>pedido_id</code>, and the client computes <code>murmur2(key) mod 3</code>. All the events of 1051 land on <strong>p0</strong>, <strong>in order</strong>: offsets 48210, 48213, 48217 and 48301. Without a key, the client picks the partition (per batch, in the Java client). Order only holds <strong>within the partition</strong>; between partitions there is no order.</li>
+  <li>The producer also decides durability with <code>acks</code>: <code>0</code> waits for nobody, <code>1</code> waits only for the leader, <code>all</code> waits for everyone in the ISR (the default since Kafka 3.0, together with <code>enable.idempotence = true</code>). And it decides the batch: <code>batch.size</code> is in <strong>bytes</strong> (default 16384) and <code>linger.ms</code> is the time to collect (5 ms since Kafka 4.0).</li>
+  <li>The <strong>consumer</strong> belongs to a <strong>group</strong>, and each group keeps <strong>its own</strong> offset in each partition. That is why <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code> read everything, each at its own pace. Inside the group, each partition goes to <strong>one</strong> consumer, so the <strong>maximum number of useful consumers is the number of partitions</strong>: the <code>entregas</code> group with 5 replicas and 3 partitions has 2 idle.<pre><code>{`GROUP          TOPIC   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+estoque        pedidos 0          48220           48220           0
+notificacoes   pedidos 0          48219           48220           1
+entregas       pedidos 0          48210           48220           10`}</code></pre></li>
+  <li>Same key, same partition, <strong>one consumer at a time</strong>: the events of 1051 are read in order by a single consumer of the group, <strong>with no mutex or lock</strong>. It is the partition doing the work of module 11's lock. For events to survive an outage, each partition has 1 <strong>leader</strong>, which takes writes and reads, and 2 <strong>followers</strong>, which copy. With <code>acks=all</code> and <code>min.insync.replicas = 2</code>, the producer only gets the confirmation when at least 2 replicas have the event. The metadata lives in Kafka itself, <strong>KRaft</strong>, and ZooKeeper left in the 4.x series.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="particao" title="Which partition? The key decides" hint="Type the pedido_id and the number of partitions (1 to 12). The widget computes the murmur2 (signed value, as in Kafka) and the partition, and shows what changes from 3 to 6 partitions." />
+
+<h3 class="sec">What if it goes wrong: the leader goes down before the follower copies</h3>
+
+<p>With <code>acks=1</code>, the leader of <strong>p0</strong>, <code>kafka-1</code>, confirms Lena's <code>PedidoPago</code> (offset 48213) at t = 0 and <strong>goes down at t = 5 ms</strong>, before the follower copies, which takes about 10 ms. <code>kafka-2</code> becomes the leader <strong>without the event</strong>. The producer thinks it sent, <code>estoque</code> never sees the payment and Lena is left without her mugs.</p>
+
+<p>With <code>acks=all</code>, <code>kafka-1</code> does not confirm before at least 2 replicas have the event. It goes down at 5 ms, without confirming. The producer, with no confirmation, <strong>retries</strong>, and the event goes into the new leader (idempotence prevents it from going in twice). If <strong>two</strong> brokers go down, the ISR is left at {'{3}'}, smaller than 2, and the producer gets <code>NotEnoughReplicas</code> and <strong>stops accepting</strong>. The store loses availability to avoid losing data, the CAP choice from module 3.</p>
+
+<Widget name="acks" title="Loss with acks: the leader goes down at t ms" hint="Pick acks (0, 1 or all), min.insync.replicas (1 to 3), how many replicas are in sync and when the leader goes down (0 to 50 ms). Copying to the follower takes 10 ms. The widget says whether the event was lost, confirmed or got an error." />
+
+<p>How long does the election take? In an abrupt outage, the KRaft controller only takes the broker out when its lease expires: <code>broker.session.timeout.ms</code> is <strong>9000 ms</strong> (the default in the 4.0 series documentation), with heartbeats every 2000 ms. So, as a worked example of those settings, p0 is <strong>without a leader for up to about 9 s</strong> and the producer retries until <code>delivery.timeout.ms</code> (2 minutes by default). In a controlled shutdown, the leader changes beforehand, and the pause is much smaller. The real number depends on your cluster.</p>
+
+<h3 class="sec">What if it goes wrong: the group is at its limit and the partitions run out</h3>
+
+<p>The <code>entregas</code> group processes each event in 100 ms, that is, <strong>10 per second</strong> per consumer. On Black Friday, 30 relevant events per second arrive (<code>EstoqueReservado</code>), and 30 ÷ 3 consumers = 10 per second each, <strong>exactly the limit</strong>. Any burst turns into lag. Adding consumer replicas <strong>does not help</strong>: with 3 partitions, more than 3 consumers sit idle.</p>
+
+<p>Going to <strong>6 partitions</strong> helps, but it changes the <code>hash mod 6</code>: key <strong>1051 moves from p0 to p3</strong> (and 1049, from p0 to p3). During the transition, events of the same order sit in two partitions, read by two consumers, and <strong>lose their order</strong>: <code>PedidoEnviado</code> can be read before <code>PedidoPago</code>.</p>
+
+<Widget name="lag" title="Lag and consumers: the group's arithmetic" hint="Enter the topic's events per second, the partitions, the ms per event and how many consumers the group has. The widget computes the capacity, the lag per minute and how many consumers sit idle." />
+
+<WhyItMatters>
+  <li><strong>The key chooses what stays in order.</strong> With <code>pedido_id</code> as the key, the 4 events of 1051 come out of p0 in order.</li>
+  <li><strong>Each group reads at its own pace.</strong> The 3 groups have their own offsets: lag 0, 1 and 10 at the same instant.</li>
+  <li><strong>Partitions limit the consumers.</strong> 5 replicas on 3 partitions leave 2 idle, and 6 partitions change the partition of the keys.</li>
+  <li><strong><code>acks=all</code> only protects together with <code>min.insync.replicas</code>.</strong> With <code>acks=1</code>, Lena's <code>PedidoPago</code> can vanish in 5 ms.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">3 partitions against 6</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>pedido_id</th><th>murmur2 (signed)</th><th>3 partitions</th><th>6 partitions</th></tr></thead>
+    <tbody>
+      <tr><th>1047</th><td>−29587144</td><td>p1</td><td>p4</td></tr>
+      <tr><th>1048</th><td>1636681634</td><td>p2</td><td>p2</td></tr>
+      <tr><th>1049</th><td>−364487243</td><td>p0</td><td>p3</td></tr>
+      <tr><th>1050</th><td>834011288</td><td>p2</td><td>p2</td></tr>
+      <tr><th>1051</th><td>−395860997</td><td>p0</td><td>p3</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The Java client's default partitioner does <code>murmur2(key) mod n</code>, with the sign bit cleared before the <code>mod</code>. The function was reimplemented and checked against Kafka's test vectors (<code>"21"</code> gives −973932308 and <code>"foobar"</code> gives −790332482). Orders 1048 and 1050 stay on p2 in both cases: only the partition of those landing on a different remainder changes.</p>
+  <h4 class="deep-h">Delivery: at-least-once and the DLQ that does not exist</h4>
+  <p>Kafka's default for the consumer is <strong>at-least-once</strong>: if the consumer goes down after processing and before writing the offset, the event is read again. <em>Exactly-once</em> requires idempotence in the consumer (an <code>evento_id</code>, like the repeated <code>e-502</code> from module 6) or transactions. And Kafka has <strong>no native DLQ</strong> for consumers: the team creates the <code>pedidos.dlq</code> topic and the logic to send messages there (Kafka Connect has its own).</p>
+  <h4 class="deep-h">The election time, with sources</h4>
+  <p>The numbers come from the <a href="https://kafka.apache.org/40/generated/kafka_config.html" target="_blank" rel="noopener">4.0 series configuration documentation</a>: <code>broker.session.timeout.ms</code> = 9000 (the lifetime of a broker lease without heartbeats), <code>broker.heartbeat.interval.ms</code> = 2000, <code>replica.lag.time.max.ms</code> = 30000 (a follower that does not fetch data for that long leaves the ISR) and, for the election of the KRaft quorum itself, <code>controller.quorum.election.timeout.ms</code> = 1000 and <code>controller.quorum.fetch.timeout.ms</code> = 2000. The lesson's "up to about 9 s" is a worked example using those defaults, not a measurement.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong><code>acks</code>.</strong> The article speaks of "volume of ACKs" and "the higher the number of ACKs". In Kafka the values are <code>0</code>, <code>1</code> and <code>all</code>, and <code>all</code> only really protects together with <code>min.insync.replicas</code>. The article's example uses <code>"acks": "1"</code> with the comment "guarantee durability": <code>1</code> does <strong>not</strong> give that guarantee, as the scenario above shows.</li>
+    <li><strong>A load balancer in front of Kafka.</strong> The article says load across brokers can be handled by a load balancer or a CNAME. The client fetches the metadata and connects <strong>directly to the leader of each partition</strong> (the address in <code>advertised.listeners</code>); a layer 4 balancer in front usually breaks that. The recommended setup is a <code>bootstrap.servers</code> list. And "all brokers receive any event" only holds for the first contact: the write goes to the partition's <strong>leader</strong>.</li>
+    <li><strong>"Random" partition without a key.</strong> Since Kafka 2.4 (KIP-480) the Java client uses a <strong>sticky</strong> partition: a whole batch goes to the same partition. In <code>librdkafka</code>, the "any" partition uses the default partitioner (<code>consistent_random</code>). There is no guaranteed "uniform" distribution.</li>
+    <li><strong>What is missing from the article's Kafka.</strong> Offsets and commit, retention and compaction, ISR and <code>min.insync.replicas</code>, rebalance, the delivery semantics (at-most, at-least and exactly-once), KRaft (ZooKeeper was removed in version 4.0) and the absence of a native DLQ. The consumer in the article's example also acknowledges <strong>on every message</strong> (slow) and <strong>stops at the first error</strong>, and <code>ReadMessage(-1)</code> blocks forever.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Apache Kafka: documentation (design, replication)", href: "https://kafka.apache.org/documentation/" },
+    { label: "Apache Kafka 4.0: producer configs (acks, batch.size, linger.ms)", href: "https://kafka.apache.org/40/generated/producer_config.html" },
+    { label: "Apache Kafka 4.0: broker configs (broker.session.timeout.ms)", href: "https://kafka.apache.org/40/generated/kafka_config.html" },
+    { label: "KIP-480: Sticky Partitioner", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-480%3A+Sticky+Partitioner" },
+    { label: "KIP-500: Replace ZooKeeper with a Self-Managed Metadata Quorum", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum" },
+  ]} />
+</Deep>
+
+<p class="gancho">The 3 brokers, the key and the groups are the store's design, but a design on paper. We still need to see what happens when someone brings Kafka up for real: the author's lab runs on a single broker, on a one-partition topic, and its partitioner sends key 1051 to a different partition than Java does. That is the lab in the next lesson.</p>
+
+<Flashcards cards={[
+  { q: "What decides an event's partition, and where does key 1051 go with 3 and with 6 partitions?",
+    a: "murmur2(key) mod number of partitions. With 3 partitions, p0; with 6, p3. Order only holds within the partition." },
+  { q: "What is the maximum number of useful consumers in a group?",
+    a: "The number of partitions. The entregas group with 5 replicas and 3 partitions has 2 idle." },
+  { q: "What was the lag of the three groups in the p0 example (LOG-END-OFFSET 48220)?",
+    a: "estoque 0 (offset 48220), notificacoes 1 (48219) and entregas 10 (48210, at 100 ms per event)." },
+  { q: "What happens with acks=1 if the leader goes down 5 ms after confirming?",
+    a: "The follower has not copied yet (about 10 ms). The new leader does not have the PedidoPago and estoque never sees it. With acks=all the producer retries and the event goes in." },
+  { q: "Why does Kafka reject writes with two brokers down (ISR = 1 and min.insync.replicas = 2)?",
+    a: "NotEnoughReplicas: it loses availability to avoid losing data, the CAP choice." },
+  { q: "What changes when going from 3 to 6 partitions?",
+    a: "The hash mod 6 changes the partition of the keys (1051: p0 → p3), and during the transition events of the same order sit in two partitions and lose their order." },
+]} />

@@ -1,0 +1,97 @@
+---
+title: "Control plane and data plane"
+order: 3
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the call for order 1048 gained eight behaviors, all described in YAML. But a file does nothing on its own. Someone has to keep the rule "up to 2 attempts, only on 503" and someone has to run it at the moment <code>pagamentos</code> answers. Those are two functions, and the mesh separates them into two planes.</p>
+
+<OneLiner>The control plane keeps the rules and the certificates and pushes them to the proxies; the data plane is the proxies that sit in the path of every call and run those rules.</OneLiner>
+
+<DoIt>
+  <p>In the figure, tap <strong>Rules</strong> and open the first step, <em>istiod keeps the rules and pushes them</em>: see the control plane at the back light up and the light go down the thin cables to each proxy (the "proxies configured" counter climbs to 30). Then follow the call for order 1048, which runs along the aisle without going through istiod: that is the data plane. Finally, go to the last step, <em>When it fails: istiod goes down</em>, and watch the cables get cut while the call keeps going.</p>
+</DoIt>
+
+<Figure3D path="en/labs/service-mesh/mesh-3d/?mode=regras&step=1" poster="labs/service-mesh/mesh-3d-previa.webp" title="Interactive figure: Rules: the control plane pushes" alt="Preview of the 3D figure: Rules: the control plane pushes" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Someone on the platform team writes <code>pagamentos</code>' retry rule in YAML and hands it to Kubernetes with <code>kubectl apply</code>. The <strong>control plane</strong>, <code>istiod</code> in Istio, sees the rule and keeps it. It also knows which pods each service has, because it follows Kubernetes.</li>
+  <li><code>istiod</code> translates the rule, which talks about services, into the proxy's language. The line "up to 2 attempts, only on 503, 25 ms between them" becomes, in Envoy, <code>retry_on: "503"</code>, <code>num_retries: 2</code> and <code>retry_back_off</code> with a <code>base_interval</code> of 0.025 s.</li>
+  <li>Each of the 30 proxies keeps an open conversation with <code>istiod</code> through the <strong>xDS</strong> API, and that is how the configuration comes down. The change arrives in seconds, without restarting the proxy or the app.</li>
+  <li>When <code>pedidos</code> makes the call, the one that runs it is the <strong>data plane</strong>: <code>pedidos</code>' proxy applies the routing, the retry and the timeout, and <code>pagamentos</code>' proxy applies the authorization. The control plane does not see the call go by.</li>
+  <li>The mTLS certificates follow the same path. <code>istiod</code> is also the certificate authority: it signs a certificate for each pod, with the identity <code>spiffe://loja.local/ns/loja/sa/pedidos</code>, and replaces it before it expires. In the shop, the example certificate is valid for 24 h.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">When it fails: the control plane goes down</h3>
+
+<p>The proxies keep the last configuration they received. With <code>istiod</code> down, the call for order 1048 keeps going through, with the previous rules, and the xDS documentation says so in these terms: the last configuration stays in force until the connection comes back. That is why the control plane is not in the path of every call.</p>
+
+<p>What stops is whatever depends on it. A new rule reaches nobody. A pod that has just come up has nobody to get configuration or a certificate from. And the 24 h certificates only renew with <code>istiod</code> alive: if it stays down longer than that, mTLS starts to fail.</p>
+
+<WhyItMatters>
+  <li><strong>Change without restarting.</strong> Adjusting <code>pagamentos</code>' timeout is editing a YAML; none of the 30 pods restarts.</li>
+  <li><strong>One place to look.</strong> When someone asks "why did catalogo get a 403?", the answer is in the control plane's rules, not spread across 30 pods.</li>
+  <li><strong>Contained failure.</strong> The data plane tolerates a control plane that is down, because what it needs to work is already with it.</li>
+  <li><strong>Same idea in other products.</strong> Linkerd also has a control plane that gives identity and rules to the proxies; what changes is the names of the parts.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">What xDS is</h4>
+  <p>xDS is the API Envoy created to receive configuration over the network, with no local file. The "x" is a wildcard: each type of resource has its own discovery service. Each one carries a piece of what the control plane knows:</p>
+  <div class="sr-tablewrap" role="region" aria-label="The xDS discovery services and what each one carries" tabindex="0">
+  <table class="sr-table">
+    <thead><tr><th>Acronym</th><th>Name</th><th>What it carries, in the shop</th></tr></thead>
+    <tbody>
+      <tr><th>LDS</th><td>Listener Discovery Service</td><td>The ports the proxy listens on: the pod's outbound and inbound ones</td></tr>
+      <tr><th>RDS</th><td>Route Discovery Service</td><td>The routes: the 10% canary, the retry, the 2 s timeout</td></tr>
+      <tr><th>CDS</th><td>Cluster Discovery Service</td><td>The destinations: <code>catalogo</code>, <code>pagamentos</code>, with the balancing algorithm</td></tr>
+      <tr><th>EDS</th><td>Endpoint Discovery Service</td><td>The pods of each destination: <code>pagamentos</code>' 2, <code>catalogo</code>'s 10</td></tr>
+      <tr><th>SDS</th><td>Secret Discovery Service</td><td>The certificate and key of each identity</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>There is also the aggregated version (ADS), which carries all these resources in one conversation and keeps their order, and the incremental version, which sends only the difference when a pod joins or leaves.</p>
+  <h4 class="deep-h">The limit of "stays in force"</h4>
+  <p>The same documentation points out that this is not always desirable: if a fault injection rule was on when the control plane went down, it stays on. xDS has a TTL per resource for these cases, which makes the proxy drop a resource if it loses contact for some time.</p>
+  <h4 class="deep-h">The certificate, step by step</h4>
+  <ul>
+    <li>On startup, the Istio agent inside the pod creates a private key and a certificate signing request (CSR) and sends it to <code>istiod</code> with the pod's credentials.</li>
+    <li><code>istiod</code> checks the credentials and signs. The certificate carries the SPIFFE identity, in the format <code>spiffe://trust-domain/workload-identifier</code>.</li>
+    <li>The agent hands the certificate to Envoy through the SDS API and keeps an eye on the expiry, repeating the process before it expires.</li>
+  </ul>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article says the data plane must change the network "without any kind of restart". The <strong>rules</strong> change without restarting. Putting the sidecar in a pod and swapping the Envoy version do require recreating the pods (lesson 4).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Service Mesh (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "Istio: architecture (istiod, Envoy, data plane and control plane)", href: "https://istio.io/latest/docs/ops/deployment/architecture/" },
+    { label: "Envoy: xDS protocol (SotW, incremental, ADS, TTL)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol" },
+    { label: "Envoy: retry_policy (retry_on, num_retries, retry_back_off)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "Istio: security (identity, CA and certificate rotation)", href: "https://istio.io/latest/docs/concepts/security/" },
+    { label: "SPIFFE: concepts (SPIFFE ID, trust domain, SVID)", href: "https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The data plane proxies have to be in the path of every call, but we have not yet said where each one lives. What is left is whether the proxy lives inside the code, in a container next to each app or inside the network library itself.</p>
+
+<Flashcards cards={[
+  { q: "What does the control plane do and what does the data plane do?",
+    a: "The control plane (istiod) keeps the rules and the certificates and pushes them to the proxies. The data plane is the proxies in the path of every call, which run the rules." },
+  { q: "What is xDS?",
+    a: "Envoy's API through which the control plane delivers configuration to the proxies: listeners, routes, clusters, endpoints and secrets (LDS, RDS, CDS, EDS, SDS)." },
+  { q: "What happens to the call for order 1048 if istiod goes down?",
+    a: "It keeps going, with the last configuration received. What stops is a new rule, a new pod with no configuration and the renewal of the 24 h certificates." },
+  { q: "Who issues the mTLS certificates?",
+    a: "The control plane, acting as the certificate authority: it signs one certificate per pod, with the SPIFFE identity, and replaces it before it expires." },
+]} />

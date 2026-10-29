@@ -1,0 +1,217 @@
+---
+title: "Features aggregated by the mesh"
+order: 2
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the proxy sat next to each app and the rule left the code. But which rule, exactly? Take the call for order 1048, from <code>pedidos</code> to <code>pagamentos</code>, and follow what happens to it inside the mesh, in the order it happens.</p>
+
+<OneLiner>Since the proxy sees every call, it can route, balance, retry with a rule, encrypt, block and measure without a new line in the app; and whatever it does wrong, it does wrong everywhere.</OneLiner>
+
+<DoIt>
+  <p>In the figure, tap <strong>Rules</strong> and go to the step <em>Retry: up to 2 times, only on 503</em>: see the first light come back red as far as <code>pedidos</code>' proxy and the second one go through. Move on to <em>Only pedidos can charge: catalogo gets 403</em> and note who stops at <code>pagamentos</code>' proxy. Then tap <strong>Failure</strong>, open <em>When it fails: 1 tap, 27 calls</em> and look at the counter over <code>pagamentos</code>; the next step, <em>The fix: retry in one place only</em>, shows the same math with 3.</p>
+</DoIt>
+
+<Figure3D path="en/labs/service-mesh/mesh-3d/?mode=regras&step=2" poster="labs/service-mesh/mesh-3d-previa.webp" title="Interactive figure: Rules: the control plane pushes" alt="Preview of the 3D figure: Rules: the control plane pushes" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Routing and balancing.</strong> <code>pedidos</code>' proxy reads the destination and picks one of <code>pagamentos</code>' 2 pods by round robin. For <code>catalogo</code>, which has 10 pods, the pick is least request. The module 7 algorithms now run in the caller's proxy, with no balancer in the middle. The same rule decides where the <strong>canary</strong> goes: <strong>10%</strong> of the calls to <code>pedidos</code> go to v2, or only the ones that carry the header <code>x-versao: v2</code>.</li>
+  <li><strong>Identity and authorization.</strong> Before sending, the two proxies do an <strong>mTLS</strong> handshake: each presents a certificate that says who it is, the identity <code>spiffe://loja.local/ns/loja/sa/pedidos</code>. Then <code>pagamentos</code>' proxy checks the <strong>authorization policy</strong>: only <code>pedidos</code> can do <code>POST /cobrancas</code>. If <code>catalogo</code> tries, it gets <strong>403</strong> back with the body <code>RBAC: access denied</code>, and the <code>pagamentos</code> code never even found out.</li>
+  <li><strong>Timeout and retry.</strong> <code>pagamentos</code> answers 503 once. <code>pedidos</code>' proxy repeats the call, up to <strong>2 times</strong>, with <strong>25 ms</strong> between attempts, only for 503 errors. If the whole call takes longer than <strong>2 s</strong>, it cancels it and answers 504. The <code>pedidos</code> app only sees the final result.</li>
+  <li><strong>Telemetry.</strong> Each proxy notes what it saw: latency (p50 and p99), error rate and throughput per pair of services, such as <code>pedidos → pagamentos</code>, and emits a tracing span with the <code>trace_id</code> from module 6. Nobody instrumented <code>catalogo</code>, and it shows up in the charts.</li>
+  <li><strong>Fault injection.</strong> To test <code>bff-app</code>'s fallback (module 9), the mesh can fake a failure: <strong>10%</strong> of the calls to <code>recomendacoes</code> get a 503, or <strong>2 s</strong> of delay. <code>recomendacoes</code> was not touched; the caller's proxy invents the failure.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">When it fails: the retry storm</h3>
+
+<p>The retry in step 3 only helps while it is small. Imagine <code>pagamentos</code> gets slow, and every hop has 3 attempts: from Lena's app to <code>bff-app</code>, from <code>bff-app</code> to <code>pedidos</code>, from <code>pedidos</code> to <code>pagamentos</code>. Each attempt above triggers 3 below. One tap becomes 3 × 3 × 3 = <strong>27</strong> calls to <code>pagamentos</code>, just when it cannot handle even one. That is a retry storm: the remedy knocks down the one it was meant to cure.</p>
+
+<Widget name="retrystorm" title="Retry storm" hint="Choose in how many hops there is retry and how many attempts each hop makes. The math shows how many calls reach pagamentos with no limit, with retry on the last hop only and with a retry budget." />
+
+<p>Retry in the app code and retry in the mesh also multiply. If <code>pedidos</code> kept the 5 attempts from the code (6 calls) and the mesh added its 2 (3 per call), <code>pagamentos</code> would see up to 18 calls per order. That is why the mesh only helps if the retry leaves the code.</p>
+
+<h3 class="sec">Who can call pagamentos?</h3>
+
+<p>The authorization in step 2 has no way of being "half on": once an ALLOW policy exists for <code>pagamentos</code>, everything it does not allow is denied. Try it.</p>
+
+<Widget name="authz" title="Who can call?" hint="Choose pagamentos' policy and see, for each origin and each call, whether 200 or 403 comes back." />
+
+<WhyItMatters>
+  <li><strong>One rule.</strong> The retry attempts, the timeout and the access policy are written once and apply to the shop's three languages.</li>
+  <li><strong>Security without code.</strong> <code>pagamentos</code> starts accepting only whoever has the right identity, even if nobody remembered to ask for that in its code.</li>
+  <li><strong>Less guessing.</strong> With metrics per pair of services, a slowdown points to <code>pedidos → pagamentos</code>, not to "somewhere".</li>
+  <li><strong>The risk is the same, at scale.</strong> A wrong rule, such as retry with no limit, also applies to all the services at once.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">The same rules, in Istio YAML</h4>
+  <p>These are Istio configurations for what the lesson described, with the shop's names. The fields are the ones in the official reference; only the values are the shop's.</p>
+  <p><strong>10% canary and routing by header</strong> (VirtualService and DestinationRule for <code>pedidos</code>):</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pedidos
+  namespace: loja
+spec:
+  hosts:
+  - pedidos
+  http:
+  - match:
+    - headers:
+        x-versao:
+          exact: v2
+    route:
+    - destination:
+        host: pedidos
+        subset: v2
+  - route:
+    - destination:
+        host: pedidos
+        subset: v1
+      weight: 90
+    - destination:
+        host: pedidos
+        subset: v2
+      weight: 10
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: pedidos
+  namespace: loja
+spec:
+  host: pedidos
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2`}</code></pre>
+  <p><strong>Algorithm per service</strong> (<code>catalogo</code> with least request; for <code>pagamentos</code>, switch to <code>ROUND_ROBIN</code>):</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: catalogo
+  namespace: loja
+spec:
+  host: catalogo
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST`}</code></pre>
+  <p><strong>Retry with a rule and timeout</strong> for <code>pagamentos</code>. The <code>attempts: 2</code> means up to 2 attempts besides the first one, and the <code>backoff</code> is the minimum interval between them (Istio's default is already 25 ms). Since the default of <code>retryOn</code> does not include 503, it is written out:</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pagamentos
+  namespace: loja
+spec:
+  hosts:
+  - pagamentos
+  http:
+  - route:
+    - destination:
+        host: pagamentos
+    timeout: 2s
+    retries:
+      attempts: 2
+      backoff: 25ms
+      retryOn: "503"`}</code></pre>
+  <p>Repeating a <code>POST /cobrancas</code> is only safe if <code>pagamentos</code> recognizes the repeat. For this lesson, <code>pedidos</code> sends <code>Idempotency-Key: pedido-1048</code> (an example header) and <code>pagamentos</code> charges once per key. The mesh does not know this: whoever knows if an operation can be repeated is the service's team.</p>
+  <p><strong>Mandatory mTLS</strong> in the namespace (PeerAuthentication) and <strong>authorization</strong> for <code>pagamentos</code>. Istio writes the identity in policies without the <code>spiffe://</code> prefix, in the format <code>domain/ns/namespace/sa/account</code>; <code>loja.local</code> is the example trust domain:</p>
+<pre><code>{String.raw`apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: loja
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pagamentos-so-pedidos
+  namespace: loja
+spec:
+  selector:
+    matchLabels:
+      app: pagamentos
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["loja.local/ns/loja/sa/pedidos"]
+    to:
+    - operation:
+        methods: ["POST"]
+        paths: ["/cobrancas"]`}</code></pre>
+  <p><strong>Fault injection</strong> on <code>recomendacoes</code>: 10% of 503s. For the delay, replace the <code>abort</code> block with <code>delay</code> and <code>fixedDelay: 2s</code>:</p>
+<pre><code>{String.raw`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: recomendacoes
+  namespace: loja
+spec:
+  hosts:
+  - recomendacoes
+  http:
+  - fault:
+      abort:
+        httpStatus: 503
+        percentage:
+          value: 10
+    route:
+    - destination:
+        host: recomendacoes`}</code></pre>
+  <p>The documentation warns that, with fault injection on the client side, the <code>timeout</code> and <code>retries</code> fields of the same route do not take effect. To test the retry, use a real failure or another route.</p>
+  <h4 class="deep-h">What the telemetry really delivers</h4>
+  <p>Istio exports metrics such as <code>istio_requests_total</code>, already with labels for who called and who answered (<code>source_workload</code>, <code>destination_workload</code>, <code>response_code</code>) and the mark <code>connection_security_policy="mutual_tls"</code> when the call was encrypted. For tracing, the proxies generate the spans on their own, but the app has to <strong>pass along the context headers</strong> (such as <code>traceparent</code>) on the calls it makes; without that, each span stands alone and the trace does not come together.</p>
+  <h4 class="deep-h">Against the storm</h4>
+  <ul>
+    <li><strong>Retry at one level only.</strong> If the mesh retries, the code does not.</li>
+    <li><strong>Retry budget.</strong> Envoy limits simultaneous retries to a fraction of the active calls (<code>retry_budget</code>, default 20%, and at least 3 retries at a time). Istio exposes a simpler limit, <code>connectionPool.http.maxRetries</code>, the maximum of retries in flight for the service.</li>
+    <li><strong>Remove the bad host.</strong> The DestinationRule's <code>outlierDetection</code> takes out of rotation the pod that only returns 5xx.</li>
+  </ul>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li>The article lists "Least Request, Round Robin, IP-Hash and Least Connection". In Istio's current reference, simple balancing has round robin, least request, random and passthrough, and there is consistent hash (by header, cookie or source IP). Least connection exists only as a deprecated option ("use LEAST_REQUEST"), and the documentation itself recommends least request over round robin.</li>
+    <li>The article cites "fallbacks" among the mechanisms the mesh runs without the application noticing. The mesh retries, cancels, removes the bad host and redirects; <strong>the fallback</strong>, the alternative response, is the app's decision (the one in module 9's <code>bff-app</code>).</li>
+    <li>The article treats tracing as "decoupled from the applications". The spans are, but the context headers have to be passed along by the app.</li>
+    <li>About retry, the article only talks about benefits. It is only safe on a call that can be repeated, and with no limit it becomes a storm.</li>
+  </ul>
+  <Sources items={[
+    { label: "Istio: VirtualService (routes, retries, timeout, fault)", href: "https://istio.io/latest/docs/reference/config/networking/virtual-service/" },
+    { label: "Istio: DestinationRule (balancing, outlierDetection, connectionPool)", href: "https://istio.io/latest/docs/reference/config/networking/destination-rule/" },
+    { label: "Istio: PeerAuthentication", href: "https://istio.io/latest/docs/reference/config/security/peer_authentication/" },
+    { label: "Istio: AuthorizationPolicy", href: "https://istio.io/latest/docs/reference/config/security/authorization-policy/" },
+    { label: "Istio: fault injection task", href: "https://istio.io/latest/docs/tasks/traffic-management/fault-injection/" },
+    { label: "Envoy: retry budget (circuit breakers)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto" },
+  ]} />
+</Deep>
+
+<p class="gancho">That was eight new behaviors in the network, and all of them come from rules written in YAML, somewhere. What is left is who keeps those rules, how they reach each proxy and what happens to the call if that "somewhere" goes down.</p>
+
+<Flashcards cards={[
+  { q: "Which retry rules does the shop use in the mesh?",
+    a: "Up to 2 attempts, with 25 ms between them, only for a 503 error and only on operations that can be repeated. A 2 s timeout for pagamentos." },
+  { q: "How many calls does pagamentos receive from one tap with 3 hops of 3 attempts?",
+    a: "27 (3 × 3 × 3). That is the retry storm. A retry budget and retry at one level only prevent it." },
+  { q: "What happens when catalogo tries POST /cobrancas?",
+    a: "403 with the body RBAC: access denied. The authorization policy blocks it at the proxy, with no line of code in pagamentos." },
+  { q: "What does mTLS add to the TLS from module 1?",
+    a: "Both sides present a certificate. Each service proves who it is, for example spiffe://loja.local/ns/loja/sa/pedidos." },
+  { q: "Does the mesh do bff-app's fallback?",
+    a: "No. The mesh retries, cancels and removes the bad host from rotation. The alternative response is still the app's decision." },
+]} />

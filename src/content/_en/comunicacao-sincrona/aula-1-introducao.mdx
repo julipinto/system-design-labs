@@ -1,0 +1,78 @@
+---
+title: "Introduction: call and wait"
+order: 1
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">Module 11 ended with the <code>estoque</code> reserving the last cat without selling it twice: replica lock, distributed lock, a pool of 10 connections. Bia took order 1049 and Caio got a <code>409</code>. But reserving the cat is only half of the sale. The <code>pedidos</code> still has to tell the <code>pagamentos</code> "charge 88.90 for order 1049", and that sentence travels over a connection, in a format, with a number of bytes. Now the cat is gone, and Davi shows up, from São Paulo, who wants the blue mug and pays with Pix at a PSP, a third-party payment provider. The question of this module: when one service calls another and waits for the answer, in what format, over which protocol, and how does the other side call back?</p>
+
+<OneLiner>A synchronous call means the caller stops and waits for the answer before moving on: it stays simple and the error comes back right away, but the speed and availability of the caller now depend on everyone behind it.</OneLiner>
+
+<DoIt>
+  <p>In the figure, press the → arrow through the path of order 1050 and add up the milliseconds of each hop until the answer reaches Davi. Get to the <strong>"What if it fails"</strong> step and see what is left at the PSP when the timeout fires. Then, in the widget below, leave 3 hops at 99.9% and check the 129 minutes per month.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/chamada-3d/?mode=rest" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Interactive figure: REST: HTTP/1.1 and JSON" alt="Preview of the 3D figure: REST: HTTP/1.1 and JSON" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>At <strong>14:05:00.000</strong> Davi's app creates order <strong>1050</strong>: blue mug (product 7) at <strong>19.90</strong> plus shipping to SP at <strong>9.00</strong>, <strong>28.90</strong> in total, or <strong>2890</strong> cents, paid with Pix. The charge at the PSP will be called <code>c-7731</code>.</li>
+  <li>The order crosses a chain: Davi's app → <code>gw-loja</code> → <code>pedidos</code> → <code>pagamentos</code> → PSP. At each hop, the caller sits idle until the answer comes back. That is a <strong>synchronous</strong> call.</li>
+  <li>The timings in this example, on the server: <code>gw-loja</code> → <code>pedidos</code> 5 ms, the stock reservation from module 11 20 ms, <code>pedidos</code> → <code>pagamentos</code> 5 ms and <code>pagamentos</code> → PSP <strong>180 ms</strong>, because the PSP is on the internet. The sum is 5 + 20 + 5 + 180 = <strong>210 ms</strong>, and Davi only sees an answer after the last hop.</li>
+  <li>Waiting has one advantage: the order is clear and the error comes back along the same path. If the <code>estoque</code> answers <code>409</code>, as it did to Caio, the <code>pedidos</code> knows right away and never gets to charge anyone.</li>
+  <li>The cost shows up in the math. With <code>pedidos</code>, <code>pagamentos</code> and the PSP at <strong>99.9%</strong> each, the chain only works when all three work: 0.999 × 0.999 × 0.999 = <strong>99.70%</strong>. That is <strong>129 minutes per month</strong> down, against 43 minutes for a single service. With 4 hops (the <code>bff</code> joins in front), 0.999⁴ = 99.60%, or <strong>173 minutes</strong>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="serie" title="How many minutes of downtime does the chain cost?" hint="Choose how many services sit in series and the availability of each. The math is the availability raised to the number of hops, in a 30-day month." />
+
+<h3 class="sec">What if it fails: the PSP takes 8 seconds</h3>
+
+<ol class="flow steps">
+  <li>The <code>pagamentos</code> calls the PSP and creates the charge <code>c-7731</code>, but the PSP is slow and takes <strong>8 s</strong> to answer.</li>
+  <li>The <strong>2 s</strong> timeout of the <code>pagamentos</code> (the rule from module 10) fires at 2 s. The <code>pagamentos</code> gives up, the <code>pedidos</code> gets the error and returns a failure to Davi.</li>
+  <li>But the charge <code>c-7731</code> <strong>already exists at the PSP</strong>. Davi can open his banking app and pay the Pix for an order the store reported as failed.</li>
+  <li>The caller does not know whether the other end did it or not. A timeout only says "I did not receive the answer in time", and that is different from "it did not happen".</li>
+</ol>
+
+<WhyItMatters>
+  <li>The series math explains why a synchronous dependency is never free: each extra service in the chain takes availability away from whoever is in front.</li>
+  <li>The timeout case shows that an error on the caller's side does not prove the other end did nothing. That is the gap the next lessons close, with a call back (lesson 3) and, further ahead, with idempotency (module 21).</li>
+  <li>The rest of the module is a choice of format and protocol for this same call: REST, RPC, gRPC, WebSocket and GraphQL, and each one leaves the math above intact: the call still waits.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Synchronous is about the logic, not the thread</h4>
+  <p>The article describes the synchronous call as "blocking". From the point of view of Davi's order that holds: the logic does not move forward until the answer arrives. But a goroutine waiting for a network response costs little (module 11), and the server serves other clients in the meantime. What blocks is the flow of the order, not the process.</p>
+  <h4 class="deep-h">Four hops and the whole chain</h4>
+  <p>Each service in series multiplies the availability. With 99.9% each: 1 hop gives 43 min per month, 2 give 86 min, 3 give 129 min, 4 give 173 min and 6 give 259 min. The math assumes independent failures and equal repair time; in practice, a failure that spreads along the chain makes the result worse.</p>
+  <h4 class="deep-h">The network is not a local function</h4>
+  <p>Waldo and colleagues (1994) argue that treating a remote call as if it were local hides things that change the design: much higher latency, memory that is not shared, partial failure and concurrency. The charge that was created and nobody knows it was created is partial failure in its pure state.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on synchronous communication patterns (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "Waldo et al., \"A Note on Distributed Computing\" (1994, copy on the Internet Archive)", href: "https://web.archive.org/web/2023/https://scholar.harvard.edu/files/waldo/files/waldo-94.pdf" },
+    { label: "Google SRE Book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The caller does not know whether the other end did it, and the text of the call is already a decision: what the <code>pedidos</code> writes on the wire, in what format, with which headers. What is left is to see what that call looks like inside, in bytes, when it is REST over HTTP.</p>
+
+<Flashcards cards={[
+  { q: "What is a synchronous call?",
+    a: "The caller waits for the answer before moving on. It is simple and the error comes back right away, but the latency and availability of the caller depend on everyone behind it." },
+  { q: "What is the availability of <code>pedidos</code>, <code>pagamentos</code> and the PSP, each at 99.9%, in series?",
+    a: "0.999³ = 99.70%, or 129 minutes per month down. A single service has 43 minutes. With 4 hops it is 99.60% and 173 minutes." },
+  { q: "How long does the chain of order 1050 take in the example?",
+    a: "5 + 20 + 5 + 180 = 210 ms: gateway → pedidos, stock reservation, pedidos → pagamentos and pagamentos → PSP." },
+  { q: "The PSP took 8 s and the 2 s timeout fired. What was left behind?",
+    a: "The charge c-7731 already existed at the PSP, and Davi could pay the Pix for an order the store reported as failed. The caller does not know whether the other end did it." },
+]} />

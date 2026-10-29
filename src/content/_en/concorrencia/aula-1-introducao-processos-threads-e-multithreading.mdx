@@ -1,0 +1,86 @@
+---
+title: "Introduction: processes, threads and multithreading"
+order: 1
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">Module 10 ended with the mesh taking care of the conversation <em>between</em> services: mTLS, retries with rules, timeouts. But inside each service there is no mesh at all. The <code>estoque</code> service, written in Go, runs today on a 1 vCPU replica, <code>estoque-1</code>, and handles dozens of calls at the same time. They all touch the same database row: the plush cat, <code>GATO-042</code>. After Lena's order 1048 (stock went from 2 to 1), <strong>1 cat is left</strong>. This module's problem is how many things can happen at the same time without stepping on each other. To get there, you first need to know what that "thing" that runs is: process, thread, goroutine.</p>
+
+<OneLiner>A process is a running program with its own memory; threads are the lines of execution that live inside it and share that same memory; multithreading is using several of them in the same process.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Process</strong> scenario, move through the steps with the → key. First look at <code>estoque-1</code> as a block of memory crossed by tracks, the threads. Then compare it with <code>estoque-2</code>: is its memory the same or different? In the last step, <em>"what if it goes wrong"</em>, a goroutine hits <code>panic</code>. Count how many lines of execution are still alive.</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=processo" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Process × threads" alt="Preview of the 3D figure: Process × threads" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>When <code>estoque-1</code> starts, the operating system creates a <strong>process</strong>: its own memory, isolated from the memory of <code>estoque-2</code>, and a first line of execution that runs <code>main</code>. A container, in practice, is exactly this: a process with walls around it.</li>
+  <li>Each <code>reservar</code> call needs to move along without waiting for the others to finish. For that, the process gets more lines of execution, the <strong>threads</strong>. The operating system picks which thread occupies the core at any moment. Threads of the same process <strong>share memory</strong>: what one writes, the others read. That makes exchanging data easy, and it also makes touching the same data dangerous (lesson 6).</li>
+  <li>Using several threads in the same process is <strong>multithreading</strong>. With 200 simultaneous orders and one system thread for each, every thread reserves <strong>8 MB</strong> of virtual stack by default (<code>ulimit -s</code>): 200 × 8 MB = <strong>1.6 GB</strong> of virtual address space.</li>
+  <li>In Go, the program uses <strong>goroutines</strong>. Each one starts with about <strong>2 KB</strong> of stack, which grows if needed: 200 × 2 KB = <strong>400 KB</strong>. The Go runtime fits them onto a few system threads, and it switches goroutines when one of them is waiting for the database.</li>
+  <li>When the operating system takes one thread off the core and puts another on, that is called a <strong>context switch</strong>. Between threads of the same process it is lighter, because the memory is the same and does not need to be swapped.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: a panic takes down the whole process</h3>
+
+<p>Sharing memory has a price, and it shows up when a thread fails. At 14:02, a call reaches <code>estoque-1</code> with an empty SKU, and the code does a calculation with an index that does not exist. The goroutine hits <code>panic</code>, and since nobody wrote a <code>recover</code> in it, Go terminates the <strong>entire program</strong>, with exit code 2. The other 199 goroutines die with it, and every order in flight is lost, not just the one that failed.</p>
+
+<p>It is the blast radius from module 6, now inside the process: the failure boundary is the process, not the thread. Kubernetes restarts the pod, but the orders that were in the air are already gone. The rule is to put a <code>defer</code> with <code>recover</code> at the top of every goroutine the code starts, and to log the error instead of letting the program crash.</p>
+
+<WhyItMatters>
+  <li><strong>A process is the wall.</strong> <code>estoque-1</code> and <code>estoque-2</code> do not see each other's memory. This comes back in lesson 8, when the two replicas fight over the same cat.</li>
+  <li><strong>A thread is the line.</strong> Several threads share memory, so they talk fast and get in each other's way easily.</li>
+  <li><strong>A goroutine is cheap.</strong> 400 KB against 1.6 GB lets Go give every order its own line of execution without a second thought.</li>
+  <li><strong>One failure takes them all down.</strong> Whoever shares memory shares fate too: a <code>panic</code> without <code>recover</code> takes the whole process.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">System thread and goroutine side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>System thread</th><th>Goroutine</th></tr></thead>
+    <tbody>
+      <tr><th>Initial stack</th><td>8 MB virtual (<code>ulimit -s</code>)</td><td>about 2 KB, grows on demand</td></tr>
+      <tr><th>Who schedules it</th><td>the kernel</td><td>the Go runtime</td></tr>
+      <tr><th>Creating one</th><td>one call to the operating system</td><td>one allocation inside the runtime</td></tr>
+      <tr><th>200 at the same time</th><td>1.6 GB of virtual address space</td><td>400 KB</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The 8 MB is virtual address space, not memory spent: the kernel only hands over the pages the thread actually touches. The real cost of 200 threads is less than 1.6 GB, but the address space limit and the work of scheduling hundreds of threads remain.</p>
+  <h4 class="deep-h">Why one goroutine's failure kills the program</h4>
+  <p><code>recover</code> only works inside a <code>defer</code> of the <strong>same</strong> goroutine that panicked. A <code>recover</code> in <code>main</code> does not catch the <code>panic</code> of a child goroutine. That is why the pattern is for each goroutine you create to have its own.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "pthreads(7): overview of POSIX threads, shared memory and stack", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+    { label: "Go: Defer, Panic and Recover", href: "https://go.dev/blog/defer-panic-and-recover" },
+    { label: "Go: FAQ, why goroutines are cheap", href: "https://go.dev/doc/faq#goroutines" },
+    { label: "Go: the memory model", href: "https://go.dev/ref/mem" },
+  ]} />
+</Deep>
+
+<p class="gancho">Inside <code>estoque-1</code> there are many goroutines, but only 1 vCPU, and a core runs one thing at a time. So why would 200 orders moving together make this pod serve more than one order at a time? What's missing is what a core does while a goroutine waits for the database: that is concurrency.</p>
+
+<Flashcards cards={[
+  { q: "What is a process, and what does estoque-1 have of its own in it?",
+    a: "A running program. estoque-1 has its own memory, isolated from estoque-2, and a first line of execution that runs main." },
+  { q: "What do threads of the same process share?",
+    a: "Memory. What one writes, the others read. That makes exchanging data easy and touching the same data dangerous." },
+  { q: "How much do 200 orders cost in system threads and in goroutines?",
+    a: "200 × 8 MB = 1.6 GB of virtual address space against 200 × 2 KB = 400 KB." },
+  { q: "What happens when a goroutine panics without recover?",
+    a: "Go terminates the entire program: the other goroutines and all orders in flight die. The failure boundary is the process." },
+  { q: "What is a context switch?",
+    a: "The operating system takes one thread off the core and puts another in its place. Between threads of the same process it is lighter, because the memory is the same." },
+]} />

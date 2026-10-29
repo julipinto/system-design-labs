@@ -1,0 +1,112 @@
+---
+title: "MQTT: example"
+order: 8
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+
+<p class="ponte">Last lesson the truck <code>caminhao-17</code> published its position to a topic and <code>rastreio</code> subscribed to a filter, with QoS, retained and Last Will. Now the code: the author's public repository has a producer and a consumer in Go that talk through a Mosquitto. It is small and shows the basics, and it hides a few things that lesson 7 promised and the lab does not deliver.</p>
+
+<OneLiner>In the lab, a producer publishes one message per second with <strong>QoS 1</strong> and a consumer subscribes to the same topic with a <strong>clean session</strong>: everything the consumer misses while it is away is <strong>lost for good</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>MQTT lab</strong> scenario with the lab's data, swap the lab's topic for the store's, <code>loja/entregas/caminhao-17/posicao</code>, and the string for lesson 7's JSON. Then follow the "what if it goes wrong": the consumer starts after the producer. Count how many messages it lost with the clean session.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/fila-3d/?mode=lab-mqtt" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Interactive figure: MQTT: the lab" alt="Preview of the 3D figure: MQTT: the lab" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>messages/mqtt/default/</code> folder has a <code>docker-compose.yml</code> with <code>eclipse-mosquitto:2.0</code>, on ports <strong>1883</strong> (MQTT) and <strong>9001</strong>, and a 4-line <code>mosquitto.conf</code>: <code>listener 1883</code>, <code>allow_anonymous true</code>, <code>persistence true</code> and the persistence location.</li>
+  <li><code>producer.go</code> connects to <code>tcp://localhost:1883</code> with the <code>clientID</code> <code>producer-&lt;unix&gt;</code>, turns on <code>SetAutoReconnect(true)</code> and publishes <code>Mensagem #N - &lt;time&gt;</code> with <strong>QoS 1</strong> to the lab's topic, <code>linuxtips/iot</code>, <strong>every 1 s</strong>. After each <code>Publish</code>, it waits for the token: that is lesson 7's <code>PUBACK</code>.</li>
+  <li><code>consumer.go</code> subscribes to the same topic with QoS 1 and <code>SetCleanSession(true)</code>. A clean session means that, on disconnect, the broker <strong>forgets</strong> the subscription and its pending messages.</li>
+  <li>The mapping to the store is one to one: the topic <code>linuxtips/iot</code> becomes <code>loja/entregas/caminhao-17/posicao</code>, and the text string becomes the 38-byte JSON <code>&#123;"lat":-8.0476,"lng":-34.877,"vel":62&#125;</code>. The rest, the producer with QoS 1 and the consumer that subscribes to a topic, is exactly the design of <code>rastreio</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Five divergences between the lab and the lesson</h3>
+
+<ol class="flow steps">
+  <li><strong>The README and the code contradict each other.</strong> The <code>README</code> talks about the topic <code>linuxtips/demo</code> and an interval of <strong>5 s</strong>; the code uses <code>linuxtips/iot</code> and <strong>1 s</strong> (the code's comment also says 5 s, and the loop waits 1 s).</li>
+  <li><strong>The compose only brings up the broker.</strong> The <code>README</code> says <code>docker compose up</code> brings up producer and consumer; the <code>docker-compose.yml</code> only brings up <strong>Mosquitto</strong>. Producer and consumer run by hand, with <code>go run</code>.</li>
+  <li><strong>The configuration is lab-only.</strong> The compose exposes port 9001 (WebSocket), but <code>mosquitto.conf</code> only declares the <strong>1883</strong> listener; and <code>allow_anonymous true</code> accepts anyone. In production, user and password, per-topic ACLs and TLS on port 8883.</li>
+  <li><strong>The client is MQTT 3.1.1.</strong> <code>paho.mqtt.golang v1.4.3</code> speaks 3.1.1. Shared subscription (<code>$share</code>) is from <strong>MQTT 5.0</strong> and needs another client, <code>eclipse/paho.golang</code>.</li>
+  <li><strong>The <code>clientID</code> changes on every run.</strong> With <code>time.Now().Unix()</code>, the consumer is never the same one, and <strong>you cannot resume a persistent session</strong>.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the consumer starts after the producer</h3>
+
+<p>The producer starts publishing and the consumer comes up minutes later. With <code>CleanSession(true)</code>, the messages sent while it was away are <strong>lost</strong>, and the <code>README</code> itself warns about it. To keep them, you need <code>CleanSession(false)</code>, a <strong>fixed</strong> <code>clientID</code> and QoS 1: the broker keeps the subscriber's messages while it is away.</p>
+
+<p>That keeping has a limit. In 10 minutes, at 1 message per second, that is <strong>600</strong> messages. Mosquitto's default per-client queue limit is <strong>1,000</strong> (<code>max_queued_messages</code>, checked in the documentation). With 20 minutes, it is <strong>1,200</strong>, and the 200 extra ones are dropped. A persistent session is not a log: it is a short queue per subscriber.</p>
+
+<p>These numbers were tested. With the compose's Mosquitto 2.0, without touching the configuration, a subscriber with a fixed <code>clientID</code>, a persistent session and QoS 1 went offline, and I published messages with <code>mosquitto_pub</code>: of the 600, <strong>600</strong> came back; of the 1,200, <strong>1,000</strong> came back. The ones that stayed were the first 1,000 (1 to 1000), and the <strong>200 newest</strong> (1001 to 1200) were the ones dropped. With a clean session, 10 published and none delivered on return. This matters for tracking: when the queue fills up, what is lost is the truck's most recent position, precisely the one it wants.</p>
+
+<WhyItMatters>
+  <li><strong>A clean session forgets.</strong> What goes by while the consumer is away is gone.</li>
+  <li><strong>A persistent session needs a fixed <code>clientID</code>.</strong> The lab generates a new one on every run.</li>
+  <li><strong>The session queue has a ceiling.</strong> 600 fit in the 1,000; 1,200 lose 200.</li>
+  <li><strong>The lab is the base, not production.</strong> No authentication, no TLS and on 3.1.1.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">What came out when I ran it</h4>
+  <p>I ran the lab on October 21, 2026 (Docker 29.9.1, <code>eclipse-mosquitto:2.0</code>, <code>paho.mqtt.golang v1.4.3</code>). I do not have Go installed: I compiled the producer and the consumer with the <code>golang</code> image and ran them on an <code>alpine</code> image on the compose network, with the broker at <code>tcp://mqtt-broker:1883</code> in place of <code>localhost</code>, only in my copy. The full output is in <a href={withBase('labs/comunicacao-assincrona/lab/mqtt-saida.txt')}>mqtt-saida.txt</a> (the file is in Portuguese).</p>
+<pre><code>{String.raw`# consumer already up, producer afterwards: 5 published, 5 received
+[PRODUCER] Mensagem publicada: Mensagem #1 - 2026-10-21T11:53:54Z
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #1 - 2026-10-21T11:53:54Z
+
+# producer with 11 messages published; consumer (CleanSession true) joins in the middle
+[CONSUMER] Inscrito no tópico: linuxtips/iot
+[CONSUMER] Mensagem recebida no tópico linuxtips/iot: Mensagem #7 - 2026-10-21T11:54:10Z
+# messages 1 to 6 were lost
+
+$ docker logs mqtt-broker | grep -i listen
+Opening ipv4 listen socket on port 1883.
+Opening ipv6 listen socket on port 1883.`}</code></pre>
+  <ul>
+    <li><strong>Confirmed:</strong> the producer publishes at 1 per second and waits for the <code>PUBACK</code> on each one; the consumer that starts afterwards, with a clean session, loses everything that went by before (in the test, messages 1 to 6) and receives only from the moment it joins. The broker really only opens <strong>1883</strong>: a <code>curl</code> to port 9001, which the compose publishes, ends in <code>curl: (56)</code>, with no listener behind it.</li>
+    <li><strong>Confirmed:</strong> the persistent session queue ceiling is 1,000 (600 come back as 600; 1,200 come back as 1,000, and the dropped ones are the newest).</li>
+    <li><strong>Same code, with the producer in front:</strong> the consumer lost <em>nothing</em> when it was already up before the producer started.</li>
+  </ul>
+  <h4 class="deep-h">The producer, unchanged</h4>
+  <p>This is <code>producer.go</code> from the author's public examples repository (the numbers on the left are the file's line numbers; the comments are in Portuguese, as in the original). The QoS 1 <code>Publish</code> is on line 46, and the 1 s <code>Sleep</code> is on line 56.</p>
+  <pre><code>{"19  func main() {\n20  \tbroker := \"tcp://localhost:1883\"\n21  \n22  \ttopic := \"linuxtips/iot\"\n23  \n24  \tclientID := fmt.Sprintf(\"producer-%d\", time.Now().Unix())\n25  \n26  \topts := mqtt.NewClientOptions()\n27  \topts.AddBroker(broker)\n28  \topts.SetClientID(clientID)\n29  \topts.OnConnect = connectHandler\n30  \topts.OnConnectionLost = connectLostHandler\n31  \topts.SetAutoReconnect(true)\n32  \n33  \tclient := mqtt.NewClient(opts)\n34  \tif token := client.Connect(); token.Wait() && token.Error() != nil {\n35  \t\tlog.Fatal(token.Error())\n36  \t}\n37  \n38  \t// Aguarda um pouco para garantir que o consumer está pronto\n39  \ttime.Sleep(3 * time.Second)\n40  \n41  \t// Publica mensagens a cada 5 segundos\n42  \tcounter := 1\n43  \tfor {\n44  \t\tmessage := fmt.Sprintf(\"Mensagem #%d - %s\", counter, time.Now().Format(time.RFC3339))\n45  \n46  \t\ttoken := client.Publish(topic, 1, false, message)\n47  \t\ttoken.Wait()\n48  \n49  \t\tif token.Error() != nil {\n50  \t\t\tfmt.Printf(\"[PRODUCER] Erro ao publicar: %v\\n\", token.Error())\n51  \t\t} else {\n52  \t\t\tfmt.Printf(\"[PRODUCER] Mensagem publicada: %s\\n\", message)\n53  \t\t}\n54  \n55  \t\tcounter++\n56  \t\ttime.Sleep(1 * time.Second)\n57  \t}\n58  }"}</code></pre>
+  <h4 class="deep-h">The consumer and the configuration, unchanged</h4>
+  <p><code>consumer.go</code> with the clean session (line 40) and the subscription (line 48), and the whole <code>mosquitto.conf</code> (comments in Portuguese, as in the original).</p>
+  <pre><code>{"27  \tbroker := \"tcp://localhost:1883\"\n28  \n29  \ttopic := \"linuxtips/iot\"\n30  \n31  \tclientID := fmt.Sprintf(\"consumer-%d\", time.Now().Unix())\n32  \n33  \topts := mqtt.NewClientOptions()\n34  \topts.AddBroker(broker)\n35  \topts.SetClientID(clientID)\n36  \topts.SetDefaultPublishHandler(messagePubHandler)\n37  \topts.OnConnect = connectHandler\n38  \topts.OnConnectionLost = connectLostHandler\n39  \topts.SetAutoReconnect(true)\n40  \topts.SetCleanSession(true)\n41  \n42  \tclient := mqtt.NewClient(opts)\n43  \tif token := client.Connect(); token.Wait() && token.Error() != nil {\n44  \t\tlog.Fatal(token.Error())\n45  \t}\n46  \n47  \t// Subscreve no tópico\n48  \tif token := client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {\n49  \t\tlog.Fatal(token.Error())\n50  \t}\n51  \tfmt.Printf(\"[CONSUMER] Inscrito no tópico: %s\\n\", topic)\n52  \n53  \t// Aguarda sinal de interrupção\n54  \tsigChan := make(chan os.Signal, 1)\n55  \tsignal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)\n56  \t<-sigChan\n57  \n58  \tfmt.Println(\"\\n[CONSUMER] Encerrando...\")\n59  \tclient.Disconnect(250)\n60  }"}</code></pre>
+  <pre><code>{"1  listener 1883\n2  allow_anonymous true\n3  persistence true\n4  persistence_location /mosquitto/data/"}</code></pre>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li><strong>Labs.</strong> The five divergences above belong to the repository. The article does not include the MQTT code; it only lists the Eclipse Paho Go client as a reference.</li>
+  </ul>
+  <Sources items={[
+    { label: "Author's public repository: messaging examples (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/messages" },
+    { label: "Eclipse Paho MQTT Go client (the article's reference)", href: "https://pkg.go.dev/github.com/eclipse/paho.mqtt.golang" },
+    { label: "Eclipse Mosquitto: mosquitto.conf (max_queued_messages)", href: "https://mosquitto.org/man/mosquitto-conf-5.html" },
+    { label: "MQTT 3.1.1 (OASIS): sessions and clean session", href: "https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">MQTT takes care of the truck, and Kafka of the events between services. The third path is missing: <code>notificacoes</code> sends emails, some transactional and some promotional, and a provider that accepts 100 per second makes Lena's email wait behind 50,000. We still need to see how to separate what is urgent from what is volume, and who decides each message's queue: that is AMQP, in RabbitMQ.</p>
+
+<Flashcards cards={[
+  { q: "What do the MQTT lab's producer and consumer do?",
+    a: "The producer publishes one message per second with QoS 1 to the lab's topic. The consumer subscribes to the same topic, with QoS 1 and a clean session." },
+  { q: "What happens if the consumer starts after the producer, with CleanSession(true)?",
+    a: "The messages sent while it was away are lost. The README warns about it." },
+  { q: "What does it take for the broker to keep the subscriber's messages?",
+    a: "CleanSession(false), a fixed clientID and QoS 1. The lab generates a new clientID on every run, so it cannot." },
+  { q: "How many messages stay stored in 10 and in 20 minutes at 1 msg/s?",
+    a: "600 (they fit in the 1,000 of max_queued_messages) and 1,200 (200 dropped). Tested: 600 and 1,000 came back, and the dropped ones were the newest, 1001 to 1200." },
+  { q: "Why can't you use $share with paho.mqtt.golang v1.4.3?",
+    a: "It speaks MQTT 3.1.1; shared subscription is from MQTT 5.0 and needs the eclipse/paho.golang client." },
+]} />

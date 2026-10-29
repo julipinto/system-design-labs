@@ -1,0 +1,71 @@
+---
+title: "Introduction to service mesh"
+order: 1
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">Module 9 ended with <code>bff-app</code> assembling Lena's screen, with a timeout and a fallback for whatever failed. But that screen is only the front door. Behind it, the shop runs 30 pods that call each other all the time: <code>pedidos</code> calls <code>pagamentos</code> and <code>estoque</code>, <code>bff-app</code> calls <code>catalogo</code>. Each team wrote its own way to retry, wait, encrypt and measure inside its service. This module's problem is to take that out of the code and put it in the network, once, the same for everyone.</p>
+
+<OneLiner>A service mesh is a network layer that handles the conversation between services, with a proxy next to each one, so that retry, timeout, TLS and metrics stop being each team's code.</OneLiner>
+
+<DoIt>
+  <p>In the figure, open the <strong>No mesh</strong> button and move through the steps with the → key. In the first one, <em>pedidos charges order 1048</em>, follow the light from <code>pedidos</code> to <code>pagamentos</code>. In the step <em>When it fails: 5 retries with no wait</em>, count how many calls <code>pagamentos</code> receives and how long <code>pedidos</code> waits between them. In the estoque and catalogo steps, see who does not encrypt and who measures nothing. Then tap <strong>Sidecar</strong> and answer: what changed in the services' code? (The "lines changed in the app" counter tells you.)</p>
+</DoIt>
+
+<Figure3D path="en/labs/service-mesh/mesh-3d/?mode=sem" poster="labs/service-mesh/mesh-3d-previa.webp" title="Interactive figure: No mesh: each app does it its own way" alt="Preview of the 3D figure: No mesh: each app does it its own way" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena's order 1048, for 94.90, reaches <code>pedidos</code>. It has to charge, and it calls <code>pagamentos</code> the way any HTTP client would: <code>POST http://pagamentos:8080/cobrancas</code>, with the body <code>{`{ "pedido_id": 1048, "valor": 94.90 }`}</code>.</li>
+  <li><code>pagamentos</code> answers <strong>503</strong>. With no mesh, <code>pedidos</code> itself decides what to do, and its team chose to retry <strong>5 times, with no wait</strong> between attempts. If <code>pagamentos</code> was overloaded, it now receives 6 calls instead of 1.</li>
+  <li>Each other service solved its part differently. <code>estoque</code> does not use TLS, so what it receives and sends travels in plain text. <code>catalogo</code> measures nothing, so nobody knows how long it takes. And this repeats in Go, Node.js and Java, each with its own library.</li>
+  <li>The idea of the mesh is to take that code out of the services. A <strong>proxy</strong> sits next to each app and intercepts the outgoing and the incoming call. The app keeps asking for <code>http://pagamentos:8080/cobrancas</code>, without knowing the proxy exists.</li>
+  <li>Since retry, TLS and metrics now live in the proxies, the rule is written <strong>once</strong>, in one place, and applies to all 30 pods, whatever the language. That set of proxies and whatever drives them is the mesh.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>One behavior.</strong> Instead of three libraries with three ways to fail, there is one retry rule, and it is the same for everyone.</li>
+  <li><strong>Change without a redeploy.</strong> Changing <code>pedidos</code>' retry limit stops being a code deploy and becomes a configuration.</li>
+  <li><strong>Free visibility.</strong> The proxy sees every call, so latency and errors per pair of services show up without anyone instrumenting <code>catalogo</code>.</li>
+  <li><strong>The price.</strong> Every call goes through extra proxies, and the mesh becomes a system to operate. The rest of the module shows how much it costs and when it pays off.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The original definition</h4>
+  <p>William Morgan, of Buoyant, defined it in 2017: a service mesh is an infrastructure layer dedicated to service-to-service communication, usually implemented as a set of lightweight proxies installed next to the application code, without the application noticing. He also shows that the idea did not come out of nowhere: libraries such as Finagle, Stubby and Hystrix already did retry, deadline and load balancing inside the code, and they were the first "meshes". What containers and Kubernetes changed was the ability to move that function out of the code.</p>
+  <h4 class="deep-h">What the mesh is not</h4>
+  <p>It is not a load balancer in the middle of the road, nor an edge gateway (lesson 6). It is a layer that lives between the services inside, which is why the article treats it as a networking <em>pattern</em>, not as a product.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article says services "do not even know they are in a mesh". The outgoing call does stay the same, but the mesh is not invisible: tracing only joins the spans if the app passes along certain headers (lesson 2), retry is only safe on calls that can be repeated (lesson 2), and the proxy uses CPU and memory (lessons 4 and 5).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Service Mesh (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "William Morgan, \"What's a service mesh? And why do I need one?\" (Buoyant, 2017, copy on the Internet Archive)", href: "https://web.archive.org/web/20180104233448/https://buoyant.io/2017/04/25/whats-a-service-mesh-and-why-do-i-need-one/" },
+    { label: "Istio: what is a service mesh", href: "https://istio.io/latest/about/service-mesh/" },
+    { label: "Red Hat: what is a service mesh", href: "https://www.redhat.com/pt-br/topics/microservices/what-is-a-service-mesh" },
+    { label: "Cilium: what is a service mesh and which requirements it meets", href: "https://docs.cilium.io/en/stable/network/servicemesh/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The mesh took the retry out of <code>pedidos</code>' code, but we have not yet said what the proxy does with the call for order 1048 on its way. What is left is what it can do with it: route, balance, retry with a rule, encrypt, block and measure.</p>
+
+<Flashcards cards={[
+  { q: "What is a service mesh, in one sentence?",
+    a: "A network layer that handles the conversation between services with a proxy next to each one, so that retry, timeout, TLS and metrics are not each team's code." },
+  { q: "Which problem in the shop does the mesh solve?",
+    a: "Each team wrote its own retry, TLS and metrics: pedidos retries 5 times with no wait, estoque does not encrypt, catalogo does not measure. The mesh puts that in the network, the same for everyone." },
+  { q: "Does the app need to change its call to use the mesh?",
+    a: "No. pedidos keeps calling http://pagamentos:8080/cobrancas. The proxy next to it intercepts and applies the rules." },
+  { q: "Who were the first 'meshes' in history?",
+    a: "Libraries inside the code, such as Finagle, Stubby and Hystrix. The modern mesh moves the same function to proxies outside the code." },
+]} />

@@ -1,0 +1,87 @@
+---
+title: "Introduction"
+order: 1
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Module 12 ended with Davi's order <strong>1050</strong> paid: the PSP called the store's webhook and <code>PedidoPago</code> went out. But that notice has to reach three places, <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code>, and every call in the last module waits for someone. Making the three calls one after another slows the payment down, and if <code>entregas</code> is down, the payment fails. The problem in this module is <strong>how to notify without waiting, without losing the notice and without the producer knowing who listens</strong>.</p>
+
+<OneLiner>Asynchronous communication means handing the notice to an intermediary, the <strong>broker</strong>, and moving on: whoever needs it reads it when they can, and the sender neither waits for an answer nor knows who reads.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step forward with the → key and follow the event for Lena's order <strong>1051</strong> entering the <code>pedidos</code> topic. Write down which partition and which offset it lands on and how many services read it. Then add up the times of the synchronous chain, 20 + 100 + 10 ms, and compare with the single step <code>pedidos</code> takes now.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/kafka-3d/?mode=topico" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Interactive figure: the log of the pedidos topic" alt="Preview of the 3D figure: the log of the pedidos topic" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Today, when Lena's payment comes in, <code>pedidos</code> calls <code>estoque</code> (20 ms), then <code>entregas</code> (100 ms), then <code>notificacoes</code> (10 ms), one at a time. The response takes <strong>130 ms longer</strong>, and Lena stares at the screen while the store notifies people who have nothing to do with her answer.</li>
+  <li>The second cost is dependency. If <code>entregas</code> is down, the second call fails and <strong>the order fails with it</strong>, even though the payment already happened. A synchronous call ties the caller's time to the time of whoever answers.</li>
+  <li>The asynchronous path replaces the three calls with one. <code>pedidos</code> publishes <strong>1 event</strong> to the Kafka topic <code>pedidos</code> and waits only for the broker to confirm it wrote it: about <strong>10 ms</strong> with <code>acks=all</code>. Then it answers Lena.</li>
+  <li>The three services read the topic whenever they want. Did <code>entregas</code> go down? <code>PedidoPago</code> waits stored in the log and is read when they come back. This is the idea module 6 already gave, "wait in the queue", now with a real place to wait.</li>
+  <li>The sender also stops knowing who listens. Without events, <code>pedidos</code> knows <strong>3 destinations</strong>; with events, it knows <strong>1 topic</strong>. A fourth interested party, an <code>antifraude</code> service, starts reading the same topic without touching <code>pedidos</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the synchronous chain with entregas down</h3>
+
+<p>It is 14:20:03 and the PSP reports that Lena paid order 1051, for 54.80. <code>pedidos</code> calls <code>estoque</code> and it works. The call to <code>entregas</code> never comes back, because the service is under maintenance, and <code>pedidos</code> returns an error. Lena's money already left, the order did not move forward and <code>notificacoes</code> was never called.</p>
+
+<p>With the event in Kafka, the same outage becomes a delay: <code>PedidoPago</code> stays in the topic, <code>entregas</code> comes back and reads it. The new design has a different price, and it shows up in the next lessons: the response to Lena no longer says whether the stock was reserved, because that happens <em>afterwards</em>. Her screen shows "paid" and the rest arrives later.</p>
+
+<WhyItMatters>
+  <li><strong>The payment stops waiting for its neighbors.</strong> The response drops from +130 ms to about 10 ms of publishing.</li>
+  <li><strong>An outage does not take the order down.</strong> The notice waits in the log until the service returns.</li>
+  <li><strong>The producer stays light.</strong> It knows 1 topic, not 3 services and their addresses.</li>
+  <li><strong>It has a cost.</strong> The result arrives after the response, and you have to handle notices that are duplicated, out of order or late (lessons 5 to 10).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Synchronous and asynchronous side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Synchronous (module 12)</th><th>Asynchronous (this module)</th></tr></thead>
+    <tbody>
+      <tr><th>What the sender does</th><td>calls and waits for the response</td><td>hands it to the broker and moves on</td></tr>
+      <tr><th>Response time to the client</th><td>sum of the times: +130 ms</td><td>1 publish: about 10 ms</td></tr>
+      <tr><th>Destination down</th><td>the call fails</td><td>the notice waits in the broker</td></tr>
+      <tr><th>What the sender knows</th><td>3 destinations</td><td>1 topic</td></tr>
+      <tr><th>Result of the work</th><td>comes in the response</td><td>arrives later, in another notice</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>A synchronous call is still the right choice when the screen needs the answer to continue, like looking up the cat's price or checking a password. Asynchronous fits what can happen later, like decrementing stock, preparing the delivery and sending the email.</p>
+  <h4 class="deep-h">The numbers in the example</h4>
+  <p>The times of 20, 100 and 10 ms are examples, chosen so the arithmetic is easy to see. So is the 10 ms for the broker to confirm with <code>acks=all</code>: it depends on the network between the brokers and on the disk. What does not depend on any number is the structure: the sum becomes a single step.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Enterprise Integration Patterns: messaging patterns (Hohpe and Woolf)", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/" },
+    { label: "Akka: Message Driven vs Event Driven (the article's reference)", href: "https://developer.lightbend.com/docs/akka-guide/concepts/message-driven-event-driven.html" },
+    { label: "Apache Kafka documentation", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now <code>pedidos</code> publishes a notice and moves on. But what exactly travels in the topic: an order, a fact or a handful of data? We still need the difference between command, event and document, and why mixing the three up makes the store decrement the stock twice.</p>
+
+<Flashcards cards={[
+  { q: "How much does the synchronous chain delay the order response, and what happens if entregas goes down?",
+    a: "+130 ms (20 + 100 + 10). With entregas down the order fails, even though the payment already happened." },
+  { q: "What does pedidos do in the asynchronous design?",
+    a: "It publishes 1 event to the pedidos topic and waits only for the broker to confirm (about 10 ms with acks=all). The three services read later." },
+  { q: "What is a broker?",
+    a: "The intermediary that holds the notice between whoever sends and whoever reads. In this module, Kafka, Mosquitto (MQTT) and RabbitMQ." },
+  { q: "How many destinations does the producer know before and after?",
+    a: "Before, 3 services. After, 1 topic. A fourth interested party reads the topic without touching the producer." },
+  { q: "What is the cost of asynchronous?",
+    a: "The result arrives after the response, and the notice can come duplicated, late or out of order." },
+]} />

@@ -1,0 +1,85 @@
+---
+title: "Data streaming"
+order: 4
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson, every structure erased the message after it was read: the queue is a corridor the message passes through once. But the store wants the opposite. The fraud team just created <code>antifraude</code> and needs <em>today's</em> events, which <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code> have already read. And finance wants to know revenue now, not at 23:00. The answer to both is to keep the events in a log and treat the flow as a river, not as a load.</p>
+
+<OneLiner>Streaming means processing events <strong>as they happen</strong>, over a <strong>log</strong> that keeps them: unlike the queue, nothing is erased on read, and any new group can reread from the beginning.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step forward and watch partition <strong>p0</strong> receive the four events of order 1051, at offsets 48210, 48213, 48217 and 48301. Notice they are not neighbors: events from other orders sit in between. Then imagine <code>antifraude</code> showing up at 15:30: at which offset does it start reading?</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/kafka-3d/?mode=topico" poster="labs/comunicacao-assincrona/kafka-3d-previa.webp" title="Interactive figure: the log of the pedidos topic" alt="Preview of the 3D figure: the log of the pedidos topic" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The 23:00 report is a <strong>batch</strong>: it collects the day and shows revenue at 23:00:12. In <strong>streaming</strong>, each <code>PedidoPago</code> updates the day's total the instant it happens, with a delay of about <strong>1 s</strong>. The same calculation, but the number stays right all day.</li>
+  <li>For that, the events have to be at hand after they arrive. The <strong>queue</strong> erases the message when someone acknowledges it. The stream is a <strong>log</strong>: the events stay recorded in the order they arrived, for example for <strong>7 days</strong>, and each reader only notes how far it has read.</li>
+  <li>That is why a new group can <strong>reread from offset 0</strong>. <code>antifraude</code> starts up, asks for the events from the beginning and processes the roughly <strong>48 thousand</strong> from the day. In the module's lab this is <code>OffsetOldest</code>; in the article's example, <code>auto.offset.reset: earliest</code>. This replay comes back in module 20.</li>
+  <li>To add up revenue per minute the stream needs a <strong>window</strong>: a slice of time, here of <strong>1 minute</strong>. Each <code>PedidoPago</code> goes into the window of the time the order was paid, the <strong>event time</strong>, and not the time the event arrived, the <strong>processing time</strong>.</li>
+  <li>The store's services are already a chain of <strong>reactions</strong>: <code>PedidoCriado</code> makes <code>notificacoes</code> act, <code>PedidoPago</code> makes <code>estoque</code> act, and <code>EstoqueReservado</code> makes <code>entregas</code> act. It is the same design as the article's example, a food delivery with CRIADO, ACEITO, PRONTO and A_CAMINHO, each status waking a different group.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the event that arrives after the window</h3>
+
+<p>On a day when the PSP's webhook was late, as in module 12, Lena's <code>PedidoPago</code> happened at <strong>14:20:03</strong> (event time), but only reached the topic at <strong>14:21:05</strong> (processing time). The 14:20 window had already closed and added up the total without Lena's 54.80. The payment fell outside that minute's count.</p>
+
+<p>The fix is a window with <strong>late-arrival tolerance</strong>: it closes, say, 2 minutes after its end and the total is corrected when a late event arrives. The price is waiting longer to give the final number. Choosing the tolerance is the same old trade, between speed and certainty.</p>
+
+<p>The other risk is the usual one in a stream: the consumer slower than the producer. The distance between the last written offset and the offset where the group is, is the <strong>lag</strong>, and it grows without stopping if the group does not keep up. Lesson 5 shows how to measure it.</p>
+
+<WhyItMatters>
+  <li><strong>The log keeps.</strong> The queue erases on read; the stream keeps for 7 days, and whoever arrives later reads from offset 0.</li>
+  <li><strong>The number stays alive.</strong> Revenue stops being the 23:00 figure and becomes the figure for the last second.</li>
+  <li><strong>Event time is not arrival time.</strong> A window by processing time gets the total wrong when something is late.</li>
+  <li><strong>Tolerance costs waiting.</strong> Closing the window 2 minutes later corrects the total and delays the final number.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Queue and log side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Queue (RabbitMQ)</th><th>Log (Kafka)</th></tr></thead>
+    <tbody>
+      <tr><th>After being read</th><td>erased when someone sends the ack</td><td>stays in the log until retention (7 days)</td></tr>
+      <tr><th>Who knows where it stopped</th><td>the broker</td><td>each group keeps its own offset</td></tr>
+      <tr><th>New group</th><td>only sees what arrives</td><td>can reread from offset 0</td></tr>
+      <tr><th>Order</th><td>arrival order, with one consumer</td><td>per partition, always</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Jay Kreps's text</h4>
+  <p>The idea that the log is the central structure of a real-time data system comes from Jay Kreps's article "The Log" (2013), and from the original Kafka paper (Kreps, Narkhede and Rao, 2011). Retention and consumer offsets are in the Kafka documentation. Time-based retention is the 7 days of the lab's <code>KAFKA_LOG_RETENTION_HOURS: 168</code>; there is also compaction, which keeps only the last value of each key, and which the article does not mention.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Jay Kreps: The Log, what every software engineer should know about real-time data's unifying abstraction", href: "https://www.linkedin.com/pulse/log-what-every-software-engineer-should-know-about-real-time-datas-jay-kreps" },
+    { label: "Apache Kafka documentation (design, retention and consumer offsets)", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">To keep events for 7 days and let several groups read from their own point, Kafka splits the topic into partitions and puts each one on more than one broker. We still need to see how the key picks the partition, how groups move at different paces and what happens when a broker goes down in the middle of <code>PedidoPago</code>.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between a queue and a log?",
+    a: "The queue erases the message when someone acknowledges it. The log keeps the events (7 days) and any new group can reread from offset 0." },
+  { q: "What does antifraude do on startup, and with which lab setting?",
+    a: "It rereads the roughly 48 thousand events of the day from the beginning: OffsetOldest in the lab, auto.offset.reset: earliest in the article's example." },
+  { q: "What is the difference between event time and processing time?",
+    a: "Event time is when it happened (14:20:03); processing time is when it reached the topic (14:21:05, with the webhook late)." },
+  { q: "How do you fix Lena's payment falling outside the 14:20 window?",
+    a: "A window with late-arrival tolerance (closes 2 min later) and a total corrected when the late event arrives." },
+  { q: "What is lag?",
+    a: "The distance between the last offset of the topic and the offset where the group is. It grows without stopping if the consumer is slower than the producer." },
+]} />

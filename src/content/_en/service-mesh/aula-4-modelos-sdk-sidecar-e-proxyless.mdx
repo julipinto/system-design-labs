@@ -1,0 +1,107 @@
+---
+title: "Models: SDK, sidecar and proxyless"
+order: 4
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the data plane was left as "the proxies in the path of every call". But a "proxy" can live in different places, and the choice changes the price. The shop has 30 pods in Go, Node.js and Java: where do we put the proxy so that the retry, mTLS and policy rules reach all of them?</p>
+
+<OneLiner>The data plane can live in a library inside the app (SDK), in a container next to each app (sidecar) or in gRPC's own network library (proxyless); each place trades coupling for cost.</OneLiner>
+
+<DoIt>
+  <p>In the figure, tap <strong>Sidecar</strong> and see, in the step <em>An Envoy joins every pod</em>, the ENVOY box rise next to each app. In the step <em>The call goes through 2 proxies</em>, count how many proxies the light passes through to reach <code>pagamentos</code> and how much time that adds up to. In the last step, <em>When it fails: replacing Envoy on all 30 pods</em>, watch the restarted pods counter reach 30.</p>
+</DoIt>
+
+<Figure3D path="en/labs/service-mesh/mesh-3d/?mode=sidecar" poster="labs/service-mesh/mesh-3d-previa.webp" title="Interactive figure: Sidecar: an Envoy in every pod" alt="Preview of the 3D figure: Sidecar: an Envoy in every pod" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>SDK (client-server).</strong> The rule lives inside the app, in a library. The app points to the control plane, downloads the policies and applies them in its own memory. In the shop that means <strong>3 libraries</strong>, one per language (Go, Node.js and Java), and each version change is a new deploy of each service. What the library does not do does not exist. That is how the idea was born, with Finagle and Hystrix.</li>
+  <li><strong>Sidecar.</strong> Each pod gets a second container, an <strong>Envoy</strong>, and the pod's kernel rules (iptables) divert to it everything the app sends and receives. The app changes nothing. In exchange, the example cost is <strong>0.1 vCPU and 50 MB per sidecar</strong>: with 30 pods, <strong>3 vCPU and 1.5 GB</strong> of proxy alone.</li>
+  <li>With the sidecar, every call goes through <strong>2 proxies</strong>, <code>pedidos</code>' and <code>pagamentos</code>', and adds about <strong>1 ms</strong> (an example value; the real one depends on the load and on the features turned on). Updating Envoy means <strong>restarting the 30 pods</strong>, because the proxy lives inside each one.</li>
+  <li><strong>Proxyless.</strong> There is no second container: the gRPC library, which is already in the app, speaks <strong>xDS</strong> directly with the control plane and applies routing, balancing and retry on its own. It only works for those who use gRPC.</li>
+  <li>The three have something in common: the control plane is the same and the rules are the same. What changes is where the data plane is and what you pay for it.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap" role="region" aria-label="Comparison of the SDK, sidecar and proxyless models" tabindex="0">
+<table class="sr-table">
+  <thead><tr><th>Model</th><th>Where the proxy lives</th><th>Cost in the shop (30 pods)</th><th>Limit</th></tr></thead>
+  <tbody>
+    <tr><th>SDK</th><td>Library inside the app</td><td>3 libraries, no extra process</td><td>Coupled to the code and the language; updating is a redeploy</td></tr>
+    <tr><th>Sidecar</th><td>Envoy in each pod</td><td>3 vCPU and 1.5 GB; +~1 ms per call</td><td>Updating Envoy restarts the 30 pods</td></tr>
+    <tr><th>Proxyless</th><td>gRPC library in the app</td><td>Almost nothing extra</td><td>gRPC only; updating is an app redeploy</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">When it fails: the sidecar is also a deploy</h3>
+
+<p>The sidecar gets into the pod when the pod is created, not later. The 30 pods that already existed stay without a proxy until they are recreated, and a new Envoy version only reaches whoever restarts. Updating the mesh becomes a coordinated operation of 30 restarts, and a forgotten pod stays on an old proxy version without anyone noticing.</p>
+
+<WhyItMatters>
+  <li><strong>Sidecar:</strong> works with any language and any protocol, and the app team does not need to do anything. That is why it is the most common model.</li>
+  <li><strong>SDK:</strong> does not spend a process per pod, but ties the mesh to the language and to each team's deploy cycle. It is the problem from the start of lesson 1, back again.</li>
+  <li><strong>Proxyless:</strong> takes the proxy out of the path, and with it the extra hop and the cost. In exchange, it only serves those who speak gRPC.</li>
+  <li><strong>The cost is per pod.</strong> The 3 vCPU and 1.5 GB grow with the number of pods, and that is what the next lesson tries to avoid.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">How the sidecar gets into the pod, in practice</h4>
+  <p>In Istio, the namespace gets a label and Kubernetes injects the proxy into each new pod:</p>
+<pre><code>{String.raw`kubectl label namespace loja istio-injection=enabled
+kubectl rollout restart deployment -n loja     # recreates the pods, now with the sidecar
+kubectl get pods -n loja                       # READY 2/2: app + istio-proxy`}</code></pre>
+  <p>The proxy listens on well-known ports: <code>15001</code> for what leaves the app and <code>15006</code> for what comes in, and the pod's iptables carries the traffic there. The app keeps opening a connection to <code>pagamentos:8080</code> without knowing.</p>
+  <h4 class="deep-h">How proxyless shows up in the code</h4>
+  <p>In Go, the library is linked with an import and the target starts to use the <code>xds:</code> scheme. The bootstrap file says where the control plane is and who this client is (the format is the one in gRFC A27):</p>
+<pre><code>{String.raw`import _ "google.golang.org/grpc/xds" // installs the xDS resolver and balancers
+
+// the client opens the channel to the service, with no pod address:
+//   xds:///pagamentos
+// and the program is started with:
+//   GRPC_XDS_BOOTSTRAP=/etc/xds/bootstrap.json`}</code></pre>
+<pre><code>{String.raw`{
+  "xds_servers": [
+    {
+      "server_uri": "controlplane.loja:18000",
+      "channel_creds": [ { "type": "insecure" } ]
+    }
+  ],
+  "node": { "id": "pedidos-7d9f" }
+}`}</code></pre>
+  <p>The server address and the node <code>id</code> are examples. Note that the JSON <code>POST /cobrancas</code> from lesson 1 does not work for this: <code>pagamentos</code> would need to speak gRPC.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article lumps "Sidecarless / Proxyless" into a single model, which embeds the functions "in network components or in the kernel". They are two different ways. In <strong>proxyless</strong>, the data plane is the app's own library (gRPC with xDS), with no kernel or node. What takes the proxy out of the pod by another path, <strong>sidecarless</strong>, is eBPF and ztunnel, in the next lesson.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Service Mesh (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "Istio: sidecar installation and automatic injection", href: "https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/" },
+    { label: "Istio: application requirements (ports 15001 and 15006)", href: "https://istio.io/latest/docs/ops/deployment/application-requirements/" },
+    { label: "Istio: performance (sidecar CPU and memory, latency)", href: "https://istio.io/latest/docs/ops/deployment/performance-and-scalability/" },
+    { label: "gRFC A27: gRPC with xDS (bootstrap format)", href: "https://github.com/grpc/proposal/blob/master/A27-xds-global-load-balancing.md" },
+    { label: "grpc-go: xDS client example", href: "https://github.com/grpc/grpc-go/blob/master/examples/features/xds/README.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">The sidecar solves the language problem, but it charges one proxy per pod: 30 pods, 30 Envoys. What is left is whether we can have the mesh's rules without paying for a proxy inside every pod.</p>
+
+<Flashcards cards={[
+  { q: "Which are the three places where the data plane can live in this lesson?",
+    a: "In a library inside the app (SDK), in a container next to each app (sidecar) or in the gRPC library speaking xDS (proxyless)." },
+  { q: "How much does the sidecar cost in the shop, with the example numbers?",
+    a: "0.1 vCPU and 50 MB per pod: with 30 pods, 3 vCPU and 1.5 GB. Each call goes through 2 proxies (+~1 ms)." },
+  { q: "Why is updating Envoy laborious in the sidecar model?",
+    a: "Because the proxy lives inside each pod, and it only changes version when the pod is recreated: restarting the 30 pods." },
+  { q: "What does proxyless require from the service?",
+    a: "That it speaks gRPC and uses a library with xDS support. The app opens xds:///pagamentos and the library plays the proxy's role." },
+]} />

@@ -1,0 +1,96 @@
+---
+title: "GraphQL"
+order: 7
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">Lena sees the truck move, but the home screen of her app, the one from module 9, still needs four pieces: the cat from the <code>catalogo</code>, the cart, what is recommended and the status of order 1048. In module 9 the <code>bff-app</code> solved this by deciding, in the server code, what shape the response would have. What if the client itself decided the shape, at the moment of asking?</p>
+
+<OneLiner>GraphQL is a query language with a schema that describes the data: the client writes which fields it wants, a single call comes back with exactly those fields, and one resolver per field fetches each piece wherever it lives.</OneLiner>
+
+<DoIt>
+  <p>In the figure, step through the single home screen query and follow each piece to the resolver that fetches it. Compare the response with the one from the <code>bff-app</code>. Get to the <strong>"What if it fails"</strong> step and count the calls to the <code>estoque</code> for a list of 20 products. In the widget below, turn the DataLoader on and off and watch the number drop.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/chamada-3d/?mode=graphql" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Interactive figure: GraphQL: the client chooses" alt="Preview of the 3D figure: GraphQL: the client chooses" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>A single query.</strong> The home screen becomes a <code>POST /graphql</code> of <strong>131 B</strong>, and whoever wrote the text decided the fields:
+
+<pre><code>{String.raw`{destaque:produto(id:42){nome preco foto}carrinho{itens}recomendado:recomendados(produto:42){id nome preco}pedido(id:1048){status}}`}</code></pre>
+  </li>
+  <li>
+  <strong>The response has only the requested fields.</strong> No <code>custo_fornecedor</code> and none of the 8 high-res photos. It is the same shape the <code>bff-app</code> built (<code>destaque</code>, <code>carrinho</code>, <code>recomendado</code>, <code>pedido</code>):
+
+<pre><code>{String.raw`{"data":{"destaque":{"nome":"gato de pelúcia","preco":79.9,"foto":"gato-320.webp"},"carrinho":{"itens":1},"recomendado":[{"id":7,"nome":"caneca azul","preco":19.9}],"pedido":{"status":"a caminho"}}}`}</code></pre>
+  </li>
+  <li>
+  <strong>The schema is the contract.</strong> Written in SDL, it lists the types and the allowed operations. It is a file that client and server both read, like the <code>.proto</code> from lesson 5.
+
+<pre><code>{String.raw`type Produto { id: ID! nome: String! preco: Float! }
+type Query    { produto(id: ID!): Produto  recomendados(produto: ID!): [Produto!]! }
+type Mutation { criarPedido(cliente: ID!, itens: [ID!]!): Pedido! }`}</code></pre>
+  </li>
+  <li><strong>The pieces.</strong> A <strong>query</strong> reads. A <strong>mutation</strong> (<code>criarPedido</code>) writes and is where side effects live. A <strong>subscription</strong> lets the server push changes, usually over WebSocket. And the <strong>resolver</strong> is one function per field: the one for <code>produto</code> goes to the <code>catalogo</code>, the one for <code>carrinho</code> to the <code>carrinho</code>, the one for <code>recomendados</code> to the <code>recomendacoes</code> and the one for <code>pedido</code> to the <code>pedidos</code>.</li>
+  <li><strong>Over-fetching and under-fetching.</strong> Without a BFF, the screen made 4 calls of 120 ms (480 ms) and downloaded 180 KB made for the website. With GraphQL, it is <strong>1 call</strong>. The difference from the <code>bff-app</code> is who decides the shape: there, the server code; here, the client, with the same schema serving app, website and voice.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="nmais1" title="How many calls to the stock does a list make?" hint="Choose how many products the list has and turn the DataLoader on or off. Each product in the query asks the stock for its quantity." />
+
+<h3 class="sec">What if it fails</h3>
+
+<ol class="flow steps">
+  <li><strong>N+1.</strong> The query <code>{`produtos(first: 20) { nome estoque { quantidade } }`}</code> with a naive resolver fetches the 20 products (1 call) and, for each one, calls the <code>estoque</code> (20 calls): <strong>1 + 20 = 21</strong>. With the <strong>DataLoader</strong>, which batches the requests of the same instant into a single one, it is <strong>2</strong>: one for the list and one batched call to the <code>estoque</code>.</li>
+  <li><strong>Expensive query.</strong> Nothing stops the client from asking for <code>recomendados</code> inside <code>recomendados</code>, five levels deep, with 10 items per level: 10⁵ = <strong>100,000</strong> nodes at the last level. The server needs a depth limit and a cost limit.</li>
+  <li><strong>Cache.</strong> There is a single route, <code>POST /graphql</code>, and the body changes all the time. The HTTP cache and the CDN from module 5 and the <code>ETag</code> from lesson 2 do not work without extra effort.</li>
+  <li><strong>Errors with status 200.</strong> A partial failure comes back with <code>200</code> and an <code>errors[]</code> field in the body. The gateway from module 8 and the error dashboard, which count 5xx statuses, do not see it as a failure.</li>
+</ol>
+
+<WhyItMatters>
+  <li>GraphQL pays off when several clients ask for different shapes of the same data. The screen, the website and voice each write their own query, and the server keeps a single schema.</li>
+  <li>The price moved: the server stops deciding the shape and starts defending itself from whoever decides. Cost limits, DataLoader and a cache of its own come into the math.</li>
+  <li>One design does not rule out the other: the <code>bff-app</code> and GraphQL solve the same home screen problem, the first with code per channel and the second with a single schema.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>"Developed by Facebook".</strong> It was born there (2012), was opened in 2015 and today is maintained by the GraphQL Foundation, part of the Linux Foundation, with a public, versioned specification. The article also does not mention N+1, query cost, cache or the fact that errors come with status 200.</li>
+  </ul>
+  <h4 class="deep-h">What the DataLoader does</h4>
+  <p>It waits for the end of the execution tick, gathers all the keys requested in that time (the 20 product ids) and calls the source once with the list. It also keeps the result during the query, so the same id is not fetched twice.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis (GraphQL, fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "GraphQL specification (October 2021)", href: "https://spec.graphql.org/October2021/" },
+    { label: "graphql.org: schemas and types", href: "https://graphql.org/learn/schema/" },
+    { label: "graphql.org: best practices (cache, N+1)", href: "https://graphql.org/learn/best-practices/" },
+    { label: "DataLoader (repository)", href: "https://github.com/graphql/dataloader" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now the store knows several ways for a call to wait or to notify, each good in one situation and bad in another. What is left is where to put each one in the final design: what stays at the outside door, what stays between services, what goes to tracking and what is left for the PSP.</p>
+
+<Flashcards cards={[
+  { q: "How many bytes does the home screen query take in GraphQL?",
+    a: "131 B in a single POST /graphql, with 4 pieces: destaque, carrinho, recomendado and pedido." },
+  { q: "What is the difference between the <code>bff-app</code> and GraphQL?",
+    a: "In the bff-app the shape of the response is decided in the server code. In GraphQL the client decides, with the same schema for app, website and voice." },
+  { q: "What is a resolver?",
+    a: "A function per schema field that fetches the data from the source: the catalogo, the carrinho, the recomendacoes, the pedidos." },
+  { q: "How many calls to the <code>estoque</code> does a list of 20 products make, with and without DataLoader?",
+    a: "Without: 1 + 20 = 21. With: 2 (the list and one batched call)." },
+  { q: "Why does the gateway not see a GraphQL error as a failure?",
+    a: "Because the error comes back with status 200 and an errors[] in the body." },
+]} />

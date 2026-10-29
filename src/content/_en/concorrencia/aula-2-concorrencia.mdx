@@ -1,0 +1,149 @@
+---
+title: "Concurrency"
+order: 2
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson <code>estoque-1</code> ended up with one goroutine per order and a single core, and a core runs one thing at a time. So what does it do while a goroutine waits for the database? That is the subject of concurrency, and it pays off well on a 1 vCPU pod, but only for one kind of work.</p>
+
+<OneLiner>Concurrency is splitting the work into independent pieces that move forward interleaved; on a single core it pays off for work that <strong>waits</strong>, because while one order waits for the database, another uses the CPU.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>1 core</strong> scenario, start with 1 order and read the throughput: <strong>50 orders/s</strong>. Then move on to the 10 interleaved orders and watch the number reach <strong>500/s</strong>. Notice what the core does during the 18 ms in which an order waits. In the <em>"what if it goes wrong"</em> step, the order starts spending 20 ms of CPU instead of 2: watch the ceiling fall.</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=um-nucleo" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Concurrency on 1 vCPU" alt="Preview of the 3D figure: Concurrency on 1 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>A <code>reservar</code> call costs <strong>2 ms of CPU</strong> (building the query, reading the answer) and <strong>18 ms waiting for the database</strong>. During those 18 ms the process does nothing: it only waits. In total that is <strong>20 ms</strong> per order.</li>
+  <li>If <code>estoque-1</code> served one order at a time, it would do 1 s ÷ 20 ms = <strong>50 orders/s</strong>. The CPU would sit idle 18 of every 20 ms, that is, 90% of the time.</li>
+  <li>With concurrency, while order A waits for the database, the core runs the 2 ms of order B, then those of C. The core <strong>never runs two orders at the same instant</strong>, but it is almost never idle. The Go runtime decides the switch: when a goroutine calls the database, it hands the core to another one.</li>
+  <li>With <strong>N</strong> orders in flight, the throughput is <strong>min(N × 50, 500)</strong> orders/s. The <strong>500/s</strong> ceiling is the CPU: 1 s ÷ 2 ms. With <strong>N = 10</strong>, 10 × 50 = 500 and the CPU is full. With 20 orders in flight the math still gives 500, and only each order's wait grows.</li>
+  <li>The lab's barbecue has the same structure. Its 7 tasks (picanha 5 s, ribs 7, sausage 3, salad 2, drinks 1, grill 2, cheese 3) take <strong>23 s</strong> one after the other. In goroutines, they take <strong>7 s</strong>, the time of the longest one, the ribs, because they all wait at the same time.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the order starts spending CPU</h3>
+
+<p>A change in <code>reservar</code> starts generating a reservation receipt as a PDF, and the order now spends <strong>20 ms of CPU</strong> instead of 2. The ceiling stops being 500/s and becomes 1 s ÷ 20 ms = <strong>50/s</strong>. With 1 order at a time, the math is 20 ms of CPU + 18 ms of waiting = 38 ms, or about 26 orders/s. With 2 orders in flight, 2 × 26 = 52 already passes 50, and the CPU is full. From there, going up to 10 or 100 orders in flight <strong>changes nothing</strong>: it only creates a longer queue and more context switches.</p>
+
+<p>Concurrency only pays off for work that waits. When the bottleneck is the CPU itself, what's missing is another core, and that is the subject of the next lesson.</p>
+
+<WhyItMatters>
+  <li><strong>One core is enough, for work that waits.</strong> The 10 orders in flight take the CPU out of idleness (from 10% to 100% busy) without any new core.</li>
+  <li><strong>The ceiling is math, not a guess.</strong> 1 s ÷ CPU time per order. With 2 ms it is 500/s; with 20 ms, 50/s.</li>
+  <li><strong>More orders in flight have a limit.</strong> Past the point where the CPU fills up, only each order's wait grows.</li>
+  <li><strong>It is structure, not speed.</strong> Concurrency does not make the code run faster; it avoids wasting the waiting time.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The math by number of orders in flight</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Orders in flight</th><th>Throughput</th><th>CPU busy</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>50/s</td><td>10%</td></tr>
+      <tr><th>2</th><td>100/s</td><td>20%</td></tr>
+      <tr><th>5</th><td>250/s</td><td>50%</td></tr>
+      <tr><th>10</th><td>500/s</td><td>100%</td></tr>
+      <tr><th>20</th><td>500/s</td><td>100%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Each order occupies the CPU for 2 ms out of every 20 ms, or 10% of the time. Ten orders add up to 100%.</p>
+  <p>The 18 ms is the whole order waiting for the database (the network, the queue in the connection pool, the queries). The <code>SELECT</code> and the <code>UPDATE</code> of the cat reservation, 2 ms each, are only a part of that, and they are what lesson 6 works on.</p>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>concurrency/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). Each task becomes a goroutine with <code>go preparar(...)</code>, the <code>WaitGroup</code> counts how many are still missing, and the <code>churrasco</code> channel returns each one that finishes.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  type Atividade struct {
+10  	Nome  string
+11  	Tempo int
+12  }
+13  
+14  // Função para simular o tempo de preparo de cada atividade do churrasco
+15  func preparar(item string, tempoPreparo int, churrasco chan<- string) {
+16  	fmt.Printf("Preparando %s...\n", item)
+17  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
+18  	churrasco <- item
+19  }
+20  
+21  func main() {
+22  
+23  	// Canal das atividades que compõe o churrasco
+24  	churrasco := make(chan string)
+25  
+26  	// Wait Group para esperar todas as goroutines terminarem
+27  	var wg sync.WaitGroup
+28  
+29  	// Lista de Atividades do Churrasco
+30  	tarefas := []Atividade{
+31  		{"picanha", 5},
+32  		{"costela", 7},
+33  		{"linguica", 3},
+34  		{"salada", 2},
+35  		{"bebidas", 1},
+36  		{"churrasqueira", 2},
+37  		{"queijo", 3},
+38  	}
+39  
+40  	for _, tarefa := range tarefas {
+41  		wg.Add(1)                                         // Adiciona 1 atividade ao contador do WaitGroup
+42  		go preparar(tarefa.Nome, tarefa.Tempo, churrasco) // Inicia o preparo de uma atividade do churrasco numa goroutine
+43  	}
+44  
+45  	go func() {
+46  		wg.Wait()        // Espera que todas as goroutines chamem Done()
+47  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+48  		fmt.Println("\nChurrasco terminou :/")
+49  	}()
+50  
+51  	for item := range churrasco {
+52  		fmt.Printf("%s foi preparado.\n", item)
+53  		wg.Done() // Remove um contador do wait group
+54  	}
+55  
+56  }`}</code></pre>
+  <p>The 7 goroutines sleep at the same time, and the program ends in 7 s. Note that <code>time.Sleep</code> does not spend CPU: the lab shows concurrency over <strong>waiting</strong>, exactly the case in which it pays off.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>In the lab, the <code>fmt.Println("Churrasco terminou :/")</code> runs in a goroutine <strong>after</strong> <code>close(churrasco)</code>. Since the <code>main</code> loop ends when the channel closes, the program may exit before printing the line. That is why the output shown in the article does not have this message.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Example code from the article in Matheus Fidelis's public repository (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/concurrency-parallelism" },
+    { label: "Rob Pike: Concurrency is not parallelism (Go blog)", href: "https://go.dev/blog/waza-talk" },
+    { label: "OSTEP: Concurrency, an introduction (threads and scheduling)", href: "https://pages.cs.wisc.edu/~remzi/OSTEP/threads-intro.pdf" },
+    { label: "pthreads(7): threads on Linux", href: "https://man7.org/linux/man-pages/man7/pthreads.7.html" },
+  ]} />
+</Deep>
+
+<p class="gancho"><code>estoque-1</code> reached 500 orders per second with a single core, and the math worked out because 90% of each order was waiting. But at 23:00 <code>relatorios</code> does the opposite: it reads 400 thousand rows and spends the whole time calculating, without waiting for anyone. What's missing is what changes when the work uses CPU and there is more than one core for it: that is parallelism.</p>
+
+<Flashcards cards={[
+  { q: "How much does a reservar order cost on estoque-1, and what is the throughput one at a time?",
+    a: "2 ms of CPU + 18 ms waiting for the database = 20 ms. One at a time: 1 s ÷ 20 ms = 50 orders/s." },
+  { q: "What is the throughput formula with N orders in flight?",
+    a: "min(N × 50, 500) orders/s. The 500/s ceiling is the CPU: 1 s ÷ 2 ms. With N = 10 the CPU is full." },
+  { q: "Does the core run two orders at the same time in concurrency?",
+    a: "No. It runs one at a time, but while one waits for the database, another uses the CPU." },
+  { q: "What changes if the order spends 20 ms of CPU instead of 2?",
+    a: "The ceiling drops to 1 s ÷ 20 ms = 50/s. With 2 orders in flight the CPU is already full, and more concurrency does not help." },
+  { q: "For what kind of work does concurrency pay off?",
+    a: "For work that waits (database, network, disk). For work that only calculates, what's missing is another core." },
+]} />

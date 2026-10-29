@@ -1,0 +1,87 @@
+---
+title: "Internal and external parallelism"
+order: 4
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson <code>relatorios</code> gained speed by splitting 400 thousand rows into 4 slices, one per core of the same pod. But the store already does another kind of thing at the same time: <code>estoque-1</code> and <code>estoque-2</code> serve orders together, each in its own pod. Both are called parallelism, and they behave very differently when they need to agree on something.</p>
+
+<OneLiner><strong>Internal</strong> parallelism happens inside a process, with threads that share memory; <strong>external</strong> parallelism happens between processes, pods or machines, each with its own memory.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Int × ext</strong> (internal × external) scenario, first look at the 4 threads inside a single pod and then at the 2 pods side by side. In each one, look for where the memory is. In the <em>"what if it goes wrong"</em> step, the 23:00 close runs on both replicas of <code>relatorios</code>: count how many times the day's summary is saved.</p>
+</DoIt>
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=interno-externo" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Internal × external parallelism" alt="Preview of the 3D figure: Internal × external parallelism" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Internal.</strong> The parallelism is inside one process, and it is the <strong>code</strong> that creates it: <code>relatorios</code> cuts the rows into 4 slices and hands them to 4 threads. The 4 share the memory of the same pod and go up together with it. The limit is the number of cores the pod has.</li>
+  <li><strong>External.</strong> The parallelism is between processes, and it is the <strong>infrastructure</strong> that creates it: <code>estoque-1</code> and <code>estoque-2</code> are 2 processes, in 2 pods, with 2 memories. The load balancer from module 7 splits the orders between them. The limit is the number of pods the cluster sustains (and what exists behind them, like the database).</li>
+  <li>The same design shows up in other places. The consumers of a message queue (module 13) are external parallelism: each one is a process that takes messages from the same place. The article also mentions Hadoop and Spark, which split a big calculation across many machines.</li>
+  <li><strong>Coordination</strong> is where the two part ways. In internal, whoever needs to agree on something uses the shared memory: a lock (<code>mutex</code>, lesson 7). In external, the memory is different, and the agreement has to go through something both can see: the database, Redis, ZooKeeper (lesson 8).</li>
+  <li>External also has another gain: <strong>failure isolation</strong>. If a <code>panic</code> takes down <code>estoque-1</code> (lesson 1), <code>estoque-2</code> stays up. Inside a single process, a goroutine that crashes takes all of them along.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Internal</th><th>External</th></tr></thead>
+  <tbody>
+    <tr><th>Where it runs</th><td>inside one process</td><td>between processes, pods or machines</td></tr>
+    <tr><th>Memory</th><td>a single one, shared</td><td>one for each process</td></tr>
+    <tr><th>In the store</th><td>the 4 slices of <code>relatorios</code></td><td><code>estoque-1</code> and <code>estoque-2</code></td></tr>
+    <tr><th>Who creates it</th><td>the code</td><td>the infrastructure (replicas, autoscaling)</td></tr>
+    <tr><th>How to agree</th><td>in-memory lock</td><td>lock outside the process</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: the close runs twice</h3>
+
+<p><code>relatorios</code> gets a second replica to handle Black Friday. The scheduler that triggers the close at 23:00 lives <em>inside</em> the program, and now there are two programs. At 23:00 both replicas wake up, each one reads the 400 thousand rows, each one calculates and each one saves the day's summary. The result: the summary is saved <strong>2 times</strong>, and the day's revenue shows up doubled.</p>
+
+<p>Nobody made a mistake in one replica's code: each one does exactly what it should. What was missing was coordination <strong>between</strong> processes, and an in-memory <code>mutex</code> does not help, because each replica has its own. The solution is a lock that both can see, the subject of lesson 8.</p>
+
+<WhyItMatters>
+  <li><strong>Two places, two tools.</strong> An in-memory lock solves it inside the process; between processes you need something from outside.</li>
+  <li><strong>Adding replicas changes the program.</strong> What worked with 1 pod (the scheduler, the <code>mutex</code>) can break with 2.</li>
+  <li><strong>Scaling sideways isolates failures.</strong> A <code>panic</code> in one replica does not take down the others.</li>
+  <li><strong>The limit changes.</strong> In internal, it is the pod's cores; in external, it is what exists behind the pods, like the database.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Taking the scheduler out of the program</h4>
+  <p>One way out of the duplicated close is not to keep the scheduler inside the replicas. A Kubernetes <code>CronJob</code> triggers a single Job at 23:00, and the <code>concurrencyPolicy: Forbid</code> policy prevents a second run while the first has not finished. The documentation itself warns that, in rare cases, a CronJob can create two Jobs or none, so the close still needs to be safe if it runs twice (for example, saving the day's summary with a unique key).</p>
+  <h4 class="deep-h">Four cores in one pod against four pods with one core</h4>
+  <p>It gives the same number of cores, but not the same behavior. With 4 pods, memory is not shared (an in-memory cache is copied 4 times), coordination goes through the network, and an outage takes only a quarter of the capacity. With 1 pod of 4 cores, exchanging data is cheap and an outage takes everything.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Kubernetes: Deployment and replicas", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Kubernetes: CronJob, concurrencyPolicy and the limitations", href: "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/" },
+    { label: "Kubernetes: horizontal pod autoscaling", href: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">So far I have used two words, concurrency for <code>estoque-1</code> and parallelism for <code>relatorios</code>, and they are easy to confuse. What's missing is what really separates one from the other, and whether a store can have one without the other.</p>
+
+<Flashcards cards={[
+  { q: "What is internal parallelism and which store example illustrates it?",
+    a: "Parallelism inside a process, created by the code, with threads that share memory. It is the 4 slices of relatorios on a 4 vCPU pod." },
+  { q: "What is external parallelism and which store example illustrates it?",
+    a: "Parallelism between processes, pods or machines, created by the infrastructure, each with its own memory. It is estoque-1 and estoque-2 behind the load balancer." },
+  { q: "Why is an in-memory mutex not enough in external parallelism?",
+    a: "Because each process has its own memory and its own mutex. A lock only holds between those who see the same memory." },
+  { q: "What happens if relatorios gets a second replica and the scheduler runs on both?",
+    a: "The 23:00 close runs 2 times and the day's summary is saved 2 times. Coordination between processes was missing." },
+  { q: "What advantage does external parallelism have over internal?",
+    a: "Failure isolation: if one replica goes down from a panic, the others keep going. Inside a process, a goroutine that crashes takes all of them." },
+]} />

@@ -1,0 +1,139 @@
+---
+title: "Semaphores and thread pools"
+order: 10
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the spinlock, like the mutex and the lock in Redis, let <em>one</em> in at a time. But <code>estoque</code> has a limit that is not a single slot: PostgreSQL accepts a fixed number of connections, and each connection serves one query at a time. On Black Friday, 200 orders arrive at the same time on each replica. The thing that controls how many get in, and what to do with the rest, is the semaphore.</p>
+
+<OneLiner>A counting semaphore is a lock with <strong>N slots</strong>: whoever arrives when all are taken waits for one to be released. The <strong>connection pool</strong> of <code>estoque</code> is a 10-slot semaphore in front of PostgreSQL.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Pool</strong> scenario, watch the 200 orders come in and the 10-slot pool release them in batches. Read the time of the last order. Then press the <strong>Connections</strong> button, the "what if it goes wrong": autoscaling goes up to 12 replicas. In the widget below, redo the math: set 200 simultaneous orders, pool of 10, 20 ms and 12 replicas, and read the warning.</p>
+</DoIt>
+
+<Widget name="pool" title="Connection pool: throughput, wait and the database limit" hint="Choose the pool size (1 to 50), the simultaneous orders (1 to 300), the ms per query (5 to 100) and the replicas (1 to 15). The widget calculates the throughput, the wait of the last order and the average, and warns when replicas × pool goes over 100 connections." />
+
+<Figure3D path="en/labs/concorrencia/threads-3d/?mode=pool" poster="labs/concorrencia/threads-3d-previa.webp" title="Interactive figure: Semaphore and connection pool" alt="Preview of the 3D figure: Semaphore and connection pool" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The semaphore created by Dijkstra (1965) has a count and two operations: <strong>P</strong> (take a slot, which the paper calls <em>Wait</em>) and <strong>V</strong> (give it back, the <em>Signal</em>). With the count at 0, whoever calls P waits until someone calls V.</li>
+  <li><code>estoque</code> uses a pool of <strong>10 connections</strong> to PostgreSQL. Each order takes a connection, runs the query and returns it. The 11th order waits for a slot. In Go, the pool is a buffered channel: <code>make(chan struct&#123;&#125;, 10)</code>. Sending takes a slot, receiving releases it.</li>
+  <li>A <strong>mutex</strong> is a 1-slot semaphore <strong>with an owner</strong>: whoever locked is whoever unlocks. The binary semaphore, with 1 slot, has no owner, and that is the difference between the two, not the count.</li>
+  <li>The pool size math comes from Little's law (1961): connections needed = throughput × time per query. With 500 orders per second and 20 ms per order, 500/s × 0.020 s = <strong>10 connections</strong>.</li>
+  <li>On Black Friday, <strong>200</strong> simultaneous orders arrive per replica. With a pool of 10 and 20 ms each, the throughput stays at <strong>500/s</strong>. The first 10 finish in 20 ms, and the last one, which is in the 20th batch, finishes in 20 × 20 ms = <strong>400 ms</strong>. The average is 20 ms × (1 + 2 + … + 20) ÷ 20 = <strong>210 ms</strong>. Without the pool, 200 connections would go past PostgreSQL's <code>max_connections</code> (<strong>100</strong> by default), and the database would answer <code>FATAL: sorry, too many clients already</code>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: scaling too much takes the database down</h3>
+
+<p>Black Friday heats up and autoscaling takes <code>estoque</code> up to <strong>12 replicas</strong>. Each one has its own pool of 10, and the math works out on each replica: 12 × 10 = <strong>120 connections</strong>, more than the 100 the database accepts. From the 101st on, PostgreSQL refuses, and orders fail, even though every replica is healthy. <strong>Adding more replicas does not help</strong>: the bottleneck moved to the database.</p>
+
+<p>There are three remedies. The first is a <em>pooler</em> in front of the database (for example PgBouncer), which merges the connections of all replicas into a few real connections. The second is reducing the pool per replica: 12 × 8 = 96. The third is raising <code>max_connections</code>, at a memory cost on the database server. This limit comes back in module 14 (saturation) and in module 25 (bulkhead).</p>
+
+<h3 class="sec">A semaphore is not a worker pool</h3>
+
+<p>The lab (<code>semaphore/main.go</code>) creates <strong>one goroutine per task</strong> and only limits <strong>how many run at the same time</strong>: capacity 3, 10 foods, 2 s each. The tasks go out in ⌈10 ÷ 3⌉ = 4 waves of 2 s, or <strong>8 s</strong>, and the article's log matches that. A <strong>worker pool</strong> is something else: a fixed number of workers that keep reading tasks from a queue (a channel). The similar effect hides differences in cost and queue behavior.</p>
+
+<p>Other languages use the second design. Tomcat has by default a pool of 200 threads to serve requests (<a href="https://tomcat.apache.org/tomcat-10.1-doc/config/http.html" target="_blank" rel="noopener"><code>maxThreads</code> attribute</a>), and Node.js has a pool of 4 threads (libuv) for files, DNS and cryptography (<a href="https://docs.libuv.org/en/v1.x/threadpool.html" target="_blank" rel="noopener">libuv documentation</a>).</p>
+
+<WhyItMatters>
+  <li><strong>The limit belongs to the resource, not to the code.</strong> The database accepts 100 connections, and all replicas share that number.</li>
+  <li><strong>A pool is a queue with slots.</strong> Whoever goes past 10 waits, and the last one's wait (400 ms) is the queue math.</li>
+  <li><strong>Little sizes it.</strong> Throughput × query time tells how many connections the load asks for.</li>
+  <li><strong>Scaling replicas has a ceiling.</strong> Replicas × pool has to fit in <code>max_connections</code>.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The lab code, unchanged</h4>
+  <p>This is <code>semaphore/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). The <code>semaforo</code> channel has a buffer of 3: the <code>semaforo &lt;- struct&#123;&#125;&#123;&#125;</code> in the loop takes a slot and the <code>&lt;-semaforo</code> inside the goroutine releases it.</p>
+  <pre><code>{String.raw` 1  package main
+ 2  
+ 3  import (
+ 4  	"fmt"
+ 5  	"sync"
+ 6  	"time"
+ 7  )
+ 8  
+ 9  // Função para simular o tempo de preparo de cada atividade do churrasco
+10  func grelhar(item int, tempoPreparo int) {
+11  	fmt.Printf("Preparando o alimento %v...\n", item)
+12  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
+13  	fmt.Printf("Alimento %v preparado, desocupando a grelha...\n", item)
+14  }
+15  
+16  func main() {
+17  
+18  	var wg sync.WaitGroup
+19  
+20  	// Numero maximo de goroutines / threads / alimentos que podem ser assados
+21  	var capacidadeDaGrelha = 3
+22  	// Alimentos disponíveis pra colocar na grelha
+23  	var alimentosChurrasco = 10
+24  
+25  	// Criando canal que tenha o tamanho maximo igual ao tamanho da grelha
+26  	semaforo := make(chan struct{}, capacidadeDaGrelha)
+27  
+28  	// Inicia o processo de assar os alimentos disponíveis
+29  	for i := 0; i < alimentosChurrasco; i++ {
+30  
+31  		wg.Add(1)              // Adiciona 1 atividade ao contador do WaitGroup
+32  		semaforo <- struct{}{} // Adquire 1 espaço no semáforo adicionando 1 item ao channel
+33  
+34  		// Começando a assar os alimentos na churrasqueira
+35  		go func(i int) {
+36  			alimento := i + 1
+37  
+38  			grelhar(alimento, 2) // Inicia o preparo da comida
+39  			<-semaforo           // Libera um espaço no semaforo quando terminar o preparo
+40  			wg.Done()            // Termina uma ativilidade no contador do WaitGroup
+41  
+42  		}(i)
+43  	}
+44  
+45  	wg.Wait() // Espera todos os alimentos serem preparados
+46  	fmt.Println("Acabou o churrasco :/")
+47  
+48  }`}</code></pre>
+  <h4 class="deep-h">A bit more slack in the database math</h4>
+  <p>PostgreSQL reserves a few connections for superusers (<code>superuser_reserved_connections</code>, 3 by default), so with <code>max_connections</code> = 100 applications have 97 at hand. The 12 × 8 = 96 fit by a small margin, and 12 × 10 = 120 blows past it.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>A semaphore is not a worker pool.</strong> The article treats the two as the same thing. The semaphore limits how many executions happen at the same time (the lab creates one goroutine per task); the worker pool has a fixed number of workers that consume from a queue. Also: the article says the binary semaphore is "similar to the Mutex", and the difference is in ownership, since the mutex has an owner and the binary semaphore does not.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Dijkstra (1965): EWD123, Cooperating sequential processes", href: "https://www.cs.utexas.edu/~EWD/transcriptions/EWD01xx/EWD123.html" },
+    { label: "Go: golang.org/x/sync/semaphore", href: "https://pkg.go.dev/golang.org/x/sync/semaphore" },
+    { label: "PostgreSQL: max_connections and superuser_reserved_connections", href: "https://www.postgresql.org/docs/current/runtime-config-connection.html" },
+    { label: "PostgreSQL wiki: Number of database connections", href: "https://wiki.postgresql.org/wiki/Number_Of_Database_Connections" },
+    { label: "PgBouncer: connection pooler for PostgreSQL", href: "https://www.pgbouncer.org/" },
+  ]} />
+</Deep>
+
+<p class="gancho"><code>estoque</code> now reserves the last cat without selling it twice: one lock per replica, one distributed lock and a pool of 10 connections. Bia got order 1049, for 88.90. What's missing is how <code>pedidos</code> tells <code>pagamentos</code> "charge 88.90 for order 1049": that call arrives over a connection, in a format, with a number of bytes. How is it built, in REST with JSON or in gRPC with Protobuf, and how many bytes travel in each? That is the topic of the next module, Synchronous Communication.</p>
+
+<Flashcards cards={[
+  { q: "What is a counting semaphore, and which one does estoque have?",
+    a: "A lock with N slots: whoever arrives when all are taken waits. estoque uses a pool of 10 connections to PostgreSQL." },
+  { q: "How is the pool size calculated (Little's law)?",
+    a: "Connections = throughput × time per query = 500/s × 20 ms = 10." },
+  { q: "With 200 simultaneous orders, a pool of 10 and 20 ms, how long does the last one take?",
+    a: "20 batches × 20 ms = 400 ms. The average is 210 ms and the throughput stays at 500/s." },
+  { q: "Why do 12 replicas with a pool of 10 take the database down?",
+    a: "12 × 10 = 120 connections, more than the max_connections of 100. Remedies: a pooler (PgBouncer), 12 × 8 = 96 per replica, or raising max_connections." },
+  { q: "What is the difference between a semaphore and a worker pool?",
+    a: "The semaphore limits how many executions run together (one goroutine per task). The worker pool has a fixed number of workers that read tasks from a queue." },
+  { q: "What is the difference between a mutex and a binary semaphore?",
+    a: "Ownership: in a mutex, whoever locked is whoever unlocks. The binary semaphore has no owner." },
+]} />

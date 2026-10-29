@@ -1,0 +1,98 @@
+---
+title: "MQTT"
+order: 7
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the Kafka lab ran on a computer, with plenty of network. Now the store has a problem of a different size: Lena's order <strong>1048</strong> is on a truck on its way to Recife, and the truck's tracker sends its position over 4G, a network that drops on bad stretches. A Kafka client would be too heavy for a small device. For that case there is MQTT.</p>
+
+<OneLiner>MQTT is a <strong>publish and subscribe</strong> protocol built for small devices and unstable networks: the device publishes to a <strong>topic</strong>, the broker <strong>pushes</strong> the message to whoever is subscribed right now, and <strong>QoS</strong> chooses how much guarantee each leg pays for.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>MQTT</strong> scenario, step forward and read the 77-byte <code>PUBLISH</code> and the 4-byte <code>PUBACK</code>, byte by byte. Then look at the retained message and the Last Will. In the widget below, pick QoS 1 and lose the acknowledgment: does the message arrive twice?</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/fila-3d/?mode=mqtt" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Interactive figure: MQTT: the truck" alt="Preview of the 3D figure: MQTT: the truck" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="qos" title="MQTT QoS: the packets, the loss and the duplicate" hint="Pick the QoS (0, 1 or 2) and which packet gets lost on the network. The widget shows the packet exchange, the bytes and whether the subscriber receives the message once, twice or not at all." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The truck <code>caminhao-17</code> carries 1048 to Recife. A tracker publishes the position every <strong>5 s</strong>. The 4G network drops on some stretches, and the tracker is a small device: this is what MQTT was made for.</li>
+  <li>The tracker <strong>publishes</strong> to the topic <code>loja/entregas/caminhao-17/posicao</code>. The <code>rastreio</code> service <strong>subscribes</strong> to the filter <code>loja/entregas/+/posicao</code>, where <code>+</code> matches <strong>one</strong> level and <code>#</code> matches <strong>several</strong> (<code>loja/entregas/#</code>). The broker, Mosquitto, delivers to whoever is subscribed <strong>right now</strong>. The topic is <strong>neither a queue nor a log</strong>: it keeps no history.</li>
+  <li>The packet is small. A QoS 1 <code>PUBLISH</code> with the 33 B topic and the 38 B payload <code>&#123;"lat":-8.0476,"lng":-34.877,"vel":62&#125;</code> is <strong>77 bytes</strong>: 1 for type, 1 for length, 2 for the topic length, 33 for the topic, 2 for the identifier and 38 for the payload. The response, the <code>PUBACK</code>, is <strong>4 bytes</strong>. The same data in an HTTP <code>POST</code> with a JWT comes to about <strong>234 bytes</strong>. The <code>CONNECT</code> from <code>caminhao-17</code>, with a 60 s keep-alive, is 25 bytes.</li>
+  <li><strong>QoS</strong> applies per leg, from publisher to broker and from broker to subscriber. <strong>QoS 0</strong> is at most once, with no acknowledgment. <strong>QoS 1</strong> is at least once: <code>PUBLISH</code> and <code>PUBACK</code>, and it <strong>can duplicate</strong> (the DUP flag marks the resend). <strong>QoS 2</strong> is exactly once, with 4 packets: <code>PUBLISH</code>, <code>PUBREC</code>, <code>PUBREL</code> and <code>PUBCOMP</code>.</li>
+  <li>Two pieces cover what the topic does not keep. The <strong>retained</strong> message makes the broker keep the <strong>last</strong> position of each topic and deliver it right away to whoever subscribes later: the screen opens and already sees the truck. The <strong>Last Will</strong> is the message the broker publishes if the truck disappears without saying goodbye: <code>loja/entregas/caminhao-17/status = offline</code>. The broker declares the connection dead after <strong>1.5 × the keep-alive</strong>, 90 s.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Standard subscription and shared subscription</h3>
+
+<p><code>rastreio</code> runs in 2 replicas, and each one subscribes to the same filter. With a <strong>standard</strong> subscription, <strong>both</strong> receive <strong>all</strong> the positions, and each WebSocket from module 12 gets the push twice. With <code>$share/rastreio/loja/entregas/+/posicao</code>, a <strong>shared subscription</strong> from <strong>MQTT 5.0</strong>, the 2 replicas <strong>split</strong> the messages, like a load balancer. With 200 trucks on Black Friday, each sending 1 message every 5 s, that is <strong>40 messages per second</strong>: 20 on each replica.</p>
+
+<h3 class="sec">What if it goes wrong: three minutes without signal</h3>
+
+<p>The truck enters a stretch with no coverage and stays <strong>3 minutes</strong> without network. That is <strong>36 positions</strong> (3 × 60 ÷ 5) that the tracker generated and nobody received. With <strong>QoS 0</strong>, they are lost. With <strong>QoS 1</strong>, the truck's client has to <strong>store and resend</strong>: the broker only keeps messages for <em>subscribers</em>, not for whoever publishes. And since a position is idempotent, the most recent one by timestamp wins, <code>rastreio</code> can ignore the old ones.</p>
+
+<p>The second risk is configuration. Two trackers with the <strong>same <code>clientId</code></strong> knock each other off in a loop: the broker disconnects the previous one on each new <code>CONNECT</code>, and each one comes back to knock the other off.</p>
+
+<WhyItMatters>
+  <li><strong>The packet is small.</strong> 77 B against about 234 B for a POST with a JWT.</li>
+  <li><strong>QoS is per leg and has a price.</strong> 0 does not acknowledge, 1 can duplicate and 2 spends 4 packets.</li>
+  <li><strong>The topic keeps nothing.</strong> Only the last retained message and persistent sessions keep anything.</li>
+  <li><strong>The device needs a rule for when the network drops.</strong> In 3 minutes that is 36 positions, and the publisher is the one who keeps them.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The packets, byte by byte</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Packet</th><th>Bytes</th><th>Made of</th></tr></thead>
+    <tbody>
+      <tr><th><code>CONNECT</code></th><td>25</td><td>2 of header, 10 of protocol (name, version, flags, 60 s keep-alive), 13 for the <code>clientId</code> <code>caminhao-17</code></td></tr>
+      <tr><th><code>PUBLISH</code> QoS 1</th><td>77</td><td>2 of header, 35 of topic (length and text), 2 of identifier, 38 of payload</td></tr>
+      <tr><th><code>PUBLISH</code> QoS 0</th><td>75</td><td>the same without the 2-byte identifier</td></tr>
+      <tr><th><code>PUBACK</code></th><td>4</td><td>2 of header and 2 of identifier</td></tr>
+      <tr><th><code>PUBREC</code>, <code>PUBREL</code>, <code>PUBCOMP</code></th><td>4 each</td><td>the same format, used in QoS 2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Delivery guarantee.</strong> The article says the protocol "guarantees that messages are delivered even on unstable networks" and that packets arrive "without duplication". That belongs to <strong>TCP</strong>, and only while the connection lives. MQTT has <strong>QoS 0, 1 and 2</strong>, and 1 <strong>can duplicate</strong>.</li>
+    <li><strong>"The broker stores the messages in topics."</strong> The topic <strong>keeps</strong> nothing. The broker only keeps the <strong>last retained</strong> message and the messages of <strong>persistent sessions</strong> (lesson 8).</li>
+    <li><strong>What is missing.</strong> The article does not mention the <code>+</code> and <code>#</code> wildcards, the retained message, the Last Will, the keep-alive or the session.</li>
+    <li><strong>Shared subscription.</strong> It comes from <strong>MQTT 5.0</strong> (OASIS, 2019, <code>$share/group/filter</code>), not from "more recent versions" in general. MQTT 3.1.1 does not have it.</li>
+  </ul>
+  <Sources items={[
+    { label: "MQTT 3.1.1 (OASIS): PUBLISH, QoS, retain, will and keep alive", href: "https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html" },
+    { label: "MQTT 5.0 (OASIS): shared subscriptions", href: "https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html" },
+    { label: "mqtt.org (the article's reference)", href: "https://mqtt.org/" },
+    { label: "Eclipse Mosquitto: mosquitto.conf", href: "https://mosquitto.org/man/mosquitto-conf-5.html" },
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With MQTT understood on paper, we still need to see the code that proves it: the author's lab has a producer and a consumer talking through a Mosquitto. But it has a clean session and a README that describes something else. We still need to see what happens to the messages when the consumer starts after the producer.</p>
+
+<Flashcards cards={[
+  { q: "How many bytes are the QoS 1 PUBLISH of the truck's position and the PUBACK?",
+    a: "77 bytes (1 + 1 + 2 + 33 + 2 + 38) and 4 bytes. An HTTP POST with a JWT takes about 234 bytes." },
+  { q: "What is the difference between QoS 0, 1 and 2?",
+    a: "0: at most once, no acknowledgment. 1: at least once (PUBLISH and PUBACK), can duplicate. 2: exactly once, with 4 packets (PUBLISH, PUBREC, PUBREL and PUBCOMP)." },
+  { q: "What are the retained message and the Last Will?",
+    a: "Retained: the broker keeps the topic's last position and delivers it to whoever subscribes later. Last Will: the broker publishes status = offline if the truck disappears, after 1.5 × keep-alive (90 s)." },
+  { q: "What is the difference between standard and shared subscription?",
+    a: "In standard, the 2 replicas receive all the positions. In shared ($share, MQTT 5.0), they split them: 40 messages/s become 20 on each." },
+  { q: "What is lost in 3 minutes without signal, and who keeps the messages?",
+    a: "36 positions (3 × 60 ÷ 5). With QoS 1, the truck's client keeps and resends them: the broker only keeps messages for subscribers." },
+]} />

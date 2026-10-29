@@ -1,0 +1,122 @@
+---
+title: "Models: eBPF and ztunnel (ambient)"
+order: 5
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the sidecar cost 3 vCPU and 1.5 GB for 30 pods, and an Envoy update asked for 30 restarts. Can we take the proxy out of every pod? It depends on what the rule needs to see. Encrypting the conversation and checking who calls does not require reading the body of the call; routing by the <code>x-versao</code> header does.</p>
+
+<OneLiner>Without a sidecar, the L4 work (mTLS, policy by identity, connection metrics) stays in one agent per node, and an L7 proxy (the waypoint) is only called in for whoever needs retry, routing by header or policy by method.</OneLiner>
+
+<DoIt>
+  <p>In the figure, tap <strong>Ambient</strong>. In the step <em>Sidecars out: one ztunnel per node</em>, watch the ENVOY boxes sink and 3 ZTUNNEL boxes rise, and look at the vCPU and memory counters. Go on to <em>pedidos → pagamentos through the ztunnels</em> and then <em>L7 needs a waypoint</em>, to see the light detour through it. Finally, open <em>When it fails: an L7 rule with no waypoint</em> and watch ztunnel refuse the call.</p>
+</DoIt>
+
+<Figure3D path="en/labs/service-mesh/mesh-3d/?mode=ambient" poster="labs/service-mesh/mesh-3d-previa.webp" title="Interactive figure: Ambient: ztunnel per node and waypoint" alt="Preview of the 3D figure: Ambient: ztunnel per node and waypoint" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The shop runs on <strong>3 nodes</strong>, with about 10 pods on each. The L4 rules only need to see connections, and one agent per node can do that: who encrypts, who calls whom, how many bytes went through. The L7 ones need to understand HTTP.</li>
+  <li><strong>eBPF (Cilium).</strong> Small programs, loaded in the node's kernel, decide the route, the policy and the metric of each packet or connection without leaving the kernel and without a proxy per pod. For L7, such as HTTP and gRPC, Cilium still uses an Envoy, and that one is <strong>one per node</strong>, not one per pod.</li>
+  <li><strong>ztunnel (Istio ambient).</strong> It is a proxy per node, written in Rust, that handles L4 only. It does the mTLS between nodes through a tunnel called HBONE, checks the identity and applies the policy by identity ("only <code>pedidos</code> calls <code>pagamentos</code>"). It does not read HTTP headers.</li>
+  <li><strong>Waypoint.</strong> When the shop needs L7, a separate Envoy comes in, per namespace or per service, outside the pods. ztunnel diverts that service's traffic to it: that is where the 2-attempt retry, the 10% canary and the "only <code>POST /cobrancas</code>" policy live. Whoever does not need L7 does not go through it.</li>
+  <li>The shop's math changes: with 3 nodes, that is <strong>3 ztunnels instead of 30 sidecars</strong>, plus one waypoint for the <code>loja</code> namespace. To update, you swap 4 proxies, and the service pods do not even restart.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sidecarcost" title="Sidecar cost against ambient" hint="Choose how many pods and how many nodes the shop has, and how many waypoints. The math shows the vCPU and memory of each model, how many proxies to update and how many proxies a call goes through." />
+
+<h3 class="sec">When it fails: an L7 policy with no waypoint</h3>
+
+<p>ztunnel does not read HTTP. If the shop writes the policy "only <code>POST /cobrancas</code>" and leaves it in force at ztunnel, with no waypoint, Istio does not pretend to understand it: it becomes a policy that denies everything (it fails to the safe side). Since ztunnel does not speak HTTP, it has no way to answer 403: <code>pedidos</code>' connection is refused, and the charges stop. The L7 policy has to be attached to the waypoint, and the waypoint has to exist and have been chosen by the namespace.</p>
+
+<WhyItMatters>
+  <li><strong>Fewer proxies.</strong> The cost stops growing with the number of pods and starts growing with the number of nodes.</li>
+  <li><strong>Adoption in steps.</strong> Labeling the namespace already turns on mTLS and policy by identity; the waypoint only comes in where L7 is needed.</li>
+  <li><strong>Simple updates.</strong> Changing the ztunnel version does not restart the service pods.</li>
+  <li><strong>Not everything goes away.</strong> A call still goes through 2 ztunnels and, with a waypoint, through 3 proxies. The cost moves and gets smaller, but it exists.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Ambient in practice</h4>
+  <p>In Istio, turning on ambient for the namespace is a label. After that, the waypoint is an ordinary Gateway resource, created by <code>istioctl</code>:</p>
+<pre><code>{String.raw`kubectl label namespace loja istio.io/dataplane-mode=ambient
+istioctl waypoint apply -n loja --enroll-namespace`}</code></pre>
+  <p>The second command creates this Gateway and labels the namespace with <code>istio.io/use-waypoint: waypoint</code>, so that the services' traffic goes through it:</p>
+<pre><code>{String.raw`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  labels:
+    istio.io/waypoint-for: service
+  name: waypoint
+  namespace: loja
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE`}</code></pre>
+  <p><code>pagamentos</code>' L7 policy, now attached to the service through <code>targetRefs</code> (instead of a <code>selector</code>, which would send it to ztunnel):</p>
+<pre><code>{String.raw`apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pagamentos-so-pedidos
+  namespace: loja
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: pagamentos
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["loja.local/ns/loja/sa/pedidos"]
+    to:
+    - operation:
+        methods: ["POST"]
+        paths: ["/cobrancas"]`}</code></pre>
+  <h4 class="deep-h">mTLS does not depend on the sidecar</h4>
+  <p>In ambient, ztunnel asks <code>istiod</code> for a certificate for each identity (each service account) that runs on the node. The CA only hands out identities of pods that really are on that node, so that a compromised ztunnel cannot pass itself off as any service. The HBONE tunnel port is <code>15008</code>. Since mTLS is transparent, the <code>DISABLE</code> mode of PeerAuthentication is not accepted in ambient.</p>
+  <h4 class="deep-h">The numbers from the documentation</h4>
+  <p>The Istio 1.24 documentation measured, with 1,000 requests per second of 1 KB: a sidecar with 2 threads uses about 0.20 vCPU and 60 MB; a waypoint, 0.25 vCPU and 60 MB; a ztunnel, 0.06 vCPU and 12 MB. The calculator and the figure use the shop's example numbers: 0.1 vCPU and 50 MB per sidecar, and the same price for each ztunnel and each waypoint. That way the comparison is about counts (30 proxies against 3 + 1), not size: 30 × 0.1 = 3 vCPU and 1.5 GB against 4 × 0.1 = 0.4 vCPU and 200 MB. Change the values and the proportion changes; it is the shape of the math that matters.</p>
+  <p>Ambient reached general availability (GA) in Istio 1.24, in November 2024, after being announced in September 2022.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article says the sidecarless models "reduce the additional latency". They reduce the CPU and memory cost, but the call still crosses proxies: 2 ztunnels, and 3 proxies when there is a waypoint. Istio's performance documentation measures this path for each mode.</li>
+    <li>The article only mentions shared proxies for L7. In ambient, the shared L7 proxy is the <strong>waypoint</strong>, and it is optional.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Service Mesh (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "Istio ambient: overview (ztunnel and waypoint)", href: "https://istio.io/latest/docs/ambient/overview/" },
+    { label: "Istio ambient: configure waypoints", href: "https://istio.io/latest/docs/ambient/usage/waypoint/" },
+    { label: "Istio ambient: L7 features and policies attached to the waypoint", href: "https://istio.io/latest/docs/ambient/usage/l7-features/" },
+    { label: "Istio: ambient mode reaches general availability (1.24)", href: "https://istio.io/latest/blog/2024/ambient-reaches-ga/" },
+    { label: "Cilium: service mesh (eBPF in the kernel, Envoy for L7)", href: "https://docs.cilium.io/en/stable/network/servicemesh/" },
+    { label: "ebpf.io: what is eBPF", href: "https://ebpf.io/what-is-ebpf/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With sidecar, SDK, proxyless, eBPF and ambient, the shop has five ways to stand a mesh up, each with a price. What is left is when it is worth paying that price and when it is better to stay with a library and a good gateway.</p>
+
+<Flashcards cards={[
+  { q: "What does ztunnel do and what does it not do?",
+    a: "It does L4: mTLS between nodes, identity, policy by identity and connection telemetry. It does not read HTTP headers, so it does not do retry or routing by header." },
+  { q: "When does the waypoint come in?",
+    a: "Only when the service needs L7: retry, canary by weight or header, policy by method and path. It is one Envoy per namespace or service, outside the pods." },
+  { q: "How many proxies does the shop have in ambient, against the sidecar?",
+    a: "3 ztunnels (one per node) plus a waypoint, against 30 sidecars (one per pod)." },
+  { q: "What does eBPF do in a service mesh and where does it stop?",
+    a: "Programs in the node's kernel handle L4 (route, policy, metrics) without a proxy per pod. For L7 you still need an Envoy, one per node." },
+  { q: "What happens to a method and path policy with no waypoint?",
+    a: "ztunnel does not understand it and treats it as deny all, for safety. The L7 policy has to be attached to the waypoint." },
+]} />

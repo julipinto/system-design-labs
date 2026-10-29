@@ -1,0 +1,383 @@
+---
+title: "Distributed mutex: distributed locks"
+order: 8
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the <code>sync.Mutex</code> held Caio back for 2 ms and the cat went to Bia. But that was with one replica. Black Friday brings up <code>estoque-2</code>, the load balancer sends Bia to <code>estoque-1</code> and Caio to <code>estoque-2</code>, and each replica has its own mutex, in its own memory. Both read 1, both decrement, and the stock goes to −1 again. The local mutex only protects inside the process, and the lock has to start holding across processes.</p>
+
+<OneLiner>A distributed lock is a lock kept in a place that all replicas can see (Redis, ZooKeeper); since it can expire on its own, whoever holds it can lose it without knowing, and that is why, for the last cat, the final check belongs to the database.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Replicas</strong> scenario, watch the two gates open at the same time. Then press the <strong>Redis</strong> button to see the gate become a key with a token and a TTL, and Caio trying every 50 ms. Finally press <strong>TTL</strong>, the "what if it goes wrong": Bia pauses for 6 s. In the widget below, set the TTL to 5 s and the pause to 6 s and see the two-owner window. Then turn on the fencing token.</p>
+</DoIt>
+
+<Widget name="ttl" title="TTL against the owner's pause" hint="Choose the lock's TTL (1 to 10 s) and how long the owner stays stopped (0 to 10 s). The timeline shows whether there is a window with two owners and what changes with the fencing token (33 against 34)." />
+
+<Figure3D path="en/labs/concorrencia/estoque-3d/?mode=replicas" poster="labs/concorrencia/estoque-3d-previa.webp" title="Interactive figure: Two replicas, two mutexes" alt="Preview of the 3D figure: Two replicas, two mutexes" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The lock leaves memory and goes to Redis, with a single command: <code>SET lock:estoque:GATO-042 &lt;token&gt; NX PX 5000</code>. The <code>NX</code> creates the key <strong>only if it does not exist</strong>, and the <code>PX 5000</code> already creates it with a <strong>5 s TTL</strong>. Since it is an atomic command, two requests at the same time do not get through together.</li>
+  <li>Bia runs the <code>SET</code> and gets <code>OK</code> at t = 1 ms. Caio runs his and gets <code>nil</code> at t = 3 ms: the key exists, the lock is Bia's. He tries again <strong>every 50 ms</strong>.</li>
+  <li>Bia releases the lock at t = 6 ms. Caio's attempt at t = 53 ms works and he gets in at t = 54 ms, reads <strong>0</strong> and gets <code>409</code> at t ≈ 56 ms. He releases the lock at t = 57 ms.</li>
+  <li>Whoever releases checks the owner before deleting, with the Lua script from Redis's own docs: <code>if redis.call("get",KEYS[1]) == ARGV[1] then return redis.call("del",KEYS[1]) else return 0 end</code>. The token is different on each replica, and only the owner deletes.</li>
+  <li>The cost changed. The lock cycle is now 6 ms: 1 ms for the <code>SET</code>, 4 ms of work and 1 ms for the <code>DEL</code>. The ceiling drops to 1 s ÷ 6 ms = <strong>166 reservations per second</strong> of the same SKU, against the 250 of the local mutex.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The lab's other example: ZooKeeper</h3>
+
+<p>ZooKeeper keeps the lock as an <em>ephemeral znode</em>: it disappears when the session of whoever created it ends. An example: <code>/locks/estoque-GATO-042/lock-0000000007</code>. The official recipe uses <strong>ephemeral and sequential</strong> nodes: each replica creates its own, the one with the lowest number holds the lock, and the others watch only the <strong>previous</strong> node. That gives a fair queue and avoids the "herd" of everyone waking up when the lock is released. If <code>estoque-1</code> dies, the session expires (for example, in 10 s) and the lock goes away on its own.</p>
+
+<h3 class="sec">What if it goes wrong: the lock expires and the owner does not know</h3>
+
+<p>This is the center of the lesson. <code>estoque-1</code> takes the lock (token <code>a1</code>, TTL of 5 s) and <strong>stops for 6 s</strong> before the <code>UPDATE</code>: a long garbage-collection pause, a bad network, anything. At t = 5.001 s the TTL expires and the key goes away. Caio tries at t = 3, 53, 103 ms, once every 50 ms, and only gives up at 10 s. He takes the lock on the first attempt after the expiry, at t ≈ <strong>5.003 s</strong>, with token <code>b2</code>, reads 1, decrements to 0 and buys.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>t</th><th>Bia (<code>estoque-1</code>, token a1)</th><th>Caio (<code>estoque-2</code>, token b2)</th><th><code>quantidade</code></th></tr></thead>
+  <tbody>
+    <tr><th>0.001 s</th><td>takes the lock (TTL 5 s) and stops</td><td>(tries at 3 ms: <code>nil</code>)</td><td>1</td></tr>
+    <tr><th>5.001 s</th><td>stopped; the TTL expires</td><td>(trying every 50 ms)</td><td>1</td></tr>
+    <tr><th>5.003 s</th><td>stopped</td><td>takes the lock and reads 1</td><td>1</td></tr>
+    <tr><th>≈ 5.008 s</th><td>stopped</td><td>decrements to 0 and buys</td><td>0</td></tr>
+    <tr><th>6.000 s</th><td>wakes up, still thinks it has the lock; <code>UPDATE</code></td><td>(already finished)</td><td><strong>−1</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Bia wakes up at t = 6 s and keeps thinking the lock is hers. Her <code>UPDATE</code> takes the stock to −1. Worse: the lab's plain <code>DEL</code> deletes the key of whoever holds it at that moment, without checking whose it is. The lab already shows the risk: <code>processaMensagem</code> sleeps <strong>10 s</strong> and the TTL is <strong>10 s</strong>, so the lock expires at the very moment the work ends.</p>
+
+<p>There are three remedies, and they add up:</p>
+
+<ol class="flow steps">
+  <li><strong>A token per owner, with compare-and-delete.</strong> Each replica writes a value that is only its own and only deletes the key if the value is still its own. It avoids deleting someone else's lock, but does not stop the late <code>UPDATE</code>.</li>
+  <li><strong>Fencing token</strong> (Kleppmann). The lock service returns a number that only grows: 33 for Bia, 34 for Caio. The database refuses a write with a number lower than the highest already seen, and Bia's <code>UPDATE</code> (33) is dropped because 34 already went through. Redis's <code>SET NX</code> does not give this number; ZooKeeper does (the node's sequence number).</li>
+  <li><strong>The <code>UPDATE ... AND quantidade &gt; 0</code> from lesson 7.</strong> The database decides, <strong>without depending on a clock</strong>. Bia's <code>UPDATE</code>, on waking up, finds the quantity at 0 and affects 0 rows.</li>
+</ol>
+
+<p>Kleppmann separates two uses of the lock. The <strong>efficiency</strong> lock avoids repeated work: if it fails, it costs a little, and a simple Redis will do. The <strong>correctness</strong> lock protects the data: if it fails, the cat is sold twice, and it needs fencing or a check in the database. For the last cat, the database solves it. The distributed lock is for what <strong>does not fit in a transaction</strong>: the 23:00 close running only once (the failure from lesson 4) and a message being consumed only once (module 13).</p>
+
+<WhyItMatters>
+  <li><strong>A local mutex does not cross processes.</strong> Two replicas, two mutexes, the double sale comes back.</li>
+  <li><strong>The TTL is a bet.</strong> It solves the owner who dies and creates the owner who still thinks it has the lock.</li>
+  <li><strong>A correctness lock needs more than the lock.</strong> A fencing token, or a check in the database that does not depend on a clock.</li>
+  <li><strong>Use the right tool.</strong> Last cat: <code>UPDATE ... AND quantidade &gt; 0</code>. 23:00 close: distributed lock.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">Redlock: the two positions</h4>
+  <p>Redlock tries to give more of a guarantee by using 5 independent Redis instances: the lock only counts if the majority agree. Kleppmann (2016) argues that it depends on timing assumptions that do not hold in practice (clocks and pauses) and that it does not generate a fencing token. Salvatore Sanfilippo, the author of Redis, answered in "Is Redlock safe?" that the assumptions are reasonable. Both readings are published, and it is worth reading both.</p>
+  <h4 class="deep-h">The lab code: Redis</h4>
+  <p>This is <code>mutex_distribuido_redis/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments and printed messages are in Portuguese, as in the original). It has a <code>Get</code> loop that waits 2 s at a time, and then a <code>SetNX</code> loop with the string <code>"locked"</code> and a 10 s TTL.</p>
+  <pre><code>{String.raw`  1  package main
+  2  
+  3  import (
+  4  	"context"
+  5  	"fmt"
+  6  	"time"
+  7  
+  8  	redis "github.com/redis/go-redis/v9"
+  9  )
+ 10  
+ 11  type PedidoDeCompra struct {
+ 12  	Id         string
+ 13  	Item       string
+ 14  	Quantidade float64
+ 15  }
+ 16  
+ 17  // Função mock para exemplificar a chegada de alguma mensagem
+ 18  func consomeMensagem() PedidoDeCompra {
+ 19  	return PedidoDeCompra{
+ 20  		Id:         "12345",
+ 21  		Item:       "pão de alho",
+ 22  		Quantidade: 4,
+ 23  	}
+ 24  }
+ 25  
+ 26  // Função mock para exemplificar o processamento de uma mensagem
+ 27  func processaMensagem(pedido PedidoDeCompra) bool {
+ 28  	fmt.Println("Processando pedido:", pedido.Id)
+ 29  	time.Sleep(10 * time.Second)
+ 30  	return true
+ 31  }
+ 32  
+ 33  func main() {
+ 34  
+ 35  	var ctx = context.Background()
+ 36  
+ 37  	// Create a new Redis client
+ 38  	client := redis.NewClient(&redis.Options{
+ 39  		Addr:     "0.0.0.0:6379",
+ 40  		Password: "", // no password set
+ 41  		DB:       0,  // use default DB
+ 42  	})
+ 43  
+ 44  	// looping de consumo
+ 45  	NovoPedido := consomeMensagem()
+ 46  	mutexKey := NovoPedido.Id
+ 47  
+ 48  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
+ 49  
+ 50  	// Timeout para evitar espera infinita (30 segundos)
+ 51  	timeout := time.After(30 * time.Second)
+ 52  	retryCount := 0
+ 53  
+ 54  	// Loop para aguardar o mutex ser liberado
+ 55  	for {
+ 56  		select {
+ 57  		case <-timeout:
+ 58  			fmt.Printf("Timeout atingido após 30 segundos aguardando o mutex %s\n", mutexKey)
+ 59  			return
+ 60  		default:
+ 61  		}
+ 62  
+ 63  		retryCount++
+ 64  
+ 65  		// Verifica se o Lock já existe
+ 66  		lock, err := client.Get(ctx, mutexKey).Result()
+ 67  		if err != nil && err != redis.Nil {
+ 68  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
+ 69  			time.Sleep(1 * time.Second)
+ 70  			continue
+ 71  		}
+ 72  
+ 73  		if lock != "" {
+ 74  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
+ 75  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 76  			continue
+ 77  		}
+ 78  
+ 79  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 80  		break
+ 81  	}
+ 82  
+ 83  	// Loop para tentar adquirir o mutex usando SETNX (SET if Not eXists)
+ 84  	for {
+ 85  		// Usa SETNX para garantir atomicidade - só cria se não existir
+ 86  		success, err := client.SetNX(ctx, mutexKey, "locked", 10*time.Second).Result()
+ 87  		if err != nil {
+ 88  			fmt.Printf("Erro ao tentar criar mutex: %v\n", err)
+ 89  			time.Sleep(1 * time.Second)
+ 90  			continue
+ 91  		}
+ 92  
+ 93  		if success {
+ 94  			// Mutex criado com sucesso
+ 95  			fmt.Println("Mutex criado e adquirido para o recurso por 10s:", mutexKey)
+ 96  			break
+ 97  		} else {
+ 98  			// Mutex foi criado por outra thread durante a tentativa
+ 99  			fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
+100  			time.Sleep(2 * time.Second)
+101  
+102  			// Verifica se ainda existe
+103  			lock, err := client.Get(ctx, mutexKey).Result()
+104  			if err != nil && err != redis.Nil {
+105  				fmt.Printf("Erro ao verificar existência do mutex: %v\n", err)
+106  				time.Sleep(1 * time.Second)
+107  				continue
+108  			}
+109  
+110  			if lock != "" {
+111  				continue // Volta ao início do loop para aguardar
+112  			}
+113  			// Se não existe mais, tenta criar novamente
+114  			continue
+115  		}
+116  	}
+117  
+118  	// Processa o registro
+119  	success := processaMensagem(NovoPedido)
+120  	if !success {
+121  		return
+122  	}
+123  
+124  	fmt.Println("Pedido processado:", mutexKey)
+125  
+126  	// Libera o Mutex
+127  	_, err := client.Del(ctx, mutexKey).Result()
+128  	if err != nil {
+129  		fmt.Printf("Erro ao liberar mutex: %v\n", err)
+130  	} else {
+131  		fmt.Println("Mutex liberado para o recurso:", mutexKey)
+132  	}
+133  
+134  }`}</code></pre>
+  <h4 class="deep-h">The lab code: ZooKeeper</h4>
+  <p>This is <code>mutex_distribuido_zookeeper/main.go</code>. The znode is ephemeral and has a fixed name.</p>
+  <pre><code>{String.raw`  1  package main
+  2  
+  3  import (
+  4  	"fmt"
+  5  	"time"
+  6  
+  7  	"github.com/go-zookeeper/zk"
+  8  )
+  9  
+ 10  type PedidoDeCompra struct {
+ 11  	Id         string
+ 12  	Item       string
+ 13  	Quantidade float64
+ 14  }
+ 15  
+ 16  // Função mock para exemplificar a chegada de alguma mensagem
+ 17  func consomeMensagem() PedidoDeCompra {
+ 18  	return PedidoDeCompra{
+ 19  		Id:         "123456",
+ 20  		Item:       "pão de alho",
+ 21  		Quantidade: 4,
+ 22  	}
+ 23  }
+ 24  
+ 25  // Função mock para exemplificar o processamento de uma mensagem
+ 26  func processaMensagem(pedido PedidoDeCompra) bool {
+ 27  	fmt.Println("Processando pedido:", pedido.Id)
+ 28  	time.Sleep(10 * time.Second)
+ 29  	return true
+ 30  }
+ 31  
+ 32  func main() {
+ 33  
+ 34  	// Conecta ao ZooKeeper
+ 35  	conn, _, err := zk.Connect([]string{"0.0.0.0"}, 1000*time.Second)
+ 36  	if err != nil {
+ 37  		panic(err)
+ 38  	}
+ 39  	defer conn.Close()
+ 40  
+ 41  	// looping de consumo
+ 42  	NovoPedido := consomeMensagem()
+ 43  	mutexKey := fmt.Sprintf("/%v", NovoPedido.Id)
+ 44  
+ 45  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
+ 46  
+ 47  	// Timeout para evitar espera infinita (30 segundos)
+ 48  	timeout := time.After(30 * time.Second)
+ 49  	retryCount := 0
+ 50  
+ 51  	// Loop para aguardar o mutex ser liberado
+ 52  	for {
+ 53  		select {
+ 54  		case <-timeout:
+ 55  			fmt.Printf("Timeout atingido após 30 segundos aguardando o mutex %s\n", mutexKey)
+ 56  			return
+ 57  		default:
+ 58  		}
+ 59  
+ 60  		retryCount++
+ 61  
+ 62  		// Verifica se o Znode de lock já existe
+ 63  		exists, _, err := conn.Exists(mutexKey)
+ 64  		if err != nil {
+ 65  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
+ 66  			time.Sleep(1 * time.Second)
+ 67  			continue
+ 68  		}
+ 69  
+ 70  		if exists {
+ 71  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
+ 72  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 73  			continue
+ 74  		}
+ 75  
+ 76  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 77  		break
+ 78  	}
+ 79  
+ 80  	// Tentativa de criar o lock para o registro
+ 81  	acl := zk.WorldACL(zk.PermAll) // Permissões abertas, ajuste conforme necessário
+ 82  	var path string
+ 83  
+ 84  	// Loop para tentar adquirir o mutex
+ 85  	for {
+ 86  		var err error
+ 87  		path, err = conn.Create(mutexKey, []byte{}, zk.FlagEphemeral, acl)
+ 88  		if err != nil {
+ 89  			if err == zk.ErrNodeExists {
+ 90  				fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
+ 91  				time.Sleep(2 * time.Second)
+ 92  
+ 93  				// Verifica novamente se ainda existe
+ 94  				exists, _, existsErr := conn.Exists(mutexKey)
+ 95  				if existsErr != nil {
+ 96  					fmt.Printf("Erro ao verificar existência do mutex: %v\n", existsErr)
+ 97  					time.Sleep(1 * time.Second)
+ 98  					continue
+ 99  				}
+100  
+101  				if exists {
+102  					continue // Volta ao início do loop para aguardar
+103  				}
+104  				// Se não existe mais, tenta criar novamente
+105  				continue
+106  			}
+107  			// Outro tipo de erro
+108  			fmt.Printf("Erro ao criar mutex: %v\n", err)
+109  			time.Sleep(1 * time.Second)
+110  			continue
+111  		}
+112  
+113  		// Mutex criado com sucesso
+114  		break
+115  	}
+116  
+117  	fmt.Println("Mutex criado e adquirido para o recurso", mutexKey)
+118  
+119  	// Processa o registro
+120  	success := processaMensagem(NovoPedido)
+121  	if !success {
+122  		return
+123  	}
+124  
+125  	fmt.Println("Pedido processado:", mutexKey)
+126  
+127  	// Libera o Mutex manualmente
+128  	conn.Delete(path, -1)
+129  	fmt.Println("Mutex liberado para o recurso:", mutexKey)
+130  
+131  	// Caso a sessão com o zookeeper acabe, todos os locks gerados pela conexão serão liberados.
+132  	time.Sleep(50 * time.Second)
+133  }`}</code></pre>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Redis.</strong> A <code>GET</code> followed by a <code>SET</code> is not atomic: another process gets in between the two. The lab fixes the second step with <code>SetNX</code>, but <strong>keeps the <code>GET</code> before it</strong>. The value is also the string <code>"locked"</code>, the same for everyone, so without a token per owner the <code>DEL</code> deletes someone else's lock. A 10 s TTL for 10 s of work lets the lock expire in the middle, and there is no fencing token. The right command is a single one: <code>SET key token NX PX ttl</code>. Plain <code>SETNX</code> has been deprecated since Redis 2.6.12.</li>
+    <li><strong>ZooKeeper.</strong> The <code>Exists</code> before the <code>Create</code> is not atomic either: the <code>Create</code> already fails with <code>ErrNodeExists</code>, and it alone is enough. The article shows a 10 s session and the log shows <code>timeout=40000</code>, because the server negotiates the value; the lab uses <code>1000*time.Second</code>. The official recipe uses <strong>sequential</strong> nodes, and the lab uses a fixed node, with no queue and with the "herd".</li>
+    <li><strong>"A distributed mutex is, in some ways, easier than in shared memory."</strong> It is harder. There is no common clock, the owner can get slow without knowing (garbage-collection pauses, network) and the lock can expire while it still thinks it has it.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on parallelism, concurrency and multithreading (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/concorrencia-paralelismo/" },
+    { label: "Redis: the SET command (NX, PX)", href: "https://redis.io/docs/latest/commands/set/" },
+    { label: "Redis: distributed locks and Redlock", href: "https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/" },
+    { label: "Kleppmann (2016): How to do distributed locking", href: "https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html" },
+    { label: "Sanfilippo: Is Redlock safe?", href: "http://antirez.com/news/101" },
+    { label: "Apache ZooKeeper: lock recipe", href: "https://zookeeper.apache.org/doc/current/recipes.html#sc_recipes_Locks" },
+  ]} />
+</Deep>
+
+<p class="gancho">In both versions Caio kept trying the lock and going back to sleep, and each wait cost milliseconds. What's missing is whether it is worth it, when the wait is tiny, not to sleep at all and to spin around the lock instead: that is the spinlock.</p>
+
+<Flashcards cards={[
+  { q: "Why is the local mutex not enough with 2 estoque replicas?",
+    a: "Each replica has its own sync.Mutex in different memories. Both clients read 1, both decrement, and the stock goes to −1 again." },
+  { q: "What is the Redis lock command and what does each part do?",
+    a: "SET lock:estoque:GATO-042 <token> NX PX 5000: NX creates only if it does not exist, PX 5000 gives a 5 s TTL, and it is all one atomic command." },
+  { q: "How many reservations per second fit with the lock in Redis?",
+    a: "The cycle is 6 ms (1 for SET + 4 of work + 1 for DEL), so 1 s ÷ 6 ms = 166 per second per SKU." },
+  { q: "What goes wrong when the owner pauses for 6 s with a 5 s TTL?",
+    a: "The lock expires at 5.001 s, Caio takes it at 5.003 s and buys. Bia wakes up at 6 s, still thinks she has the lock, and takes the stock to −1." },
+  { q: "What are the three remedies for the expired TTL?",
+    a: "A token per owner with compare-and-delete, a fencing token (the database refuses the lower number: 33 after 34) and the UPDATE ... AND quantidade > 0, which does not depend on a clock." },
+  { q: "What is the difference between an efficiency lock and a correctness lock?",
+    a: "Efficiency avoids repeated work (failing costs little; a simple Redis will do). Correctness protects the data (failing sells the cat twice; it demands fencing or a check in the database)." },
+]} />

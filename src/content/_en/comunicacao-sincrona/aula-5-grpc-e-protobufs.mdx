@@ -1,0 +1,136 @@
+---
+title: "gRPC and Protobufs"
+order: 5
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import imcProto from '../../../lab-code/comunicacao-sincrona/imc.proto?raw';
+import grpcServer from '../../../lab-code/comunicacao-sincrona/grpc-server.go?raw';
+import grpcClient from '../../../lab-code/comunicacao-sincrona/grpc-client.go?raw';
+
+<p class="ponte">In the last lesson <code>net/rpc</code> gave the call the look of a function and no contract: the type lives in the Go on each side, only Go reads the format and the call can wait forever. gRPC closes those three gaps. The contract becomes a <code>.proto</code> file that generates code in any language, the format is Protobuf, which sends only numbers and values, and the call's deadline is part of how you call.</p>
+
+<OneLiner>gRPC is an RPC with a Protobuf contract, traveling over HTTP/2: Davi's order, which takes 53 bytes in JSON, becomes 11 bytes, and many calls share a single connection.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>gRPC</strong> scenario, add up the HTTP/2 frames of the 1st call and compare with the 2nd. Then press <strong>Proto</strong> and read the 11 bytes: the field tag, the number in varint, the text <code>pix</code>. At the end, get to the <strong>"What if it fails"</strong> step and see what changes when a field's number is swapped. In the widget below, edit the <code>pedido_id</code> and follow the bytes.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-sincrona/chamada-3d/?mode=grpc" poster="labs/comunicacao-sincrona/chamada-3d-previa.webp" title="Interactive figure: gRPC: HTTP/2 and frames" alt="Preview of the 3D figure: gRPC: HTTP/2 and frames" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>
+  <strong>The contract.</strong> This is the store's version, in the same format as the lab's <code>imc.proto</code>. Money is <code>int64</code> in cents (the lab uses <code>double</code> for weight and height, which works for BMI and does not work for money).
+
+<pre><code>{String.raw`syntax = "proto3";
+package loja.pagamentos.v1;
+service Pagamentos { rpc Cobrar (CobrancaRequest) returns (CobrancaResponse) {} }
+message CobrancaRequest  { int64 pedido_id = 1; int64 valor_centavos = 2; string meio = 3; }
+message CobrancaResponse { string cobranca_id = 1; string status = 2; }`}</code></pre>
+  </li>
+  <li><strong>The 11 bytes of order 1050.</strong> With <code>pedido_id = 1050</code>, <code>valor_centavos = 2890</code> and <code>meio = "pix"</code>, the message becomes <code>08 9a 08 | 10 ca 16 | 1a 03 70 69 78</code>. Each field is a tag and a value. <code>08</code> is field 1 of type varint (1 &lt;&lt; 3 | 0). <code>9a 08</code> is 1050 in varint: 1050 = 8 × 128 + 26, and <code>0x1a | 0x80 = 0x9a</code>, then <code>0x08</code>. <code>10</code> is field 2, and <code>ca 16</code> is 2890 (22 × 128 + 74; <code>0x4a | 0x80 = 0xca</code>, then <code>0x16</code>). <code>1a</code> is field 3 of type "length + bytes" (3 &lt;&lt; 3 | 2), <code>03</code> says it is 3 bytes and <code>70 69 78</code> is "pix".</li>
+  <li><strong>The names do not travel.</strong> Only the field numbers. The JSON of the same order takes <strong>53 B</strong> and the Protobuf, <strong>11 B</strong>, 4.8 times smaller. The response, with <code>cobranca_id = "c-7731"</code> and <code>status = "pendente"</code>, is <code>0a 06 63 2d 37 37 33 31 12 08 70 65 6e 64 65 6e 74 65</code>: <strong>18 B</strong> against 44 B of JSON.</li>
+  <li><strong>On top of HTTP/2.</strong> The message gets a 5-byte prefix (1 for "compressed?" and 4 for length), <code>00 00 00 00 0b 08 9a 08 …</code>, 16 B in total, and goes in a DATA frame. The headers go in a HEADERS frame: <code>:method POST</code>, <code>:path /loja.pagamentos.v1.Pagamentos/Cobrar</code>, <code>content-type: application/grpc+proto</code>, <code>te: trailers</code> and <code>grpc-timeout</code>, the remaining time of the call in microseconds. The response ends with the <strong>trailers</strong>, <code>grpc-status: 0</code>.</li>
+  <li><strong>The bytes per call, measured.</strong> I brought up a real server and client in Go, with grpc-go v1.62.1 (the lab's version), and read the HTTP/2 frames through a proxy, on loopback. On the <strong>1st call</strong> of the connection, the client sends a HEADERS of 102 B and a DATA of 16 B, and the server answers with a HEADERS of 19 B, a DATA of 23 B and trailers of 24 B. With 9 B of header on each frame, that is 136 B from the client and 93 B from the server: <strong>229 B</strong>. From the <strong>2nd call on</strong>, the HPACK dynamic table (RFC 7541) already holds the headers, and the client's HEADERS drops to 15 B and the server's to 2 B: <strong>103 B</strong>.</li>
+  <li><strong>The math against REST.</strong> REST spends <strong>360 B on every call</strong>. <strong>360 ÷ 103 = 3.5 times</strong> fewer bytes. At 100 charges per second, that is 36 KB/s against 10.3 KB/s.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap"><table class="sr-table">
+  <caption>Measured frames of the <code>Cobrar</code> call (payload + 9 B of frame header)</caption>
+  <thead><tr><th scope="col">Frame</th><th scope="col">1st call</th><th scope="col">2nd on</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">client: HEADERS</th><td>102 + 9 = 111 B</td><td>15 + 9 = 24 B</td></tr>
+    <tr><th scope="row">client: DATA</th><td>16 + 9 = 25 B</td><td>16 + 9 = 25 B</td></tr>
+    <tr><th scope="row">server: HEADERS</th><td>19 + 9 = 28 B</td><td>2 + 9 = 11 B</td></tr>
+    <tr><th scope="row">server: DATA</th><td>23 + 9 = 32 B</td><td>23 + 9 = 32 B</td></tr>
+    <tr><th scope="row">server: trailers</th><td>24 + 9 = 33 B</td><td>2 + 9 = 11 B</td></tr>
+    <tr><th scope="row">total</th><td><strong>229 B</strong></td><td><strong>103 B</strong></td></tr>
+  </tbody>
+</table></div>
+
+<Widget name="bytes" title="How many bytes does each approach use?" hint="Edit the pedido_id, the amount in cents and the payment method. The widget builds the JSON, the Protobuf bytes in hex and the total per call in REST and in gRPC." />
+
+<p><strong>Honest warning.</strong> In bytes, the difference is small for an internal call, and the number depends on the test: I measured on loopback, with a 15 B <code>:authority</code>, and the store's <code>pagamentos:50051</code> would have 1 B more. The math also leaves out the preface and the SETTINGS of the connection (only on the 1st call) and the <code>PING</code> and <code>WINDOW_UPDATE</code> frames that grpc-go exchanges to estimate bandwidth. With calls made one at a time it came to about 190 B per call, everything included, and with 8 calls in parallel, about 108 B. The bigger gain of gRPC is the <strong>typed contract</strong>, the calls <strong>multiplexed</strong> on a single connection and <strong>streaming</strong>.</p>
+
+<h3 class="sec">The call types and the deadline</h3>
+
+<ol class="flow steps">
+  <li>The <code>Cobrar</code> call is <strong>unary</strong>: one message goes, one comes back. There are also <strong>server streaming</strong> (one message goes, several come back), <strong>client streaming</strong> and <strong>bidirectional</strong>, all over one HTTP/2 connection.</li>
+  <li>The <strong>deadline</strong> lives in the client's <code>context</code> (<code>context.WithTimeout</code>, 1 s in the lab) and travels in the <code>grpc-timeout</code> header. The server knows how much time is left and can give up on work nobody will wait for.</li>
+  <li>The <strong>gRPC status codes</strong> are not the HTTP ones: <code>OK</code> is 0, <code>DEADLINE_EXCEEDED</code> is 4 and <code>UNAVAILABLE</code> is 14. HTTP/2 answers <code>200</code> for almost everything, and the real result goes in the trailers.</li>
+</ol>
+
+<h3 class="sec">The lab: BMI over gRPC</h3>
+
+<p>The author's public repository calculates the body mass index (BMI) over gRPC. This is the <code>imc.proto</code>, unchanged (the comments in the file are in Portuguese):</p>
+
+<CodeLab code={imcProto} />
+
+<p>The numbers after the <code>=</code> (<code>weight = 1</code>, <code>height = 2</code>, <code>result = 1</code>) are the tags that travel in place of the names. The server, <code>grpc/server/main.go</code>, listens on port <strong>50051</strong> and registers the service on line 39 (<code>RegisterIMCServiceServer</code>):</p>
+
+<CodeLab code={grpcServer} from={13} to={46} />
+
+<p>And the client, with the 1 s deadline on line 21:</p>
+
+<CodeLab code={grpcClient} from={13} to={35} />
+
+<p>The BMI for 90.5 kg and 1.77 m is 90.5 ÷ 1.77² = <strong>28.89</strong>. The mapping to the store is direct: <code>IMCService.Calcular</code> becomes <code>Pagamentos.Cobrar</code>, and the <code>double</code> of the weight becomes the <code>int64</code> of the cents.</p>
+
+<h3 class="sec">What if it fails</h3>
+
+<ol class="flow steps">
+  <li><strong>Layer 4 load balancer.</strong> The <code>pedidos</code> (3 replicas) opens <strong>one</strong> HTTP/2 connection to the <code>pagamentos</code> and keeps it. A layer 4 load balancer (module 7) distributes <strong>connections</strong>, not calls, so the 3 connections can all land on <code>pagamentos-1</code> and <code>pagamentos-2</code> stays at <strong>0%</strong>. Fix: balance per call (layer 7, the mesh sidecar from module 10 or client-side balancing).</li>
+  <li><strong>Reused field number.</strong> Someone swaps <code>int64 valor_centavos = 2</code> for <code>double valor = 2</code>. Old clients keep sending field 2 as an integer, and the new server reads a field of another type: the value arrives as an unknown field and the charge goes out with value <strong>0</strong>, with no visible error. The rule is to <strong>never reuse a field's number</strong>, and mark what was removed with <code>reserved</code>.</li>
+</ol>
+
+<WhyItMatters>
+  <li>The contract in <code>.proto</code> is what <code>net/rpc</code> lacked: a file that generates client and server in Go, Java or Node.js, with the types checked at compile time.</li>
+  <li>The byte savings are real, 3.5 times in the math, but small for an internal call. What changes the design is being able to multiplex calls on one connection and open streams in both directions.</li>
+  <li>The two failures in the lesson have the same root: the call is cheap and fast, and so balancing and contract evolution start to demand care from whoever operates it.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Corrections to the source article and to the lab</h4>
+  <ul>
+    <li><strong>"gRPC - Google Remote Procedure Call".</strong> The project says, in the grpc.io FAQ, that the "g" changes with each release and that the official name is "gRPC Remote Procedure Calls". Here it is written just "gRPC".</li>
+    <li><strong>The client example.</strong> <code>grpc.Dial</code> with <code>WithInsecure</code> and <code>WithBlock</code> is obsolete: the current one (grpc-go 1.63 or later) is <code>grpc.NewClient</code> with <code>insecure.NewCredentials()</code>, and the lab pins <code>v1.62.1</code>. In the article, the client prints with <code>fmt.Sprintf</code> and discards the result; in the lab it is <code>log.Printf</code>, and the message <code>could not greet</code> is copied from the grpc-go example. The comments in the <code>.proto</code> talk about "computing the square of a number", copied from another example.</li>
+    <li><strong>"Ideal for microservices".</strong> Three warnings that change the design are missing: layer 4 balancing does not distribute calls, the browser does not speak plain gRPC (it needs gRPC-Web) and the <code>.proto</code> needs versioning.</li>
+    <li><strong>The bytes.</strong> The initial math of 204 and 95 B had been done with only an HPACK library. The real measurement gave 229 B and 103 B, and those are the ones that went in.</li>
+  </ul>
+  <h4 class="deep-h">How I measured</h4>
+  <p>Server and client in Go 1.23.4 with grpc-go v1.62.1 and a codec that passes the 11 Protobuf bytes through; between the two, a TCP proxy in Python that cuts the HTTP/2 frames and decodes the headers with HPACK. The code is in <code>docs/escrita/comunicacao-sincrona-medida-grpc/</code>. The real <code>grpc-timeout</code> goes in remaining microseconds (<code>996250u</code>), and the value changes on every call, which is why the client's HEADERS varies between 14 and 15 B.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis (gRPC and Protobuf, fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/padroes-de-comunicacao-sincronos/" },
+    { label: "grpc.io: core concepts", href: "https://grpc.io/docs/what-is-grpc/core-concepts/" },
+    { label: "grpc.io: deadlines", href: "https://grpc.io/docs/guides/deadlines/" },
+    { label: "gRPC over HTTP/2 (PROTOCOL-HTTP2.md)", href: "https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md" },
+    { label: "protobuf.dev: encoding", href: "https://protobuf.dev/programming-guides/encoding/" },
+    { label: "RFC 9113: HTTP/2 and RFC 7541: HPACK", href: "https://www.rfc-editor.org/rfc/rfc7541.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">gRPC gives the <code>pedidos</code> a contract and lean bytes for talking to the <code>pagamentos</code>, and the call is still always from the client to the server. Lena, who is waiting for order 1048 to arrive, does not want to ask again where the truck is: she wants to watch the map move. What is left is how the server pushes news without being asked, which is the job of WebSocket.</p>
+
+<Flashcards cards={[
+  { q: "How many bytes does order 1050 take in Protobuf, and in JSON?",
+    a: "11 bytes in Protobuf (08 9a 08 10 ca 16 1a 03 70 69 78) and 53 bytes in JSON, 4.8 times smaller. The field names do not travel, only the numbers." },
+  { q: "How does <code>1050</code> become <code>9a 08</code>?",
+    a: "In varint, 1050 = 8 × 128 + 26. The low byte, 0x1a, gets the high bit: 0x9a. Then comes 0x08." },
+  { q: "How many bytes does a gRPC call use, measured, and how many does REST?",
+    a: "229 B on the 1st call and 103 B from the 2nd on (grpc-go v1.62.1, on loopback). REST uses 360 B on every call: 3.5 times more." },
+  { q: "Why does a layer 4 load balancer get in the way of gRPC?",
+    a: "It balances connections, and gRPC keeps a single HTTP/2 connection for all calls. The 3 replicas of pedidos can land on the same pagamentos, and the other one stays at 0%." },
+  { q: "What happens if someone reuses a field's number with another type?",
+    a: "Old clients break with no visible error: the value arrives as an unknown field and the charge goes out with value 0. Never reuse the number; use reserved." },
+]} />

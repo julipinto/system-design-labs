@@ -1,0 +1,112 @@
+---
+title: "AMQP"
+order: 9
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson MQTT solved the truck, with a small device on a bad network. The store's third leg is missing: the emails. <code>notificacoes</code> sends <strong>transactional</strong> emails (the confirmation of order 1051 to Lena, the shipping notice) and <strong>promotional</strong> ones (the Black Friday newsletter, with <strong>50,000</strong> emails). The provider accepts <strong>100 per second</strong>. In a single queue, Lena's email waits behind the 50,000.</p>
+
+<OneLiner>In AMQP the producer does not choose the queue: it publishes to an <strong>exchange</strong> with a <strong>routing key</strong>, and the <strong>broker routes</strong> through <strong>bindings</strong> to the queues; the consumer reads from the queue and sends the <strong>ack</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Exchange</strong> scenario, follow the message <code>email.pedido.confirmacao</code> for order 1051 and see which queues it lands in. Then compare with the newsletter, <code>email.promo.bf</code>. In the widget below, leave 50,000 promotional emails and 100 per second and see how long Lena's email waits in the single queue and in separate queues.</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/fila-3d/?mode=exchange" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Interactive figure: AMQP: the emails exchange" alt="Preview of the 3D figure: AMQP: the emails exchange" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="emails" title="Single queue or separate queues: how long Lena's email waits" hint="Enter the promotional emails in the queue (1 to 100 thousand) and the provider's rate (10 to 500 per second). The widget shows how long the transactional email waits in a single queue and in separate queues." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The arithmetic shows the problem. In a single queue, Lena's email waits <strong>50,000 ÷ 100 = 500 s</strong>, or <strong>8 min 20 s</strong>. With <strong>separate queues</strong>, one for transactional and another for promotional, it goes out in <strong>under 1 s</strong>. We need a way for the message to reach the right queue without the producer knowing which one it is.</li>
+  <li>That is what <strong>AMQP 0-9-1</strong>, RabbitMQ's protocol, does. A TCP connection (port <strong>5672</strong>, opened with the 8-byte header <code>41 4D 51 50 00 00 09 01</code>, "AMQP" and the version) carries several virtual <strong>channels</strong>. The producer publishes to an <strong>exchange</strong> with a <strong>routing key</strong>; the exchange routes through the <strong>bindings</strong> to the <strong>queues</strong>; the consumer reads from the queue and sends the <strong>ack</strong>. The difference from Kafka is this: the producer <strong>does not choose the queue</strong>, the broker routes.</li>
+  <li>Routing depends on the <strong>exchange type</strong>. <strong>Direct</strong> matches the whole key (it suits commands like <code>cobrar</code>). <strong>Topic</strong> matches patterns, with <code>*</code> for one word and <code>#</code> for zero or more. <strong>Fanout</strong> copies to every bound queue. <strong>Headers</strong> matches on headers. And there is the <strong>default exchange</strong>, with no name, which routes by a key equal to the queue name.</li>
+  <li>The store uses a <strong>topic exchange</strong> called <code>emails</code>. The keys are <code>email.pedido.confirmacao</code>, <code>email.pedido.enviado</code> and <code>email.promo.bf</code>. The queues: <code>emails.transacionais</code> (binding <code>email.pedido.*</code>), <code>emails.promocionais</code> (<code>email.promo.#</code>) and <code>emails.auditoria</code> (<code>email.#</code>, which gets a copy of everything). The confirmation of 1051 lands in <code>transacionais</code> and in <code>auditoria</code>; the Black Friday promotion lands in <code>promocionais</code> and in <code>auditoria</code>.</li>
+  <li>The <strong>guarantees</strong> come from pieces that are switched on one by one. <strong>Manual ack</strong> makes the message go back if the consumer goes down without confirming. <strong><code>prefetch</code></strong> limits how many unacknowledged messages each consumer receives. A <strong>durable</strong> queue plus a <strong>persistent</strong> message (<code>delivery_mode = 2</code>) survive a restart. <strong>Publisher confirms</strong> tell the producer the broker stored it. The <strong>DLX</strong> (<em>dead letter exchange</em>) receives the message that was rejected without requeueing, expired (TTL) or overflowed the queue limit, and sends it to <code>emails.dlx</code> and <code>emails.dlq</code>. <strong>Quorum queues</strong>, with Raft, replicate across nodes.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The three protocols, each where it pays off</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Kafka</th><th>MQTT</th><th>RabbitMQ (AMQP)</th></tr></thead>
+  <tbody>
+    <tr><th>Model</th><td>log in partitions</td><td>light publish/subscribe</td><td>queue with routing in the broker</td></tr>
+    <tr><th>Who moves it</th><td>the consumer <strong>pulls</strong></td><td>the broker <strong>pushes</strong></td><td>the broker delivers and waits for the ack</td></tr>
+    <tr><th>After being read</th><td>keeps</td><td>does not keep (only the retained one)</td><td>ack and erase</td></tr>
+    <tr><th>In the store</th><td>events between services</td><td>the truck's position</td><td>emails</td></tr>
+    <tr><th>What for</th><td>millions of events, order by key, groups</td><td>devices, unstable network, QoS</td><td>tasks and commands, DLX</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: the routing key with a typo</h3>
+
+<p>In a deploy, the producer starts publishing <code>emails.pedido.confirmacao</code> (<strong>plural</strong>, a typo) instead of <code>email.pedido.confirmacao</code>. No binding matches that key: neither <code>email.pedido.*</code> on the transactional queue nor <code>email.#</code> on the audit queue. The exchange <strong>finds no queue</strong> and <strong>silently drops the message</strong>. The producer gets success and thinks the email was sent. Lena never receives the confirmation of 1051, and no error shows up anywhere.</p>
+
+<p>There are three remedies that add up. The first is <code>mandatory = true</code>: the broker <strong>returns</strong> the unroutable message to the producer. The second is an <strong>alternate exchange</strong>, which receives whatever nobody routed, and an alert when it receives something. The third is testing the keys and the bindings together, at deploy time.</p>
+
+<WhyItMatters>
+  <li><strong>Separate queues take the transactional email out from behind.</strong> 8 min 20 s becomes under 1 s for Lena's email.</li>
+  <li><strong>The broker routes.</strong> The producer only knows the exchange and the key; new queues attach by binding.</li>
+  <li><strong>The guarantee is built in layers.</strong> Ack, prefetch, persistence, confirms and DLX: each one closes a failure.</li>
+  <li><strong>With no route, silence is the default.</strong> <code>mandatory</code> and the alternate exchange bring the error back.</li>
+</WhyItMatters>
+
+<Deep min={7}>
+  <h4 class="deep-h">Where each key goes in the <code>emails</code> exchange</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>routing key</th><th>transacionais<br/><code>email.pedido.*</code></th><th>promocionais<br/><code>email.promo.#</code></th><th>auditoria<br/><code>email.#</code></th></tr></thead>
+    <tbody>
+      <tr><th><code>email.pedido.confirmacao</code></th><td>yes</td><td>no</td><td>yes</td></tr>
+      <tr><th><code>email.pedido.enviado</code></th><td>yes</td><td>no</td><td>yes</td></tr>
+      <tr><th><code>email.promo.bf</code></th><td>no</td><td>yes</td><td>yes</td></tr>
+      <tr><th><code>emails.pedido.confirmacao</code> (plural)</th><td>no</td><td>no</td><td>no</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The last row is the typo: no pattern matches <code>emails.</code>, not even <code>email.#</code>, because the first word is different.</p>
+  <h4 class="deep-h">AMQP 0-9-1 and AMQP 1.0</h4>
+  <p>The article describes the 0-9-1 model and calls it just "AMQP". <strong>AMQP 1.0</strong> (OASIS, ISO/IEC 19464) is a <strong>different protocol</strong>, with no exchanges. RabbitMQ 4.0 supports it natively; in 3.x, through a plugin.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Protocol version.</strong> The article mixes the two: what it describes (exchange, binding, queue) is <strong>0-9-1</strong>.</li>
+    <li><strong>Channels.</strong> "Each session is an independent connection" is wrong: <strong>channels</strong> are virtual and share <strong>one</strong> TCP connection, which is why they are cheap.</li>
+    <li><strong>Routing key and binding key.</strong> The article mixes them up. The <strong>routing key</strong> is the one the producer sends; the <strong>binding key</strong> is the pattern of the link between the queue and the exchange.</li>
+    <li><strong>What is missing.</strong> The <strong>default exchange</strong>, <strong>publisher confirms</strong>, <strong>prefetch</strong>, the <strong>DLX</strong> and <strong>quorum queues</strong>. And, in the article's examples, the queue is durable but the message is not persistent.</li>
+  </ul>
+  <Sources items={[
+    { label: "RabbitMQ: AMQP 0-9-1 Model Explained", href: "https://www.rabbitmq.com/tutorials/amqp-concepts" },
+    { label: "RabbitMQ: consumer acknowledgements and publisher confirms", href: "https://www.rabbitmq.com/docs/confirms" },
+    { label: "RabbitMQ: Dead Letter Exchanges", href: "https://www.rabbitmq.com/docs/dlx" },
+    { label: "RabbitMQ: Quorum Queues", href: "https://www.rabbitmq.com/docs/quorum-queues" },
+    { label: "RabbitMQ 4.0: native AMQP 1.0", href: "https://www.rabbitmq.com/blog/2024/08/05/native-amqp" },
+    { label: "amqp.org (the article's reference)", href: "https://www.amqp.org/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store's topology is on paper: a topic exchange, three queues and a DLX. We still need to see what the author's code, which sets up a direct, a topic and a fanout exchange with RabbitMQ, does and what it leaves out: persistence, <code>prefetch</code> and the <code>Ack(true)</code>. That is the lab in the next lesson.</p>
+
+<Flashcards cards={[
+  { q: "How long does Lena's email wait in a single queue with 50,000 promotional emails at 100/s, and in separate queues?",
+    a: "50,000 ÷ 100 = 500 s (8 min 20 s) in the single queue; under 1 s with separate queues." },
+  { q: "What is a message's path in AMQP 0-9-1?",
+    a: "A TCP connection (5672) with virtual channels; the producer publishes to an exchange with a routing key; the exchange routes through bindings to the queues; the consumer reads and sends the ack." },
+  { q: "What are the exchange types?",
+    a: "direct (equal key), topic (patterns with * and #), fanout (copies to all) and headers; plus the default exchange (key = queue name)." },
+  { q: "Which queues does email.pedido.confirmacao go to in the emails exchange?",
+    a: "emails.transacionais (email.pedido.*) and emails.auditoria (email.#)." },
+  { q: "What happens if the producer publishes emails.pedido.confirmacao (plural), and how do you fix it?",
+    a: "No binding matches (neither email.pedido.* nor email.#): the exchange silently drops it. Fix: mandatory = true, an alternate exchange and an alert." },
+]} />

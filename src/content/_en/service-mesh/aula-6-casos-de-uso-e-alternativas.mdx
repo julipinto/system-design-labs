@@ -1,0 +1,101 @@
+---
+title: "Use cases and alternatives"
+order: 6
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the shop was left with five ways to stand a mesh up, and all of them charge something: code, CPU, memory or an extra proxy in the path. What remains is the question that comes before choosing the way: does the shop need a mesh? Six services in three languages are close to the limit, and what decides it is what you stand to lose without one.</p>
+
+<OneLiner>A mesh is worth it when many services, in several languages, need the same network rules and mTLS, and there is a team to operate it; with few services and a single team, a library and a good gateway do the job, and the mesh is just one more system to maintain.</OneLiner>
+
+<DoIt>
+  <p>In the calculator below, start with the shop from the story (6 services, 3 languages, 3 teams, mTLS required, a platform team) and then shrink it to 3 services, 1 language and 1 team. See at which point the recommendation changes and which questions weigh the most.</p>
+</DoIt>
+
+<Widget name="valemalha" title="Does the shop need a mesh?" hint="Choose how many services, languages and teams the shop has, whether mTLS everywhere is a requirement and whether there is a platform team. The calculator adds up the signals and says what they ask for. It is a rule of thumb, not a law." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Many services.</strong> Each new service increases the number of pairs that call each other, and each pair needs a timeout, a retry and a metric. The mesh writes the rule once; without it, the rule is copied into each service and gets old in each one.</li>
+  <li><strong>Several languages.</strong> This is the shop's case: Go, Node.js and Java, with three network libraries that need to behave the same way. With a single language, a shared library already solves a good part. With three, the mesh gains a point.</li>
+  <li><strong>mTLS everywhere.</strong> If an audit requires every call between pods to be encrypted and each side to prove who it is, <code>estoque</code> with no TLS stops being an oversight and becomes a problem. The sidecar or ztunnel delivers that to everyone at once, and the control plane rotates the 24 h certificates with nobody remembering.</li>
+  <li><strong>A team to operate it.</strong> The mesh is a system: it needs someone to update the control plane, swap Envoy, read the YAML and know why a call came back 403. Without that team, the gain turns into debt.</li>
+  <li><strong>When it is not worth it.</strong> Three services, one language and one team: a retry and timeout library, TLS configured at the gateway and metrics in the app itself cost less than a control plane plus a proxy per pod. The mesh can wait for the day the rule starts to diverge between teams.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">When it fails: the mesh goes down too</h3>
+
+<p>Everything the mesh does for everyone, it also gets wrong for everyone. In the shop, a team applies <code>PeerAuthentication</code> in <code>STRICT</code> mode on the <code>loja</code> namespace: from then on, each pod only accepts calls encrypted with mTLS. A pod that came up without a sidecar, like <code>relatorios</code> before the injection reached it, keeps sending plain text, and its calls start to be refused. Another team copies the retry rule from lesson 2 to all three hops and the shop is back to 27 calls to <code>pagamentos</code>. And if <code>istiod</code> goes down, the calls keep going, but the 24 h certificates expire without rotation. The mesh takes code away from the teams and moves the risk to one place, and that place is where someone needs to be watching.</p>
+
+<p>When it is time to choose a mesh, the market offers more than one path. Each gives a different answer to the question from the last lesson: where the proxy lives.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Mesh</th><th>Where the proxy lives</th><th>What it is good for, as an example</th></tr></thead>
+  <tbody>
+    <tr><th>Istio</th><td>Envoy in each pod (sidecar) or ztunnel per node and waypoint (ambient)</td><td>L7 rules in VirtualService and DestinationRule; the two models from lessons 4 and 5</td></tr>
+    <tr><th>Linkerd</th><td>Its own proxy, <code>linkerd2-proxy</code>, written in Rust, in each pod</td><td>A leaner mesh, with mTLS on by default</td></tr>
+    <tr><th>Consul</th><td>Envoy as a sidecar, with a built-in certificate authority</td><td>When Consul is already used for service discovery</td></tr>
+    <tr><th>Cilium</th><td>eBPF in the node's kernel, plus one Envoy per node for L7</td><td>When the cluster network is already Cilium</td></tr>
+    <tr><th>Kuma</th><td>Envoy in each service, on Kubernetes or on virtual machines</td><td>Environments that mix pods and VMs</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>One absence deserves a note: <strong>AWS App Mesh</strong>, which used to show up in lists of meshes, had its end of support announced by AWS for September 30, 2026. After that date, the console and the resources are no longer accessible. Whoever used it has to migrate, and whoever is choosing now should not count on it.</p>
+
+<WhyItMatters>
+  <li><strong>A decision with numbers.</strong> Instead of "microservices call for a mesh", you count how many services, languages and teams exist and whether mTLS is required.</li>
+  <li><strong>Starting small is allowed.</strong> Turning on L4 only (mTLS and policy by identity, as in the ambient of lesson 5) already delivers what weighs the most, without paying for L7 everywhere.</li>
+  <li><strong>The cost is operations, not only CPU.</strong> The 3 vCPU and 1.5 GB of the 30 sidecars are the smallest of the prices; the biggest is keeping the control plane, the YAML and the updates.</li>
+  <li><strong>The way out exists.</strong> A library plus a gateway remain an honest answer when the shop is small.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Questions to ask before adopting</h4>
+  <ul>
+    <li>How many calls between services are there today, and how many languages write them?</li>
+    <li>Does anyone require mTLS and identity per service, and who will prove that to the auditor?</li>
+    <li>Who updates the control plane and Envoy, and how long does each update take with the 30 pods?</li>
+    <li>Is L4 enough (mTLS, policy by identity) or does the shop need retry and canary in the proxy?</li>
+    <li>What is the plan if the mesh goes down, and do the calls keep going with the last configuration?</li>
+  </ul>
+  <h4 class="deep-h">About AWS App Mesh</h4>
+  <p>The AWS documentation carries, on its own introduction page, the notice of end of support on September 30, 2026, and AWS published a guide to migrate from App Mesh to Amazon ECS Service Connect. The source article does not mention App Mesh, so this lesson only records the date, since the brief asked for it to be checked.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li>The article treats the mesh as a natural part of any microservices architecture. It solves a real problem, but it only shows up when there are many services, several languages or an mTLS requirement; with few services and one team, the cost of operating the mesh can be larger than that of the code it removes.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Service Mesh (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/service-mesh/" },
+    { label: "AWS App Mesh: end of support notice for September 30, 2026", href: "https://docs.aws.amazon.com/app-mesh/latest/userguide/what-is-app-mesh.html" },
+    { label: "AWS: migrating from App Mesh to Amazon ECS Service Connect", href: "https://aws.amazon.com/blogs/containers/migrating-from-aws-app-mesh-to-amazon-ecs-service-connect/" },
+    { label: "Linkerd: architecture (linkerd2-proxy in Rust)", href: "https://linkerd.io/2-edge/reference/architecture/" },
+    { label: "Consul: service mesh with Envoy sidecars and mTLS", href: "https://developer.hashicorp.com/consul/docs/connect" },
+    { label: "Kuma: documentation (Envoy, Kubernetes and VMs)", href: "https://kuma.io/docs/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The mesh takes care of the conversation between the services: who calls whom, with which rule and encrypted. But inside <code>pedidos</code>, the program serves hundreds of calls at the same time, and the mesh sees none of that. What is left is how a program does several things at once without one stepping on another: that is the topic of the next module, Concurrency and Parallelism.</p>
+
+<Flashcards cards={[
+  { q: "When is a service mesh worth it?",
+    a: "When there are many services, several languages, an mTLS requirement everywhere and a platform team to operate it. The shop, with 6 services in 3 languages, is close to the limit." },
+  { q: "When does the mesh not pay off?",
+    a: "With few services (for example 3) and a single team: a retry and timeout library plus a good gateway cost less than a control plane and a proxy per pod." },
+  { q: "What is the biggest cost of a mesh?",
+    a: "Operating it: keeping the control plane, swapping Envoy, writing and debugging the YAML. The 3 vCPU and 1.5 GB of the sidecars are the smallest price." },
+  { q: "Why can the mesh also take the shop down?",
+    a: "Because the rule applies to everyone: a STRICT applied early refuses the pod with no sidecar, and a badly written retry multiplies calls. If istiod goes down, the 24 h certificates expire without rotation." },
+  { q: "What happened to AWS App Mesh?",
+    a: "AWS announced the end of support for September 30, 2026. After that the console and the resources are no longer accessible; AWS points to migrating to Amazon ECS Service Connect." },
+]} />

@@ -1,0 +1,129 @@
+---
+title: "AMQP: example"
+order: 10
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+
+<p class="ponte">Last lesson the email topology was on paper: a topic exchange <code>emails</code>, three queues, one DLX. The author's public repository has three Go labs with RabbitMQ that set up exactly the three ways of routing: <code>default/</code> (direct), <code>topic/</code> and <code>fanout/</code>. Let's read them against the lesson, because each one leaves out something that lesson 9's guarantee called for.</p>
+
+<OneLiner>The three labs show routing by <strong>direct</strong> (one queue), <strong>topic</strong> (patterns) and <strong>fanout</strong> (copy to all), but none has a <strong>persistent message</strong>, <strong>prefetch</strong> or <strong>publisher confirms</strong>: each one's messages are lost if the broker restarts.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>AMQP lab</strong> scenario, go through the three topologies, one at a time: the direct <code>cobrar</code>, the topic with 3 queues and the fanout with 3 queues. In each one, count how many messages each queue receives. Then look at the <code>Ack(true)</code> line in the code: what does "acknowledge up to here" mean?</p>
+</DoIt>
+
+<Figure3D path="en/labs/comunicacao-assincrona/fila-3d/?mode=lab-amqp" poster="labs/comunicacao-assincrona/fila-3d-previa.webp" title="Interactive figure: AMQP: the lab" alt="Preview of the 3D figure: AMQP: the lab" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong><code>default/</code></strong> declares the exchange <code>ecommerce.nova.venda</code> (direct, durable), the queue <code>cobrar</code> and the binding <code>cobrar</code>. The consumer reads with <code>auto-ack = false</code> and acknowledges with <code>d.Ack(true)</code>. It is the design of a command to a single recipient, like lesson 2's <code>CobrarPedido</code>.</li>
+  <li><strong><code>topic/</code></strong> declares the exchange <code>ecommerce.nova.venda.faturamento</code> (topic) and three queues: <code>queue.faturamento</code> (binding <code>faturamento.prioridade.default</code>), <code>queue.faturamento.prioritario</code> (<code>faturamento.prioridade.alta</code>) and <code>queue.faturamento.datalake</code> (<code>faturamento.prioridade.*</code>). The producer sends 20 messages, with a 10% chance of high priority, and the datalake receives <strong>all 20</strong>.</li>
+  <li><strong><code>fanout/</code></strong> declares an exchange <code>ecommerce.nova.venda</code> of type fanout with the queues <code>cobrar_pedido</code>, <code>reservar_estoque</code> and <code>informar_logistica</code>. The routing key is ignored, and <strong>each of the 3 queues receives every message</strong>. The code publishes <strong>1,000</strong> (the loop is <code>i &lt; 1000</code>).</li>
+  <li>The mapping to the store: <code>prioridade.alta</code> is <code>email.pedido.*</code> (transactional); <code>prioridade.default</code> is <code>email.promo.*</code>; the datalake is <code>emails.auditoria</code>, which gets a copy of everything. The <code>fanout</code> is <code>PedidoPago</code> copied to 3 queues, the same idea as Kafka's 3 consumer groups, now with queues.</li>
+  <li>To run it, each folder has a <code>docker-compose.yml</code> with <code>rabbitmq:3-management</code>, on port <strong>5672</strong> (AMQP) and the dashboard on <strong>15672</strong>, with user <code>user</code> and password <code>password</code>. The dashboard shows the exchanges, the bindings and the queues filling up.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Nine divergences between the labs and the lesson, in two groups</h3>
+
+<p>In the code, five things that lesson 9's guarantee would call for:</p>
+
+<ol class="flow steps">
+  <li><strong>The client is archived.</strong> <code>streadway/amqp</code> no longer receives changes; the replacement is <code>rabbitmq/amqp091-go</code>.</li>
+  <li><strong><code>default/producer.go</code> declares the topology and publishes in a loop of 3 billion iterations</strong>, with no <em>publisher confirms</em>. It fills the queue and the broker's memory, because the producer never knows whether the broker keeps up. In 4 s, the producer printed 212,188 lines of "enviada" (sent), and the queue had 208,902 messages: without confirmation, it has no way to know how many arrived.</li>
+  <li><strong>The messages are not persistent.</strong> They are <code>text/plain</code> without <code>DeliveryMode: Persistent</code>. The queue is durable, the message is transient: does it survive a broker restart? <strong>No.</strong> I tested it: with 119,161 messages in the <code>cobrar</code> queue, a <code>docker restart</code> of the broker brought back the queue and the exchange, and <strong>0</strong> messages.</li>
+  <li><strong>No consumer calls <code>ch.Qos(...)</code>.</strong> Without <code>prefetch</code>, the broker pushes <strong>everything</strong> to the first consumer that connects. <code>rabbitmqctl list_channels</code> showed <code>prefetch_count = 0</code> (no limit) and 467 messages delivered and still without an <code>ack</code> at one moment of the reading.</li>
+  <li><strong><code>d.Ack(true)</code> uses <code>multiple = true</code>.</strong> That acknowledges <strong>all</strong> pending messages up to that one. If processing is concurrent, messages still in progress are acknowledged and can be lost.</li>
+</ol>
+
+<p>And outside the consumers' code, four things about the repository:</p>
+
+<ol class="flow steps">
+  <li><strong>The image is <code>rabbitmq:3-management</code>.</strong> The 3.13 series reached the end of community support on September 30, 2024, and the current series is 4.x.</li>
+  <li><strong>The comment <code>routing key (binding key)</code> mixes the two names</strong> that lesson 9 separated.</li>
+  <li><strong>Two labs use the same exchange name with different types.</strong> <code>default/</code> declares <code>ecommerce.nova.venda</code> as direct, and <code>fanout/</code> as fanout. Running both on the same broker makes the second one fail at declaration, because the type does not match. Run it: with <code>default/</code> already declared, <code>fanout/producer.go</code> prints <code>Falha ao construir a exchange Exception (406) Reason: "PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'ecommerce.nova.venda' in vhost '/': received 'fanout' but current is 'direct'"</code> (the first sentence is the program's own message, in Portuguese: "Failed to build the exchange").</li>
+  <li><strong>The fanout publishes 1,000 messages,</strong> not a handful: each of the 3 queues piles up all 1,000 if nobody consumes.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the duplicated email and the poison message</h3>
+
+<p>The email consumer sends the confirmation email for 1051 and <strong>goes down before the <code>ack</code></strong>. RabbitMQ redelivers the message with <code>redelivered = true</code> and Lena receives the <strong>duplicated email</strong>. The fix is idempotence: one <code>message_id</code> per email, and the consumer ignores what it already sent. With <code>auto-ack</code>, the flaw is the opposite: the message is erased on arrival, and if the consumer goes down before sending, the email is <strong>lost</strong>.</p>
+
+<p>The <strong>poison message</strong> (an invalid address) shows the difference between the two <code>nack</code>s. With <code>nack</code> and requeue, it comes back forever, as in lesson 3. With <code>nack</code> <strong>without</strong> requeue, it goes to the DLQ through the DLX, after 3 attempts, and the queue moves on.</p>
+
+<WhyItMatters>
+  <li><strong>Direct, topic and fanout are three ways to route.</strong> One queue, patterns and copy to all.</li>
+  <li><strong>A durable queue is not enough.</strong> Without <code>DeliveryMode: Persistent</code>, the message vanishes on a restart.</li>
+  <li><strong>Without prefetch, one consumer takes everything.</strong> The broker pushes what it has to the first one that connects.</li>
+  <li><strong>The ack has to be idempotent on the other side.</strong> Going down between sending and acknowledging duplicates the email.</li>
+</WhyItMatters>
+
+<Deep min={8}>
+  <h4 class="deep-h">What came out when I ran it</h4>
+  <p>I ran the three labs on October 21, 2026 (Docker 29.9.1, <code>rabbitmq:3-management</code>, which came as version 3.13.7). I compiled the programs with the <code>golang</code> image and ran them on an <code>alpine</code> image on the compose network, with the broker at <code>rabbitmq:5672</code> in place of <code>localhost</code>, only in my copy. The full output is in <a href={withBase('labs/comunicacao-assincrona/lab/amqp-saida.txt')}>amqp-saida.txt</a> (the file is in Portuguese).</p>
+  <pre><code>{String.raw`# default/ (direct): producer for 4 s
+$ rabbitmqctl list_queues name durable messages
+cobrar  true  208902
+
+# fanout/producer.go against the same broker (ecommerce.nova.venda is already direct)
+Falha ao construir a exchange Exception (406) Reason: "PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'ecommerce.nova.venda' in vhost '/': received 'fanout' but current is 'direct'"
+
+# fresh broker, fanout/: producer publishes 1000
+informar_logistica 1000 | cobrar_pedido 1000 | reservar_estoque 1000
+
+# fresh broker, topic/: 3 producer runs (60 messages)
+queue.faturamento.prioritario 4 | queue.faturamento 56 | queue.faturamento.datalake 60`}</code></pre>
+  <ul>
+    <li><strong>Confirmed:</strong> direct delivers to the <code>cobrar</code> queue; fanout copies the 1,000 messages to each of the 3 queues (with one consumer reading <code>cobrar_pedido</code>, the other two stayed at 1,000); in topic, the <code>datalake</code> received all 60 (<code>faturamento.prioridade.*</code>), 4 went to the priority queue (about 7%, close to the draw's 10%, and in one run of 20 there were 0), and the other 56 to the default queue.</li>
+    <li><strong>Confirmed:</strong> the type conflict on the <code>ecommerce.nova.venda</code> exchange (error 406, above), the message that does not survive a restart, <code>prefetch_count = 0</code> and the lack of producer confirmation.</li>
+    <li><strong>The compose did not come up the first time.</strong> The <code>docker-compose.yml</code> mounts <code>./tmp:/var/lib/rabbitmq</code>, and RabbitMQ crashed with <code>Error when reading /var/lib/rabbitmq/.erlang.cookie: eacces</code>. I repeated it three times, with a fresh <code>./tmp</code> and with a named volume: the container exits with code 1. A <code>docker start</code> on the same container, the second start, comes up without error. I did not investigate the cause; it should not be common on plain Linux, and it shows up on Docker over WSL.</li>
+  </ul>
+  <h4 class="deep-h">The direct producer and consumer, unchanged</h4>
+  <p>Excerpts from the author's public examples repository (the numbers on the left are the files' line numbers; the comments and messages are in Portuguese, as in the original). In <code>default/producer.go</code>, the 3 billion loop is on line 66; in <code>default/consumer.go</code>, <code>auto-ack = false</code> is on line 42 and <code>Ack(true)</code> on 54.</p>
+  <pre><code>{"56  \t// Associando a Queue até a Exchange\n57  \t// e informando a binding key para roteamento\n58  \terr = ch.QueueBind(\n59  \t\tq.Name,                 // Nome da fila\n60  \t\t\"cobrar\",               // Binding key de roteamento\n61  \t\t\"ecommerce.nova.venda\", // Nome da exchange\n62  \t\tfalse,                  // no-wait\n63  \t\tnil,                    // arguments\n64  \t)\n65  \n66  \tfor i := 0; i < 3000000000; i++ {\n67  \n68  \t\tid := uuid.New()\n69  \n70  \t\t// Mensagem simples\n71  \t\tbody := fmt.Sprintf(\"id:%v\", id)\n72  \n73  \t\t// Publicando a mensagem na exchange\n74  \t\terr = ch.Publish(\n75  \t\t\t\"ecommerce.nova.venda\", // exchange\n76  \t\t\t\"cobrar\",               // routing key (binding key)\n77  \t\t\tfalse,                  // mandatory\n78  \t\t\tfalse,                  // immediate\n79  \t\t\tamqp.Publishing{\n80  \t\t\t\tContentType: \"text/plain\",\n81  \t\t\t\tBody:        []byte(body),\n82  \t\t\t})\n83  \t\tif err != nil {\n84  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n85  \t\t}\n86  \n87  \t\tfmt.Printf(\"Mensagem de venda enviada para a exchange ecommerce.nova.venda: %v\\n\", body)\n88  \t}"}</code></pre>
+  <pre><code>{"39  \tmsgs, err := ch.Consume(\n40  \t\tq.Name, // queue\n41  \t\t\"\",     // consumer\n42  \t\tfalse,  // auto-ack\n43  \t\tfalse,  // exclusive\n44  \t\tfalse,  // no-local\n45  \t\tfalse,  // no-wait\n46  \t\tnil,    // args\n47  \t)\n48  \n49  \tforever := make(chan bool)\n50  \n51  \tgo func() {\n52  \t\tfor d := range msgs {\n53  \t\t\tfmt.Printf(\"Mensagem de cobrança recebida na queue %v: %v\\n\", q.Name, string(d.Body))\n54  \t\t\td.Ack(true)\n55  \t\t}\n56  \t}()"}</code></pre>
+  <h4 class="deep-h">The topic: the datalake binding and the producer</h4>
+  <p>The <code>faturamento.prioridade.*</code> binding is what copies everything to the datalake (lines 119 to 127). The producer draws the priority (lines 133 to 158).</p>
+  <pre><code>{"118  \n119  \t// Associando a queue na exchange, todas as mensagems que forem enviadas com o pattern\n120  \t// faturamento.prioridade.* será enviada para essa fila independente da prioridade informada\n121  \terr = ch.QueueBind(\n122  \t\tqueueLake.Name,                     // Nome da fila\n123  \t\t\"faturamento.prioridade.*\",         // Binding key de roteamento - chave de prioridade alta\n124  \t\t\"ecommerce.nova.venda.faturamento\", // Nome da exchange\n125  \t\tfalse,                              // no-wait\n126  \t\tnil,                                // arguments\n127  \t)\n128  \tif err != nil {"}</code></pre>
+  <pre><code>{"133  \tfor i := 0; i < 20; i++ {\n134  \n135  \t\troutingKey := \"faturamento.prioridade.default\"\n136  \t\tif rand.Float64() < 0.1 { // mock para dar 10% de chance de uma mensagem ser encaminhada para a queue prioritária\n137  \t\t\troutingKey = \"faturamento.prioridade.alta\"\n138  \t\t}\n139  \n140  \t\tid := uuid.New()\n141  \t\t// Mensagem simples\n142  \t\tbody := fmt.Sprintf(\"id:%v:%v\", routingKey, id)\n143  \n144  \t\t// Publicando a mensagem na exchange usando a routing key de default/prioritario\n145  \t\terr = ch.Publish(\n146  \t\t\t\"ecommerce.nova.venda.faturamento\", // exchange\n147  \t\t\troutingKey,                         // routing key (binding key)\n148  \t\t\tfalse,                              // mandatory\n149  \t\t\tfalse,                              // immediate\n150  \t\t\tamqp.Publishing{\n151  \t\t\t\tContentType: \"text/plain\",\n152  \t\t\t\tBody:        []byte(body),\n153  \t\t\t})\n154  \t\tif err != nil {\n155  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n156  \t\t}\n157  \t\tfmt.Printf(\"Mensagem de faturamento enviada para a queue %v: %v\\n\", routingKey, body)\n158  \t}"}</code></pre>
+  <h4 class="deep-h">The fanout: the ignored key</h4>
+  <p>On publish, the routing key is <code>""</code> (line 118) and the loop is 1,000 (line 108).</p>
+  <pre><code>{"106  \t)\n107  \n108  \tfor i := 0; i < 1000; i++ {\n109  \n110  \t\tid := uuid.New()\n111  \n112  \t\t// Mensagem simples\n113  \t\tbody := fmt.Sprintf(\"id:%v\", id)\n114  \n115  \t\t// Publicando a mensagem na exchange\n116  \t\terr = ch.Publish(\n117  \t\t\t\"ecommerce.nova.venda\", // exchange\n118  \t\t\t\"\",                     // Binding key de roteamento - Ignorada no Fanout\n119  \t\t\tfalse,                  // mandatory\n120  \t\t\tfalse,                  // immediate\n121  \t\t\tamqp.Publishing{\n122  \t\t\t\tContentType: \"text/plain\",\n123  \t\t\t\tBody:        []byte(body),\n124  \t\t\t})\n125  \t\tif err != nil {\n126  \t\t\tfmt.Println(\"Falha ao publicar a mensagem na exchange\", err)\n127  \t\t}\n128  \n129  \t\tfmt.Printf(\"Mensagem de venda enviada para a exchange ecommerce.nova.venda: %v\\n\", body)\n130  \t}\n131  \n132  }"}</code></pre>
+  <h4 class="deep-h">What a safer consumer would do</h4>
+  <p>The remedies fit in a few lines: <code>ch.Qos(10, 0, false)</code> for <code>prefetch</code>, <code>amqp.Persistent</code> in <code>DeliveryMode</code>, <code>ch.Confirm(false)</code> on the producer for the <em>publisher confirms</em> and <code>d.Ack(false)</code> to acknowledge one message at a time. The DLX comes in as a queue argument (<code>x-dead-letter-exchange</code>).</p>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li><strong>Labs.</strong> The divergences above belong to the repository: <code>streadway/amqp</code> archived, the 3 billion loop, <code>Ack(true)</code>, no persistence and no <code>prefetch</code>. The article reproduces those same examples without pointing out any of them.</li>
+  </ul>
+  <Sources items={[
+    { label: "Author's public repository: RabbitMQ examples, default, topic and fanout folders (no affiliation)", href: "https://github.com/msfidelis/system-design-examples/tree/main/messages/rabbit-mq" },
+    { label: "rabbitmq/amqp091-go (official Go client)", href: "https://github.com/rabbitmq/amqp091-go" },
+    { label: "RabbitMQ: official tutorials (work queues, publish/subscribe and topics)", href: "https://www.rabbitmq.com/tutorials" },
+    { label: "RabbitMQ: Release Information (supported series)", href: "https://www.rabbitmq.com/release-information" },
+    { label: "RabbitMQ: reliability", href: "https://www.rabbitmq.com/docs/reliability" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now talks every way there is: REST and gRPC between services, events in Kafka, the truck's position over MQTT and the emails in RabbitMQ. And Black Friday showed something none of these modules measured: the catalog answered in <strong>2 s</strong> for some customers, and nobody could say how much the store can take. How long does it really take, for how many, and where is the bottleneck? We still need to see how to <strong>measure</strong>: p50, p95 and p99 latency, throughput and saturation. That is module 14, Performance, Capacity and Scalability.</p>
+
+<Flashcards cards={[
+  { q: "What does each RabbitMQ lab route?",
+    a: "default: direct, exchange ecommerce.nova.venda and queue cobrar. topic: 3 queues, and the datalake receives all 20 through faturamento.prioridade.*. fanout: 3 queues, each one receives every message." },
+  { q: "Does the lab's message survive a broker restart?",
+    a: "No. The queue is durable, but the message has no DeliveryMode: Persistent. Tested: 119,161 messages in the queue, docker restart, 0 messages on return (the queue and the exchange came back)." },
+  { q: "What does Ack(true) get wrong with concurrent processing?",
+    a: "multiple = true acknowledges all pending messages up to that one, including those still in progress, and they can be lost." },
+  { q: "What happens if the consumer goes down after sending the email and before the ack?",
+    a: "RabbitMQ redelivers with redelivered = true and Lena receives the duplicated email. Fix: message_id and idempotence." },
+  { q: "What is the store's next problem, after communicating every way?",
+    a: "Measuring: the catalog answered in 2 s on Black Friday and nobody knows how much the store can take. p50, p95 and p99 latency, throughput and saturation, in module 14." },
+]} />

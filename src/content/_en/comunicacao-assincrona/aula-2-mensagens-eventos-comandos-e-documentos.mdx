@@ -1,0 +1,91 @@
+---
+title: "Messages, events, commands and documents"
+order: 2
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson <code>pedidos</code> started publishing a notice and moving on, instead of calling three services. But "notice" is a loose word. When Lena pays 1051, is what <code>pedidos</code> sends an order to someone, a fact that happened or a bundle of data? The answer decides who can listen, how many can listen and what goes wrong if a team picks the wrong form.</p>
+
+<OneLiner>"Message" is the genus, and three types come out of it: the <strong>command</strong> says do this (one recipient), the <strong>event</strong> says what happened (nobody is obliged to listen) and the <strong>document</strong> hands over data (whoever receives it decides what to do).</OneLiner>
+
+<DoIt>
+  <p>Read the four names and, before looking at the table below, classify each one as command, event or document: <code>CobrarPedido</code>, <code>ResumoDoDia</code>, <code>PedidoPago</code>, <code>ReservarEstoque</code>. Use only the name: is it imperative or past tense? Then check against the table and against the question "who changes when a new interested party shows up?".</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <strong>command</strong> is an order with a known recipient: <code>CobrarPedido &#123; pedido_id: 1051, valor: 54.80 &#125;</code>. It is in the <strong>imperative</strong>, goes to <strong>one</strong> service (<code>pagamentos</code>) and the sender expects some effect to happen.</li>
+  <li>The <strong>event</strong> is the opposite in intent: <code>PedidoPago &#123; pedido_id: 1051 &#125;</code> reports a <strong>fact in the past</strong>. The producer does not know who listens and expects nothing back. <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code> react, each in its own way.</li>
+  <li>The <strong>document</strong> is data with no order and no fact: <code>ResumoDoDia &#123; pedidos: 612, itens: 1390 &#125;</code>. Whoever receives it decides what to do with it, without asking the sender anything.</li>
+  <li>To recognize the type without memorizing, there are two questions. The first is the name: <code>CobrarPedido</code> (imperative) is a command and <code>PedidoPago</code> (past) is an event. The second is <strong>who changes when a new interested party shows up</strong>. A fourth consumer, <code>antifraude</code>, listens to <code>PedidoPago</code> and <code>pedidos</code> changes nothing. A fourth destination for a command forces the producer to send <strong>one more message</strong>.</li>
+  <li>That is why the coupling changes. With commands, <code>pedidos</code> knows <strong>3 destinations</strong> and sends 3 messages. With an event, it knows <strong>1 topic</strong> and sends 1.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">An event with little inside or with a lot</h3>
+
+<p>Once you pick the event type, you still have to decide the size. Martin Fowler separates two ways. In <em>event notification</em> the event is just the notice, <code>&#123; pedido_id: 1051 &#125;</code>, and the consumer has to ask for the rest: <strong>one more synchronous call</strong> per consumer, which brings back the coupling the event removed. In <em>event-carried state transfer</em> the event carries the data the consumer needs, like the SKU and the quantity. It is bigger, and the consumer calls nobody back.</p>
+
+<p>Neither one is the right one. The first is light and keeps the data in one place. The second lets the consumer work even with the producer down, and it costs bytes and the risk that the data sent is already stale when it arrives.</p>
+
+<h3 class="sec">What if it goes wrong: a command in a topic with several groups</h3>
+
+<p>A new team needs to decrement the stock and, out of habit, publishes <code>ReservarEstoque</code>, a <strong>command</strong>, to the <code>pedidos</code> topic. The <code>estoque</code> group reads it and decrements the blue mug: 40 to 38. Months later, the BI team creates the <code>estoque-bi</code> group for something else, and it also reads the topic and also acts on the command. Stock goes to <strong>36</strong> for a single order.</p>
+
+<p>Every consumer group receives all the messages in the topic. That is great for an event, which each group handles in its own way, and a disaster for a command, which says <em>do this</em>. The rule is simple: <strong>a command in a topic with several groups is a duplicated action</strong>. A command goes to a queue with a single recipient (lessons 9 and 10); the topic is for facts.</p>
+
+<WhyItMatters>
+  <li><strong>The name teaches the type.</strong> Imperative is a command, past tense is an event. A team that names things properly already avoids half the mistakes.</li>
+  <li><strong>The new interested party exposes the coupling.</strong> If the producer changes with each new consumer, the message was a command.</li>
+  <li><strong>A small event costs calls, a big event costs bytes.</strong> The choice is between the coupling coming back and possibly stale data.</li>
+  <li><strong>A command in a shared topic duplicates the action.</strong> 40 → 38 → 36 with two groups.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The three types with the store</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>Command</th><th>Event</th><th>Document</th></tr></thead>
+    <tbody>
+      <tr><th>Example</th><td><code>CobrarPedido</code></td><td><code>PedidoPago</code></td><td><code>ResumoDoDia</code></td></tr>
+      <tr><th>Tense of the name</th><td>imperative</td><td>past</td><td>noun</td></tr>
+      <tr><th>Recipients</th><td>1, known</td><td>whoever wants to listen</td><td>whoever receives it</td></tr>
+      <tr><th>What is expected</th><td>an effect</td><td>nothing</td><td>that the receiver decides</td></tr>
+      <tr><th>New interested party</th><td>producer sends one more message</td><td>producer does not change</td><td>depends on the channel</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li><strong>Message type is not transport.</strong> The article contrasts "messages, through queues, 1 to 1" with "events, through topics, 1 to N". That mixes up the <strong>type</strong> (command, document, event) with the <strong>transport</strong> (queue, topic). You can send an event through a queue, in RabbitMQ with a fanout exchange, and a command through a topic, with the risks of this lesson. The article itself concludes that "events are messages"; what changes is the intent, imperative or fact. This module uses the second view, Hohpe and Woolf's message types, as the main one.</li>
+    <li><strong>"Event-driven" lumps together four things.</strong> Fowler separates <em>event notification</em>, <em>event-carried state transfer</em>, <em>event sourcing</em> and CQRS. The article treats them as one. Here the first two come in, and the others are left for modules 19 and 20.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on messaging, events and streaming (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/mensageria-eventos-streaming/" },
+    { label: "Enterprise Integration Patterns: messaging patterns (Command, Document and Event Message)", href: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Akka: Message Driven vs Event Driven (the article's reference)", href: "https://developer.lightbend.com/docs/akka-guide/concepts/message-driven-event-driven.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the types separated, <code>pedidos</code> knows what it sends. Now we need to know how those messages wait: in a queue, in a stack, copied to several queues? And what happens to the message nobody can process? Those are the messaging concepts of the next lesson.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between a command, an event and a document?",
+    a: "A command says do this (imperative, 1 recipient). An event reports a fact in the past (the producer does not know who listens). A document hands over data and whoever receives it decides." },
+  { q: "How do you recognize an event by its name and by a question?",
+    a: "A name in the past tense (PedidoPago). And the question: who changes when a new interested party shows up? With an event, nobody on the producer side." },
+  { q: "What is the difference between event notification and state transfer?",
+    a: "Notification carries only the notice and the consumer asks for the rest (+1 synchronous call). State transfer carries the data the consumer needs: bigger, no call back." },
+  { q: "What happens if ReservarEstoque (a command) is published to the pedidos topic with the groups estoque and estoque-bi?",
+    a: "Two decrements: 40 → 38 → 36. Every group receives everything, and a command says do this." },
+  { q: "How many destinations does pedidos know with commands and with events?",
+    a: "With commands, 3 destinations. With events, 1 topic." },
+]} />
