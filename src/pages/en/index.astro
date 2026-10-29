@@ -69,6 +69,8 @@ const modules: Mod[] = [
   { slug: 'provas-finais', title: 'Final Exams', lessons: 7, poster: 'labs/provas-finais/loja-3d-previa.webp', alt: 'Preview of the 3D figure of the whole store map, with the 7 blocks',
     text: 'Rebuild Lena\'s store from scratch, in order, going through the 28 chapters in 7 blocks: order 1060 and its 14 hops, the 28 numbers, what breaks when you take a piece out and a final exam of 80 questions with a score per block, with widgets and the store map.' },
 ];
+// blocos da história (os mesmos da prova final): título antes do primeiro módulo de cada um
+const BLOCKS: Record<number, string> = {0: 'Block 1 · A one-server store', 5: 'Block 2 · Split and connect', 10: 'Block 3 · Talk and compete', 13: 'Block 4 · Grow and spread', 17: 'Block 5 · Consistency and resilience', 21: 'Block 6 · Change, plan, test, isolate', 25: 'Block 7 · Cells, disaster and signals', 28: 'To wrap up'};
 ---
 <BaseLayout title="SDLabs" description="Visual, interactive System Design labs.">
 <main class="home">
@@ -79,7 +81,7 @@ const modules: Mod[] = [
     <p class="story">One story from start to finish: Lena, from Recife, buys a plush cat at the store, and each module is the next problem the store faces as it grows.</p>
   </header>
   <ol class="mods">
-    {modules.map((m, i) => m.slug ? (
+    {modules.map((m, i) => [BLOCKS[i] && <li class="mod-block"><span>{BLOCKS[i]}</span></li>, m.slug ? (
       <li class="mod" data-mod={m.slug} data-total={m.lessons}>
         <a class="mod-link" href={withBase(hasEn(m.slug!) ? `en/labs/${m.slug}/` : `labs/${m.slug}/`)} hreflang={hasEn(m.slug!) ? undefined : 'pt-BR'}>
           <span class="mod-n" aria-hidden="true">{m.n ?? i + 1}</span>
@@ -101,23 +103,14 @@ const modules: Mod[] = [
           <div class="mod-body"><h2>{m.title}</h2><p>{m.text}</p></div>
         </div>
       </li>
-    ))}
+    )])}
   </ol>
   <footer class="home-foot">
     <p set:html={ui.credit} />
     <p><a href={withBase('sistema-de-design/')}>Site design system</a></p>
   </footer>
 </main>
-<script is:inline>
-  // progress saved by each module's focus mode: "3 of 9 understood" + the bar
-  document.querySelectorAll('.mod[data-mod]').forEach(function (li) {
-    var n = 0, total = +li.dataset.total;
-    try { n = (JSON.parse(localStorage.getItem('sdl-' + li.dataset.mod + ':done') || '[]') || []).length; } catch (e) { return; }
-    if (!n) return;
-    var box = li.querySelector('.mod-prog'), bar = li.querySelector('.mod-bar');
-    for (var i = 0; i < total; i++) { var s = document.createElement('i'); if (i < n) s.className = 'done'; bar.appendChild(s); }
-    li.querySelector('.mod-prog-t').textContent = Math.min(n, total) + ' of ' + total + ' understood';
-    box.hidden = false;
-  });
+<script>
+  import '../../scripts/home-map.js';
 </script>
 </BaseLayout>

@@ -69,6 +69,8 @@ const modules: Mod[] = [
   { slug: 'provas-finais', title: 'Provas Finais', lessons: 7, poster: 'labs/provas-finais/loja-3d-previa.webp', alt: 'Prévia da figura 3D do mapa da loja inteira, com os 7 blocos',
     text: 'Refazer a loja da Lena do zero, na ordem, passando pelos 28 capítulos em 7 blocos: o pedido 1060 e seus 14 saltos, os 28 números, o que quebra quando se tira uma peça e uma prova final de 80 perguntas com nota por bloco, com widgets e o mapa da loja.' },
 ];
+// blocos da história (os mesmos da prova final): título antes do primeiro módulo de cada um
+const BLOCKS: Record<number, string> = {0: 'Bloco 1 · A loja de um servidor', 5: 'Bloco 2 · Partir e ligar', 10: 'Bloco 3 · Conversar e disputar', 13: 'Bloco 4 · Crescer e espalhar', 17: 'Bloco 5 · Consistência e resiliência', 21: 'Bloco 6 · Mudar, planejar, testar, isolar', 25: 'Bloco 7 · Células, desastre e sinais', 28: 'Para fechar'};
 ---
 <BaseLayout title="SDLabs" description="Laboratórios visuais e interativos de System Design.">
 <main class="home">
@@ -79,7 +81,7 @@ const modules: Mod[] = [
     <p class="story">A mesma história do começo ao fim: a Lena, de Recife, compra um gato de pelúcia na loja, e cada módulo é o próximo problema que essa loja enfrenta ao crescer.</p>
   </header>
   <ol class="mods">
-    {modules.map((m, i) => m.slug ? (
+    {modules.map((m, i) => [BLOCKS[i] && <li class="mod-block"><span>{BLOCKS[i]}</span></li>, m.slug ? (
       <li class="mod" data-mod={m.slug} data-total={m.lessons}>
         <a class="mod-link" href={withBase(`labs/${m.slug}/`)}>
           <span class="mod-n" aria-hidden="true">{m.n ?? i + 1}</span>
@@ -101,23 +103,14 @@ const modules: Mod[] = [
           <div class="mod-body"><h2>{m.title}</h2><p>{m.text}</p></div>
         </div>
       </li>
-    ))}
+    )])}
   </ol>
   <footer class="home-foot">
     <p>Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</p>
     <p><a href={withBase('sistema-de-design/')}>Sistema de design do site</a></p>
   </footer>
 </main>
-<script is:inline>
-  // progresso salvo pelo modo foco de cada módulo: "3 de 9 entendidas" + a régua
-  document.querySelectorAll('.mod[data-mod]').forEach(function (li) {
-    var n = 0, total = +li.dataset.total;
-    try { n = (JSON.parse(localStorage.getItem('sdl-' + li.dataset.mod + ':done') || '[]') || []).length; } catch (e) { return; }
-    if (!n) return;
-    var box = li.querySelector('.mod-prog'), bar = li.querySelector('.mod-bar');
-    for (var i = 0; i < total; i++) { var s = document.createElement('i'); if (i < n) s.className = 'done'; bar.appendChild(s); }
-    li.querySelector('.mod-prog-t').textContent = Math.min(n, total) + ' de ' + total + ' entendidas';
-    box.hidden = false;
-  });
+<script>
+  import '../scripts/home-map.js';
 </script>
 </BaseLayout>
