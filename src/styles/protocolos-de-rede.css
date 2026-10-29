@@ -33,7 +33,7 @@
 .sdl-content .versions h4{color:var(--ink-hi);margin-bottom:var(--s-2);font-family:var(--mono)}
 .sdl-content .versions ul{margin:0;font-size:15px}
 /* tabela RTT (aula 9) */
-.sdl-content .rtt-table-wrap{max-width:720px;overflow-x:auto;margin-bottom:14px}
+.sdl-content .rtt-table-wrap{max-width:var(--measure);overflow-x:auto;margin-bottom:14px}
 .sdl-content .rtt-table{width:100%;font-size:14px}
 .sdl-content .rtt-table th,.sdl-content .rtt-table td{border-bottom:var(--hair) solid var(--line);padding:var(--s-2) 10px;text-align:left}
 .sdl-content .rtt-table th{color:var(--muted);font:600 12px var(--sans);border-bottom-color:var(--line-strong)}
@@ -234,7 +234,7 @@
 .sdl-content .eq-row.is-decide .eq-tag{color:var(--accent-ink)}
 
 /* aula 4: cabeçalhos lado a lado */
-.sdl-content .hdr-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;max-width:720px;margin:0 0 10px}
+.sdl-content .hdr-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;max-width:var(--measure);margin:0 0 10px}
 .sdl-content .hdr{margin:0;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}
 .sdl-content .hdr figcaption{font:600 13px var(--mono);color:var(--accent-ink);margin-bottom:8px}
 .sdl-content .hdr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}

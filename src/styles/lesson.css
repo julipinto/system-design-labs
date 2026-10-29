@@ -68,7 +68,10 @@
 .sdl-content .why-list li::marker{content:"—  ";color:var(--faint)}
 
 /* aprofundar: fechado por padrão, entre réguas (sem caixa dentro de caixa) */
-.sdl-content details.deep{margin:var(--s-7) 0 0;border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line)}
+.sdl-content details.deep{margin:var(--s-7) 0 0}
+/* o "Aprofundar" ocupa a largura larga (tabelas e figuras de dentro precisam), mas as réguas dele seguem a coluna de texto */
+.sdl-content details.deep>summary{max-width:var(--measure);border-top:var(--hair) solid var(--line-strong);border-bottom:var(--hair) solid var(--line)}
+.sdl-content details.deep[open]>summary{margin-bottom:var(--s-4)}
 .sdl-content details.deep>summary{cursor:pointer;padding:var(--s-4) 0;font-weight:700;font-size:18px;color:var(--ink-hi);min-height:var(--tap);list-style:none;display:flex;align-items:center;gap:var(--s-3);max-width:var(--measure)}
 .sdl-content details.deep>summary::-webkit-details-marker{display:none}
 .sdl-content details.deep>summary::before{content:"";flex:none;width:22px;height:22px;border:var(--hair) solid var(--line-strong);border-radius:50%;
@@ -80,6 +83,8 @@
 .sdl-content details.deep>*:last-child{margin-bottom:var(--s-5)}
 /* o parágrafo que segue o Aprofundar (o "Falta saber…") não encosta na régua */
 .sdl-content details.deep+p:not(.gancho){margin-top:var(--s-5)}
+/* "Aprofundar" fechado logo antes do gancho: uma régua só (a do Aprofundar), sem duas linhas paralelas */
+.sdl-content details.deep:not([open])+.gancho{margin-top:var(--s-4);padding-top:0;border-top:0}
 
 /* chamadas: caixa de traço fino; o rótulo leva a cor do papel (sinal ou verde), sem ponto */
 .sdl-content .callout{border:var(--hair) solid var(--line);border-radius:var(--r-3);padding:var(--s-4);margin:var(--s-5) 0 0;background:var(--surface)}
