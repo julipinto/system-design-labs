@@ -71,6 +71,7 @@ const modules: Mod[] = [
 ];
 // blocos da história (os mesmos da prova final): título antes do primeiro módulo de cada um
 const BLOCKS: Record<number, string> = {0: 'Bloco 1 · A loja de um servidor', 5: 'Bloco 2 · Partir e ligar', 10: 'Bloco 3 · Conversar e disputar', 13: 'Bloco 4 · Crescer e espalhar', 17: 'Bloco 5 · Consistência e resiliência', 21: 'Bloco 6 · Mudar, planejar, testar, isolar', 25: 'Bloco 7 · Células, desastre e sinais', 28: 'Para fechar'};
+import catSvg from '../../public/shared/cat.svg?raw';
 ---
 <BaseLayout title="SDLabs" description="Laboratórios visuais e interativos de System Design.">
 <main class="home">
@@ -105,6 +106,7 @@ const BLOCKS: Record<number, string> = {0: 'Bloco 1 · A loja de um servidor', 5
       </li>
     )])}
   </ol>
+  <div class="map-end"><div class="map-cat" aria-hidden="true" set:html={catSvg.replace(/<!--[\s\S]*?-->/g, '')}></div><p>Fim da linha: o gato de pelúcia chega em Recife.</p></div>
   <footer class="home-foot">
     <p>Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.</p>
     <p><a href={withBase('sistema-de-design/')}>Sistema de design do site</a></p>

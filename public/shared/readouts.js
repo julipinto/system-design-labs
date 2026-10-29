@@ -7,6 +7,21 @@
 (function () {
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
+  var BASE = (document.currentScript && document.currentScript.src || '').replace(/[^/]*$/, '');
+
+  /* o gato de pelúcia da Lena (shared/cat.svg): aparece nos fechamentos (módulo completo, quiz gabaritado).
+     window.sdlCat(depoisDeste) põe o gato logo depois do elemento, uma vez só, entrando com um pulinho. */
+  var catSvg = null;
+  window.sdlCat = function (after) {
+    if (!after || (after.nextElementSibling && after.nextElementSibling.classList.contains('sdl-cat'))) return;
+    var put = function () {
+      if (after.nextElementSibling && after.nextElementSibling.classList.contains('sdl-cat')) return;
+      var d = document.createElement('div'); d.className = 'sdl-cat'; d.setAttribute('aria-hidden', 'true'); d.innerHTML = catSvg;
+      after.insertAdjacentElement('afterend', d);
+    };
+    if (catSvg) return put();
+    fetch(BASE + 'cat.svg').then(function (r) { return r.text(); }).then(function (t) { catSvg = t.replace(/<!--[\s\S]*?-->/g, ''); put(); }).catch(function () {});
+  };
 
   // 7 segmentos (a-g) num quadro 12x22, com a inclinação leve dos mostradores de verdade
   var SEGS = { a: '2,1 10,1 8.5,3 3.5,3', b: '10.5,1.5 10.5,10.3 8.7,9.2 8.7,3.3', c: '10.5,11.7 10.5,20.5 8.7,18.7 8.7,12.8', d: '2,21 10,21 8.5,19 3.5,19',
@@ -75,6 +90,7 @@
     el.classList.add('rv-dots');
     var pitch = Math.max(5, Math.round(parseFloat(getComputedStyle(el).fontSize) / 9));
     paint(el, el.textContent.replace(/\s*✓\s*$/, '').trim(), dots(m[1] + '/' + m[2], pitch));
+    if (m[1] === m[2]) window.sdlCat(el);   // gabaritou: o gato aparece
   }
   function scan(root) {
     if (!root.querySelectorAll) return;

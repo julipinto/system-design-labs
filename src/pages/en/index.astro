@@ -71,6 +71,7 @@ const modules: Mod[] = [
 ];
 // blocos da história (os mesmos da prova final): título antes do primeiro módulo de cada um
 const BLOCKS: Record<number, string> = {0: 'Block 1 · A one-server store', 5: 'Block 2 · Split and connect', 10: 'Block 3 · Talk and compete', 13: 'Block 4 · Grow and spread', 17: 'Block 5 · Consistency and resilience', 21: 'Block 6 · Change, plan, test, isolate', 25: 'Block 7 · Cells, disaster and signals', 28: 'To wrap up'};
+import catSvg from '../../../public/shared/cat.svg?raw';
 ---
 <BaseLayout title="SDLabs" description="Visual, interactive System Design labs.">
 <main class="home">
@@ -105,6 +106,7 @@ const BLOCKS: Record<number, string> = {0: 'Block 1 · A one-server store', 5: '
       </li>
     )])}
   </ol>
+  <div class="map-end"><div class="map-cat" aria-hidden="true" set:html={catSvg.replace(/<!--[\s\S]*?-->/g, '')}></div><p>End of the line: the plush cat reaches Recife.</p></div>
   <footer class="home-foot">
     <p set:html={ui.credit} />
     <p><a href={withBase('sistema-de-design/')}>Site design system</a></p>

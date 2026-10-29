@@ -142,3 +142,9 @@ code,kbd,samp,pre{font-family:var(--mono);font-size:.9em}
 .rv-sweep .on{animation:rv-in 260ms var(--ease-out) both;animation-delay:calc(var(--c,0) * 14ms)}
 @keyframes rv-in{from{opacity:.09}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.rv-sweep .on{animation:none}}
+
+/* o gato de pelúcia (shared/cat.svg) nos fechamentos: traço em tinta, laço em sódio; entra com um pulinho */
+.sdl-cat{width:96px;color:var(--ink);--cat-accent:var(--accent-ink);margin:var(--s-3) 0 0;animation:sdl-cat-in 620ms cubic-bezier(.34,1.56,.64,1) both}
+.sdl-cat svg{display:block;width:100%;height:auto}
+@keyframes sdl-cat-in{from{opacity:0;transform:translateY(10px) scale(.86)}}
+@media (prefers-reduced-motion:reduce){.sdl-cat{animation:none}}

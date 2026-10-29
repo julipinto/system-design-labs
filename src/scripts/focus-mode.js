@@ -86,6 +86,10 @@ import { animate } from 'motion';
       if (msg) msg.textContent = !isDone ? '' : EN ? dc + ' of ' + N + ' understood' + (i < N - 1 ? ' · Next: Lesson ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Module complete!')
         : dc + ' de ' + N + ' entendidas' + (i < N - 1 ? ' · Próxima: Aula ' + (i + 2) + ', ' + title(lessons[i + 1]) : ' · Módulo completo!');
       if (nx) nx.className = 'btn big' + (isDone ? ' primary' : '');
+      // módulo completo: o gato aparece embaixo da mensagem, só na aula aberta; desfazer tira o gato
+      var cat = msg && msg.nextElementSibling && msg.nextElementSibling.classList.contains('sdl-cat') ? msg.nextElementSibling : null;
+      if (msg && isDone && dc === N && i === cur && window.sdlCat) window.sdlCat(msg);
+      else if (cat && dc < N) cat.remove();
     });
   }
 
