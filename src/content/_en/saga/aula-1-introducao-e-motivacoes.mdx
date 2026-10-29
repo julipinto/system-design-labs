@@ -1,0 +1,96 @@
+---
+title: "Introduction and motivations"
+order: 1
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In module 18 the store got one model to write and another to read, linked by events that don't get lost. But <strong>an order goes through several services, each with its own database</strong>, and module 6 left a debt: the payment is approved, the stock reservation fails, and there is no <code>ROLLBACK</code> left to undo everything. Someone has to <strong>compensate</strong> by refunding the payment. That design has a name: <strong>Saga</strong>.</p>
+
+<OneLiner>The <strong>Saga</strong> makes an operation that crosses services <strong>finish whole or be undone</strong>. It trades the atomicity of one transaction for <strong>local steps and compensations</strong>: each service does its piece, and if one fails, the ones that already went through are undone by new transactions.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>No saga</strong> scenario, move forward with the → arrow: the damage write-off zeroes the stock at 20:15:10, Davi pays at 20:15:41.200 and order 1057 ends up <code>pago</code>, with no stock and nobody to call. That is the store's state today. Keep the figure's clock in mind: it comes back in the next lessons.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/saga-3d/?mode=sem-saga" poster="labs/saga/saga-3d-previa.webp" title="Interactive figure: No saga: the stuck order" alt="Preview of the 3D figure: No saga: the stuck order" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The order.</strong> At <strong>20:15:00.000</strong> on Black Friday, Davi, from SP, creates order <strong>1057</strong>: <strong>1 black T-shirt</strong> (<code>CAMISETA-015</code>, 49.00) plus SP shipping (9.00), <strong>58.00</strong> in total, to be paid by <strong>Pix</strong> at an external PSP (the charge is <code>c-7732</code>). The product page said "last unit": that was the 60 s cache from module 5.</li>
+  <li><strong>The T-shirt disappears.</strong> At <strong>20:15:10</strong> Logistics writes off the only T-shirt as damaged, and stock goes from 1 to <strong>0</strong>. Davi's order is still standing: he hasn't paid yet, and no service knows the stock ran out.</li>
+  <li><strong>Davi pays.</strong> At <strong>20:15:41.200</strong>, <strong>41.2 s</strong> after creating the order, he approves the Pix in his bank app and the PSP sends a webhook. That is the <code>PedidoPago</code>, <code>e-1902</code>.</li>
+  <li><strong>The stock fails.</strong> With the money in hand, the store asks to reserve the T-shirt (<code>ReservarEstoque</code>, 20:15:41.220) and <code>estoque</code> answers <code>EstoqueIndisponivel</code>, <code>e-1903</code>, at 20:15:41.260. The store's order comes from module 6: charge, reserve, schedule delivery.</li>
+  <li><strong>The saga undoes it.</strong> Saga <code>s-1057</code> sends <code>EstornarCobranca c-7732</code>, the PSP returns the R$ 58.00 and the order becomes <code>CANCELADO</code> at <strong>20:15:44.950</strong>. Davi gets "order canceled, we refunded R$ 58.00". The whole compensation took <strong>3.7 s</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The real log of saga s-1057</h3>
+
+<p>The saga records each step in a row. That is 7 transitions, from <code>NOVO</code> to <code>CANCELADO</code>, <strong>44.95 s</strong> in total, of which <strong>41.2 s</strong> is Davi's wait:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Time</th><th>State</th><th>What happened</th></tr></thead>
+  <tbody>
+    <tr><th>20:15:00.000</th><td><code>NOVO</code></td><td><code>PedidoCriado</code>, <code>e-1901</code></td></tr>
+    <tr><th>20:15:00.050</th><td><code>COBRANDO</code></td><td>Pix charge command, <code>c-7732</code></td></tr>
+    <tr><th>20:15:41.200</th><td><code>PAGO</code></td><td><code>PedidoPago</code>, <code>e-1902</code>, 58.00</td></tr>
+    <tr><th>20:15:41.220</th><td><code>RESERVANDO</code></td><td><code>ReservarEstoque</code> command</td></tr>
+    <tr><th>20:15:41.260</th><td><code>COMPENSANDO</code></td><td><code>EstoqueIndisponivel</code>, <code>e-1903</code>, reason <code>sem_estoque</code></td></tr>
+    <tr><th>20:15:41.300</th><td><code>ESTORNANDO</code></td><td><code>EstornarCobranca c-7732</code> command</td></tr>
+    <tr><th>20:15:44.950</th><td><code>CANCELADO</code></td><td><code>PagamentoEstornado</code>, <code>e-1904</code>, 58.00 (then, <code>e-1905</code> <code>PedidoCancelado</code>)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: no saga</h3>
+
+<p>Take the saga away and the same order ends differently. The <code>PedidoPago</code> arrives, the stock says it has none, and <strong>nobody</strong> knows what to do with that: the order stays <code>pago</code>, the money is with the store, the T-shirt doesn't exist. Davi is R$ 58.00 poorer and has no T-shirt. The only thing that would catch the case is the 23:00 reconciliation report (module 6), <strong>2 h 44 min</strong> after the payment.</p>
+
+<WhyItMatters>
+  <li><strong>The database doesn't help.</strong> Each service does its own <code>COMMIT</code> in its own database. No <code>ROLLBACK</code> crosses all four.</li>
+  <li><strong>The error is a business one.</strong> Running out of stock isn't a bug: it happens on a normal day, and the store needs a plan for it.</li>
+  <li><strong>The plan is the compensation.</strong> A new transaction that undoes the business effect of the previous step (here, the refund).</li>
+  <li><strong>Reliability, not speed.</strong> The article warns: Saga guarantees consistency and control, not performance. The canceled 1057 took 44.95 s.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The name and the origin</h4>
+  <p>"Saga" is an adventure told in chapters. The idea comes from the paper <em>SAGAS</em>, by Hector Garcia-Molina and Kenneth Salem (SIGMOD, <strong>1987</strong>), and it dealt with <strong>long transactions inside one database</strong>: instead of one huge transaction holding locks for hours, several small transactions, each with its own undo. Microservices didn't exist. The pattern came back when each service got its own database and the long transaction became a transaction that crosses databases.</p>
+  <h4 class="deep-h">The module map</h4>
+  <p>Lesson 2 shows why the ACID transaction doesn't cross services. Lesson 3 proposes local steps with compensations. Lessons 4 and 5 decide who coordinates (choreography or orchestration), lesson 6 gives the saga's state and lesson 7 details the compensation. Lessons 8 and 9 deal with the coordinator's log and dual write, and lesson 10 puts it all together in the author's lab.</p>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Pseudo-atomic transaction" and "rollback of all the steps".</strong> The Saga has <strong>atomicity by compensation, not by rollback</strong>, and <strong>no isolation</strong> (lesson 3 shows the price). There is also no automatic rollback: the developer writes each compensation.</li>
+    <li><strong>Origin.</strong> The article says the text was published for Princeton's computer science department. What can be checked is <strong>1987</strong>, SIGMOD, and long transactions <strong>inside one database</strong>. The article's link leads to a copy hosted at Cornell, a scanned PDF (no searchable text), and the paper's text was not checked: we only state what the article and Microsoft say.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Garcia-Molina and Salem: SAGAS (SIGMOD, 1987; copy at Cornell, scanned PDF)", href: "https://www.cs.cornell.edu/andru/cs711/2002fa/reading/sagas.pdf" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Saga distributed transactions pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/saga" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store already knows what it wants: 1057 finishing whole or being undone. What's left is why a <code>ROLLBACK</code> doesn't solve it, and why Davi's wait for the Pix makes it worse.</p>
+
+<Flashcards cards={[
+  { q: "What does the Saga guarantee?",
+    a: "That an operation crossing services finishes whole or gets undone, through local steps and compensations. It guarantees consistency and control, not performance." },
+  { q: "What happened to Davi's order 1057?",
+    a: "Created at 20:15:00.000 (58.00, Pix, c-7732), paid at 20:15:41.200, stock unavailable at 20:15:41.260 (damage write-off at 20:15:10), refunded and CANCELADO at 20:15:44.950: 44.95 s, of which 41.2 s of waiting." },
+  { q: "What happens to 1057 without a saga?",
+    a: "It stays paid and with no stock. The 23:00 reconciliation would only catch it 2 h 44 min later." },
+  { q: "Where does the Saga come from?",
+    a: "From the SAGAS paper by Garcia-Molina and Salem (SIGMOD, 1987), for long transactions inside one database, not for microservices." },
+  { q: "Does the Saga have automatic rollback?",
+    a: "No. Atomicity comes from compensations the developer writes, and it has no isolation." },
+]} />

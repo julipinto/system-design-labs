@@ -1,0 +1,114 @@
+---
+title: "Saga logs"
+order: 8
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">In the last lesson the saga learned to undo, repeat and ask for help, and each of those steps needed an answer to one question: what has already happened to 1057? The answer is in a <strong>log</strong>. Each saga transition becomes a row that is only appended, and that list is the orchestrator's memory.</p>
+
+<OneLiner>The <strong>saga log</strong> writes each transition to an <strong>append-only</strong> table. It gives <strong>tracing</strong> (where is 1057?), <strong>resumption</strong> (carry on from the last step) and <strong>audit</strong> (what happened and when). The state is the <strong>last row</strong>. The cost shows up in the long run: billions of rows.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Log</strong> scenario, move forward and look for <strong>1057</strong> in the log and see the <code>COMPENSANDO</code> row, with event <code>e-1903</code> and reason <code>sem_estoque</code>. Count the 7 rows.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/compensacao-3d/?mode=log" poster="labs/saga/compensacao-3d-previa.webp" title="Interactive figure: The saga log" alt="Preview of the 3D figure: The saga log" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>One transition, one row.</strong> Every time the saga changes state, the <code>transitar</code> function appends a row to <code>saga_log</code> (<code>id</code>, <code>saga_id</code>, <code>de</code>, <code>para</code>, <code>evento_id</code>, <code>dados</code>, <code>em</code>). Nobody deletes or changes a row.</li>
+  <li><strong>1057's log.</strong> It has <strong>7 rows</strong>, from <code>NOVO</code> at 20:15:00 to <code>CANCELADO</code> at 20:15:44.95 (block below, real output). The <code>saga</code> table keeps only the <strong>summary</strong>: state <code>CANCELADO</code> and <code>versao = 7</code>, one version per transition.</li>
+  <li><strong>Tracing.</strong> "Where is 1057?" is a query by <code>saga_id</code>, instead of putting together the logs of four services by <code>trace_id</code> (lesson 4).</li>
+  <li><strong>Resumption.</strong> If the orchestrator goes down, it reads the last row of each saga in progress and carries on from there. 1057 would be in <code>COBRANDO</code> and the saga would wait for the Pix, instead of starting over.</li>
+  <li><strong>Audit.</strong> The log says <strong>who</strong> (which event), <strong>what</strong> and <strong>when</strong>. For Davi, the proof of the refund: <code>e-1904</code>, 58.00, 20:15:44.95.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`PostgreSQL 14.24, Oct 20, 2026: saga_log of saga s-1057 (real output)
+
+ id |     de      |    para     | evento_id |     em
+  1 |             | NOVO        | e-1901    | 20:15:00
+  2 | NOVO        | COBRANDO    |           | 20:15:00.05
+  3 | COBRANDO    | PAGO        | e-1902    | 20:15:41.2
+  4 | PAGO        | RESERVANDO  |           | 20:15:41.22
+  5 | RESERVANDO  | COMPENSANDO | e-1903    | 20:15:41.26
+  6 | COMPENSANDO | ESTORNANDO  |           | 20:15:41.3
+  7 | ESTORNANDO  | CANCELADO   | e-1904    | 20:15:44.95`}</code></pre>
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's orchestrator writes the log to a table, <code>saga_events</code>, created in <code>initSchema</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+
+<CodeLab code={orquestradorMain} from={147} to={170} />
+
+<ol class="flow steps">
+  <li>The columns are <code>saga_id</code>, <code>order_id</code>, <code>state</code>, <code>data</code> (JSON), <code>error</code> and <code>created_at</code>. The store adds <code>de</code>, <code>evento_id</code> and <code>versao</code>.</li>
+  <li>The current state is the <strong>last row</strong>: <code>getCurrentState</code> does <code>ORDER BY created_at DESC LIMIT 1</code> (line 518, outside the excerpt above).</li>
+  <li>The lab's README calls this "Event Sourcing (simplificado)". It is a <strong>transition log</strong>: the state is read from the last row, but nobody <strong>rebuilds</strong> it from the events. It becomes <em>event sourcing</em> only when the state is <strong>derived</strong> from the log, the topic of module 20.</li>
+</ol>
+
+<h3 class="sec">Useful queries</h3>
+
+<p>Examples of the shape of the queries the log allows (not run):</p>
+
+<pre><code>{String.raw`-- 1057's path
+SELECT de, para, evento_id, em FROM saga_log WHERE saga_id = 's-1057' ORDER BY id;
+
+-- sagas in COMPENSANDO for more than 1 minute
+SELECT saga_id FROM saga
+ WHERE estado = 'COMPENSANDO' AND atualizada_em < now() - interval '1 minute';
+
+-- how many ended CANCELADO for sem_estoque today
+SELECT count(*) FROM saga s
+  JOIN saga_log l ON l.saga_id = s.saga_id AND l.para = 'COMPENSANDO'
+ WHERE s.estado = 'CANCELADO' AND l.dados->>'motivo' = 'sem_estoque' AND l.em >= current_date;`}</code></pre>
+
+<h3 class="sec">The cost: the log grows</h3>
+
+<p>The article warns the log is expensive in the long run, and now there is a calculation. At 30 orders per second, with 7 rows per saga and 90 days of retention: 30 × 86,400 × 90 × 7 = <strong>1,632,960,000</strong> rows, <strong>1.6 billion</strong>. At about 200 B per row, roughly <strong>300 GB</strong> (326.6 GB in the exact calculation). The defense is to <strong>archive</strong> the final sagas (<code>FINALIZADO</code> and <code>CANCELADO</code>) and keep only what's in progress hot.</p>
+
+<h3 class="sec">What if it goes wrong: the log and the action diverge</h3>
+
+<p>The orchestrator sends the <code>ReservarEstoque</code> command and goes down <strong>before</strong> writing the <code>RESERVANDO</code> row. Or it writes the row and goes down before sending the command. In both cases the log <strong>lies</strong>: it says a state that isn't the world's. Writing the state and sending the message are two writes that nobody does together, the topic of the next lesson.</p>
+
+<WhyItMatters>
+  <li><strong>One query answers.</strong> "Where is 1057?" comes out of <code>saga_log</code>, without putting four services together.</li>
+  <li><strong>It resumes after a crash.</strong> The last row of each saga says where to carry on.</li>
+  <li><strong>It's proof.</strong> Davi's refund <code>e-1904</code> is recorded, with a time.</li>
+  <li><strong>It has a cost.</strong> 1.6 billion rows in 90 days; archiving the final ones is part of the design.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Transition log × event sourcing</h4>
+  <p>In the <strong>transition log</strong>, the <code>saga</code> table holds the state and the log only records it. In <em>event sourcing</em> the order flips: the <strong>source of truth</strong> is the list of events, and the state is a summary recomputed from it. The saga log is already half of that; module 20 closes the other half.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Author's public repository: saga/orquestrado (saga_events)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The log records everything, but writing the row and sending the command are two separate writes, and between them the orchestrator can go down. What's left is how to save the state <strong>and</strong> send the command without losing either.</p>
+
+<Flashcards cards={[
+  { q: "What is the saga log?",
+    a: "An append-only table with one row per transition. The current state is the last row." },
+  { q: "What is the log for?",
+    a: "Tracing (where is 1057?), resumption (carry on from the last step) and audit (what happened and when)." },
+  { q: "How many rows does 1057's log have and how does it end?",
+    a: "7 rows, from NOVO (20:15:00) to CANCELADO (20:15:44.95). The saga table ends with CANCELADO and versao = 7." },
+  { q: "How much does it cost to keep 90 days of log at 30 orders/s?",
+    a: "30 × 86,400 × 90 × 7 = 1,632,960,000 rows (1.6 billion), about 300 GB at 200 B. That's why the final sagas are archived." },
+  { q: "Is the lab's log event sourcing?",
+    a: "No: it's a transition log. It becomes event sourcing when the state is derived from the log (module 20)." },
+]} />

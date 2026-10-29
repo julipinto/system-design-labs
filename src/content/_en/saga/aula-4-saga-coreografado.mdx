@@ -1,0 +1,88 @@
+---
+title: "Choreographed saga"
+order: 4
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the saga got steps and compensations, but someone has to decide <strong>when each step runs</strong> and <strong>when to compensate</strong>. The first answer is the simplest to imagine: nobody decides. Each service listens to what happened, does its part and says what it did. That is <strong>choreography</strong>.</p>
+
+<OneLiner>In <strong>choreography</strong> nobody is in charge: each service listens to the previous one's event, does its step and <strong>publishes</strong> the result, without knowing who will hear it. There is no central point, but the flow is <strong>nowhere</strong>: it's spread across the services, and finding "where is 1057?" means putting logs together.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Choreographed</strong> scenario, move forward and follow 1057's events from service to service, from <code>PedidoCriado</code> to the refund and the <code>PedidoCancelado</code>. Count: <strong>5</strong> events on failure, against 4 on success. In the last step, <code>e-1903</code> gets lost.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/saga-3d/?mode=coreografado" poster="labs/saga/saga-3d-previa.webp" title="Interactive figure: Choreographed saga" alt="Preview of the 3D figure: Choreographed saga" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Nobody is in charge.</strong> <code>pedidos</code> saves the order and publishes <code>PedidoCriado</code>. Whoever is interested listens: <code>pagamentos</code> charges and publishes <code>PedidoPago</code>, <code>estoque</code> listens to that one and tries to reserve.</li>
+  <li><strong>The happy path has 4 events.</strong> <code>PedidoCriado</code> → (<code>pagamentos</code>) <code>PedidoPago</code> → (<code>estoque</code>) <code>EstoqueReservado</code> → (<code>entregas</code>) <code>EntregaAgendada</code>. Each service did one local transaction and published a fact.</li>
+  <li><strong>The failure has 5.</strong> <code>estoque</code> publishes <code>EstoqueIndisponivel</code>. The one that undoes is <code>pagamentos</code>, which now <strong>listens to stock</strong> and publishes <code>PagamentoEstornado</code>; <code>pedidos</code> listens to the refund and publishes <code>PedidoCancelado</code>. That is <code>PedidoCriado</code>, <code>PedidoPago</code>, <code>EstoqueIndisponivel</code>, <code>PagamentoEstornado</code> and <code>PedidoCancelado</code>.</li>
+  <li><strong>The upside is having no center.</strong> No component that every order goes through, and the services are loosely coupled: each one knows <strong>events</strong>, not the other services.</li>
+  <li><strong>The cost is having no owner.</strong> The flow is spread across four repositories, <code>pagamentos</code> started listening to <code>estoque</code> (and <code>estoque</code> already listened to <code>pagamentos</code>: <strong>circular dependency</strong>), and finding 1057 means putting together the logs of all four by <code>trace_id</code> (module 6).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Event</th><th>Who publishes</th><th>Who listens</th></tr></thead>
+  <tbody>
+    <tr><th><code>PedidoCriado</code></th><td><code>pedidos</code></td><td><code>pagamentos</code></td></tr>
+    <tr><th><code>PedidoPago</code></th><td><code>pagamentos</code></td><td><code>estoque</code></td></tr>
+    <tr><th><code>EstoqueReservado</code></th><td><code>estoque</code></td><td><code>entregas</code></td></tr>
+    <tr><th><code>EntregaAgendada</code></th><td><code>entregas</code></td><td><code>pedidos</code> (finishes)</td></tr>
+    <tr><th><code>EstoqueIndisponivel</code></th><td><code>estoque</code></td><td><code>pagamentos</code> (refunds)</td></tr>
+    <tr><th><code>PagamentoEstornado</code></th><td><code>pagamentos</code></td><td><code>pedidos</code> (cancels)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: the EstoqueIndisponivel gets lost</h3>
+
+<p><code>estoque</code> didn't find the T-shirt, and the <code>EstoqueIndisponivel</code> (<code>e-1903</code>) <strong>never reaches</strong> <code>pagamentos</code> (the message got lost; lesson 9 shows how). Nobody compensates. 1057 stays <code>pago</code> <strong>forever</strong>, and nobody knows: there is no saga owner who notices a reply is missing. Each service did its part and none of them is responsible for the whole.</p>
+
+<WhyItMatters>
+  <li><strong>No central point.</strong> Nothing that every order goes through, and nothing to fall over and take the sagas with it.</li>
+  <li><strong>The service publishes the fact.</strong> The producer doesn't know who listens; it couples to the event, not to the neighbor.</li>
+  <li><strong>The flow vanishes.</strong> It isn't written anywhere: it's what's left of the sum of four listeners.</li>
+  <li><strong>Nobody notices the silence.</strong> A lost event, a stalled saga: only a watchdog (lesson 6) would find it.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Choreography or a point-to-point chain?</h4>
+  <p>If <code>pagamentos</code> finishes and <strong>calls</strong> <code>estoque</code> directly, that's a point-to-point chain, with the coupling of a call. Real choreography is what microservices.io describes: each local transaction <strong>publishes domain events</strong> that trigger local transactions in other services.</p>
+  <h4 class="deep-h">Correction to the base article: choreography</h4>
+  <ul>
+    <li><strong>Who knows whom.</strong> The article says each service "knows the next and the previous service and the protocol it uses" and that the one that fails "notifies the previous one or hits the panic button". In real choreography the service <strong>publishes the fact and doesn't know who listens</strong>. Calling the next one directly is a point-to-point chain.</li>
+    <li><strong>Simpler, fewer guarantees.</strong> The article says this about choreography. The real difficulty is <strong>having no owner of the flow</strong>: no watchdog, no easy tracing and a circular dependency.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "AWS Prescriptive Guidance: Saga choreography pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-choreography.html" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">With no owner, the lost event leaves 1057 paid forever, and the flow isn't anywhere you can open. What's left is what changes if <strong>one single place</strong> knows the whole map.</p>
+
+<Flashcards cards={[
+  { q: "How does choreography work?",
+    a: "Nobody is in charge: each service listens to the previous one's event, does its step and publishes the result, without knowing who listens." },
+  { q: "How many events does 1057's saga have in choreography?",
+    a: "4 on success (PedidoCriado, PedidoPago, EstoqueReservado, EntregaAgendada) and 5 on failure (PedidoCriado, PedidoPago, EstoqueIndisponivel, PagamentoEstornado, PedidoCancelado)." },
+  { q: "What is the upside of choreography?",
+    a: "There is no central point, and the services couple only to events." },
+  { q: "What are the costs of choreography?",
+    a: "The flow isn't anywhere, there is a circular dependency (pagamentos listens to stock) and finding 1057 means putting logs together by trace_id." },
+  { q: "What happens if the EstoqueIndisponivel gets lost?",
+    a: "Nobody compensates: 1057 stays paid forever, because there is no saga owner to notice what's missing." },
+]} />

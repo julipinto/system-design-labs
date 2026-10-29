@@ -1,0 +1,108 @@
+---
+title: "Compensation flows"
+order: 7
+min: 17
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">In the last lesson the state machine took 1057 from <code>RESERVANDO</code> to <code>COMPENSANDO</code> and then to <code>ESTORNANDO</code>. What's left is to see <strong>what happens inside those states</strong>: which compensations run, in what order, and what to do when the undo itself fails.</p>
+
+<OneLiner>Every action has an <strong>undo</strong> that can be <strong>repeated</strong>, and the saga fires them in <strong>reverse order</strong> of what was already done. The compensation has to be <strong>idempotent</strong> (the <code>estorno-c-7732</code> refund repeated refunds once) and <strong>repeatable</strong> until it passes. And sometimes it fails: then the saga goes to <code>INTERVENCAO</code> and calls a person.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Refund</strong> scenario, move forward: the PSP goes down at the moment of the refund; follow the <strong>5 retries</strong>, with the wait doubling each time, until the saga goes to <code>INTERVENCAO</code>. In the widget below, change the retries and the <em>backoff</em> base and see the sum of the waits.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/compensacao-3d/?mode=estorno-falha" poster="labs/saga/compensacao-3d-previa.webp" title="Interactive figure: The refund that fails" alt="Preview of the 3D figure: The refund that fails" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The store's pairs.</strong> <code>CriarPedido</code> / <code>CancelarPedido</code>, <code>CobrarPedido</code> / <code>EstornarCobranca</code>, <code>ReservarEstoque</code> / <code>LiberarEstoque</code> and <code>AgendarEntrega</code> / <code>CancelarEntrega</code>. The article gives a travel example: <code>reservaPassagens()</code> and <code>liberaPassagens()</code>.</li>
+  <li><strong>Which one to compensate depends on where it failed.</strong> You only undo what already happened, in reverse order. The table below shows the three cases.</li>
+  <li><strong>Idempotent.</strong> The refund uses the key <code>estorno-c-7732</code>: if the command arrives twice, the PSP refunds <strong>once</strong>. Without the key, repeating to be safe would give Davi back R$ 116.00.</li>
+  <li><strong>Repeatable.</strong> The compensation runs until it passes. Microsoft: "Compensating transactions don't always work", so each step should be an idempotent command that can be repeated.</li>
+  <li><strong>Restart instead of compensating.</strong> The article reminds us the saga can also <strong>start over</strong>: with the same idempotency key, it picks up from the step that went unanswered (lesson 9).</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Where it failed</th><th>Compensations, in order</th><th>How many</th></tr></thead>
+  <tbody>
+    <tr><th>stock (the store's order: charged first)</th><td><code>EstornarCobranca</code>, <code>CancelarPedido</code></td><td>2</td></tr>
+    <tr><th>payment (the lab's order: reserved first)</th><td><code>LiberarEstoque</code>, <code>CancelarPedido</code></td><td>2</td></tr>
+    <tr><th>delivery (the lab's order: reserved and charged first)</th><td><code>EstornarCobranca</code>, <code>LiberarEstoque</code>, <code>CancelarPedido</code></td><td>3</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="compensacao" title="Compensation with retry" hint="Retries (1 to 8), backoff base (0.5 to 4 s) and the chance of the PSP answering on each attempt: the sum of the waits (31 s with 1, 2, 4, 8 and 16) and the chance of the saga going to INTERVENCAO." />
+
+<h3 class="sec">What if it goes wrong (a): the refund fails</h3>
+
+<p>The compensation fails too. The PSP answers <code>503</code> to <code>EstornarCobranca c-7732</code>. The saga tries again with <em>backoff</em>: it waits <strong>1, 2, 4, 8 and 16 s</strong> (5 retries, sum <strong>31 s</strong>). If the fifth retry also fails, the saga goes to <strong><code>INTERVENCAO</code></strong>, with an alert and all the data (saga <code>s-1057</code>, charge <code>c-7732</code>, R$ 58.00, <code>sem_estoque</code>) for a person to sort out. Since the key is <code>estorno-c-7732</code>, none of the 6 attempts refunds twice if the PSP comes back in the middle.</p>
+
+<h3 class="sec">What if it goes wrong (b): what has no undo</h3>
+
+<p>The "order confirmed" email already went out: the compensation is <strong>another email</strong>. The fee the PSP charged for the Pix may not come back (Microsoft: canceling a reservation "might not entitle the customer to a complete refund"). Compensating undoes the business effect, it doesn't erase history.</p>
+
+<h3 class="sec">What if it goes wrong (c): the author's lab, read</h3>
+
+<p>The excerpt below is the lab orchestrator's <code>startCompensation</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+
+<CodeLab code={orquestradorMain} from={400} to={448} />
+
+<ol class="flow steps">
+  <li><strong>The canceled saga can come back to life.</strong> The compensation replies (<code>RELEASE_STOCK</code>, <code>CANCEL_ORDER</code>, <code>CANCEL_PAYMENT</code>) come back with <code>Success: true</code> through the <strong>same</strong> <code>*-reply</code> topics, and <code>processReply</code> advances by the topic. By the reading, after the saga becomes <code>FAILED</code>, the <code>CANCEL_ORDER</code> reply on <code>pedidos-reply</code> makes the orchestrator send <code>RESERVE_STOCK</code> <strong>again</strong>, and the <code>RELEASE_STOCK</code> one on <code>estoque-reply</code> sends <code>PROCESS_PAYMENT</code>. The saga can reach <code>COMPLETED</code>: it charges and schedules delivery for a canceled order.</li>
+  <li><strong><code>FAILED</code> doesn't mean "compensated".</strong> Lines 420 to 428 fire the compensations without checking the return and line 432 writes <code>FAILED</code> <strong>before</strong> any reply. <code>FAILED</code> means "I asked to compensate".</li>
+  <li><strong>The delivery is never canceled.</strong> The <code>entregas</code> service implements <code>CANCEL_DELIVERY</code>, but the orchestrator <strong>never</strong> sends it. Since delivery is the last step, it isn't missed today; if a step is added after it, it will be.</li>
+</ol>
+
+<p>The fix: the reply carries the <strong>command type</strong> (<code>command_type</code>) and the orchestrator only advances when the current state is the expected one, the conditional transition from lesson 6.</p>
+
+<WhyItMatters>
+  <li><strong>Reverse order, only what happened.</strong> Stock failure: 2 compensations; delivery: 3.</li>
+  <li><strong>Idempotent by key.</strong> <code>estorno-c-7732</code> repeated refunds only once.</li>
+  <li><strong>Repeatable, but finite.</strong> 1, 2, 4, 8 and 16 s add up to 31 s; after that it's <code>INTERVENCAO</code> and a person.</li>
+  <li><strong>Not everything can be undone.</strong> The PSP fee and the email that was sent stay, and the compensation is another act.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">One state for each compensation?</h4>
+  <p>The store's machine has a single <code>ESTORNANDO</code>. On a delivery failure, three compensations run in a row (refund, release, cancel), and a finer machine would have a state for each one (<code>LIBERANDO</code>, for example). The store keeps 11 states so the text fits in your head.</p>
+  <h4 class="deep-h">Correction to the base article: compensation is not an exact undo</h4>
+  <ul>
+    <li><strong>Compensation always possible?</strong> The article treats it that way. It can be <strong>another transaction</strong>, it may <strong>not give everything back</strong>, it has to be <strong>idempotent and repeatable</strong> and sometimes it fails, and then a person sorts it out.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Microsoft Learn: Compensating Transaction pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction" },
+    { label: "Temporal: Compensating Actions, Part of a Complete Breakfast with Sagas", href: "https://temporal.io/blog/compensating-actions-part-of-a-complete-breakfast-with-sagas" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The saga knows how to undo, repeat and ask for help. What's left is <strong>where the memory of everything that happened lives</strong>, so it can start moving again after a crash and so someone can check afterward.</p>
+
+<Flashcards cards={[
+  { q: "In what order does the saga compensate?",
+    a: "In reverse order of what was already done, and only what happened. Stock failure (charged first): refund and cancel (2). Delivery failure, in the lab's order (reserved and charged first): refund, release and cancel (3)." },
+  { q: "What makes the refund idempotent?",
+    a: "The key estorno-c-7732: repeating the command refunds only once." },
+  { q: "How long does the refund try before calling a person?",
+    a: "5 retries with backoff of 1, 2, 4, 8 and 16 s: 31 s. After that, the saga goes to INTERVENCAO with an alert and all the data." },
+  { q: "Name something the compensation doesn't undo.",
+    a: "The email that was sent (you send another) and the PSP fee, which may not come back." },
+  { q: "What does the author's lab get wrong in the compensations (read)?",
+    a: "It reads a compensation's reply as an advance (the canceled saga can come back to life) and writes FAILED before the compensations finish; and it never sends CANCEL_DELIVERY." },
+]} />

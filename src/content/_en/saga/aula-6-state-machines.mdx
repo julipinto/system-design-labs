@@ -1,0 +1,126 @@
+---
+title: "State machines"
+order: 6
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">In the last lesson the orchestrator needed a place to note <strong>which step each saga is at</strong>, and that place is a database. What's left is giving shape to what gets noted. The shape is a <strong>state machine</strong>: the saga is in a state, an event arrives, and the pair (state, event) says where to go and what to do.</p>
+
+<OneLiner>The saga is a <strong>state machine</strong>: given the <strong>current state</strong> and the <strong>event</strong> that arrived, it knows <strong>where it goes</strong> and <strong>what it does</strong>. The <strong>conditional transition</strong> (<code>UPDATE … WHERE estado = de</code>) makes it <strong>safe against repeats and reordering</strong>: the same <code>PedidoPago</code> delivered twice is ignored without special code.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Log</strong> scenario, move forward to the step where the <code>PedidoPago</code> arrives <strong>twice</strong> and watch the second one be ignored, with no new row in the log. The full state diagram is in lesson 3's figure (<strong>State machine</strong> scenario). In the widget below, pick the <code>RESERVANDO</code> state, the <code>PedidoPago</code> event and see the <code>f</code> reply.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/compensacao-3d/?mode=log" poster="labs/saga/compensacao-3d-previa.webp" title="Interactive figure: The saga log" alt="Preview of the 3D figure: The saga log" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Four questions.</strong> The article sums the machine up in four: <em>What event is this? Where am I? Where do I go? What do I do here?</em> <code>EstoqueIndisponivel</code> arrived (event), the saga is in <code>RESERVANDO</code> (where), goes to <code>COMPENSANDO</code> (where to) and orders the refund (what it does).</li>
+  <li><strong>The store's states.</strong> On success: <code>NOVO</code> → <code>COBRANDO</code> → <code>PAGO</code> → <code>RESERVANDO</code> → <code>RESERVADO</code> → <code>AGENDANDO</code> → <code>FINALIZADO</code>. On 1057's failure: … → <code>COMPENSANDO</code> → <code>ESTORNANDO</code> → <code>CANCELADO</code>.</li>
+  <li><strong>Final states.</strong> There are three: <code>FINALIZADO</code>, <code>CANCELADO</code> and <code>INTERVENCAO</code>. The last is the only one that <strong>calls a person</strong>: the compensation didn't go through, and a human decides (lesson 7).</li>
+  <li><strong>The transition is conditional.</strong> The <code>transitar</code> function does <code>UPDATE saga SET estado = para, versao = versao + 1 WHERE saga_id = … AND estado = de</code> and only writes to the log if the <code>UPDATE</code> affected <strong>1 row</strong>. The saga only advances from the state it is really in.</li>
+  <li><strong>The duplicate comes for free.</strong> The same <code>PedidoPago</code> (<code>e-1902</code>) arrived again at <strong>20:15:41.210</strong>. <code>transitar('s-1057','COBRANDO','PAGO',…)</code> returned <strong><code>f</code></strong>: the saga was no longer in <code>COBRANDO</code>, so nothing changed and <strong>nothing</strong> went to the log.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`-- core of transitar(saga, de, para, evento, dados, em), PostgreSQL 14.24 (simplified form)
+UPDATE saga
+   SET estado = para, versao = versao + 1, atualizada_em = em
+ WHERE saga_id = saga AND estado = de;
+-- if ROW_COUNT = 1: INSERT INTO saga_log (saga_id, de, para, evento_id, dados, em) ...; returns 't'
+-- if ROW_COUNT = 0: writes nothing; returns 'f'
+
+transitar('s-1057','COBRANDO','PAGO','e-1902', …)  ->  f   (20:15:41.210, the duplicate)`}</code></pre>
+
+<Widget name="maquina" title="1057 state machine" hint="Pick the current state and the event that arrived. The table gives the next state, the action and whether the transition goes through (t) or is ignored (f), like the PedidoPago duplicate." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The lab's orchestrator declares the states as constants (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+
+<CodeLab code={orquestradorMain} from={18} to={30} />
+
+<ol class="flow steps">
+  <li>There are <strong>8</strong> states: <code>PENDING</code> → <code>ORDER_VALIDATED</code> → <code>STOCK_RESERVED</code> → <code>PAYMENT_PROCESSED</code> → <code>DELIVERY_SCHEDULED</code> → <code>COMPLETED</code>, plus <code>COMPENSATING</code> and <code>FAILED</code>.</li>
+  <li>The lab <strong>reserves the stock before charging</strong> (lesson 10 compares the two orders). It has no "waiting for the Pix" state and no <code>INTERVENCAO</code>.</li>
+  <li>The state only advances because the orchestrator <strong>writes the new row</strong>. It doesn't check the starting state: that is what the conditional transition above adds.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the saga that stalled</h3>
+
+<p>The PSP never reports the Pix (the webhook got lost, or Davi gave up). The saga stays in <code>COBRANDO</code> <strong>forever</strong>: no event arrives, so no transition happens. The way out is a <strong>deadline per state</strong> (the Pix charge expires in 30 min, in the example) and a <strong>watchdog</strong> that looks for stalled sagas and expires them, which triggers the compensation:</p>
+
+<pre><code>{String.raw`SELECT saga_id, estado
+  FROM saga
+ WHERE estado NOT IN ('FINALIZADO','CANCELADO')
+   AND atualizada_em < now() - interval '30 minutes';`}</code></pre>
+
+<p>Run on PostgreSQL 14.24 on Oct 20, 2026, the watchdog found a test saga, <code>s-teste</code>, stalled in <code>COBRANDO</code> since 19:20.</p>
+
+<Widget name="vigia" title="Saga watchdog" hint="Deadline per state (1 to 120 min) and how many sagas stall per hour: the list shows which ones the watchdog would expire now. Example data." />
+
+<WhyItMatters>
+  <li><strong>The state says it all.</strong> Where 1057 is, what's left and what gets undone all come from the saga's row.</li>
+  <li><strong>Repeating is safe.</strong> The conditional transition ignores the duplicate and the out-of-order message without special code.</li>
+  <li><strong>A final state has a name.</strong> <code>FINALIZADO</code>, <code>CANCELADO</code> and <code>INTERVENCAO</code>: the last is the one that calls a person.</li>
+  <li><strong>A stalled saga is a state.</strong> With no deadline and no watchdog, <code>COBRANDO</code> lasts forever.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">All the store's transitions</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>State</th><th>Event</th><th>Next</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><th>(none)</th><td><code>PedidoCriado</code></td><td><code>NOVO</code></td><td>saves saga <code>s-1057</code></td></tr>
+      <tr><th><code>NOVO</code></th><td>advance</td><td><code>COBRANDO</code></td><td>sends the Pix charge <code>c-7732</code></td></tr>
+      <tr><th><code>COBRANDO</code></th><td><code>PedidoPago</code></td><td><code>PAGO</code></td><td>records the 58.00</td></tr>
+      <tr><th><code>COBRANDO</code></th><td>deadline expired</td><td><code>CANCELADO</code></td><td>cancels the order (nothing to refund)</td></tr>
+      <tr><th><code>PAGO</code></th><td>advance</td><td><code>RESERVANDO</code></td><td>sends <code>ReservarEstoque</code></td></tr>
+      <tr><th><code>RESERVANDO</code></th><td><code>EstoqueReservado</code></td><td><code>RESERVADO</code></td><td>records the reservation</td></tr>
+      <tr><th><code>RESERVANDO</code></th><td><code>EstoqueIndisponivel</code></td><td><code>COMPENSANDO</code></td><td>stores the reason <code>sem_estoque</code></td></tr>
+      <tr><th><code>RESERVADO</code></th><td>advance</td><td><code>AGENDANDO</code></td><td>sends <code>AgendarEntrega</code></td></tr>
+      <tr><th><code>AGENDANDO</code></th><td><code>EntregaAgendada</code></td><td><code>FINALIZADO</code></td><td>notifies the customer</td></tr>
+      <tr><th><code>AGENDANDO</code></th><td>delivery failed</td><td><code>COMPENSANDO</code></td><td>stores the reason</td></tr>
+      <tr><th><code>COMPENSANDO</code></th><td>advance</td><td><code>ESTORNANDO</code></td><td>sends <code>EstornarCobranca c-7732</code></td></tr>
+      <tr><th><code>ESTORNANDO</code></th><td><code>PagamentoEstornado</code></td><td><code>CANCELADO</code></td><td>cancels the order and notifies Davi</td></tr>
+      <tr><th><code>ESTORNANDO</code></th><td>refund ran out of retries</td><td><code>INTERVENCAO</code></td><td>alert with all the data</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Any other pair (state, event) <strong>doesn't go through</strong>: the <code>UPDATE</code> affects 0 rows and the reply is <code>f</code>.</p>
+  <h4 class="deep-h">The bad order to write in</h4>
+  <p>The lab sends the command <strong>before</strong> saving the new state. If the process dies between the two, the service does the step and the orchestrator doesn't know. That is the orchestrator's own dual write, the topic of lesson 9.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Author's public repository: saga/orquestrado (states)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+    { label: "Microsoft Learn: Saga distributed transactions pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/saga" },
+  ]} />
+</Deep>
+
+<p class="gancho">The machine knows where the saga is and ignores what arrives at the wrong time. What's left is, when something goes wrong, how to undo <strong>in the right order</strong>, and what happens if the undo itself fails.</p>
+
+<Flashcards cards={[
+  { q: "What are the state machine's four questions?",
+    a: "What event is this? Where am I? Where do I go? What do I do here? (the article)" },
+  { q: "What are the final states of the store's saga?",
+    a: "FINALIZADO, CANCELADO and INTERVENCAO. Only the last one calls a person." },
+  { q: "What does the conditional transition do?",
+    a: "UPDATE … WHERE estado = de: it only advances if the saga is really in the starting state, and only writes to the log if it affected 1 row." },
+  { q: "What happens to the PedidoPago e-1902 delivered twice?",
+    a: "The second time (20:15:41.210) returns f: the saga was no longer in COBRANDO, and nothing goes to the log." },
+  { q: "How do you handle a saga stalled in COBRANDO?",
+    a: "With a deadline per state (30 min in the example) and a watchdog that expires it and compensates. The watchdog found s-teste stalled since 19:20." },
+]} />

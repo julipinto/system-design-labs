@@ -1,0 +1,103 @@
+---
+title: "Dual write"
+order: 9
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">In the last lesson the saga log was left with a problem: writing the row and sending the command are <strong>two writes</strong>, and between them the orchestrator can go down. It's the same problem as module 18 (<code>pedidos</code> saved the order and published the event separately), now <strong>inside the saga</strong>, in the coordinator and in every service.</p>
+
+<OneLiner>The saga writes to the database <strong>and</strong> sends a message: two non-atomic writes. If the process dies in the middle, either the step was done and nobody knew, or the command goes out twice. The way out is the <strong>outbox</strong> (the step and the message go in the same transaction, and a relay sends) or <strong>CDC</strong>, with an <strong>idempotent receiving service</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Dual write</strong> scenario, move forward until the orchestrator goes down <strong>between sending the command and saving the state</strong> and watch the <code>ReservarEstoque</code> go out twice. In the next steps the <strong>outbox</strong> comes in: the step and the message saved together.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/compensacao-3d/?mode=dual-write" poster="labs/saga/compensacao-3d-previa.webp" title="Interactive figure: The dual write" alt="Preview of the 3D figure: The dual write" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Two writes.</strong> To advance 1057's saga, the orchestrator has to <strong>save</strong> the new state in the database and <strong>send</strong> the command to Kafka. The database and Kafka don't share a transaction: one of the two can happen without the other.</li>
+  <li><strong>(a) In choreography.</strong> <code>estoque</code> <strong>saves</strong> the reservation and goes down before <strong>publishing</strong> the <code>EstoqueReservado</code>. The reservation exists, nobody was told, and the saga <strong>stops</strong> with no error at all.</li>
+  <li><strong>(b) In orchestration.</strong> The orchestrator sends <code>ReservarEstoque</code> and goes down before saving <code>RESERVANDO</code>. When it comes back, the last row still says <code>PAGO</code>, so it sends <code>ReservarEstoque</code> <strong>again</strong>, and <code>estoque</code> reserves <strong>twice</strong> if it isn't idempotent. That is what the author's lab does (excerpt below).</li>
+  <li><strong>The article's solution: outbox.</strong> The saga saves the step <strong>and</strong> the message in the <strong>same</strong> database transaction, and a <strong>relay</strong> sends them later. If the transaction rolls back, both vanish. <strong>CDC</strong> (module 17) does the same by reading the database log.</li>
+  <li><strong>Restarting the saga.</strong> With the same <code>saga_id</code> (or idempotency key), the orchestrator coming back from a crash <strong>resumes from the unanswered step</strong>, instead of starting another saga.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>In the orchestrator's <code>processReply</code>, the command is sent before the state is saved (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese). First the send, on the <code>pedidos-reply</code> reply:</p>
+
+<CodeLab code={orquestradorMain} from={335} to={348} />
+
+<p>And, after the <code>switch</code>, saving the new state:</p>
+
+<CodeLab code={orquestradorMain} from={390} to={398} />
+
+<ol class="flow steps">
+  <li>Line 346 <strong>sends</strong> <code>RESERVE_STOCK</code> to <code>estoque</code>. The <code>return err</code> on 347 only covers a send failure.</li>
+  <li>Line 391 only <strong>then</strong> saves the state (<code>saveEvent</code>). Between 346 and 391 there is a window: if the process dies there, the service does the step and the orchestrator doesn't know.</li>
+  <li>When it comes back, the consumer reads from <code>OffsetNewest</code> (line 194), and neither <code>command_id</code> nor <code>reply_id</code> is checked anywhere. The repeat goes straight through.</li>
+</ol>
+
+<h3 class="sec">The outbox inside the saga</h3>
+
+<p>The shape, in SQL (example, not run): the saga and the message go in the same transaction.</p>
+
+<pre><code>{String.raw`BEGIN;
+  UPDATE saga SET estado = 'RESERVANDO', versao = versao + 1
+   WHERE saga_id = 's-1057' AND estado = 'PAGO';
+  INSERT INTO outbox (destino, tipo, payload)
+  VALUES ('estoque-commands', 'ReservarEstoque', '{"saga_id":"s-1057", …}');
+COMMIT;   -- both go in, or neither`}</code></pre>
+
+<p>A relay reads the <code>outbox</code> and sends to Kafka. The <code>UPDATE ... WHERE estado = 'PAGO'</code> is the conditional transition from lesson 6, and it still applies: if the saga already left <code>PAGO</code>, not even the outbox row is written.</p>
+
+<h3 class="sec">What if it goes wrong: the relay publishes and goes down before marking</h3>
+
+<p>The relay sends the <code>ReservarEstoque</code> to Kafka and goes down <strong>before</strong> marking the row as sent. When it comes back, it sends it <strong>again</strong>: delivery is <strong>at least once</strong>. The command goes out twice, and <code>estoque</code> has to be <strong>idempotent</strong>: it stores the <code>command_id</code> and, on seeing the same one, answers with the result it already gave, without reserving again. The outbox doesn't eliminate the duplicate; it swaps "lose" for "repeat".</p>
+
+<WhyItMatters>
+  <li><strong>It's the same problem as module 18.</strong> Saving and publishing aren't atomic, and the saga does both at every step.</li>
+  <li><strong>Two defects, two symptoms.</strong> A step done with no notice (the saga stops) or a repeated command (reserves twice).</li>
+  <li><strong>The outbox joins the step and the message.</strong> Same transaction, and a relay sends.</li>
+  <li><strong>The receiver is idempotent.</strong> The outbox guarantees "at least once", and the <code>command_id</code> avoids the double effect.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Correction to the base article: commit only after the communication</h4>
+  <ul>
+    <li><strong>"Dual write" solved by a transaction?</strong> The article says that, in an ACID database, you can "run the event publishing inside a transaction and only commit when the communication processes are done". <strong>That is not atomic</strong> (the same correction as module 18): the <code>COMMIT</code> can fail after the <em>publish</em>, and the open transaction holds locks while it waits for the broker. The article itself presents the right solution right after: outbox and CDC.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Confluent: The Dual-Write Problem", href: "https://www.confluent.io/blog/dual-write-problem/" },
+    { label: "microservices.io: Pattern: Transactional outbox", href: "https://microservices.io/patterns/data/transactional-outbox.html" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With durable state, conditional transition, log and outbox, all the pieces are on the table. What's left is <strong>how they fit together, running</strong>, in a real order system.</p>
+
+<Flashcards cards={[
+  { q: "What is dual write in a saga?",
+    a: "Saving the state in the database and sending the command or event are two non-atomic writes: if the process dies in the middle, one happens without the other." },
+  { q: "What happens if the orchestrator sends the command and goes down before saving?",
+    a: "When it comes back, it reads PAGO and sends ReservarEstoque again. Stock reserves twice if it isn't idempotent (that is what the author's lab does)." },
+  { q: "How does the outbox solve it?",
+    a: "The saga saves the step and the message in the same transaction; a relay sends. Either both go in, or neither." },
+  { q: "Why does the receiving service need to be idempotent even with an outbox?",
+    a: "The relay can publish and go down before marking, and the command goes out twice (at least once). The command_id avoids the double effect." },
+  { q: "Is 'publish inside the transaction and only commit afterward' atomic?",
+    a: "No. The COMMIT can fail after the publish, and the open transaction holds locks. The solution is outbox or CDC." },
+]} />

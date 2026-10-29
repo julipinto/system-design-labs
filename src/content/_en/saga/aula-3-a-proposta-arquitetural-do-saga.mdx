@@ -1,0 +1,97 @@
+---
+title: "The Saga's architectural proposal"
+order: 3
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The last lesson made it clear: there is no single transaction, no lock that can hold out for the Pix, and no <em>two-phase commit</em> that talks to the PSP. What's left is to <strong>do one step at a time and know how to undo each one</strong>. That is the Saga's proposal: each service does its own <strong>local transaction</strong>, and each step has a matching <strong>compensation</strong>.</p>
+
+<OneLiner>Break the operation into <strong>local transactions</strong> T1…Tn, each with its own <strong>compensation</strong> C1…Cn. Either all of them pass, or the ones that already passed are compensated <strong>in reverse order</strong>. The compensation is not a <code>ROLLBACK</code>: it is a <strong>new transaction</strong> that undoes the <strong>business effect</strong>. And the Saga has no isolation: the in-between states show up for others.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>State machine</strong> scenario, move forward through the happy path to <code>FINALIZADO</code> and then through the real 1057, with its 7 timestamps and 2 compensations in reverse order. In the simulator below, put the failure on <strong>reserve</strong> and compare with the swapped order.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/saga-3d/?mode=state-machine" poster="labs/saga/saga-3d-previa.webp" title="Interactive figure: The saga as a state machine" alt="Preview of the 3D figure: The saga as a state machine" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Steps and compensations.</strong> Each local step has an undo: creating the order (compensation: <code>CancelarPedido</code>), charging (<code>EstornarCobranca</code>), reserving stock (<code>LiberarEstoque</code>) and scheduling delivery (<code>CancelarEntrega</code>).</li>
+  <li><strong>Reverse order.</strong> If step 3 fails, the saga compensates 2 and then 1. In 1057, the stock failed at the reserve step: the charge is undone and the order is canceled, in the reverse order of what was done.</li>
+  <li><strong>The compensation is a new transaction.</strong> The refund is <strong>one more entry</strong>, not an erasure: <code>c-7732</code> stays on the statement and the refund shows up next to it. The PSP may charge a fee that doesn't come back, and the "order confirmed" email that already went out can't be recalled: you send another one.</li>
+  <li><strong>Three kinds of step.</strong> The <strong>compensable</strong> one has an undo (charge, reserve). The <strong>pivot</strong> is the point of no return: in the store, the truck leaving. The <strong>retryable</strong> one comes after the pivot and is only repeated until it works (notify the customer).</li>
+  <li><strong>Order matters.</strong> What is <strong>hard to undo goes last</strong>. Charging hurts more than reserving: that's why, in lesson 10, the store reserves <strong>before</strong> charging.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="simulador" title="1057 saga simulator" hint="Pick the order (charge first or reserve first), the step that fails and the Pix wait. See the log, the compensations in reverse order, the total time (44.95 s against about 100 ms) and whether there was a refund." />
+
+<h3 class="sec">What if it goes wrong: the dirty read</h3>
+
+<p>The Saga is <strong>ACD without the I</strong>: it has atomicity (by compensation), consistency and durability, but <strong>no isolation</strong>. While 1057's saga is in <code>RESERVANDO</code>, the T-shirt stays reserved. If the saga is going to fail further on, for a few seconds the stock shows "sold out" to <strong>other customers</strong> who could never have bought that unit and who, by the time the reservation is released, have already left. Nobody did anything wrong: the in-between state is visible.</p>
+
+<p>Three countermeasures (microservices.io):</p>
+
+<ol class="flow steps">
+  <li><strong>Semantic lock.</strong> The <code>RESERVA_PENDENTE</code> state is visible: whoever reads knows that unit may come back.</li>
+  <li><strong>Commutative updates.</strong> Operations that give the same result in any order (add and subtract), so one saga doesn't get in the way of another.</li>
+  <li><strong>Reread the value.</strong> Before changing, check that the data is still what the saga read.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Local step plus compensation.</strong> That's the trade: you give up the atomicity of one transaction for pieces that can be undone.</li>
+  <li><strong>Compensating is not going back in time.</strong> The business effect is undone by another transaction, and may not give everything back (the PSP fee).</li>
+  <li><strong>Order decides the cost.</strong> Reserving before charging swaps a refund for a stuck reservation (lesson 10).</li>
+  <li><strong>Without isolation, the middle shows.</strong> Whoever reads during the saga sees states that may be undone.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The kinds of step, in one place</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Kind</th><th>Has an undo?</th><th>In the store</th></tr></thead>
+    <tbody>
+      <tr><th>compensable</th><td>yes</td><td>charge (<code>EstornarCobranca</code>), reserve (<code>LiberarEstoque</code>)</td></tr>
+      <tr><th>pivot</th><td>no: it's the point of no return</td><td>the truck leaves</td></tr>
+      <tr><th>retryable</th><td>doesn't need one: repeat until it works</td><td>notify the customer, after dispatch</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The split into compensable, pivot and retryable comes from Richardson (<em>Microservices Patterns</em>, a book; no verified link). The base article doesn't have it.</p>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Atomicity and rollback.</strong> The Saga has atomicity <strong>by compensation, not by rollback</strong>, and <strong>no isolation</strong> (microservices.io: "lack of isolation"). There is also no automatic rollback: the developer writes each compensation. The countermeasures above don't appear in the article (there are also "by value" updates, the pessimistic view and a version file).</li>
+    <li><strong>Compensation is not an exact undo.</strong> It can be another transaction (a refund, a new email), it may <strong>not give everything back</strong> (Microsoft: canceling a reservation "might not entitle the customer to a complete refund"), it has to be <strong>idempotent and repeatable</strong> and sometimes it fails (then it's a person; lesson 7). The article treats compensation as always possible.</li>
+    <li><strong>Order of the steps.</strong> The article doesn't say the step that's hard to undo goes last.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "microservices.io: Pattern: Saga (lack of isolation and countermeasures)", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Compensating Transaction pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction" },
+    { label: "Temporal: Compensating Actions, Part of a Complete Breakfast with Sagas", href: "https://temporal.io/blog/compensating-actions-part-of-a-complete-breakfast-with-sagas" },
+  ]} />
+</Deep>
+
+<p class="gancho">The saga is defined: local steps and compensations in reverse order. What's left is <strong>who decides</strong> the next step and when to compensate: each service, looking at what the previous one published, or a single one that knows the whole map?</p>
+
+<Flashcards cards={[
+  { q: "What does the Saga propose?",
+    a: "Break the operation into local transactions T1…Tn, each with a compensation C1…Cn. Either all pass, or the ones done are compensated in reverse order." },
+  { q: "Is the compensation a ROLLBACK?",
+    a: "No. It's a new transaction that undoes the business effect: the refund is one more entry, the PSP may charge a fee and the email that was sent doesn't come back." },
+  { q: "What are the three kinds of step?",
+    a: "Compensable (charge, reserve), pivot (the point of no return: the truck leaves) and retryable (after the pivot, repeat until it works)." },
+  { q: "Why does the step that's hard to undo go last?",
+    a: "Because the later it runs, the fewer times it has to be undone. That's why the store reserves before charging (lesson 10)." },
+  { q: "What does 'ACD without the I' mean?",
+    a: "The Saga has atomicity (by compensation), consistency and durability, but no isolation: the in-between states are visible. Countermeasure: semantic lock (RESERVA_PENDENTE)." },
+]} />

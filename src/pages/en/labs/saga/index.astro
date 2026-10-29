@@ -1,0 +1,36 @@
+---
+// Saga Pattern module (English): the 10 lessons in src/content/_en/saga/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/saga.css';
+
+const entries = (await getCollection('en-saga')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/saga/quiz/');
+---
+<ModuleLayout
+  title="Saga Pattern · SDLabs"
+  description="Making an order that crosses several services finish whole or be undone without a distributed transaction: compensations, choreography and orchestration, state machine, saga log, dual write and the author's lab read through, with Davi's order 1057, widgets and a quiz."
+  module="saga"
+  heading="Saga Pattern"
+  lead="An order goes through orders, payments, stock and deliveries, each with its own database. How to make the operation finish whole or be undone, with no distributed transaction, without leaving Davi with money charged and an order that doesn't exist."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/saga/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

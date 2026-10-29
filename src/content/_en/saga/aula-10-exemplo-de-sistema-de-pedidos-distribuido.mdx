@@ -1,0 +1,122 @@
+---
+title: "Example of a distributed order system"
+order: 10
+min: 18
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import estoqueMain from '../../../lab-code/saga/estoque-main.go?raw';
+
+<p class="ponte">In the last lesson the pieces still had to be put together: durable state, conditional transition, log, compensation and outbox. The author's public lab puts some of them together in an order system you can bring up and test. It's worth reading with 1057 in hand, because it makes a choice the store didn't: <strong>it reserves the stock before charging</strong>.</p>
+
+<OneLiner>The author's lab has <strong>5 services, 5 databases, Kafka and a simulator</strong>, with an <strong>orchestrated</strong> saga. It reserves before charging, and the math works out: <strong>85.5%</strong> of orders complete. With the order swapped, the canceled 1057 takes <strong>about 100 ms</strong> with no refund, instead of 44.95 s with a refund, and the price is the stuck reservation. Read carefully, the code also shows the problems of lessons 6 to 9 <strong>for free</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Lab</strong> scenario, move forward to the <strong>20 orders</strong> with 10% stock failure and 5% payment failure and check about <strong>17</strong> complete, <strong>2</strong> with a stock failure and <strong>1</strong> with a payment failure. Then press <strong>Reserve first</strong> to see the two orders side by side.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/compensacao-3d/?mode=lab" poster="labs/saga/compensacao-3d-previa.webp" title="Interactive figure: The author's lab" alt="Preview of the 3D figure: The author's lab" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The lab.</strong> Go 1.23 and Kafka (KRaft mode), <strong>5 PostgreSQL databases</strong> (one per service) and 5 services: <code>orquestrador</code>, <code>pedidos</code>, <code>estoque</code>, <code>pagamentos</code> and <code>entregas</code>. An interactive <code>simulador</code> sends 1 order, 20 orders or N, and watches the response topics. Only the <strong>orchestrated</strong> version exists: there is no choreographed example.</li>
+  <li><strong>The success flow.</strong> <code>VALIDATE_ORDER</code> → <code>RESERVE_STOCK</code> → <code>PROCESS_PAYMENT</code> → <code>SCHEDULE_DELIVERY</code> → <code>COMPLETED</code>. And the compensation flow, as the README describes it: <code>… PROCESS_PAYMENT</code> (fails) → <code>COMPENSATING</code> → <code>CANCEL_PAYMENT</code> → <code>RELEASE_STOCK</code> → <code>CANCEL_ORDER</code> → <code>FAILED</code>.</li>
+  <li><strong>The probabilities.</strong> Stock fails <strong>10%</strong> of the time and payment <strong>5%</strong>. Success: 0.9 × 0.95 = <strong>85.5%</strong> (17.1 out of 20). Stock failure: <strong>10%</strong> (2.0 out of 20). Payment failure: 0.9 × 0.05 = <strong>4.5%</strong> (0.9 out of 20), and then the stock has to be <strong>released</strong>. The README sums it up: with 20 orders, about 17 to 18 complete, 2 fail on stock and 1 on payment.</li>
+  <li><strong>The order of the steps.</strong> The lab reserves the stock <strong>before</strong> charging. The store (module 6) charges before reserving. The table below compares the two with 1057.</li>
+  <li><strong>What you take away.</strong> Idempotency at every endpoint, durable state, a watchdog for stalled sagas, outbox and repeatable compensation. Module 21 gathers all of this under resilience.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>1057 with the stock shortage</th><th>charge first (the store)</th><th>reserve first (the lab)</th></tr></thead>
+  <tbody>
+    <tr><th>time to <code>CANCELADO</code></th><td>44.95 s</td><td>about 100 ms</td></tr>
+    <tr><th>refund</th><td>1 (R$ 58.00)</td><td>none: there was no charge</td></tr>
+    <tr><th>Davi sees the money leave</th><td>yes, and it comes back in 3.7 s</td><td>no</td></tr>
+    <tr><th>the cost</th><td>waiting, refund and PSP fee</td><td>stuck reservation while the customer pays</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="probabilidades" title="Lab probabilities" hint="Stock failure (0 to 30%), payment failure (0 to 30%), number of orders (1 to 1,000) and the order of the steps: expected successes (85.5% by default), compensations and refunds." />
+
+<h3 class="sec">What the stock code does</h3>
+
+<p>The 10% failure is a random draw in the <code>estoque</code> service (read, <strong>not run</strong>; <code>estoque/main.go</code>, unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+
+<CodeLab code={estoqueMain} from={293} to={299} />
+
+<p>Payment has the same design with 5%. The saga is a toy, and that's good: the defects show up with nowhere to hide.</p>
+
+<h3 class="sec">What if it goes wrong: the stuck reservation</h3>
+
+<p>Reserving before charging swaps the refund for another debt. While the customer decides whether to pay the Pix, the unit stays <strong>reserved and unsold</strong>. With <strong>20%</strong> of orders dropping off and the reservation lasting <strong>10 min</strong>, at 30 orders per second there are 30 × 0.2 × 600 = <strong>3,600</strong> units stuck (example). That's why the reservation has a <strong>deadline</strong>, and the <strong>expiry is a compensation</strong>: the watchdog from lesson 6 releases the reservation nobody paid for.</p>
+
+<Widget name="reserva-presa" title="Stuck reservation" hint="Orders per second (1 to 60), Pix drop-off (0 to 50%) and reservation deadline (1 to 30 min): how many units stay reserved and unsold (3,600 in the example)." />
+
+<h3 class="sec">What the lab shows for free, read carefully</h3>
+
+<p>Six observations from reading the code (<code>orquestrador/main.go</code> and <code>estoque/main.go</code>), all <strong>read and not run</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Observation</th><th>Effect</th><th>Fix</th><th>Lesson</th></tr></thead>
+  <tbody>
+    <tr><th>advances by the topic, without checking the state, and the compensation replies come back as success</th><td>the canceled saga comes back to life</td><td><code>command_type</code> in the reply and conditional transition</td><td>7</td></tr>
+    <tr><th>compensations fired and forgotten; <code>FAILED</code> goes out first</th><td><code>FAILED</code> = "I asked to compensate"</td><td>wait for the compensation replies</td><td>7</td></tr>
+    <tr><th>command sent before the state is saved</th><td>a step done that the orchestrator doesn't know about</td><td>outbox</td><td>9</td></tr>
+    <tr><th>no watchdog and no idempotency</th><td>a reply that never comes leaves the saga stalled; a repeat goes through</td><td>deadline per state and <code>command_id</code></td><td>6 and 9</td></tr>
+    <tr><th><code>CANCEL_DELIVERY</code> exists and is never sent</th><td>it would be missing if a step were added after delivery</td><td>send it in the compensation</td><td>7</td></tr>
+    <tr><th>README: "Event Sourcing (simplificado)"</th><td>it is a log of transitions</td><td>derive the state from the log (module 20)</td><td>8</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>A seventh, from reading <code>startCompensation</code>: the README lists <code>CANCEL_PAYMENT</code> in the payment failure flow, but the orchestrator decides by the <strong>current state</strong>. When payment fails, the state is still <code>STOCK_RESERVED</code> (<code>PAYMENT_PROCESSED</code> was not saved), so only <code>RELEASE_STOCK</code> and <code>CANCEL_ORDER</code> go out. <code>CANCEL_PAYMENT</code> would go out on a <strong>delivery</strong> failure, when the state is <code>PAYMENT_PROCESSED</code>. It makes sense (there is nothing to refund), but the README diagram doesn't say so.</p>
+
+<WhyItMatters>
+  <li><strong>A lab reads like a report.</strong> Each observation in the table is a defect that the production saga has to solve.</li>
+  <li><strong>The order decides the cost.</strong> Charge first: refund and 44.95 s. Reserve first: 100 ms and a stuck reservation.</li>
+  <li><strong>The probabilities add up.</strong> 85.5%, 10% and 4.5% sum to 100% and give 17.1, 2.0 and 0.9 out of 20 orders.</li>
+  <li><strong>The saga depends on everything that comes after.</strong> Commands that repeat, events that arrive twice and services that are slow.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The same 10%, in two orders</h4>
+  <p>In the store's order, the same 10% stock failure turns into <strong>refunds</strong>: 2.0 for every 20 orders, against <strong>0</strong> in the lab's order (a calculation that assumes payment never fails; with the 5% payment failure coming first, the widget's exact calculation is 1.9). Each refund is money that leaves and comes back, a possible fee and a customer who saw the balance drop.</p>
+  <h4 class="deep-h">Corrections to the base article and to the lab</h4>
+  <ul>
+    <li><strong>The lab is didactic.</strong> The list of observations above becomes an exercise: the orchestrator advances by the topic, compensations are fired and forgotten, the command goes out before the state, and there is no watchdog or idempotency.</li>
+    <li><strong>What the article lacks.</strong> Timeout per state and a watchdog for stalled sagas, the order of the steps, idempotency of the <strong>command</strong> (not just the saga), correlation by <code>saga_id</code> and <code>trace_id</code>, sagas with a human step and <em>Try-Confirm-Cancel</em> (TCC), which is only in the references.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Author's public repository: saga/orquestrado", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+    { label: "Microsoft Learn: Saga distributed transactions pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/saga" },
+    { label: "AWS Prescriptive Guidance: Saga orchestration pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-orchestration.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The saga depends on commands that repeat, events that arrive twice and services that are slow, and all of that calls for <strong>idempotency, timeout, <em>retry</em> and <em>circuit breaker</em></strong>. First, another question: what if the order's state were <strong>just the list of events</strong>, and what's in the table were a summary? The saga log is already half of that. What's left is what happens when the log becomes the source: that's module 20, Event Sourcing.</p>
+
+<Flashcards cards={[
+  { q: "What does the author's lab have?",
+    a: "Go and Kafka, 5 services (orquestrador, pedidos, estoque, pagamentos, entregas), 5 PostgreSQL databases and a simulator. Only the orchestrated version." },
+  { q: "What are the lab's probabilities?",
+    a: "10% stock failure and 5% payment failure: 85.5% complete (17.1 out of 20), 10% fail on stock (2.0) and 4.5% on payment (0.9, with the stock released)." },
+  { q: "Charge first or reserve first: what changes for 1057?",
+    a: "Charge first: CANCELADO in 44.95 s, with 1 refund of R$ 58.00. Reserve first: about 100 ms, no refund, but a stuck reservation while the customer pays." },
+  { q: "How much reservation gets stuck at 30 orders/s, 20% drop-off and 10 min?",
+    a: "30 × 0.2 × 600 = 3,600 units. That's why the reservation has a deadline, and the expiry is a compensation." },
+  { q: "What defects does the lab show for free?",
+    a: "The canceled saga that comes back to life, FAILED before compensating, command before state, no watchdog or idempotency, CANCEL_DELIVERY never sent and a log called event sourcing." },
+]} />

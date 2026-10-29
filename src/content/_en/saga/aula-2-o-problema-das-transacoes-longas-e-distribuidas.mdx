@@ -1,0 +1,84 @@
+---
+title: "The problem of long and distributed transactions"
+order: 2
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson 1057 ended up <code>pago</code> with no stock, and there was no <code>ROLLBACK</code> to undo it. Before proposing something else, let's see <strong>why the database transaction doesn't fit</strong> here. There are two different problems that add up: the order goes through <strong>several databases</strong> and takes <strong>a long time</strong>.</p>
+
+<OneLiner>The ACID transaction <strong>doesn't cross</strong> the databases of different services, and the <strong>long</strong> wait (Davi's Pix, 41.2 s) makes it impossible to hold a lock until the end. <em>Two-phase commit</em> tries to stitch the databases together, but it <strong>blocks</strong> if the coordinator goes down and requires everyone to know how to "prepare": the PSP and Kafka don't.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>No saga</strong> scenario, go to the last step and use the three Pix wait buttons (41.2 s, 5 min and 30 min): watch the stock lock held by 1057 stop the queue of orders behind it (1,236, 9,000 and 54,000 orders). The 5 and 30 min ones are examples.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/saga-3d/?mode=sem-saga&step=7" poster="labs/saga/saga-3d-previa.webp" title="Interactive figure: No saga: the stuck order" alt="Preview of the 3D figure: No saga: the stuck order" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Distributed.</strong> The store has <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> and <code>entregas</code> (module 6), each one owning its database. When <code>estoque</code> does a <code>COMMIT</code>, only its own database knows. The other three can't see the transaction, so there is no <code>ROLLBACK</code> that reaches them.</li>
+  <li><strong>Long.</strong> Davi took <strong>41.2 s</strong> to pay. A Pix charge can expire in minutes, and the article's example goes to <strong>weeks</strong> (installments, invoices). If <code>estoque</code> held a lock during that time, at 30 orders per second there would be 30 × 41.2 = <strong>1,236</strong> transactions open at the same time, each with its own connection and its own lock.</li>
+  <li><strong>One attempt: <em>two-phase commit</em> (2PC).</strong> A coordinator asks everyone "prepare?"; when all answer "ready", it sends "commit" (Fowler). The databases keep their locks open between the two phases.</li>
+  <li><strong>Where 2PC fails.</strong> If the coordinator goes down between the phases, the participants <strong>stay blocked</strong> waiting for the decision. And everyone must support <em>prepare</em>: an external PSP and Kafka <strong>don't</strong> take part.</li>
+  <li><strong>Two kinds of failure.</strong> The <strong>business</strong> one (no stock) is a valid answer from the service and calls for <strong>compensation</strong>. The <strong>technical</strong> one (timeout, 503) is a service that didn't answer and calls for <em>retry</em> (module 21). Mixing the two leads to refunding a payment that was only slow.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Failure</th><th>Store example</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><th>business</th><td><code>EstoqueIndisponivel</code> at 20:15:41.260</td><td>compensate (refund the charge)</td></tr>
+    <tr><th>technical</th><td>the PSP answers <code>503</code> or doesn't answer</td><td>retry with <em>backoff</em> (module 21)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: 2PC with the PSP</h3>
+
+<p>The store tries 2PC: it asks <code>estoque</code>, <code>entregas</code> and the PSP to "prepare". There is no "prepare the Pix". Charge <code>c-7732</code> <strong>already went out</strong> the moment Davi approved it in the bank app, and the PSP only knows "charge" and "refund". 2PC assumes each participant can promise "I can commit" and take the promise back at no cost. An external system promises none of that.</p>
+
+<WhyItMatters>
+  <li><strong>Two databases, two <code>COMMIT</code>s.</strong> Atomicity ends at the service boundary.</li>
+  <li><strong>A long lock takes the store down.</strong> 1,236 open transactions at 30 orders/s because of one customer's wait.</li>
+  <li><strong>2PC is not the answer.</strong> It blocks if the coordinator goes down and doesn't work with the PSP or Kafka. The Saga exists to avoid it.</li>
+  <li><strong>Know the kind of failure.</strong> No stock, you compensate; timeout, you retry.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Pix has a deadline, the article has weeks</h4>
+  <p>The Pix charge for 1057 expires in minutes (in lesson 6 the example is 30 min). The article talks about processes that take from milliseconds to weeks or months. The longer the wait, the less sense it makes to keep any lock open, and the more the process state has to live in a <strong>database</strong>, not in the memory of whoever is waiting.</p>
+  <h4 class="deep-h">Correction to the base article: 2PC inside the saga</h4>
+  <ul>
+    <li><strong>2PC and Saga are alternatives.</strong> The article suggests <em>two-phase commit</em> for synchronous sagas and calls it "very well used in replication strategies" (already corrected in module 17). 2PC <strong>blocks</strong> if the coordinator goes down and requires <em>prepare</em> in every participant. The Saga exists precisely to avoid it, and the article itself says so in the "The proposal" section.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "Fowler: Two-Phase Commit (Patterns of Distributed Systems)", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html" },
+    { label: "microservices.io: Pattern: Saga", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Microsoft Learn: Saga distributed transactions (reference architecture)", href: "https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga" },
+  ]} />
+</Deep>
+
+<p class="gancho">If we can't have a single transaction, one question remains: what do we do with the steps that <strong>already happened</strong>? What's left is how to break the operation into pieces that can be undone one by one.</p>
+
+<Flashcards cards={[
+  { q: "Why doesn't the ACID transaction cross the store's services?",
+    a: "Each service has its own database and does its own COMMIT. No database sees the other's transaction, so there is no ROLLBACK that reaches all four." },
+  { q: "Why does the long Pix wait get in the way?",
+    a: "Holding a lock during Davi's 41.2 s, at 30 orders/s, leaves 30 × 41.2 = 1,236 transactions open at the same time." },
+  { q: "How does two-phase commit work?",
+    a: "A coordinator asks everyone to 'prepare'; when all say 'ready', it sends 'commit'. Between the phases the locks stay open." },
+  { q: "Why doesn't 2PC work for the store?",
+    a: "It blocks if the coordinator goes down and requires 'prepare' in everyone. The PSP and Kafka don't take part: there is no 'prepare the Pix'." },
+  { q: "Business failure or technical failure: which one calls for compensation?",
+    a: "The business one (no stock). The technical one (timeout, 503) calls for retry, which is the topic of module 21." },
+]} />

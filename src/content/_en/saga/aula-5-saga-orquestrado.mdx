@@ -1,0 +1,99 @@
+---
+title: "Orchestrated saga"
+order: 5
+min: 15
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+
+<p class="ponte">In the last lesson choreography left 1057 without an owner: the event gets lost and nobody notices, and the flow isn't written anywhere. The other answer is to put the whole map <strong>in one place</strong>. That place is the <strong>orchestrator</strong>: it gives the orders, waits for the reply and decides when to compensate.</p>
+
+<OneLiner>In <strong>orchestration</strong>, an <strong>orchestrator</strong> holds the saga's map, sends <strong>commands</strong> to the services and waits for <strong>replies</strong>; it is the one who orders the compensation. The flow lives <strong>in one place</strong> and the services don't know each other, but the orchestrator is an extra component that <strong>every order goes through</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Orchestrated</strong> scenario, follow 1057's messages (command and reply, step by step) to <code>CANCELADO</code>. In the last two steps, the orchestrator goes down with 200 sagas and, when it comes back, reads <code>COBRANDO</code> in the database and carries on.</p>
+</DoIt>
+
+<Figure3D path="en/labs/saga/saga-3d/?mode=orquestrado" poster="labs/saga/saga-3d-previa.webp" title="Interactive figure: Orchestrated saga" alt="Preview of the 3D figure: Orchestrated saga" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Command and reply.</strong> Each service has a <strong>command</strong> topic and a <strong>reply</strong> topic. In the author's lab they are <code>pagamentos-commands</code> and <code>pagamentos-reply</code>, and the same for <code>pedidos</code>, <code>estoque</code> and <code>entregas</code>. The orchestrator writes to the first and reads from the second.</li>
+  <li><strong>1057 step by step.</strong> The orchestrator sends <code>CobrarPedido</code> and gets <code>PedidoPago</code>. It sends <code>ReservarEstoque</code> and gets the failure. Then it sends <code>EstornarCobranca</code>, gets the ok, sends <code>CancelarPedido</code> and saves <code>CANCELADO</code>.</li>
+  <li><strong>How many messages.</strong> On success there are <strong>6</strong> (3 commands and 3 replies); on failure, <strong>8</strong> (charge and reply, reserve and failure reply, refund and reply, cancel and reply), plus <strong>1</strong> to start. Choreography used 4 and 5 events: the orchestrator costs more messages.</li>
+  <li><strong>What you gain.</strong> The flow is <strong>in one place</strong>: metrics, a watchdog and pausing come easy. The services <strong>don't know each other</strong>: <code>estoque</code> only understands the <code>ReservarEstoque</code> command.</li>
+  <li><strong>What you pay.</strong> A component that <strong>every</strong> order goes through (the blast radius from module 21) and the temptation to put <strong>business rules</strong> in it, until it becomes the store's "god service".</li>
+</ol>
+</HowItWorks>
+
+<Widget name="coreo-orq" title="Choreography × orchestration" hint="Number of steps after the order (2 to 8) and whether one fails: messages (4 and 5 in choreography, 6 and 8 in orchestration), points that know everything and backward dependencies." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The author's lab (public repository, only <code>orquestrado/</code> exists) has the orchestrator in <code>orquestrador/main.go</code>. This excerpt is the core: the reply arrives on a topic and the orchestrator sends the next command (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese).</p>
+
+<CodeLab code={orquestradorMain} from={327} to={364} />
+
+<ol class="flow steps">
+  <li>Line 334 picks the next step by the <strong>topic</strong> that replied: <code>pedidos-reply</code> sends <code>RESERVE_STOCK</code> (lines 335 to 348).</li>
+  <li><code>estoque-reply</code> sends <code>PROCESS_PAYMENT</code> and <code>pagamentos-reply</code> sends <code>SCHEDULE_DELIVERY</code>. That is the saga's map, written as four <code>case</code>s.</li>
+  <li>Notice what is <strong>not</strong> here: no check of the current state before advancing. Lesson 7 shows what that causes.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the orchestrator goes down with 200 sagas in flight</h3>
+
+<p>The orchestrator goes down with <strong>200</strong> sagas in progress (example; at the Black Friday peak, with Pix waiting 41.2 s, the number of orders waiting goes past a thousand). If their state lived in its <strong>memory</strong>, all of them are lost: the services did the steps, and nobody knows which step each order is at. That's why the state lives in a <strong>database</strong>: when the orchestrator comes back, it reads the table, sees 1057 in <code>COBRANDO</code> and carries on from where it stopped. Lesson 6 shows what structure that is.</p>
+
+<WhyItMatters>
+  <li><strong>The map has an address.</strong> To know where 1057 is, you ask the orchestrator, not four services.</li>
+  <li><strong>The services don't know each other.</strong> Swapping <code>estoque</code> doesn't touch <code>pagamentos</code>.</li>
+  <li><strong>It costs more messages and one more component.</strong> 6 and 8 against 4 and 5, and a point every order goes through.</li>
+  <li><strong>State outside memory.</strong> An orchestrator that keeps everything in memory loses the sagas when it goes down.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">A synchronous orchestrator exists too</h4>
+  <p>The orchestrator can call the services by request and response, instead of topics. It's simpler to follow, but <em>retry</em>, <em>backoff</em> and the dead-letter queue (module 13) become <strong>its</strong> job: if <code>estoque</code> doesn't answer, the orchestrator decides what to do.</p>
+  <h4 class="deep-h">Choreography × orchestration, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>choreography</th><th>orchestration</th></tr></thead>
+    <tbody>
+      <tr><th>who decides</th><td>each service, by the event it listens to</td><td>the orchestrator</td></tr>
+      <tr><th>messages (success / failure)</th><td>4 / 5</td><td>6 / 8 (+1 to start)</td></tr>
+      <tr><th>where the flow is</th><td>spread out, nowhere</td><td>in the orchestrator</td></tr>
+      <tr><th>single point</th><td>none</td><td>the orchestrator</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Saga (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/saga-pattern/" },
+    { label: "AWS Prescriptive Guidance: Saga orchestration pattern", href: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-orchestration.html" },
+    { label: "InfoQ: Saga Orchestration for Microservices Using the Outbox Pattern", href: "https://www.infoq.com/articles/saga-orchestration-outbox/" },
+    { label: "Author's public repository: saga/orquestrado", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/saga/orquestrado" },
+  ]} />
+</Deep>
+
+<p class="gancho">The orchestrator knows the map, but to survive a crash it needs to store <strong>which step each saga is at</strong>. What's left is what structure holds that "I'm here" and decides where to go.</p>
+
+<Flashcards cards={[
+  { q: "What does the orchestrator do?",
+    a: "It holds the saga's map, sends commands to the services, waits for the replies and orders compensation when something fails." },
+  { q: "What does command/reply look like in the author's lab?",
+    a: "Each service has a command topic and a reply topic, for example pagamentos-commands and pagamentos-reply." },
+  { q: "How many messages does 1057's saga use in orchestration?",
+    a: "6 on success (3 commands and 3 replies) and 8 on failure (charge, reserve, refund and cancel, each with its reply), plus 1 to start." },
+  { q: "What is the cost of orchestration?",
+    a: "An extra component that every order goes through (blast radius) and the temptation to put business rules in it." },
+  { q: "Why does the orchestrator's state live in a database?",
+    a: "Because if it goes down with the sagas only in memory, all of them are lost. With the state in a database, it comes back and carries on from the last step." },
+]} />
