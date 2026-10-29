@@ -1,0 +1,86 @@
+---
+title: "Grow and spread"
+order: 4
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">The block 3 store works on an ordinary day, at 5 orders per second. At <strong>20:03</strong> on Black Friday the peak reaches 30 per second and almost everything it built starts being measured for real. Growing is not buying machines: it is knowing <strong>what</strong> is slow and <strong>where</strong> to cut.</p>
+
+<OneLiner>Growing is <strong>measuring</strong> (percentile, knee, the weakest link), <strong>choosing the axis</strong> (X, Y or Z), <strong>splitting by a key</strong> (and seeing where it heats up) and <strong>copying</strong> (and paying in latency or data).</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>Grow</strong> scenario, advance to the step where <code>mkt-01</code> turns on, and read the cluster's efficiency.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=crescer" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 4 · Grow and spread" alt="Preview of the 3D figure: Block 4 · Grow and spread" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 4</h3>
+
+<p>At 20:03 the store is still standing and yet it fails for some customers. The average dashboard says everything is fine. The four pieces below answer, in order: what to measure, which direction to grow, how to split the data and how to copy it.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Measure (module 14).</strong> The average is <strong>135 ms</strong> and the p50 is <strong>32 ms</strong>, but the p95 is <strong>800 ms</strong> and the p99 is <strong>2,000 ms</strong>. <code>catalogo-3</code> is at 99% and the whole fleet reads <strong>67.5%</strong>: (9 × 64 + 99) ÷ 10. The weakest link rules: <code>pagamentos</code> does <strong>40/s</strong> and the <code>pedidos</code> database, <strong>150/s</strong>. Davi's order is <strong>1052</strong>. <a href={L('performance')}>Performance, Capacity and Scalability</a>.</li>
+  <li><strong>Choose the axis (15).</strong> With the bottleneck measured, what is left is how to grow. On the cube, <strong>X</strong> clones (replicas), <strong>Y</strong> splits by function (services) and <strong>Z</strong> splits by data (customers). The store goes from <strong>(10, 9, 1)</strong> to <strong>(10, 9, 3)</strong>, and the output rises from <strong>90 to 150 to 200</strong> orders per second. Caio's order is <strong>1053</strong>. <a href={L('scale-cube')}>Scale Cube</a>.</li>
+  <li><strong>Split by a key (16).</strong> The Z axis needs a key. That is <strong>3 <em>shards</em></strong> by <code>cliente_id</code> with <code>murmur3</code> over <strong>50 million</strong> rows. <code>mkt-01</code> has 40% of the rows and leaves <code>shard-2</code> with 60%, and efficiency drops to <strong>55.6%</strong>. Going from 3 to 4 shards moves <strong>75.2%</strong> of the data with <code>mod</code> and <strong>25.7%</strong> with the ring. The <em>shuffle</em> forms <strong>45</strong> pairs. Lena's 1054 lands on <code>shard-1</code>. <a href={L('sharding')}>Sharding and Partitioning</a>.</li>
+  <li><strong>Copy (17).</strong> Splitting does not protect against a burned disk: each shard needs a replica. With the primary in SP and replicas in Rio and Recife, the commit costs <strong>2 ms</strong> (asynchronous), <strong>12 ms</strong> (semi) or <strong>82 ms</strong> (synchronous). The lag is <strong>300 ms</strong> in Rio and <strong>800 ms</strong> in Recife; the RPO is <strong>9 to 24</strong> orders and the RTO, <strong>35 s</strong>. Lena does not see <strong>1055</strong>: she reads the Recife replica, 800 ms behind. <a href={L('replicacao')}>Data Replication</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Take a piece out: the replicas</h3>
+
+<p>Without replicas, <code>shard-1</code> goes down and Lena and Bia <strong>are left with no orders</strong>, and a burned disk takes the data. Modules 16 and 17 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Say why the average dashboard misleads and what to look at instead.</li>
+  <li>Read the cube and say which axis the store is on.</li>
+  <li>Choose the <em>shard</em> key and say where it heats up.</li>
+  <li>Say what <code>mod 3 → 4</code> moves.</li>
+  <li>Choose between 2, 12 and 82 ms and say what you pay in data.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the study corrected in module 16</h4>
+  <ul>
+    <li>The <em>MurmurHash</em> snippet printed in the article lists 12 names and <strong>does not count</strong>; the result (7, 8, 9, 8 and 7, adding up to 39) comes from the repository.</li>
+  </ul>
+  <Sources items={[
+    { label: "Google SRE book: table of contents (monitoring, golden signals, scalability)", href: "https://sre.google/sre-book/table-of-contents/" },
+    { label: "AWS Builders' Library: engineering articles on scale and availability", href: "https://aws.amazon.com/builders-library/" },
+  ]} />
+  <div class="sources">
+<h4>In this study</h4>
+<ul>
+    <li><a href={L('performance')}><span>Module 14: Performance, Capacity and Scalability</span></a></li>
+    <li><a href={L('scale-cube')}><span>Module 15: Scale Cube</span></a></li>
+    <li><a href={L('sharding')}><span>Module 16: Sharding and Partitioning</span></a></li>
+    <li><a href={L('replicacao')}><span>Module 17: Data Replication</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">The store now grows and handles the peak. What is left is what spreading it too far did: the screen reads the <strong>past</strong>, the approved payment found no stock and the PSP answers in 8 s. How does the data stay <strong>right</strong> without a single transaction? That is lesson 5.</p>
+
+<Flashcards cards={[
+  { q: "Which number misleads on the dashboard: the 135 ms average or the 800 ms p95?",
+    a: "The average. The fleet at 67.5% hides the replica at 99%: (9 × 64 + 99) ÷ 10 (module 14)." },
+  { q: "What is the checkout's weakest link?",
+    a: "pagamentos (40/s) and the pedidos database (150/s) (module 14)." },
+  { q: "What are X, Y and Z on the cube?",
+    a: "Clone, split by function and split by data (module 15)." },
+  { q: "What does mkt-01 do to the shards' efficiency?",
+    a: "With 40% of the rows it leaves the hot shard at 60% and efficiency at 55.6% (module 16)." },
+  { q: "How much does the asynchronous, semi and synchronous commit cost?",
+    a: "2, 12 and 82 ms. Recife's lag is 800 ms (module 17)." },
+]} />

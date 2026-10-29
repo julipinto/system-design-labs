@@ -1,0 +1,80 @@
+---
+title: "Talk and compete"
+order: 3
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">In the last lesson the store ended up with 7 services connected by a door, a screen and a mesh, and the question left over was <strong>who gets the last cat</strong>. When services talk, two different problems show up: <strong>competing</strong> for the same resource and <strong>waiting</strong> (or not waiting) for the response.</p>
+
+<OneLiner>When services talk, there are two problems: <strong>competing</strong> for the same resource (concurrency) and <strong>waiting</strong> for the response (synchronous) or <strong>not waiting</strong> (asynchronous). Each choice trades latency for coupling.</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>Talk</strong> scenario, advance and watch Bia and Caio go after the last cat at the same time, first without the lock and then with it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=conversar" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 3 · Talk and compete" alt="Preview of the 3D figure: Block 3 · Talk and compete" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 3</h3>
+
+<p>Seven services that call each other and touch the same row raise three questions, one for each piece: who gets the cat, how much it costs to wait for the other side, and what to do with the event that needs no response.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Compete (module 11).</strong> Bia and Caio want the <strong>last cat</strong> at the same time: with no protection, stock goes to <strong>−1</strong>. A <em>mutex</em> in the process is not enough with 2 replicas of <code>estoque</code> (that is 2 memories), so a <strong>distributed lock</strong> on Redis comes in. Whoever gets it first wins (Bia, <strong>1049</strong>) and the other receives <code>409</code>. The math: 2 ms of CPU + 18 ms of waiting gives 50 orders/s at a time and a ceiling of <strong>500/s</strong>. The study also covers <em>deadlock</em> and <em>starvation</em>. <a href={L('concorrencia')}>Concurrency and Parallelism</a>.</li>
+  <li><strong>Wait (12).</strong> With the lock solved, what is left is the cost of each call. REST with JSON × gRPC with Protobuf: 1050 in Protobuf is <strong>11 bytes</strong> (without the gRPC header), and the PSP answers in <strong>210 ms</strong>. When the PSP says Davi's Pix went through without the store asking, that is the <strong>webhook</strong> for <strong>1050</strong>; <em>short</em> and <em>long polling</em> ask, the WebSocket keeps the connection open, and GraphQL lets the client choose the fields. <a href={L('comunicacao-sincrona')}>Synchronous Communication</a>.</li>
+  <li><strong>Do not wait (13).</strong> Not everything needs a response right away. In <strong>Kafka</strong>, the <code>pedidos</code> topic has 3 partitions and the <code>pedido_id</code> key picks the partition (1049 lands on <code>p0</code>). Each order generates <strong>4 events</strong>; on Black Friday that is <strong>120/s</strong> on the topic and <strong>40/s per partition</strong>. The <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code> groups consume, and the <strong>DLQ</strong> holds the message that cannot be processed. MQTT talks to the truck and AMQP to the emails. <a href={L('comunicacao-assincrona')}>Asynchronous Communication: Messaging, Events and Streaming</a>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="calculos" title="Quick calculations" hint="Six short calculations from the modules (cache, stock throughput, critical timeout, loss from RPO, error budget and shuffle), each with the story's numbers already filled in." />
+
+<h3 class="sec">Take a piece out: the distributed lock</h3>
+
+<p>Without the distributed lock, two replicas of <code>estoque</code> sell the last cat twice and stock ends at <strong>−1</strong>. Module 11 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Say why the local mutex is not enough with 2 replicas.</li>
+  <li>Choose between REST and gRPC and say what each one costs.</li>
+  <li>Say when the webhook beats <em>polling</em>.</li>
+  <li>Say what decides the partition and why order only holds inside it.</li>
+  <li>Say what the DLQ is for.</li>
+</ol>
+
+<Deep min={2}>
+  <h4 class="deep-h">What the study corrected in module 12</h4>
+  <ul>
+    <li>The bytes per call (REST × gRPC) stopped being a library calculation (204 and 95 B) and became <strong>measured</strong> on a proxy that reads the HTTP/2 frames.</li>
+  </ul>
+  <div class="sources">
+<h4>Sources</h4>
+<ul>
+    <li><a href={L('concorrencia')}><span>Module 11: Concurrency and Parallelism</span></a></li>
+    <li><a href={L('comunicacao-sincrona')}><span>Module 12: Synchronous Communication</span></a></li>
+    <li><a href={L('comunicacao-assincrona')}><span>Module 13: Asynchronous Communication: Messaging, Events and Streaming</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">The store works on an ordinary day. What is left is what <strong>Black Friday</strong> does to it. That is lesson 4.</p>
+
+<Flashcards cards={[
+  { q: "Who gets the last cat, and what does the other one receive?",
+    a: "Whoever takes the lock first (Bia, 1049); Caio receives 409 (module 11)." },
+  { q: "What is the stock throughput with 2 ms of CPU and 18 ms of waiting?",
+    a: "50 orders/s at a time, with a ceiling of 500/s (module 11)." },
+  { q: "How many bytes is 1050 in Protobuf, and how long does the PSP take to answer?",
+    a: "11 bytes (without the gRPC header) and 210 ms (module 12)." },
+  { q: "Which partition does 1049 land on, and how many events per second on Black Friday?",
+    a: "On p0. 120/s on the topic and 40/s per partition (module 13)." },
+]} />

@@ -1,0 +1,116 @@
+---
+title: "Cells, disaster and signals"
+order: 7
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">A bulkhead separates resources <strong>inside</strong> one stack, and the <code>mkt-01</code> poison pill showed that this is not enough when the whole stack goes down together. The last block <strong>does not add a feature</strong> to the store. It says <strong>where a failure can reach</strong>, <strong>how you come back</strong> when a region goes down and <strong>how you know</strong> what happened.</p>
+
+<OneLiner>The last block says <strong>where a failure can reach</strong> (cells), <strong>how you come back</strong> when a region goes down (DR) and <strong>how you know</strong> (observability).</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>All</strong> scenario, follow order 1060 through the 14 hops. Then press <strong>Failure</strong> and click a piece on the map to take it down and see what it drags with it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=celulas" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 7 · Cells, disaster and signals" alt="Preview of the 3D figure: Block 7 · Cells, disaster and signals" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 7</h3>
+
+<p>The store is now a stack with compartments, and three questions went unanswered: what to do with a poison pill that takes everything down, what to do when all of SP goes down, and how to know, before Lena complains, that something is slow.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Divide the stack (module 26).</strong> The whole stack becomes <strong>4 cells</strong>: <code>celula-sp</code> (33%), <code>celula-rio</code> (15%), <code>celula-recife</code> (12%) and <code>celula-mkt</code> (40%). <code>edge-loja</code> reads the <code>cliente_id</code> on the map and routes. The <code>mkt-01</code> poison pill in 4 min makes <strong>7,200 × 2,880</strong> lost attempts, single stack against cells. Each cell has a <strong>passive</strong> one, the <em>shuffle</em> of 2 in 10 limits the downed pair to 1 ÷ 45 = 2.2% of customers, and the 2027 plan goes from <strong>41 to 53 vCPU</strong>. The order is <strong>1060</strong>. <a href={L('cell-based')}>Cell-Based Architecture</a>.</li>
+  <li><strong>Come back from the disaster (27).</strong> Cells help, but a region can still go down. The audit finds <strong>12 links and 5 SPoFs</strong>. When SP goes down, MTTD of 30 s + MTTR of 35 s give an <strong>RTO of 65 s</strong>, and the expected RPO of <code>celula-sp</code> is <strong>2.97</strong> orders. The strategy is chosen by the cost of the failure: active-active, active-passive, <em>pilot light</em> or backup, with losses from R$ 2.28 million (backup only) to R$ 28 thousand (active-active). Order <strong>1061</strong> showed up on two orders: the promoted database's sequence reused the last replicated value. <a href={L('disaster-recovery')}>Single Point of Failure and Disaster Recovery</a>.</li>
+  <li><strong>Know (28).</strong> Coming back fast only matters if someone notices the outage. The <strong>three signals</strong> (logs, metrics and traces) tied together by the <code>traceparent</code> show <strong>1063</strong> at 1.9 s, where normal is 275 ms. The alert wakes you by symptom, the SLI becomes a <strong>99.9% SLO</strong> (and a 99.5% SLA), the budget is <strong>43.2 min</strong> and a <em>burn rate</em> of <strong>14.4×</strong> consumes 2% in 1 h. USE looks at the resource, RED at the service and the four signals at what the user feels. <a href={L('observabilidade')}>Observability and Monitoring</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Take a piece out: observability</h3>
+
+<p>Without observability, the MTTD goes back from <strong>30 s to 60 min</strong>, and Lena waits <strong>1.9 s</strong> with nobody knowing where. Without the passive cell and DR, SP goes down with an RTO of <strong>~48 min</strong> and R$ <strong>2.28 million</strong> lost. Without the router per cell, the poison pill takes down the <strong>3 pods</strong> of <code>pedidos</code> in 150 ms. Modules 26, 27 and 28 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Draw a cell and say what it can <strong>not</strong> share.</li>
+  <li>Say what the RTO includes and what the RPO measures.</li>
+  <li>Choose the DR strategy using the cost of the failure.</li>
+  <li>Say the order <em>what, where, why</em> (metric, trace, log).</li>
+  <li>Calculate an error budget.</li>
+</ol>
+
+<h3 class="sec">The whole store: order 1060</h3>
+
+<p>The Lena order that crosses the most pieces is <strong>1060</strong> (<code>celula-recife</code>, 20:25:00.000, 2 cats at 159.80 + shipping of 15.00 = <strong>174.80</strong>). It hops through 14 pieces, and each one comes from a module. The order is right if, for each hop, you can say which problem it solved and what would make it fail.</p>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=tudo" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: The whole store · order 1060" alt="Preview of the 3D figure: The whole store · order 1060" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="saltos" title="The 14 hops of 1060" hint="The hops of Lena's order, with the module that created each one. Hide the modules and try to guess." />
+
+<Widget name="monte" title="Build the store (the order)" hint="The 28 modules shuffled: put them in the order in which each one became necessary. Each hit shows the number and the problem it solved." />
+
+<h3 class="sec">The final exam</h3>
+
+<p>The quiz has <strong>80 questions</strong> that mix the modules: 70 by block and 10 <strong>integrative</strong> ones. It is a <strong>self-assessment</strong>, with no official score. The score comes out by block, and below 70% in a block the quiz shows the module link to review.</p>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=falha" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Take a piece out" alt="Preview of the 3D figure: Take a piece out" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="nota" title="Score by block" hint="The result of your last final exam in this browser: 7 bars and the link to the module to review in the blocks below 70%." />
+
+<p>The bands: <strong>72 or more correct</strong> (90%) mean "you can explain the store without looking"; <strong>56 to 71</strong> (70% to 89%), "review the blocks below 70%"; below 56, "go back to the lowest block and redo 'Can you do it?'". On the map, taking down the router and the map at the same time shows that <code>edge-loja</code> is the store's availability ceiling.</p>
+
+<h3 class="sec">What the store does not have (on purpose)</h3>
+
+<p>The drawing ends here, and four chapters were left out. The store <strong>does not have</strong> security beyond the JWT (secrets, identity and LGPD), nor <strong>cost</strong> (the <em>FinOps</em> of the 53 vCPU bill), nor <strong>analytics and search</strong> (<em>data lake</em> and text index), nor <strong>machine learning</strong> (the recommendations). Each one is a new chapter.</p>
+
+<p><strong>Now it is your turn:</strong> take a case from the author's repository, the <strong>bookstore checkout</strong> (basic) or the <strong>stock</strong> (intermediate), and draw it from scratch, in order, with the same mold: the problem, the pieces with the why and the number, and what breaks without each one.</p>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the study corrected in modules 26, 27 and 28</h4>
+  <ul>
+    <li><strong>Module 26:</strong> <code>(f/N)^k</code> is an approximation (the exact math is <strong>1 ÷ C(N,k)</strong>), and the 3rd row of the article's table is <strong>off by 10×</strong>.</li>
+    <li><strong>Module 27:</strong> the RTO <strong>counts from the interruption</strong> (it includes the MTTD), not "after detection".</li>
+    <li><strong>Module 28:</strong> the latency of the four signals <strong>separates</strong> success and error; the article lumped them together.</li>
+  </ul>
+  <Sources items={[
+    { label: "Author's repository: cases/ folder (design cases; in Portuguese)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/cases" },
+    { label: "Basic case: bookstore checkout", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/blob/main/cases/BASICO_CHECKOUT_LIVRARIA.md" },
+    { label: "Intermediate case: stock", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/blob/main/cases/INTERMEDIARIO_ESTOQUE.md" },
+    { label: "Azure Well-Architected Framework", href: "https://learn.microsoft.com/en-us/azure/well-architected/" },
+    { label: "Google SRE book: table of contents", href: "https://sre.google/sre-book/table-of-contents/" },
+  ]} />
+  <div class="sources">
+<h4>In this study</h4>
+<ul>
+    <li><a href={L('cell-based')}><span>Module 26: Cell-Based Architecture</span></a></li>
+    <li><a href={L('disaster-recovery')}><span>Module 27: Single Point of Failure and Disaster Recovery</span></a></li>
+    <li><a href={L('observabilidade')}><span>Module 28: Observability and Monitoring</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">You rebuild the store from scratch, in order, and you know why each piece is there. <strong>What is left</strong> is what it still does not have: security, cost, analytics and machine learning. Each one is a new chapter, and the first step is your own drawing of a case from the author's repository.</p>
+
+<Flashcards cards={[
+  { q: "What do cells, DR and observability answer?",
+    a: "Where a failure can reach, how you come back when a region goes down and how you know." },
+  { q: "What is the RTO of the SP outage, and what does it include?",
+    a: "65 s: MTTD of 30 s + MTTR of 35 s. Counted from the interruption (module 27)." },
+  { q: "How many minutes of budget does a 99.9% SLO over 30 days have?",
+    a: "43.2 min (12,960 bad requests). A burn rate of 14.4× in 1 h consumes 2% (module 28)." },
+  { q: "What does the mkt-01 poison pill do in a single stack and in cells?",
+    a: "7,200 × 2,880 lost attempts in 4 min (module 26)." },
+  { q: "What does the store not have, on purpose?",
+    a: "Security beyond the JWT, cost (FinOps), analytics and search, and machine learning." },
+]} />

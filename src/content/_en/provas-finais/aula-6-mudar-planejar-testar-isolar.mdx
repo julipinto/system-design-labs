@@ -1,0 +1,85 @@
+---
+title: "Change, plan, test, isolate"
+order: 6
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">The block 5 store survives one failure at a time, but it <strong>changes without a net</strong>: every new version goes straight to the customers. The most common cause of incidents is change, and the four pieces in this block <strong>anticipate</strong> the incident instead of reacting to it.</p>
+
+<OneLiner>The four pieces in this block <strong>anticipate the incident</strong>: release with a small radius, plan for the peak, <strong>test the plan</strong> and split what is shared.</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>Operate</strong> scenario, advance: 2.5.0 goes out by <em>canary</em> and, on the last step, by <em>rolling</em>, and compare the losses.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=operar" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 6 · Change, plan, test, isolate" alt="Preview of the 3D figure: Block 6 · Change, plan, test, isolate" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 6</h3>
+
+<p>A store that holds up but changes without a net faces three threats: the faulty version, Black Friday 2027 and the 23:00 report. Each piece below answers one, and the last one ties the previous ones together.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Change with a small radius (module 22).</strong> <code>pedidos</code> goes from 2.4.0 to 2.5.0, which returns <code>201</code> with <strong>shipping 0.00</strong> in Recife: healthy, no error, wrong. <em>Recreate</em> takes everything down for <strong>40 s</strong>, <em>rolling</em> takes <strong>90 s</strong>, <em>blue/green</em> switches all at once and <em>canary</em> goes from 10 to 50 to 100%. The radius is fraction × time × cost: <strong>R$ 54,000</strong> with <em>rolling</em> against <strong>R$ 450</strong> with a 10% <em>canary</em>. <em>Shadow</em>, the <code>frete_v2</code> <em>flag</em> and rings per <em>shard</em> complete the set. The order is <strong>1059</strong>. <a href={L('deployment')}>Deployment Models</a>.</li>
+  <li><strong>Plan for the peak (23).</strong> Changing well does not say whether the store survives <strong>Black Friday on November 26, 2027</strong>. Little's Law (L = λ × W) and the <strong>70%</strong> target ρ (near the knee the wait explodes) give the plan for <code>catalogo</code>, <code>pedidos</code>, <code>pagamentos</code> and <code>estoque</code>: <strong>14 · 10 · 15 · 2 = 41 vCPU</strong>, for 950 req/s and 200 orders/s. <a href={L('capacity-planning')}>Capacity Planning</a>.</li>
+  <li><strong>Test the plan (24).</strong> A plan without a test is a hypothesis. k6 shows that the store "today" breaks at <strong>36/s</strong> and the "plan" reaches <strong>~250/s</strong>, with goals of p95 ≤ <strong>800 ms</strong> and errors ≤ <strong>0.1%</strong>. The mixed scenario finds what the math did not: the <strong>23:00 report</strong> fighting for the pool. <a href={L('testes-de-carga')}>Load and Stress Testing</a>.</li>
+  <li><strong>Split what is shared (25).</strong> The test's finding has a remedy: the <strong>20-connection</strong> pool becomes <strong>16 + 4</strong>. Without the split, the report leaves <strong>33%</strong> of checkout and <strong>10%</strong> of status with <code>503</code>. With it, the hot shard's radius drops from <strong>60% to 40%</strong>. The <em>lanes</em> are <strong>12 · 6 · 2</strong> and <code>mkt-01</code> has a ceiling of 100 req/s on the catalog. <a href={L('bulkhead')}>Bulkhead Pattern</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Take a piece out: the mixed test</h3>
+
+<p>Without the mixed load test, the 23:00 report only shows up in production, with <strong>33%</strong> of checkout and <strong>10%</strong> of status on <code>503</code>. Without the <em>canary</em> and the business metric, shipping 0.00 lasts 60 min and costs <strong>R$ 54,000</strong> (or <strong>R$ 486,000</strong>, if only the 23:00 report finds it). Modules 22, 24 and 25 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Say the radius of a deploy (fraction × time × cost).</li>
+  <li>Calculate replicas with Little and the target ρ.</li>
+  <li>Design a load test and say what it does <strong>not</strong> prove.</li>
+  <li>Split a pool and say what the batch loses.</li>
+  <li>Say why the 1 ÷ N table misleads.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the study corrected in modules 22 and 25</h4>
+  <ul>
+    <li><strong>Module 22:</strong> <em>Recreate</em> stopped being "the only way out" for Kafka consumers, because of cooperative <em>rebalance</em> (KIP-429).</li>
+    <li><strong>Module 25:</strong> the <em>blast radius</em> table (1 ÷ N) only holds with <strong>uniform</strong> traffic; with <code>mkt-01</code> the radius is the <strong>largest fraction</strong> (60% to 40%).</li>
+  </ul>
+  <Sources items={[
+    { label: "Google SRE Workbook: table of contents (rollouts, capacity and testing)", href: "https://sre.google/workbook/table-of-contents/" },
+    { label: "AWS Well-Architected: the reliability and efficiency pillars", href: "https://aws.amazon.com/architecture/well-architected/" },
+  ]} />
+  <div class="sources">
+<h4>In this study</h4>
+<ul>
+    <li><a href={L('deployment')}><span>Module 22: Deployment Models</span></a></li>
+    <li><a href={L('capacity-planning')}><span>Module 23: Capacity Planning</span></a></li>
+    <li><a href={L('testes-de-carga')}><span>Module 24: Load and Stress Testing</span></a></li>
+    <li><a href={L('bulkhead')}><span>Module 25: Bulkhead Pattern</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">A bulkhead separates resources <strong>inside</strong> one stack. What is left is what happens if the <strong>whole stack</strong> is divided. That is lesson 7.</p>
+
+<Flashcards cards={[
+  { q: "What is the radius of rolling and of a 10% canary for shipping 0.00?",
+    a: "R$ 54,000 against R$ 450. The radius is fraction × time × cost (module 22)." },
+  { q: "How much does the Black Friday 2027 plan cost?",
+    a: "14 · 10 · 15 · 2 = 41 vCPU for 200 orders/s and 950 req/s (module 23)." },
+  { q: "Where does the store break in k6, today and in the plan?",
+    a: "36/s today and ~250/s in the plan, with p95 ≤ 800 ms and errors ≤ 0.1% (module 24)." },
+  { q: "What does the 16 + 4 split do to checkout and the report?",
+    a: "Checkout gets no 503 and the batch is the one that waits. The hot shard's radius goes from 60% to 40% (module 25)." },
+]} />

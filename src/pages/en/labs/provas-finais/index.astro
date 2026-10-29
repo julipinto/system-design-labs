@@ -1,0 +1,36 @@
+---
+// Final Exams module (English): the 7 lessons in src/content/_en/provas-finais/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/provas-finais.css';
+
+const entries = (await getCollection('en-provas-finais')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/provas-finais/quiz/');
+---
+<ModuleLayout
+  title="Final Exams · SDLabs"
+  description="The final review of the study: rebuilding Lena's store from scratch, in order, going through the 28 chapters in 7 blocks, with order 1060, the 28 numbers, take a piece out and a final exam of 80 questions."
+  module="provas-finais"
+  heading="Final Exams"
+  lead={'If someone erased the drawing, could you rebuild the store from scratch, in order, knowing why each piece is there? Seven blocks to retrace the story of the 28 chapters, what breaks when you take a piece out, and a final exam of 80 questions for self-assessment.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/provas-finais/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Final exam: 80 questions →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

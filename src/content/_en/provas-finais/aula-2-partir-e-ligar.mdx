@@ -1,0 +1,79 @@
+---
+title: "Split and connect"
+order: 2
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Deep from '../../../components/Deep.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">The block 1 store fits in a single 8 vCPU program, and at 23:00 the report <strong>takes the whole program down</strong>, checkout included. It is the noisy neighbor, and the blast radius is the entire store. Splitting the program fixes that, but each piece that comes in creates the next piece's problem.</p>
+
+<OneLiner>Splitting the program <strong>isolates and scales only what is heavy</strong>, and <strong>each new piece solves the problem the previous one created</strong>: the network, the address, the door, the screen and the standard.</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>Split</strong> scenario, step through the steps where <code>relatorios</code> and then <code>entregas</code> go down, and see what keeps selling.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=partir" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 2 · Split and connect" alt="Preview of the 3D figure: Block 2 · Split and connect" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 2</h3>
+
+<p>The single program has a factory defect: everything shares CPU, memory and fate. A heavy report and Lena's order fight for the same machine. The five pieces below come in the order in which the cut creates a new need.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Cut (module 6).</strong> The program becomes <strong>7 services</strong>: <code>catalogo</code>, <code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code>, <code>entregas</code> and <code>relatorios</code>, each with <strong>its own database</strong>. The report goes down alone. The price is the network: the 180 ms checkout becomes <strong>200 ms</strong>, with 4 hops of 5 ms. On Black Friday, instead of 10 copies of the monolith (<strong>80 vCPU</strong>), only the heavy services scale (<strong>25 vCPU</strong>). Lena's order is <strong>1047</strong>, with a <code>trace_id</code>. <a href={L('microsservicos')}>Microservices, Monoliths and Domains</a>.</li>
+  <li><strong>Distribute (7).</strong> With several services and several replicas, someone has to pick the replica. <code>lb-loja</code> (203.0.113.10) uses algorithms, and a round robin that is "fair" in number of orders is not fair in work: 3 searches of 900 ms can land on the same replica and add up to <strong>2.7 s</strong>. A 5 s <em>healthcheck</em> with 3 failures takes the replica out in <strong>15 s</strong>. <a href={L('load-balancers')}>Load Balancers and Reverse Proxies</a>.</li>
+  <li><strong>One door (8).</strong> Behind the balancer the app still knows every service. <code>gw-loja</code> brings them behind one door: it validates the <strong>JWT</strong> (no token, <code>401</code>; token without the scope, <code>403</code>), applies <em>rate limiting</em>, separates <code>/v1</code> from <code>/v2</code> and forwards <code>X-Cliente-Id: lena-77</code>. The order is <strong>1048</strong>. <a href={L('api-gateways')}>API Gateways</a>.</li>
+  <li><strong>One screen (9).</strong> The door is single, but the app's home screen still makes 4 calls of 120 ms: <strong>480 ms and 180 KB</strong>. <code>bff-app</code> makes the calls in parallel and delivers <strong>150 ms and 12 KB</strong>. If <code>recomendacoes</code> goes down, it waits 100 ms and responds without the section (<code>"recomendado": []</code>). <a href={L('bff')}>Backend for Frontends (BFF)</a>.</li>
+  <li><strong>One standard (10).</strong> With everything connected, each service repeats retry, timeout and mTLS its own way. The <strong>mesh</strong> takes that out of the code: one <em>sidecar</em> per pod (30 sidecars add up to <strong>3 vCPU and 1.5 GB</strong>), mTLS and retry with a rule. Without a rule, 3 layers of 3 attempts make <strong>27</strong> calls to <code>pagamentos</code> per click. <a href={L('service-mesh')}>Service Mesh</a>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Take a piece out: the gateway</h3>
+
+<p>Without the gateway, the app knows <strong>6 addresses</strong>, each service does its own login and <em>rate limiting</em>, and the 500 req/s bot reaches the service directly. Module 8 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Say where to cut the program and who decides.</li>
+  <li>Explain why the "fair" round robin ends up at 2.7 s.</li>
+  <li>Say the difference between <code>401</code> and <code>403</code>.</li>
+  <li>Say why the app's screen needs a BFF and what it does when <code>recomendacoes</code> goes down.</li>
+  <li>Say what the mesh solves and what it does not.</li>
+</ol>
+
+<Deep min={2}>
+  <div class="sources">
+<h4>Sources</h4>
+<ul>
+    <li><a href={L('microsservicos')}><span>Module 6: Microservices, Monoliths and Domains</span></a></li>
+    <li><a href={L('load-balancers')}><span>Module 7: Load Balancers and Reverse Proxies</span></a></li>
+    <li><a href={L('api-gateways')}><span>Module 8: API Gateways</span></a></li>
+    <li><a href={L('bff')}><span>Module 9: Backend for Frontends (BFF)</span></a></li>
+    <li><a href={L('service-mesh')}><span>Module 10: Service Mesh</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">Seven connected services call each other and touch the <strong>same row</strong>. What is left is who gets the last cat. That is lesson 3.</p>
+
+<Flashcards cards={[
+  { q: "How much did splitting the checkout cost, and how much did it save on Black Friday?",
+    a: "180 ms becomes 200 ms (4 hops of 5 ms). 10 copies of the monolith are 80 vCPU; the heavy services, 25 vCPU (module 6)." },
+  { q: "How long does the healthcheck take to remove a sick replica?",
+    a: "5 s × 3 failures = 15 s. And 3 searches of 900 ms on the same replica add up to 2.7 s (module 7)." },
+  { q: "What status does the gateway return with no token and with a token without the scope?",
+    a: "401 and 403. After the JWT it forwards X-Cliente-Id: lena-77 (module 8)." },
+  { q: "What does the BFF change on the app's home screen?",
+    a: "4 calls of 120 ms (480 ms, 180 KB) become 150 ms and 12 KB (module 9)." },
+  { q: "How many calls does retry across 3 layers generate?",
+    a: "3 × 3 × 3 = 27 per click (module 10)." },
+]} />

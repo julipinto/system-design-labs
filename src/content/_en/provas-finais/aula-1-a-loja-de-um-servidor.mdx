@@ -1,0 +1,84 @@
+---
+title: "A one-server store"
+order: 1
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import { withBase } from '../../../lib/url.js';
+export const L = (slug) => withBase('en/labs/' + slug + '/');
+
+<p class="ponte">Module 28 ended with a question: the store now has <strong>28 chapters</strong> of problems and pieces, and <strong>if someone erased the drawing, could you rebuild the store from scratch, in order, knowing why each piece is there?</strong> This module is that test, and nobody has to memorize anything: what matters is <strong>rebuilding the order</strong> in which each piece became necessary. It starts where the story started, with one server, one program and one disk.</p>
+
+<OneLiner>A one-server store needs <strong>five things</strong> before anyone thinks about scale: the data <strong>arrives</strong>, the data <strong>stays</strong>, the databases <strong>agree</strong>, the data can be <strong>found</strong> and the page is <strong>fast</strong>.</OneLiner>
+
+<DoIt>
+  <p>On the store map, in the <strong>Foundations</strong> scenario, advance to the last step, where the <strong>cache</strong> is switched off. Read the average time of the cat page: it goes from 5 ms to 41 ms.</p>
+</DoIt>
+
+<Figure3D path="en/labs/provas-finais/loja-3d/?mode=fundacoes" poster="labs/provas-finais/loja-3d-previa.webp" title="Interactive figure: Block 1 · A one-server store" alt="Preview of the 3D figure: Block 1 · A one-server store" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The problem of block 1</h3>
+
+<p>A one-server store is a program and a disk. It works until the first incident of each kind: the data travels and takes time, the disk burns, the databases disagree and the plush cat page gets slow. That is five problems, and each piece below came in to solve one of them.</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The data arrives (module 1).</strong> Lena opens the app in Recife: DNS finds <code>loja.com.br</code>, TCP opens the connection, TLS encrypts and HTTP asks for the page. The 313 KB photo becomes <strong>215 slices</strong> of up to 1,460 B, and each round trip to SP costs <strong>80 ms</strong>. <a href={L('protocolos-de-rede')}>Network Protocols</a>.</li>
+  <li><strong>The data stays (2).</strong> With the data arriving, it has to survive a burned disk. <code>pedidos.db</code> goes onto a <strong>RAID 10</strong>, whose small write costs <strong>2 I/Os</strong>, and the photos go to <em>object storage</em>. On RAID 0 the write costs 1 I/O and the first disk that burns takes everything. <a href={L('storage-raid-io')}>Storage, RAID and I/O</a>.</li>
+  <li><strong>The databases agree (3).</strong> When the data lives in three sites (SP, Rio and Recife), they can lose the network between them. CAP forces a choice, <strong>during the partition</strong>, between refusing (consistency) and accepting (availability). The majority is the <strong>2-of-3 quorum</strong>, and the synchronous write to Recife takes ~80 ms. <a href={L('cap-acid-base')}>CAP Theorem, ACID and BASE</a>.</li>
+  <li><strong>The data is found (4).</strong> With the sites in agreement, what is left is finding one row: the <code>pedidos</code> table holds <strong>1042</strong> (Lena, cat, 89.90). The <strong>B-Tree index</strong> finds the row in a few page reads. At 1 million rows it beats the scan; at 6 rows it ties, because everything fits in one page. <a href={L('databases')}>Databases, Data Models and Indexing</a>.</li>
+  <li><strong>The page is fast (5).</strong> Finding fast is still not enough for the page everyone opens. <strong>Redis</strong> keeps the response, and with a 90% hit rate the average time is 0.9 × 1 + 0.1 × 41 = <strong>5 ms</strong>. The <strong>CDN</strong> in Recife brings the photo closer, and the promotion drops the price from <strong>89.90 to 79.90</strong>. <a href={L('cache')}>Cache Strategies</a>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="cola" title="Cheat sheet of the 28 numbers" hint="Cards with the module and the problem on the front and the number on the back. Mark 'knew it' or 'did not know it' and follow the counter for each block." />
+
+<h3 class="sec">Take a piece out: the cache</h3>
+
+<p>Without the cache, the average time goes from <strong>5 ms</strong> to <strong>41 ms</strong>, 8.2 times more, and the catalog at 640 req/s sends everything to the origin instead of the 128 req/s that arrive with an 80% hit rate. Modules 5 and 21 warned about it.</p>
+
+<h3 class="sec">Can you do it?</h3>
+
+<ol class="flow steps">
+  <li>Draw the photo's trip in 5 protocols and say what each round trip costs.</li>
+  <li>Choose the RAID and justify it with the I/Os of a small write.</li>
+  <li>Say what CAP forces <strong>during the partition</strong>.</li>
+  <li>Say why the index beats 1 million rows and ties with 6.</li>
+  <li>Calculate the average time from the hit rate.</li>
+</ol>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the study corrected in module 5</h4>
+  <ul>
+    <li>The article's <em>cache-aside</em> example compares with <code>err == rdb.Nil</code>, which does not compile (the right one is <code>redis.Nil</code>), and writes with TTL <code>0</code>, which keeps it forever: the opposite of what the article itself argues about TTL.</li>
+  </ul>
+  <div class="sources">
+<h4>Sources</h4>
+<ul>
+    <li><a href={L('protocolos-de-rede')}><span>Module 1: Network Protocols</span></a></li>
+    <li><a href={L('storage-raid-io')}><span>Module 2: Storage, RAID and I/O</span></a></li>
+    <li><a href={L('cap-acid-base')}><span>Module 3: CAP Theorem, ACID and BASE</span></a></li>
+    <li><a href={L('databases')}><span>Module 4: Databases, Data Models and Indexing</span></a></li>
+    <li><a href={L('cache')}><span>Module 5: Cache Strategies</span></a></li>
+  </ul>
+</div>
+</Deep>
+
+<p class="gancho">The store now runs fine in a single 8 vCPU program. What is left is what happens at 23:00, when the report <strong>takes everything down</strong>: how do you split the program without breaking the store? That is lesson 2.</p>
+
+<Flashcards cards={[
+  { q: "How many slices does the 313 KB photo travel in, and what does each round trip cost?",
+    a: "215 slices of up to 1,460 B; each Recife–SP round trip costs 80 ms (module 1)." },
+  { q: "How many I/Os does a small write cost on RAID 0, 1, 5, 6 and 10?",
+    a: "1 · 2 · 4 · 6 · 2. pedidos.db ended up on a RAID 10 (module 2)." },
+  { q: "What does CAP force during the partition, and what is the quorum of 3 sites?",
+    a: "Choosing between refusing (C) and accepting (A). The majority is 2 of 3 (module 3)." },
+  { q: "What is the average time with a 90% hit rate, a 1 ms cache and a 41 ms database?",
+    a: "0.9 × 1 + 0.1 × 41 = 5 ms. Without the cache, 41 ms (module 5)." },
+]} />
