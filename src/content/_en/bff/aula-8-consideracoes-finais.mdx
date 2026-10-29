@@ -1,0 +1,80 @@
+---
+title: "Final considerations"
+order: 8
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In lesson 7 each channel got its own metrics, and the app's 2% error rate showed up. With all of this built, the question left is whether your store needs it. The honest answer, sometimes, is no.</p>
+
+<OneLiner>A BFF is worth it when different channels ask for different things and there is one team per channel. With a single channel, a gateway with simple composition is usually enough.</OneLiner>
+
+<DoIt>
+  <p>This lesson has no figure. In the decision table, mark from memory which rows apply to your store today. If most land on "no", a gateway with simple composition solves it.</p>
+</DoIt>
+
+<p>The table below gathers what the module showed.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Situation</th><th>BFF?</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">App, website and voice ask for different data</th><td>Yes</td><td>Each channel gets its own format (lesson 3)</td></tr>
+    <tr><th scope="row">One team per channel</th><td>Yes</td><td>Each one publishes without waiting for the other (lessons 4 and 5)</td></tr>
+    <tr><th scope="row">One screen joins many services</th><td>Yes</td><td>One call instead of several (lesson 2)</td></tr>
+    <tr><th scope="row">A single channel</th><td>No</td><td>The BFF would be just one more hop</td></tr>
+    <tr><th scope="row">A single team for everything</th><td>No</td><td>There is no separate owner to split</td></tr>
+    <tr><th scope="row">Simple composition, the same for everyone</th><td>No</td><td>The gateway already solves it</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>What gets confused most is the BFF and the gateway, and the difference is one of nature:</p>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <strong>gateway</strong> is generic infrastructure: it routes, checks the JWT and limits the bot. It serves everyone the same way.</li>
+  <li>The <strong>BFF</strong> is product code: it composes, adapts and decides the fallback for <strong>one</strong> screen. It belongs to the frontend team.</li>
+  <li>The path of an app call is <code>app → gw-loja → bff-app → services</code>.</li>
+  <li>The gateway looks at the front door, the BFF looks at the screen, and the services take care of the rules.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li><strong>One backend per frontend.</strong> Each screen asks for what it needs and receives only that.</li>
+  <li><strong>The caveat:</strong> too many BFFs duplicate logic. The business rule stays in the service.</li>
+  <li><strong>The cost:</strong> more pieces to publish, measure and protect. The BFF only pays off when the difference between channels is real.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">And GraphQL?</h4>
+  <p>It's another answer to the same problem: the client describes the fields it wants and a server builds the response. It can live inside a BFF, or take its place when the clients are many and unpredictable. The choice weighs the cost of maintaining the schema against the cost of maintaining one BFF per channel.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Public article by Matheus Fidelis on API Gateway (no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "microservices.io: API Gateway / Backends for frontends", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "GraphQL: introduction (graphql.org/learn)", href: "https://graphql.org/learn/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Between the BFF and the services, and between the services themselves, each call needs timeout, retry, encryption and metrics, and each team is writing that its own way, in every language. What's left is whether this can go into the network, once: that's the subject of module 10, Service Mesh.</p>
+
+<Flashcards cards={[
+  { q: "When is a BFF worth using?",
+    a: "When different channels ask for different things, there is one team per channel or the screen joins many services." },
+  { q: "When is it not worth it?",
+    a: "With a single channel, or a single team, or when a gateway with simple composition already solves it." },
+  { q: "What is the difference between a BFF and an API Gateway?",
+    a: "The gateway is generic infrastructure (routing, auth, limits). The BFF is product code, owned by the frontend team." },
+  { q: "What is the full path of an app call?",
+    a: "<code>app → gw-loja → bff-app → services</code>." },
+  { q: "What does module 10 solve?",
+    a: "Timeout, retry, encryption and metrics between services, in the network, once, instead of in each team and language." },
+]} />

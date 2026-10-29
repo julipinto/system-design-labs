@@ -1,0 +1,80 @@
+---
+title: "Load balancers, scaling and healthchecks"
+order: 1
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Module 6 ended with the store split into services and <code>catalogo</code> running on several replicas for Black Friday. But Lena types <code>loja.com.br</code> and DNS (module 1) returns <strong>one</strong> IP. Which replica answers? With nobody in the middle, everyone lands on the same one, <code>catalogo-1</code>, which saturates while the others sit idle. It's the grocery store with a single open register and the other cashiers watching.</p>
+
+<OneLiner>A load balancer sits in front of the replicas, takes every request on a single address and picks, request by request, who answers; a healthcheck removes from the pool the replica that stopped responding.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>No LB</strong> mode, step to <strong>9 requests, 1 replica: CPU at 100%</strong> and look at each replica's CPU. Then switch to <strong>Health</strong> and go on to <strong>What if it fails: 20:00:00, catalogo-2 hangs</strong> and <strong>3 failures in a row: out of the pool at 20:00:15</strong>. How many replicas worked in the first mode? And how many requests failed until <code>catalogo-2</code> left the pool?</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=sem" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: No load balancer" alt="Preview of the 3D figure: No load balancer" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>No load balancer.</strong> The only address DNS knows is <code>catalogo-1</code>'s (<code>10.0.1.11</code>). The first 9 requests all go to it: CPU at <strong>100%</strong>, while <code>catalogo-2</code> (<code>10.0.1.12</code>) and <code>catalogo-3</code> (<code>10.0.1.13</code>) stay at <strong>0%</strong>. The cat page, which took <strong>20 ms</strong>, now takes <strong>1.8 s</strong>.</li>
+  <li><strong>With a load balancer.</strong> DNS now returns the IP of <code>lb-loja</code>, <code>203.0.113.10</code> (a documentation range, just an example). <code>lb-loja</code> keeps a list of replicas, the <strong>pool</strong>, and forwards each request to one of them, on port <code>8080</code>. Here the pool has only three replicas to fit on the screen; on module 6's Black Friday there were 10. Lena never sees the replicas, only the balancer.</li>
+  <li><strong>Healthcheck.</strong> To avoid sending requests to a replica that doesn't answer, the balancer runs <code>GET /health</code> on each replica every <strong>5 s</strong>, with a <strong>1 s timeout</strong>. Three failures in a row take the replica out of the pool. Two successes in a row put it back.</li>
+  <li><strong>When a replica hangs.</strong> At 20:00:00 <code>catalogo-2</code> hangs. The checks at 20:00:05, 20:00:10 and 20:00:15 fail, and it leaves the pool at <strong>20:00:15</strong>. During those <strong>15 s</strong>, <strong>1 in every 3</strong> requests lands on it and comes back with an error (502 or 504). After that, 100% of requests go to replicas 1 and 3.</li>
+  <li><strong>When it comes back, and when the store grows.</strong> <code>catalogo-2</code> returns at 20:05:00. The checks at 20:05:05 and 20:05:10 pass, and at <strong>20:05:10</strong> it is back in the pool. To scale, <code>catalogo-4</code> (<code>10.0.1.14</code>) joins: as soon as its first healthcheck passes, the balancer already sends it requests, with nobody telling Lena.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="health" title="Healthcheck clock" hint="Change the interval, the timeout, the threshold and the number of requests per second. See how many seconds it takes for the hung replica to leave the pool and how many requests fail until then." />
+
+<WhyItMatters>
+  <li><strong>Scale without changing the address.</strong> Adding <code>catalogo-4</code> changes nothing for those outside, who keep talking to <code>203.0.113.10</code>.</li>
+  <li><strong>Failure becomes degradation.</strong> With 3 replicas, one hung replica drops a third of the requests for 15 s, not the whole store.</li>
+  <li><strong>Maintenance without a scare.</strong> Taking a replica out of the pool to update it is the same move the healthcheck makes on its own when it breaks.</li>
+  <li><strong>The price.</strong> The balancer becomes the new single point of failure. That's why, in production, it is duplicated too.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The 15 s window is a choice</h4>
+  <ul>
+    <li><strong>Time to leave:</strong> interval × threshold (5 s × 3 = 15 s). If the replica hangs instead of refusing the connection, the last check only fails at the end of the timeout (1 s more).</li>
+    <li><strong>A shorter interval</strong> finds the problem sooner and creates more check traffic. <strong>A higher threshold</strong> avoids removing a replica for a 1 s hiccup, and takes longer to react.</li>
+    <li><strong>Returning takes less than leaving</strong> (2 against 3) on purpose: a replica that just came back is usually fragile, and the asymmetry keeps it from flapping in and out of the pool.</li>
+  </ul>
+  <h4 class="deep-h">Active and passive healthchecks</h4>
+  <p>What the store does here is the <strong>active</strong> kind: the balancer asks. The <strong>passive</strong> kind watches real requests and removes the replica that is failing (in Envoy it's called outlier detection). In Envoy's documentation, without an active healthcheck configured on the cluster, all members count as healthy.</p>
+  <h4 class="deep-h">What the source article leaves out</h4>
+  <ul>
+    <li>The article says the balancer offers "mechanisms to constantly check the health of the hosts", with no numbers. The 5 s, 1 s, 3 and 2 in this lesson are the store's own, as an example, and are not the default values of any tool.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: health checking (active, per cluster, expects 200 by default)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/health_checking" },
+    { label: "Envoy: outlier detection (the passive healthcheck)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier" },
+    { label: "NGINX: HTTP load balancing", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "AWS: what is an Application Load Balancer", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+  ]} />
+</Deep>
+
+<p><code>lb-loja</code> does what the NGINX in front of <code>pagamentos</code> also seems to do: it sits between Lena and the servers. What's left to find out is whether the two are the same thing or whether the difference is how many servers stand behind.</p>
+
+<Flashcards cards={[
+  { q: "Why isn't a single IP enough for the catalog replicas?",
+    a: "DNS returns one address, and whoever arrives there lands on the same replica. <code>catalogo-1</code> goes to 100% CPU and the others stay at 0%." },
+  { q: "What does <code>lb-loja</code> do with each request?",
+    a: "It receives it at <code>203.0.113.10</code>, picks a replica from the pool (port 8080) and forwards it. Lena never sees the replicas." },
+  { q: "How does the store's healthcheck work?",
+    a: "<code>GET /health</code> every 5 s, 1 s timeout. Three failures in a row take it out of the pool, two successes put it back." },
+  { q: "At what time does <code>catalogo-2</code> leave the pool, and how many requests fail until then?",
+    a: "It hangs at 20:00:00 and leaves at 20:00:15 (5 s × 3). During those 15 s, 1 in every 3 requests lands on it and fails with 502 or 504." },
+  { q: "What happens when <code>catalogo-4</code> joins?",
+    a: "As soon as its first healthcheck passes, the balancer starts sending it requests. Those outside don't notice." },
+]} />

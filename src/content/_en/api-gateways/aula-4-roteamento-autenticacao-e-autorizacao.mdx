@@ -1,0 +1,88 @@
+---
+title: "Routing, authentication and authorization"
+order: 4
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">The last lesson made it clear that the gateway is the only point that sees the whole request before any service does. Time to use that. Today, <code>catalogo</code> accepts anyone, <code>pedidos</code> checks one token and <code>pagamentos</code> checks another. If the gateway checks once, the services stop repeating the check. But before checking who is calling, it needs to know where the request is going.</p>
+
+<OneLiner>The gateway picks the route by method and path, finds out who is calling from the token (authentication) and decides what that person can do from the scopes (authorization): 401 when it doesn't know who they are, 403 when it knows and says no.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Auth</strong> mode, click <strong>Next step</strong> and note the code of three calls: Lena's with a valid token ("Lena sends the JWT"), one with no token at all ("No token: 401 at the gate") and the partner trying <code>POST /api/v1/pedidos</code> ("The partner without scope: 403"). Stop at the last step, <strong>"What if it goes wrong: direct call to pedidos"</strong>, and see where the call comes in.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/gateway-3d/?mode=auth" poster="labs/api-gateways/gateway-3d-previa.webp" title="Interactive figure: Authentication and authorization" alt="Preview of the 3D figure: Authentication and authorization" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Route by method and path.</strong> The store decides each combination separately. <code>GET /api/v1/produtos/*</code> goes to <code>catalogo</code> and is public, no login. <code>POST /api/v1/pedidos</code> goes to <code>pedidos</code> and requires login. <code>GET /api/v1/pedidos/1048</code> goes to the same service, requires login and requires that the person owns the order.</li>
+  <li><strong>Who are you (authentication).</strong> Lena opens the app and places the order, number 1048 (1047, also hers, was in module 6): 79.90 for the cat plus 15.00 shipping, 94.90, and the cat's stock goes from 2 to 1. The app sends <code>Authorization: Bearer eyJ…</code>, a <strong>JWT</strong>. The gateway checks two things: whether the signature was made with the store's key, and whether the <code>exp</code> instant hasn't passed. A token with a bad signature or an expired one gets <strong>401 Unauthorized</strong>, and the call never reaches the service.</li>
+  <li><strong>What the token says.</strong> The example payload is <code>{`{ "sub": "lena-77", "nome": "Lena", "escopos": ["pedidos:ler", "pedidos:criar"], "exp": 1792000000 }`}</code>. With the signature checked, the gateway can trust the <code>sub</code> and passes the header <code>X-Cliente-Id: lena-77</code> to the service. If the client already sent an <code>X-Cliente-Id</code> of its own, the gateway discards it and puts its own.</li>
+  <li><strong>What you can do (authorization).</strong> The partner's key, <code>marketplace-xyz</code>, is valid only for the <code>produtos:ler</code> scope. When it tries <code>POST /api/v1/pedidos</code>, the gateway knows who it is, sees that <code>pedidos:criar</code> is missing and answers <strong>403 Forbidden</strong>. With no token, the answer is 401, because the gateway doesn't yet know who is calling.</li>
+  <li><strong>Whose order it is.</strong> For <code>GET /api/v1/pedidos/1048</code>, the <code>pedidos:ler</code> scope is not enough. The gateway doesn't know whose order 1048 is, and the one that knows is the <code>pedidos</code> service. It compares the <code>X-Cliente-Id</code> with the owner stored on the order and, if it's someone else, refuses.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: someone calls the service directly</h3>
+
+<ol class="flow steps">
+  <li><strong>The service trusts the header.</strong> <code>pedidos</code> accepts any <code>X-Cliente-Id</code> because "the gateway already checked". Inside the store's network that works.</li>
+  <li><strong>Someone comes in through the back door.</strong> Access to the internal network (a compromised machine, a badly configured service) calls <code>pedidos</code> directly, without going through the gateway, with <code>X-Cliente-Id: lena-77</code> written by hand. The service believes it.</li>
+  <li><strong>Lena's order leaks.</strong> The response carries order 1048, with address and total, to someone who never had a token.</li>
+  <li><strong>The fix has two parts.</strong> Close the internal network, so that only the gateway reaches the services, and make the service also check the token, instead of trusting the header. The second part covers the case where the first one fails.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>One check, not six.</strong> The token is validated in one place, and the orders team doesn't have to rewrite its logic when payments changes theirs.</li>
+  <li><strong>The code says why it was refused.</strong> 401 says "I don't know who you are", and the client can try again with new credentials. 403 says "I know who you are, and the answer is no", and trying again won't help.</li>
+  <li><strong>The gateway decides what can be decided without data.</strong> Scope and token validity it knows. Whose order something is, only the service knows.</li>
+  <li><strong>Trusting the gateway has a limit.</strong> If the internal network is open, the gateway stops being the only door and its check loses value.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">What a JWT is</h4>
+  <p>A JWT has three parts separated by dots: header, payload and signature. The first two are JSON encoded in base64url, which means <strong>anyone can read</strong> the payload. The signature hides nothing: it guarantees nobody changed the content without the key. That's why you don't put secrets inside the token.</p>
+  <p>The fields <code>sub</code> (whose token it is) and <code>exp</code> (from when it stops being valid, in seconds since 1970) are registered claims in RFC 7519. The store's <code>escopos</code> field is a name agreed between the store and the app.</p>
+  <h4 class="deep-h">Who issues the token</h4>
+  <p>The gateway checks the token but doesn't issue it. The one that handles Lena's login and signs the token is an identity service, which usually follows OAuth 2.0 (RFC 6749). The article notes that many gateways need to integrate with an external identity provider. In Kong, the JWT plugin accepts tokens signed with HS256 or RS256 and can check <code>exp</code> and <code>nbf</code>. For the partner, the API key plugin (<code>key-auth</code>) plays the same role with a fixed key.</p>
+  <h4 class="deep-h">What the RFC says about 401 and 403</h4>
+  <ul>
+    <li><strong>401:</strong> the request was not applied because it lacks valid authentication credentials for the resource.</li>
+    <li><strong>403:</strong> the server understood the request and refuses to fulfill it.</li>
+  </ul>
+  <p>In practice, a refusal for a missing scope is 403, and one for an expired or missing token is 401. Anyone who doesn't want to reveal that an order exists can answer 404 instead of 403.</p>
+  <h4 class="deep-h">This mistake has a name</h4>
+  <p>Letting one person read another's order by changing only the number in the URL is the first item on the OWASP API risk list, <em>Broken Object Level Authorization</em>. The gateway alone doesn't prevent it, because the rule depends on the order's data.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 7519: JSON Web Token (sub, exp and the 3-part structure)", href: "https://datatracker.ietf.org/doc/html/rfc7519" },
+    { label: "jwt.io: introduction to JSON Web Token", href: "https://jwt.io/introduction" },
+    { label: "RFC 9110: HTTP Semantics (401, 403 and 404)", href: "https://datatracker.ietf.org/doc/html/rfc9110" },
+    { label: "Kong: JWT plugin", href: "https://developer.konghq.com/plugins/jwt/" },
+    { label: "OWASP API Security 2023: Broken Object Level Authorization", href: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The gateway now knows where each call goes and who made it, and Lena's app, the site and the partner all go through it. The competitor's bot goes through too: with a valid key or none at all, it keeps asking for the cat's price 500 times per second, and the catalog handles 100. What's left is how the gateway holds back a client that asks for too much.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between authentication and authorization?",
+    a: "Authentication: who you are (the gateway checks the JWT's signature and exp). Authorization: what you can do (the gateway checks the scopes)." },
+  { q: "When does the gateway answer 401 and when 403?",
+    a: "401: no token, expired token or invalid signature (it doesn't know who you are). 403: valid token, but without the route's scope (it knows who you are and refuses)." },
+  { q: "Which header does the gateway pass to the service and what does it do with what the client sent?",
+    a: "X-Cliente-Id: lena-77, taken from the token's sub. If the client sends its own X-Cliente-Id, the gateway discards it." },
+  { q: "Why can't the gateway decide on its own whether order 1048 is Lena's?",
+    a: "It only sees the token and the URL. The one that knows the order's owner is the pedidos service, which compares it with the X-Cliente-Id." },
+  { q: "What happens if someone calls pedidos directly over the internal network?",
+    a: "If the service trusts the X-Cliente-Id, the person writes whatever header they want and reads Lena's order. Fix: closed network and the service also checking the token." },
+]} />

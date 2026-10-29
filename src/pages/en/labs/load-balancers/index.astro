@@ -1,0 +1,36 @@
+---
+// Load Balancers and Reverse Proxies module (English): the 10 lessons in src/content/_en/load-balancers/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/load-balancers.css';
+
+const entries = (await getCollection('en-load-balancers')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/load-balancers/quiz/');
+---
+<ModuleLayout
+  title="Load Balancers and Reverse Proxies · SDLabs"
+  description="Load balancers and reverse proxies: healthcheck, round robin, least request, least connection, LOR, IP hash, Maglev, random, layers 4 and 7 and a lab with Envoy, with interactive widgets."
+  module="load-balancers"
+  heading="Load Balancers and Reverse Proxies"
+  lead="The catalog now runs on several replicas, but Lena types a single address. Who stands in the middle, how it picks a replica for each request and what happens when one of them stops responding."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/load-balancers/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

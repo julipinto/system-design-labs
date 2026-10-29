@@ -1,4 +1,6 @@
 /* ---------- modo foco, barra de estado, concluídas e flashcards ---------- */
+// o pacote da trilha anda com mola (Motion anima transform, fora da thread de layout)
+import { animate } from 'motion';
 (function () {
   'use strict';
   var EN = /^en/.test(document.documentElement.lang);   // versão em inglês (/en/)
@@ -37,11 +39,16 @@
   });
   var pkt = document.createElement('span'); pkt.className = 'pg-pkt'; track.appendChild(pkt);
   track.setAttribute('aria-valuemax', String(N));
-  var pktAt = -1;
-  function placePkt(animate) {
+  var pktAt = -1, pktAnim = null;
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function placePkt(move) {
     var st = stations[cur]; if (!st || !st.offsetWidth) return;
-    pkt.classList.toggle('moving', !!animate && pktAt >= 0 && pktAt !== cur);
-    pkt.style.left = (st.offsetLeft + st.offsetWidth / 2) + 'px'; pktAt = cur;
+    var x = st.offsetLeft + st.offsetWidth / 2, go = move && !still && pktAt >= 0 && pktAt !== cur;
+    pktAt = cur;
+    if (pktAnim) pktAnim.stop();
+    // a troca de aula já mexe no layout e rola a página: o pacote sai no quadro seguinte, quando isso assentou
+    if (go) requestAnimationFrame(function () { pktAnim = animate(pkt, { x: x }, { type: 'spring', stiffness: 170, damping: 24, mass: 1 }); });
+    else pktAnim = animate(pkt, { x: x }, { duration: 0 });
   }
   // muitas aulas para a largura: estação e pacote encolhem para não encostar
   function fitTrail() { track.classList.toggle('dense', track.clientWidth / N < 26); placePkt(false); }

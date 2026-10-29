@@ -1,0 +1,91 @@
+---
+title: "Microfrontends and BFFs"
+order: 4
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In lesson 3 each channel got its own BFF. But the website's screen is still a single one, and three teams touch it: the same three from module 6, Vitrine, Checkout and Logística. If the <code>bff-web</code> belongs to everyone, every deploy becomes a queue.</p>
+
+<OneLiner>In a microfrontend, each team owns a piece of the screen and the BFF that feeds that piece, and publishes both without waiting for the others.</OneLiner>
+
+<DoIt>
+  <p>This lesson has no 3D figure. In the table below, pick a team and follow the row from left to right: screen piece, BFF, services. Then answer from memory: if Logística publishes tracking today, what does Vitrine need to do?</p>
+</DoIt>
+
+<p>Conway's Law, from module 6, says the system ends up with the shape of the organization that builds it. Here that becomes a drawing: three teams, three screen pieces, three BFFs.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Team</th><th>Screen piece</th><th>BFF</th><th>Services it calls</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Vitrine</th><td>the cat and the recommendations</td><td><code>bff-vitrine</code></td><td><code>catalogo</code>, <code>recomendacoes</code></td></tr>
+    <tr><th scope="row">Checkout</th><td>cart and payment</td><td><code>bff-checkout</code></td><td><code>carrinho</code>, <code>pedidos</code></td></tr>
+    <tr><th scope="row">Logística</th><td>order tracking</td><td><code>bff-rastreio</code></td><td><code>pedidos</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The website page is a shell that loads three pieces, one from each team.</li>
+  <li>Each piece asks only its own BFF for data: the storefront asks <code>bff-vitrine</code>, the cart asks <code>bff-checkout</code>, tracking asks <code>bff-rastreio</code>.</li>
+  <li>Each BFF composes the calls to the services its piece uses, as in lesson 2. The <code>pedidos</code> shows up in two, and that's fine: the data belongs to the service, the shape belongs to the BFF.</li>
+  <li>When Logística changes tracking, it publishes the piece and the <code>bff-rastreio</code> together. Vitrine and Checkout don't even find out.</li>
+</ol>
+</HowItWorks>
+
+<p>On the page, the shell is small. This is an example written for the lesson, in the style of Cam Jackson's article on micro frontends, with one HTML element per team:</p>
+
+<pre><code>{String.raw`<body>
+  <loja-vitrine   bff="/web/vitrine"></loja-vitrine>    <!-- Vitrine team script -->
+  <loja-checkout  bff="/web/checkout"></loja-checkout>  <!-- Checkout team script -->
+  <loja-rastreio  bff="/web/rastreio"></loja-rastreio>  <!-- Logística team script -->
+</body>`}</code></pre>
+
+<p>What if it goes wrong? Each team has its own BFF, and the temptation is for each BFF to solve the business rule its own way.</p>
+
+<WhyItMatters>
+  <li><strong>Independent deploy.</strong> Each team publishes its screen piece and its BFF when it's ready.</li>
+  <li><strong>A clear owner.</strong> When the tracking screen breaks, the team that answers the alert is the one that wrote it.</li>
+  <li><strong>The risk:</strong> three BFFs calculating shipping in three ways. Lena sees one value on the storefront and another at checkout.</li>
+  <li><strong>The rule:</strong> the business rule lives in the service that owns it. The BFF only <strong>composes and adapts</strong>.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">How to tell if a rule belongs to the BFF</h4>
+  <ul>
+    <li>If it changes the <strong>format</strong> (renaming a field, cutting a photo, sorting the list, formatting the price), it belongs to the BFF.</li>
+    <li>If it changes the <strong>result</strong> (how much shipping costs, who gets a discount, whether the order can be canceled), it belongs to the service.</li>
+    <li>If two BFFs need the same calculation, it belongs to the service and both call it.</li>
+  </ul>
+  <h4 class="deep-h">What microfrontends are</h4>
+  <p>Cam Jackson, in the article published by Martin Fowler, describes the idea as splitting a monolithic frontend into smaller parts, each owned by a team, integrated on the page by build, iframe, JavaScript or Web Components. The article also lists the costs: more load for the browser and more operational complexity.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Cam Jackson (martinfowler.com): Micro Frontends", href: "https://martinfowler.com/articles/micro-frontends.html" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "microservices.io: API Composition pattern", href: "https://microservices.io/patterns/data/api-composition.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Each team publishes its piece without waiting for the others. And the app, which still has an old version installed on 30% of phones? What's left is how to launch the new screen without breaking whoever still uses the old one.</p>
+
+<Flashcards cards={[
+  { q: "What is a microfrontend?",
+    a: "A piece of the screen, owned by one team, published without waiting for the others. Each one has its own BFF." },
+  { q: "What are the three BFFs of the store's website?",
+    a: "<code>bff-vitrine</code> (Vitrine), <code>bff-checkout</code> (Checkout) and <code>bff-rastreio</code> (Logística)." },
+  { q: "What belongs to the BFF and what belongs to the service?",
+    a: "The BFF handles the format: composing, cutting, renaming. The service handles the result: shipping, discounts, business rules." },
+  { q: "What's the risk of too many BFFs?",
+    a: "Repeating the same logic in different ways, like shipping calculated three ways." },
+  { q: "How does Conway's Law show up here?",
+    a: "Three teams, three screen pieces, three BFFs: the system follows the shape of the organization." },
+]} />

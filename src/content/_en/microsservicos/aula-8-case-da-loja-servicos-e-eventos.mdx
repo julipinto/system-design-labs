@@ -1,0 +1,77 @@
+---
+title: "Store case: services and events"
+order: 8
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson the event map showed the store's contexts. Now they need to live apart: each with its own database, and with none reading another's table. The <code>loja</code> database is still a single one, with all the tables together. The question is how to divide up what is in it and how the services find out what happened next door.</p>
+
+<OneLiner>Each table gets a single owner; whoever needs a piece of data asks through the API or listens to the event, and since the event can arrive twice, the listener has to handle the duplicate.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Failure</strong> scenario takes Shipping down. Step forward and watch <code>PedidoPago</code> wait in the queue and be delivered when the service comes back. Keep going until e-502 arrives twice and compare the final stock: 1 without idempotency, 2 with it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/dominio-3d/?mode=falha" poster="labs/microsservicos/dominio-3d-previa.webp" title="Interactive figure: Shipping goes down, PedidoPago waits in the queue, and the repeated event with and without idempotency" alt="Preview of the 3D figure: the Orders, Payments, Stock and Shipping services, each owning its tables, and the PedidoPago event e-502 on the bus" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="fila" title="Stock queue with a duplicate event" hint="Process the events one by one, with and without idempotency turned on, and compare the cat's final stock: 2 (right) or 1 (wrong)." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>One owner per table.</strong> <code>produtos</code> belongs to the catalog, <code>pedidos</code> and <code>itens_pedido</code> to orders, <code>estoque</code> to stock, <code>pagamentos</code> to payments and <code>remessas</code> to shipping. Nobody reads another's table: they <strong>ask through the API</strong> or <strong>listen to the event</strong>.</li>
+  <li><strong>14:02:10, the order is born.</strong> Orders publishes <code>{`PedidoCriado { evento_id: "e-501", pedido_id: 1047, cliente: "Lena", itens: [{ produto: 42, qtd: 1, preco: 79.90 }], frete: 15.00, total: 94.90 }`}</code>.</li>
+  <li><strong>14:02:11, pay and reserve.</strong> Payments publishes <code>{`PedidoPago { evento_id: "e-502", pedido_id: 1047, valor: 94.90 }`}</code>. Stock listens, reserves and publishes <code>{`EstoqueReservado { evento_id: "e-503", sku: "GATO-042", antes: 3, depois: 2 }`}</code>.</li>
+  <li><strong>14:30:00, out the door.</strong> Shipping publishes <code>{`PedidoEnviado { evento_id: "e-504", pedido_id: 1047, rastreio: "LA123456789BR" }`}</code>. If <code>entregas</code> is down, <code>PedidoPago</code> waits in the queue and is delivered when it comes back.</li>
+  <li><strong>And if it goes wrong: the duplicate.</strong> The network delivers <code>PedidoPago</code> (e-502) <strong>twice</strong>. Without care, the stock goes 3 → 2 → <strong>1</strong>, and the cat sold once leaves twice. The solution is <strong>idempotency</strong>: stock keeps the <code>evento_id</code> values already processed and ignores the duplicate. It stays at 2.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>One owner per table turns a hidden coupling (the <code>JOIN</code> that crosses the contexts) into a visible contract: the API and the event.</li>
+  <li>Events let the publisher ignore who is listening. Orders does not know Stock exists; it only says the order was paid.</li>
+  <li>Delivering "at least once" is the norm in queues, and what that means is that the duplicate <strong>will happen</strong>. Idempotency stops being optional.</li>
+  <li>Consistency becomes eventual: for a few moments the payment has gone through and the stock has not reserved yet. It is the price from lesson 3, now with a mechanism to pay it.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">API or event?</h4>
+  <ul>
+    <li><strong>API (a question):</strong> the service needs the data <em>now</em> to respond. The cart asks the catalog for the price. It is simple, and the availability of the two adds up.</li>
+    <li><strong>Event (a notice):</strong> the service only needs to react to something that happened. Stock reacts to <code>PedidoPago</code>. It decouples in time, and the data arrives late.</li>
+  </ul>
+  <h4 class="deep-h">Idempotency in one line</h4>
+  <p>An operation is idempotent if repeating it gives the same result as doing it once. Reserving stock as "subtract 1" is not; "reserve for order 1047" is. Keeping the processed <code>evento_id</code> is the simplest way to make any consumer idempotent. The details (retention window, event ordering) are left for a future module.</p>
+  <h4 class="deep-h">What is still open</h4>
+  <p>Compensating the payment when stock fails (Saga), the event that gets lost between writing to the database and publishing to the queue, and the ordering between events have patterns of their own, and were not solved here.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "microservices.io: Database per Service pattern", href: "https://microservices.io/patterns/data/database-per-service.html" },
+    { label: "microservices.io: Idempotent Consumer pattern", href: "https://microservices.io/patterns/communication-style/idempotent-consumer.html" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "microservices.io: Saga pattern", href: "https://microservices.io/patterns/data/saga.html" },
+  ]} />
+</Deep>
+
+<p>The store is now split into services with owners, talking through events, and Black Friday arrives with 10 catalog replicas. But when Lena opens the cat page, only one of the 10 replicas will serve her. Next: who decides which one, and how that decision is made. That is the job of Load Balancers, in module 7.</p>
+
+<Flashcards cards={[
+  { q: "Who owns the <code>estoque</code> table and who can read it?",
+    a: "The stock service owns it and is the only one that reads and writes it. The others ask through the API or listen to the events." },
+  { q: "What does stock do when it receives PedidoPago e-502?",
+    a: "It reserves the cat: 3 → 2, and publishes EstoqueReservado (e-503)." },
+  { q: "What happens if e-502 arrives twice without idempotency?",
+    a: "The stock goes 3 → 2 → 1. The second deduction is wrong." },
+  { q: "How does idempotency solve it?",
+    a: "Stock keeps the evento_id values already processed and ignores the duplicate. The stock stays at 2." },
+  { q: "What happens to PedidoPago when entregas goes down?",
+    a: "It waits in the queue and is delivered when entregas comes back. The store keeps selling." },
+]} />

@@ -1,0 +1,80 @@
+---
+title: "Monoliths"
+order: 2
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson the store was a single program, and two problems were showing up. Before blaming the monolith, look at what it does well, because the store only got this far thanks to it: one deploy, one database, one end-to-end test, and consistency that comes for free. The defects show up when the program grows, and each one has a time and a number.</p>
+
+<OneLiner>The monolith is the right starting point for almost every product. Its defects are the noisy neighbor (one module eats what belongs to the others), the blast radius (one module takes everything down) and scaling that only knows how to copy everything.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Neighbor</strong> scenario opens at 22:59. Step forward and watch Reports eat 7 of 8 vCPU and the cat page go from 120 ms to 2.4 s. Then switch to <strong>Crash</strong> (a bug in Shipping takes the whole building down) and <strong>Scale</strong> (Black Friday: 10 copies of the entire program). In the simulator below, compare 80 vCPU with 25.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/monolito-3d/?mode=ruido" poster="labs/microsservicos/monolito-3d-previa.webp" title="Interactive figure: at 23:00 the cash-close job eats 7 of 8 vCPU and the cat page goes from 120 ms to 2.4 s" alt="Preview of the 3D figure: the loja process with 7 modules on top of the loja database; at 23:00 Reports uses 7 of 8 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="vcpu" title="Black Friday calculator: how many vCPU the store needs" hint="Drag the storefront (Catalog) traffic from 1× to 20×. The monolith only knows how to copy the whole program; the services column shows how it would look if each piece were copied on its own. Example numbers." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>What it does well.</strong> One deploy, one database, one end-to-end test. If the payment fails, the <code>ROLLBACK</code> gives the stock back, and nobody had to program that. That is why the monolith is the right start for almost every product.</li>
+  <li><strong>Noisy neighbor.</strong> At <strong>23:00</strong> the Reports module runs the cash close and uses <strong>7 of the 8 vCPU</strong> for 15 minutes. The cat page goes from <strong>120 ms to 2.4 s</strong>, and Lena's checkout goes past the <strong>2 s</strong> limit and times out. Nobody touched the checkout: it just shares the server with a heavy neighbor.</li>
+  <li><strong>Blast radius.</strong> A bug in the shipping calculation (Shipping module) blows the memory and the <strong>process goes down</strong>. Since it is a single process, the storefront, the cart and the payment all go offline. One module took down all seven.</li>
+  <li><strong>Scaling that only copies everything.</strong> On Black Friday the storefront gets <strong>10 times</strong> the traffic. To cope, the store copies the whole program: 10 copies × 8 vCPU = <strong>80 vCPU</strong>. Reports and Payments come along in every copy, without needing to.</li>
+  <li><strong>Slow deploy.</strong> Three teams, one binary: the deploy takes <strong>40 minutes</strong>, and one team waits for the other (rebase, deploy queue). A one-line change in Catalog waits for the other team's shipping work to be ready.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The noisy neighbor and the blast radius have the same root: the modules <strong>share the same process</strong>, the same memory and the same vCPU.</li>
+  <li>Scaling vertically (buying a bigger server) works for a while and gets expensive. Scaling horizontally (more copies) works, but the unit of copy is the whole program.</li>
+  <li>None of this makes the monolith "wrong". At 1× traffic, 8 vCPU cost less than any alternative. The defect is one of size, not of kind.</li>
+  <li>Each defect points to a different cure. Isolating Reports fixes the neighbor. Splitting Shipping out limits the blast. Copying only the storefront fixes the scaling.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">A monolith is not legacy</h4>
+  <p>The article says a monolith is not a synonym for "wrong" or "archaic", and that it should be the starting stage of almost every product. Two real cases show this cuts both ways: Istio's control plane, which was built from microservices, was merged into a single binary (istiod, in version 1.5), and Shopify keeps a large monolith and works to organize it into components with boundaries (a modular monolith, which lesson 4 shows). Shopify itself says the work is ongoing.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article lists Facebook, Twitter, Uber and Netflix as companies that "kept this architecture at large scale". Facebook chose to scale the monolith in PHP, but the Uber post it cites says the company ended up migrating to microservices. The Twitter and Netflix links did not open for checking, and the lesson does not use them as proof.</li>
+  </ul>
+  <h4 class="deep-h">When the monolith is the right answer</h4>
+  <ul>
+    <li>A small team and a new product (MVP): communication is cheap and the design still changes every week.</li>
+    <li>The people running the system do not know the architecture: a single unit is easier to deploy and restart.</li>
+    <li>The domain is not clear yet. Cutting early is cutting in the dark, and moving a folder is cheaper than moving a service.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "microservices.io: Monolithic Architecture pattern", href: "https://microservices.io/patterns/monolithic.html" },
+    { label: "Martin Fowler: MonolithFirst", href: "https://martinfowler.com/bliki/MonolithFirst.html" },
+    { label: "Shopify Engineering: the state of Shopify's monolith", href: "https://shopify.engineering/shopify-monolith" },
+    { label: "Istio: istiod, the control plane in one binary (2020)", href: "https://istio.io/latest/blog/2020/istiod/" },
+  ]} />
+</Deep>
+
+<p>The monolith did not fail: it just bundles modules that weigh, fall and grow in different ways. Next: can those modules be split into programs of their own, each with its own database, and what does the store pay in exchange?</p>
+
+<Flashcards cards={[
+  { q: "What is the noisy neighbor?",
+    a: "A module that consumes resources the others also use. At 23:00, Reports takes 7 of the 8 vCPU and the cat page goes from 120 ms to 2.4 s." },
+  { q: "What is blast radius?",
+    a: "The size of the damage when something fails. In the monolith it is the whole program: the shipping bug takes down the storefront, the cart and the payment." },
+  { q: "How much does Black Friday cost in the monolith?",
+    a: "With the storefront at 10×, that is 10 copies of the program × 8 vCPU = 80 vCPU, with Reports and Payments copied without needing to be." },
+  { q: "Why is consistency easy in the monolith?",
+    a: "Because everything runs in one transaction. If something fails, the <code>ROLLBACK</code> undoes everything, including the stock." },
+  { q: "When is the monolith a good choice?",
+    a: "At the start of a product, with a small team and a domain that is still changing. The defects only weigh in once the program and the teams grow." },
+]} />

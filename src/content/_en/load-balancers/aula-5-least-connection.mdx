@@ -1,0 +1,74 @@
+---
+title: "Least connection"
+order: 5
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Least request's counter looked at the past, and that's why the new <code>catalogo-4</code> became the target of everything. The way out is to look at the present: how many connections each replica has open <strong>right now</strong>. That's <strong>least connection</strong>, and it's the first rule in the module that sees the state of the replicas.</p>
+
+<OneLiner>Least connection sends the next request to the replica with the fewest open connections at this moment; an open connection, however, is not work, and a replica full of idle connections can look busier than it is.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>LC</strong> mode, step through <strong>An open connection is not a request</strong> and <strong>The moment: 5 · 3 · 4 connections</strong>: how many connections each replica has and how many are actually working. Then look at <strong>What if it fails: P9 lands on the busiest</strong>. Where does least connection send P9? Is that replica the least busy?</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=lc" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: Least connection" alt="Preview of the 3D figure: Least connection" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Open connection.</strong> A browser opens a TCP connection to the server and, with <strong>keep-alive</strong>, keeps it open after the response so the next request goes out faster (module 1). While it isn't closed, the balancer counts it.</li>
+  <li><strong>The rule.</strong> A new request arrives. The balancer compares how many connections each replica has open and picks the one with the lowest number. It doesn't count requests served, only what is open.</li>
+  <li><strong>The snapshot of the moment.</strong> <code>catalogo-1</code> has <strong>5</strong> connections, all idle: browsers forgotten in an open tab. <code>catalogo-2</code> has <strong>3</strong>, and all three are running a heavy search. <code>catalogo-3</code> has <strong>4</strong>, with one search in progress.</li>
+  <li><strong>The mistake.</strong> Least connection picks <code>catalogo-2</code>, the one with the lowest number (3), which is exactly the busiest. <code>catalogo-1</code>, with 5 parked connections and free CPU, is left out. An open connection is not work.</li>
+  <li><strong>When it works.</strong> With long-lived, similar connections (WebSocket, gRPC), each connection really is a load. Then counting connections is counting work.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lc" title="Least connection with idle connections" hint="See the queue of 9 requests. Then check '5 idle connections on catalogo-1' and see what happens to it." />
+
+<WhyItMatters>
+  <li><strong>It looks at the present.</strong> A new replica joins with 0 connections and starts receiving, but without the avalanche of a counter that only grows.</li>
+  <li><strong>It sometimes measures the wrong thing.</strong> Keep-alive, WebSocket and gRPC keep a connection open for minutes. The number of connections stops telling the size of the work.</li>
+  <li><strong>It costs the balancer.</strong> It has to track every connection opening and closing, which is more work than turning an index.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">What the article says</h4>
+  <p>The article defines the active connection as the "session or interaction in progress between client and server", even if the request has already been processed, as in implementations that support persistent keep-alive, WebSockets and gRPC. With 5 connections on one host and 3 on another, the next request goes to the one with 3, "even though these may be lower-demand tasks". It's exactly this lesson's snapshot.</p>
+  <h4 class="deep-h">In the tools</h4>
+  <ul>
+    <li><strong>NGINX:</strong> the <code>least_conn</code> directive in the <code>upstream</code> block.</li>
+    <li><strong>HAProxy:</strong> <code>balance leastconn</code>, recommended for long sessions.</li>
+    <li><strong>Envoy:</strong> the similar policy, <code>LEAST_REQUEST</code>, counts active requests, the idea of the next lesson.</li>
+  </ul>
+  <h4 class="deep-h">The numbers in the snapshot</h4>
+  <p>Connections 5, 3 and 4 and pending requests 0, 3 and 1 (lesson 6) are example numbers from the store, at the same instant. What matters is the difference between the two columns: connections say where sockets are open, pending says where work is.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "NGINX: least_conn and the other upstream module methods", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+    { label: "NGINX: HTTP load balancing (least connected)", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "HAProxy: balance leastconn", href: "https://docs.haproxy.org/3.0/configuration.html" },
+  ]} />
+</Deep>
+
+<p>Least connection saw connections and was fooled by idle ones. What's left is how to count what really matters: the requests that already entered the replica and haven't come back yet.</p>
+
+<Flashcards cards={[
+  { q: "What does least connection count?",
+    a: "The connections open on each replica at this moment, whether or not they have a request in progress." },
+  { q: "In the store's snapshot, where does it send the next request, and why is that wrong?",
+    a: "To <code>catalogo-2</code> (3 connections), the busiest: all 3 are on a heavy search. <code>catalogo-1</code> has 5 idle connections and free CPU." },
+  { q: "What is keep-alive and why does it get in least connection's way?",
+    a: "It means keeping the connection open after the response. It creates idle connections, which count as if they were work." },
+  { q: "When does least connection work well?",
+    a: "With long, similar connections, like WebSocket and gRPC: each connection is a real load." },
+]} />

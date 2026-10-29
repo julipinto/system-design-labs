@@ -278,13 +278,13 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
     var track = document.querySelector('[data-ds-track]'), step = document.querySelector('[data-ds-step]');
     if (track && step) {
       var sts = track.querySelectorAll('.pg-st'), lks = track.querySelectorAll('.pg-link'), pk = track.querySelector('.pg-pkt'), cur = 2;
-      var place = function () { var st = sts[cur]; pk.style.left = (st.offsetLeft + st.offsetWidth / 2) + 'px'; };
+      var place = function () { var st = sts[cur]; pk.style.transform = 'translateX(' + (st.offsetLeft + st.offsetWidth / 2) + 'px)'; };
       place(); addEventListener('resize', place);
       step.addEventListener('click', function () {
         sts[cur].className = 'pg-st done just';
         var nx = (cur + 1) % sts.length;
-        if (nx === 0) { Array.prototype.forEach.call(sts, function (s) { s.className = 'pg-st'; }); Array.prototype.forEach.call(lks, function (l) { l.className = 'pg-link'; }); pk.classList.remove('moving'); }
-        else { lks[cur].className = 'pg-link lit'; pk.classList.add('moving'); }
+        if (nx === 0) { Array.prototype.forEach.call(sts, function (s) { s.className = 'pg-st'; }); Array.prototype.forEach.call(lks, function (l) { l.className = 'pg-link'; }); pk.style.transition = 'none'; }
+        else { lks[cur].className = 'pg-link lit'; pk.style.transition = 'transform 600ms var(--ease-out)'; }
         cur = nx; place();
       });
     }

@@ -1,0 +1,96 @@
+---
+title: "Versioning and deployment"
+order: 5
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In lesson 4 each team started publishing its own piece. The app has one more problem: what's on the phone doesn't update when the store wants. The old app <strong>v3</strong> is still installed on 30% of phones, and <strong>v4</strong> brings the new home screen.</p>
+
+<OneLiner>With one BFF per frontend version, v3 and v4 run side by side, and a feature toggle decides who sees the new screen.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Versions</strong> scenario, play with the 10%, 50% and 100% control and watch which BFF each phone goes to. Then notice what happens to the v3 app when the new screen reaches 100%.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bff/bff-3d/?mode=versao" poster="labs/bff/bff-3d-previa.webp" title="Interactive figure: Versions and feature toggle" alt="Preview of the 3D figure: Versions and feature toggle" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The app sends its version with every request (a header like <code>X-App-Version: 4.0.0</code>) and the gateway picks the BFF: v4 goes to <code>bff-app-v4</code>, the rest to <code>bff-app-v3</code>.</li>
+  <li>Both BFFs stay live at the same time. The v3 returns the old screen, which the old app knows how to draw.</li>
+  <li>Inside v4, the <code>nova_home</code> toggle starts at <strong>10%</strong> of users. The rest of v4 keeps seeing the old screen.</li>
+  <li>With no errors, the toggle goes up to <strong>50%</strong> and then to <strong>100%</strong> of v4 users.</li>
+  <li>The <code>bff-app-v3</code> only goes offline when v3 usage, measured in the BFF itself, falls below <strong>1%</strong>.</li>
+</ol>
+</HowItWorks>
+
+<p>On the gateway, picking by version is a route by header. Example in Envoy:</p>
+
+<pre><code>{String.raw`routes:
+- match:
+    prefix: "/app/"
+    headers:
+    - name: x-app-version
+      string_match: { prefix: "4." }
+  route: { cluster: bff-app-v4 }
+- match: { prefix: "/app/" }          # no header or 3.x: v3
+  route: { cluster: bff-app-v3 }`}</code></pre>
+
+<p>The <code>nova_home</code> toggle is a percentage rule. In Unleash, the gradual rollout strategy stores the percentage and picks the user by a hash of their id, so the same person always sees the same screen. Example configuration:</p>
+
+<pre><code>{String.raw`{
+  "name": "nova_home",
+  "strategies": [{
+    "name": "flexibleRollout",
+    "parameters": { "rollout": "10", "stickiness": "userId", "groupId": "nova_home" }
+  }]
+}`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>Launch without betting everything.</strong> If the new screen causes trouble at 10%, 90% of users never saw it.</li>
+  <li><strong>Going back is turning the toggle off.</strong> No new deploy and no new app version needed.</li>
+  <li><strong>Retire with data.</strong> v3 usage is measured in the BFF. Turning off <code>bff-app-v3</code> with 30% of phones still on it would leave those people with no screen.</li>
+  <li><strong>The caveat:</strong> toggles and versions nobody removes turn into <code>if</code>s. When <code>nova_home</code> reaches 100%, the old v4 screen code should go.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Toggle or BFF per version?</h4>
+  <p>The two solve different problems. The BFF per version exists because the <strong>contract</strong> of v3 and v4 differ, and v3 can't break. The toggle handles <strong>who sees</strong> the change inside a version.</p>
+  <h4 class="deep-h">Canary and blue-green are something else</h4>
+  <p>They are for publishing a new version of the <strong>BFF</strong> to a little traffic before everyone: canary sends a slice of the requests to the new BFF, blue-green swaps the whole environment at once and allows going back. The toggle changes what the <strong>user</strong> sees, without swapping the code that's live.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article says a BFF per version avoids "additional toggles or complex conditionals", but in the same section it recommends toggles. The store uses both, each in its role: BFF per version for different contracts, toggle for releasing gradually.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Public article by Matheus Fidelis on deployment strategies (no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Unleash: activation strategies (gradual rollout)", href: "https://docs.getunleash.io/concepts/activation-strategies" },
+    { label: "Unleash (Node client): flexibleRollout strategy code", href: "https://github.com/Unleash/unleash-client-node/blob/main/src/strategy/flexible-rollout-strategy.ts" },
+    { label: "Envoy: route configuration (route_components)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The new screen is at 10% and the v3 app is still alive, and both versions depend on the same services. What's left is what Lena sees when one of them goes down in the middle of this.</p>
+
+<Flashcards cards={[
+  { q: "Why do v3 and v4 have separate BFFs?",
+    a: "Their contracts differ, and v3, still installed on 30% of phones, can't break." },
+  { q: "What does the <code>nova_home</code> toggle do?",
+    a: "Turns the new screen on for 10%, then 50% and 100% of v4 users." },
+  { q: "When do you turn off <code>bff-app-v3</code>?",
+    a: "When v3 usage, measured in the BFF itself, falls below 1%." },
+  { q: "How does the gateway choose between v3 and v4?",
+    a: "By a header with the app version (like X-App-Version), in a gateway route." },
+  { q: "Are a toggle and a canary the same thing?",
+    a: "No. The toggle changes what the user sees. The canary tests a new BFF version on a little traffic." },
+]} />

@@ -1,0 +1,101 @@
+---
+title: "DDD: concepts and building blocks"
+order: 5
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson each context got a boundary. Now, inside the Orders context, there is a smaller and more frequent problem: order 1047 has items, an address and a total, and any part of the program can change any of those fields. Who guarantees the total keeps being 79.90 + 15.00 = 94.90? DDD has a set of building blocks for this, and each one answers a concrete question.</p>
+
+<OneLiner>An entity has identity, a value object is worth its values, an aggregate protects a rule through a root, a repository hides the database and a domain event tells what happened. The rich model puts the rule inside the object instead of scattering it outside.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Aggregate</strong> scenario shows order 1047 as the root. Step forward until someone tries to change the item from outside and sees the change blocked, then compare the anemic model with <code>pedido.cancelar()</code>. In the simulator, try canceling 1047 with status <strong>paid</strong> and <strong>shipped</strong>, in both models.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/dominio-3d/?mode=agregado" poster="labs/microsservicos/dominio-3d-previa.webp" title="Interactive figure: order 1047 as an aggregate, with items, address and money, and the rule 79.90 + 15.00 = 94.90" alt="Preview of the 3D figure: the Orders, Payments, Stock and Shipping services, each owning its tables, and the PedidoPago event e-502 on the bus" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="anemico" title="Anemic or rich? Canceling order 1047" hint="Pick the order status and try to cancel in both models. In the anemic one, any part of the program writes the status; in the rich one, the order refuses what the rule forbids." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Entity.</strong> Order 1047 has <strong>identity</strong>: the number. If the address changes, it is still the same order. Two entities with the same data but different numbers are different things.</li>
+  <li><strong>Value object.</strong> Lena's address, <code>{`{ rua: "Rua da Aurora, 100", cidade: "Recife", cep: "50050-000" }`}</code>, has no identity: two equal addresses are the same address. The same goes for <code>Dinheiro(94.90, "BRL")</code>. A value object is not edited; you swap it for another whole one.</li>
+  <li><strong>Aggregate.</strong> The <code>Pedido</code> is the <strong>root</strong>, and the <code>ItemDoPedido</code> objects only change by going through it. The root protects the <strong>invariants</strong>, the rules that always hold: <em>total = sum of the items + shipping</em> (79.90 + 15.00 = 94.90) and <em>a shipped order cannot be canceled</em>. From outside, nobody grabs the item and changes the price.</li>
+  <li><strong>Repository.</strong> It gives the illusion of a collection of aggregates: <code>PedidoRepository.salvar(pedido)</code> and <code>buscar(1047)</code>. The domain does not speak SQL; the repository does, and you can swap the database without touching the rules.</li>
+  <li><strong>Domain event.</strong> A <strong>fact in the past</strong>, in the language of the business: <code>PedidoCriado</code>, <code>PedidoPago</code>, <code>EstoqueReservado</code>, <code>PedidoEnviado</code>. Other contexts listen and react, without Orders having to know them.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Anemic or rich</h3>
+
+<p>There are two ways to write the <code>Pedido</code>. In the <strong>anemic model</strong>, it is a bag of fields and the rule lives outside, in whichever service touches it. In the <strong>rich model</strong>, the rule lives in the order itself.</p>
+
+<pre><code>{String.raw`// anemic: anyone writes the status, from outside
+pedido.status = "cancelado"
+
+// rich: the order decides
+pedido.cancelar()   // refuses if status == "enviado"`}</code></pre>
+
+<p>In the anemic one, the shipped order becomes canceled without a protest, because the rule is nowhere. In the rich one, <code>cancelar()</code> refuses. When the rule is duplicated across several services, one copy forgets it, and the bug shows up in production.</p>
+
+<h3 class="sec">Subdomains: where to invest</h3>
+
+<p>Not every context deserves the same effort. DDD splits the domain into three kinds.</p>
+
+<ol class="flow steps">
+  <li><strong>Core:</strong> what makes the store sell and stand out. Here, Catalog and Orders. This is where the best team and the richest model should be.</li>
+  <li><strong>Supporting:</strong> necessary, but specific to the store and with no competitive edge. Stock and Shipping.</li>
+  <li><strong>Generic:</strong> a problem that is the same at any company, and almost always better bought than built: Payments (through a third-party gateway), email notifications and login.</li>
+</ol>
+
+<WhyItMatters>
+  <li>The <strong>aggregate root</strong> is the only door. That keeps the invariant true and gives the aggregate the natural size of a transaction: one order at a time, whole.</li>
+  <li>Value objects make the code safer: with no identity, nobody changes another customer's order address by mistake.</li>
+  <li>The repository and the events keep the domain free of technical detail, and that is what lets you split the program later without rewriting the rules.</li>
+  <li>The subdomains say where effort pays off: Payments does not need to be reinvented, Orders does need to be done well.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The building blocks, in Fowler's words</h4>
+  <ul>
+    <li><strong>Aggregate:</strong> a group of objects treated as a unit for data changes. Each aggregate has a root, and references from outside should only go to the root. Transactions should not cross the boundary of an aggregate.</li>
+    <li><strong>Value object:</strong> a small object compared by its values, not by identity, and usually immutable.</li>
+    <li><strong>Domain event:</strong> something that happened and matters to the business. The name goes in the past tense.</li>
+  </ul>
+  <h4 class="deep-h">Is the anemic model an antipattern?</h4>
+  <p>Martin Fowler named the <strong>Anemic Domain Model</strong> in 2003 and called it an antipattern: it looks like object orientation, but the objects only hold data and the logic goes into "services". The discussion is still alive, and this lesson's rule of thumb is simple: when an invariant exists, put it where the data is.</p>
+  <h4 class="deep-h">Entity, table row and aggregate</h4>
+  <p>The <code>Pedido</code> entity and the <code>pedidos</code> table are not the same thing. The aggregate can span two tables (<code>pedidos</code> and <code>itens_pedido</code>) and still be a single object, read and written in one go by the repository.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler: Evans Classification", href: "https://martinfowler.com/bliki/EvansClassification.html" },
+    { label: "Martin Fowler: DDD Aggregate", href: "https://martinfowler.com/bliki/DDD_Aggregate.html" },
+    { label: "Martin Fowler: Value Object", href: "https://martinfowler.com/bliki/ValueObject.html" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "Martin Fowler: Anemic Domain Model", href: "https://martinfowler.com/bliki/AnemicDomainModel.html" },
+  ]} />
+</Deep>
+
+<p>With the blocks in hand, the question is who builds them. The contexts and aggregates came out of a conversation, and conversations have owners. Next: how the shape of the teams, and not just the shape of the business, molds the design of the system.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between an entity and a value object?",
+    a: "The entity has identity (order 1047 stays the same if the address changes). The value object is worth its values: two equal addresses are the same, and you swap it whole." },
+  { q: "What is the aggregate root?",
+    a: "The object through which the whole group is accessed and changed. The <code>Pedido</code> is the root; the <code>ItemDoPedido</code> objects only change by going through it." },
+  { q: "What invariants does order 1047 have?",
+    a: "Total = sum of the items + shipping (79.90 + 15.00 = 94.90), and a shipped order cannot be canceled." },
+  { q: "What is an anemic model?",
+    a: "Objects with only data, and the rule scattered outside. A <code>pedido.status = \"cancelado\"</code> written from outside accepts even a shipped order." },
+  { q: "What is a domain event?",
+    a: "A fact in the past, in the language of the business: <code>PedidoPago</code>, <code>EstoqueReservado</code>." },
+]} />

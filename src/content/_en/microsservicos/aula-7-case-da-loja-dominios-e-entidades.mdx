@@ -1,0 +1,72 @@
+---
+title: "Store case: domains and entities"
+order: 7
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson we were left with three teams and a promise: to map a real purchase. Instead of starting from the tables, the case starts from what happens. Lena sees the cat, puts it in the cart, pays, and the package arrives. Each step is a fact the business recognizes, and it is around these facts that the contexts, entities and aggregates appear.</p>
+
+<OneLiner>Map the events of a purchase in order first, group them by who owns each one, and only then look for the entities, value objects and aggregates.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Events</strong> scenario tells the purchase of 1047 in order. Step forward and watch each event leave a service and reach the ones listening, with the JSON in the panel. Then, in the simulator, tap the 7 events in the order they happen and choose the owning context of each.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/dominio-3d/?mode=eventos" poster="labs/microsservicos/dominio-3d-previa.webp" title="Interactive figure: events e-501 to e-504 of order 1047 passing from one service to another" alt="Preview of the 3D figure: the Orders, Payments, Stock and Shipping services, each owning its tables, and the PedidoPago event e-502 on the bus" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="eventos" title="Event map of order 1047: sort and group" hint="Tap the events in the order they happened. Then choose the owning context of each." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The events, in order.</strong> Lena's purchase is <code>ProdutoVisto</code> → <code>ItemAdicionadoAoCarrinho</code> → <code>PedidoCriado</code> → <code>PedidoPago</code> → <code>EstoqueReservado</code> → <code>PedidoEnviado</code> → <code>PedidoEntregue</code>. All in the past tense, in the language of the business. The technique is called <strong>event storming</strong> (Alberto Brandolini): get the people who know the business together and put the events on a wall, in order.</li>
+  <li><strong>Group into contexts.</strong> Ask who owns each fact: <code>ProdutoVisto</code> belongs to Catalog, <code>ItemAdicionadoAoCarrinho</code> to Cart, <code>PedidoCriado</code> to Orders, <code>PedidoPago</code> to Payments, <code>EstoqueReservado</code> to Stock. <code>PedidoEnviado</code> and <code>PedidoEntregue</code> stay with Shipping. Where a word changes meaning, a boundary runs through.</li>
+  <li><strong>Find the entities.</strong> Look for what has identity and lives through the events: the <strong>Order</strong> (1047), the <strong>Customer</strong> (Lena), the <strong>Product</strong> (42) and the <strong>Parcel</strong> (<code>Volume</code>) that leaves through the warehouse door.</li>
+  <li><strong>Find the value objects.</strong> Lena's <strong>Address</strong> and <code>Dinheiro(94.90, "BRL")</code>: they are worth their values and are swapped whole.</li>
+  <li><strong>Find the aggregate.</strong> The <code>Pedido</code> is the root, with <code>ItemDoPedido</code> inside, and the invariant <em>total = 79.90 + 15.00 = 94.90</em>. The Customer and the Product are other aggregates: the order only keeps their number, not the whole object.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Events first avoid the classic mistake of modeling from the tables. The verbs of the business show who does what, and the tables come after.</li>
+  <li>The boundary shows up where two contexts use the same word differently, or where an event leaves one and enters the other. <code>PedidoPago</code> leaves Payments and enters Stock.</li>
+  <li>A small aggregate is better than a big one. Referring to the Product by number, and not by its insides, keeps transactions small and contexts independent.</li>
+  <li>The map already points to the services: each context with an owner is a candidate. Next: how those owners talk without reading each other's database.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">What an event storming looks like</h4>
+  <p>In Brandolini's version, the wall has orange sticky notes for events, in order, left to right. Then come the commands (what someone asks for), the actors and, finally, the groupings that become aggregates and contexts. The whole map comes out of a conversation of a few hours, with questions like "what happens next?" and "who needs to know this?".</p>
+  <h4 class="deep-h">Entity or value object?</h4>
+  <p>Test question: if the two are swapped for identical copies, would anyone notice? If Lena has two delivery addresses with the same fields, it does not matter which is which: value object. If there are two orders with the same items, the difference matters (one was already paid, the other was not): entity.</p>
+  <h4 class="deep-h">On the size of the aggregate</h4>
+  <p>Each aggregate is usually saved in a single transaction. If the <code>Pedido</code> included the whole <code>Produto</code>, every price change in Catalog would touch the orders. That is why the order keeps <code>produto: 42</code> and the price at the time of purchase (79.90), not a live reference.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Alberto Brandolini: Event Storming", href: "https://www.eventstorming.com/" },
+    { label: "Microsoft Learn: domain analysis for microservices", href: "https://learn.microsoft.com/en-us/azure/architecture/microservices/model/domain-analysis" },
+    { label: "Martin Fowler: DDD Aggregate", href: "https://martinfowler.com/bliki/DDD_Aggregate.html" },
+    { label: "Martin Fowler: Value Object", href: "https://martinfowler.com/bliki/ValueObject.html" },
+  ]} />
+</Deep>
+
+<p>The map shows the contexts, but it does not yet say how they live together in a single database, <code>loja</code>. Next: who owns each table, and how the services tell each other what happened without reading each other's tables.</p>
+
+<Flashcards cards={[
+  { q: "In what order do the events of order 1047's purchase happen?",
+    a: "ProdutoVisto, ItemAdicionadoAoCarrinho, PedidoCriado, PedidoPago, EstoqueReservado, PedidoEnviado, PedidoEntregue." },
+  { q: "What is an event storming?",
+    a: "A conversation with people who know the business, in which the events are put in order on a wall and then grouped by owner. It was proposed by Alberto Brandolini." },
+  { q: "What are the entities and value objects of the case?",
+    a: "Entities: Order, Customer, Product and Parcel. Value objects: Address and Money (<code>Dinheiro</code>)." },
+  { q: "Why does the order keep the product number and not the whole product?",
+    a: "To keep the aggregate small: a price change in Catalog does not touch orders already placed." },
+]} />

@@ -1,0 +1,87 @@
+---
+title: "Metrics and user experience"
+order: 7
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In lesson 6 the app survived the <code>recomendacoes</code> going down and Lena didn't notice. But "nobody complained" isn't a measurement. How does the store know whether the app is doing well, and whether it's doing worse than the website?</p>
+
+<OneLiner>With one BFF per channel, each channel has its own metrics (volume, errors, p95), and a problem that would get lost in the total of a single backend shows up on its own.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Metrics</strong> scenario, compare the <code>bff-app</code> and <code>bff-web</code> panels. Then look for where the app's errors come from and see what would happen if both channels were measured together.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bff/bff-3d/?mode=metricas" poster="labs/bff/bff-3d-previa.webp" title="Interactive figure: Metrics per channel" alt="Preview of the 3D figure: Metrics per channel" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Each BFF measures its own requests: how many arrive, how many fail and how long they take.</li>
+  <li>The <code>bff-app</code> shows a <strong>p95 of 150 ms</strong> and <strong>2% errors</strong>. The <code>bff-web</code>, a <strong>p95 of 300 ms</strong> and <strong>0.1% errors</strong>.</li>
+  <li>The app's 2% stands out. Broken down by version and OS, they come only from <strong>v3 on old Android</strong>.</li>
+  <li>In a single backend, both channels would fall into the same count. For an example of <strong>26 app requests out of every 100</strong>, the average would be 0.26 × 2% + 0.74 × 0.1% ≈ <strong>0.6%</strong>: a number nobody investigates.</li>
+  <li>With the problem isolated, the app team fixes v3, or decides when to retire it (lesson 5), without touching the website.</li>
+</ol>
+</HowItWorks>
+
+<p>p95 means 95 out of every 100 requests were faster than that time. The app's 150 ms is the lesson 2 time, and the website's 300 ms includes rendering the page on the server. That's why comparing the two by the bare number is misleading. Each channel should be measured against its own goal.</p>
+
+<p>In Prometheus, the breakdown by channel is a label. Query examples (the metric and labels are examples, each BFF picks its own):</p>
+
+<pre><code>{String.raw`# p95 per channel and version
+histogram_quantile(0.95,
+  sum by (le, canal, versao) (rate(http_request_duration_seconds_bucket[5m])))
+
+# error rate (5xx) per channel and version
+sum by (canal, versao) (rate(http_requests_total{status=~"5.."}[5m]))
+  / sum by (canal, versao) (rate(http_requests_total[5m]))`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>The problem shows up.</strong> 2% errors in the app is visible. 0.6% in the total would go unnoticed.</li>
+  <li><strong>A goal per channel.</strong> The app can have a p95 SLO of 150 ms and the website another of 300 ms, each with what makes sense for the channel.</li>
+  <li><strong>Effects between channels.</strong> If the website's volume rises and the app gets worse, the per-channel metrics show the link: some shared service.</li>
+  <li><strong>Decisions with data.</strong> v3 usage and the old Android errors guide when to retire the version.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The minimum for each panel</h4>
+  <ul>
+    <li><strong>Volume:</strong> requests per second.</li>
+    <li><strong>Errors:</strong> fraction of 5xx responses, and of fallbacks triggered.</li>
+    <li><strong>Time:</strong> p50, p95 and p99 of the BFF and of the services it calls.</li>
+    <li><strong>Breakdown:</strong> app version and OS, to find cases like v3 on old Android.</li>
+  </ul>
+  <h4 class="deep-h">Why p95 and not the average</h4>
+  <p>The average hides who suffers. If 5% of requests take 2 s and the rest 100 ms, the average sits near 200 ms and looks good. The p95 already shows the slow side.</p>
+  <h4 class="deep-h">The average calculation</h4>
+  <p>The 26 requests out of every 100 are an assumption of the example, to make the math match the module's 0.6%. Change the app's share and the total changes, but the idea holds: the total hides the small channel.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Prometheus: histograms and quantiles", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Prometheus: query functions (histogram_quantile)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/#histogram_quantile" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Each channel already has its own BFF, its own deploy, its own timeout and its own metrics. What's left is when all of this is worth it, and when a simple gateway is enough.</p>
+
+<Flashcards cards={[
+  { q: "What are the metrics of each channel in the store?",
+    a: "<code>bff-app</code>: p95 150 ms, errors 2%. <code>bff-web</code>: p95 300 ms, errors 0.1%." },
+  { q: "Where do the app's 2% errors come from?",
+    a: "Only from v3 on old Android. In a single backend they would be diluted into 0.6% and go unnoticed." },
+  { q: "What is p95?",
+    a: "95 out of every 100 requests were faster than that time. It shows the slow side that the average hides." },
+  { q: "Why not compare the app's p95 directly with the website's?",
+    a: "Each channel does a different job (the website renders the page). Each one is measured against its own goal." },
+  { q: "How does a query separate the channels?",
+    a: "With a label (channel, version) on the metric and a <code>sum by</code> on that label." },
+]} />

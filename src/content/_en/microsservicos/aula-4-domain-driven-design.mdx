@@ -1,0 +1,75 @@
+---
+title: "Domain-Driven Design"
+order: 4
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson the store could be cut into seven services, but nobody said where the cuts go. Cutting by code size, or by table, or by each team's taste gives services that call each other all the time. Domain-Driven Design (DDD) answers with another ruler: cut by <strong>business subject</strong>. For that, the team first needs something simpler: speaking the same language as the business.</p>
+
+<OneLiner>In DDD, the domain is the business subject, the ubiquitous language is the vocabulary everyone uses, and each bounded context is the place where a word has one meaning only.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Contexts</strong> scenario takes the plush cat through each island. Step forward and watch the data change shape at the fence: product 42 in Catalog, SKU GATO-042 in Stock, a 0.4 kg parcel in Shipping, and nothing in Payments.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/dominio-3d/?mode=contextos" poster="labs/microsservicos/dominio-3d-previa.webp" title="Interactive figure: the same cat becomes product 42, SKU GATO-042 and a 0.4 kg parcel as it crosses each context" alt="Preview of the 3D figure: the Orders, Payments, Stock and Shipping services, each owning its tables, and the PedidoPago event e-502 on the bus" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Domain.</strong> It is the sphere of knowledge the software works on. The store's domain is <strong>selling products over the internet</strong>: catalog, order, payment, stock, delivery. DDD starts by understanding this subject with the people who know it (the person in stock, the one in finance), and not by the database.</li>
+  <li><strong>Ubiquitous language.</strong> People who program and people who know the business use <strong>the same words</strong>, in conversations, in code and in tables. If finance says "paid order" and the code says <code>order.state = 2</code>, nobody understands each other. The code gets a <code>PedidoPago</code> instead.</li>
+  <li><strong>The problem: one word, several meanings.</strong> "The cat" is not the same thing to everyone. In <strong>Catalog</strong> it is <code>produto 42</code>, with a name, a price of 79.90, photos and a description. In <strong>Stock</strong> it is <code>SKU GATO-042</code>, with quantity 3 in warehouse SP-1. In <strong>Shipping</strong> it is a <code>volume</code> of 0.4 kg and 30×20×15 cm, bound for Recife. And <strong>Payments</strong> does not even know what a cat is: it only sees <code>{`{ pedido_id: 1047, valor: 94.90 }`}</code>.</li>
+  <li><strong>Bounded context.</strong> The solution is to accept this. Each context has <strong>its own model</strong>, inside a boundary, and the word only has to be right in there. No single store-wide model tries to be "everyone's cat": each context keeps only what it uses of the cat.</li>
+  <li><strong>Modular monolith.</strong> The contexts do not have to become services right away. They can become <strong>folders and modules with a boundary</strong> inside the same program, and DDD already pays off in that format. Only later, if it hurts, does each module become a service, and the cut is already made.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The boundaries of the contexts are <strong>natural candidates for service boundaries</strong>. A good cut lets the services talk little: Payments does not need to know about photos or weight.</li>
+  <li>DDD does not require microservices. It is a way of thinking about code, and it serves a well-organized monolith just as well.</li>
+  <li>A bounded context is also not automatically a microservice. Often it is one service; sometimes two small contexts live together, and sometimes a big context becomes several.</li>
+  <li>Equal words with different meanings (the cat in the four contexts) are the sign that a boundary runs through there.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">What DDD is, and where it came from</h4>
+  <p>Domain-Driven Design is the name of a book by Eric Evans, from 2003, and of an approach: put the domain model at the center of the software, build it together with people who understand the business, and let the code speak the same language. Evans (and the Microsoft documentation, which uses the same split) distinguishes strategic design (domain, contexts, subdomains) from tactical design (entities, aggregates and the like, in lesson 5).</p>
+  <h4 class="deep-h">Bounded context, in Fowler's words</h4>
+  <p>A bounded context is a boundary inside which a model holds. Outside it, the same word can mean something else. In Fowler's description, each context has its own model and its own language, and the same term can mean different things from one context to another.</p>
+  <h4 class="deep-h">What happens at the boundary</h4>
+  <p>When order 1047 reaches the Shipping context, the item <em>plush cat</em> becomes a 0.4 kg parcel. Someone, in the code, does this translation. In DDD language, the relationship between two contexts (who sends, who translates) is drawn on a context map.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article treats DDD, microservices and the rich model as one package. In the original source they are separate things: DDD dates from 2003, before "microservice" became a fashionable name, and the rich model is a consequence of tactical design, not its center.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Microsoft Learn: domain analysis for microservices", href: "https://learn.microsoft.com/en-us/azure/architecture/microservices/model/domain-analysis" },
+    { label: "Martin Fowler: Bounded Context", href: "https://martinfowler.com/bliki/BoundedContext.html" },
+    { label: "Martin Fowler: Ubiquitous Language", href: "https://martinfowler.com/bliki/UbiquitousLanguage.html" },
+    { label: "Shopify Engineering: the state of Shopify's monolith", href: "https://shopify.engineering/shopify-monolith" },
+  ]} />
+</Deep>
+
+<p>Each context already has a boundary, but inside it there are still questions. The Order has an address, items and a total that has to add up. Who can change what, and how do you guarantee that 79.90 + 15.00 keeps giving 94.90? Next: what the models inside a context are made of.</p>
+
+<Flashcards cards={[
+  { q: "What is a domain?",
+    a: "The sphere of business knowledge the software works on. In the store, selling products over the internet." },
+  { q: "What is the ubiquitous language?",
+    a: "The vocabulary the team and the business use alike, in conversations and in code. If finance says 'paid order', the code has <code>PedidoPago</code>." },
+  { q: "What is a bounded context?",
+    a: "A boundary inside which a model, and each word in it, has one meaning only." },
+  { q: "How does the cat appear in each context?",
+    a: "Catalog: product 42. Stock: SKU GATO-042. Shipping: a 0.4 kg parcel. Payments: just order 1047 and the amount 94.90." },
+  { q: "What is a modular monolith?",
+    a: "A single program with the contexts separated into modules with boundaries. It already has the DDD cut, just without the network." },
+]} />

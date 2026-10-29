@@ -1,0 +1,80 @@
+---
+title: "Microservices"
+order: 3
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson the monolith showed three defects: one module gets in the way of the others, one module takes everything down, and scaling only copies everything. The cure is to separate. Each module becomes a program of its own, with its own database, and the programs start talking over the network. The store gains isolation and independent scaling, and pays with the network, with consistency, and with the difficulty of seeing what is going on.</p>
+
+<OneLiner>Microservices are small programs, each owning one business function and its own database. They trade isolation and independent scaling for the network, hard consistency and a lot more to observe.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Split</strong> scenario separates the building into services. Step forward and count the network hops of the same checkout (200 ms in the panel). Keep going until Shipping goes down and the store keeps selling, and on to the last step: the payment went through, but the stock ran out. In the simulator, change the number of hops and compare with the 2 s limit.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/monolito-3d/?mode=split" poster="labs/microsservicos/monolito-3d-previa.webp" title="Interactive figure: the monolith splits into 6 services, each with its own database, and the checkout now has 4 network hops" alt="Preview of the 3D figure: the loja process with 7 modules on top of the loja database; at 23:00 Reports uses 7 of 8 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="saltos" title="Latency adder: the price of the network in the checkout" hint="Choose how many network hops the checkout has and how much each one costs. With Lena's 4 hops and 5 ms per hop, that is 200 ms. Example numbers." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Split.</strong> Six services come out, plus one set apart: <code>catalogo</code>, <code>carrinho</code>, <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code>, <code>entregas</code> and <code>relatorios</code>. Each one has <strong>its own database</strong> (database per service): the catalog in documents (module 4), the cart in Redis (module 5), and orders, payments and stock in PostgreSQL, because they need ACID.</li>
+  <li><strong>The network enters the math.</strong> The same checkout now has 4 hops (Cart → Orders → Payments → Stock → Shipping), of about <strong>5 ms</strong> each. That makes 180 + 4 × 5 = <strong>200 ms</strong>, and each hop is a chance of timeout.</li>
+  <li><strong>Independent scaling.</strong> On Black Friday the catalog goes up to 10 replicas of 1 vCPU, cart and orders to 3, payments and stock to 2, shipping stays at 1 and reports at 1 of 4 vCPU. Total: <strong>25 vCPU</strong>, against 80 for the monolith.</li>
+  <li><strong>Isolated neighbors.</strong> The 23:00 report runs in its own service, and the cat page stays at <strong>120 ms</strong>. If <code>entregas</code> goes down, the store keeps selling: the <code>PedidoPago</code> event waits in the queue and is delivered when <code>entregas</code> comes back.</li>
+  <li><strong>The price.</strong> The payment is approved, but the stock reservation fails (the stock was already at 0). There is no <code>ROLLBACK</code> that undoes everything anymore: someone has to <strong>compensate</strong>, refunding the payment. This design has a name (Saga), and it is left for another module.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The gains are the ones from the last lesson, one by one: it isolates the noisy neighbor, limits the blast radius and lets you scale only what is heavy. Each service can also have its own database and its own technology.</li>
+  <li>The network is the first cost. It adds milliseconds, fails, and calls for retry, circuit breaker and a queue for whatever cannot be lost.</li>
+  <li>Consistency is the second. Transactions become a sequence of steps with compensation, and each step has to tolerate being repeated.</li>
+  <li>Observing is the third. Order 1047 goes through 5 services and leaves 5 logs. A <code>trace_id</code> (for example <code>7f3a…</code>) ties the pieces together; without it, diagnosis turns into detective work.</li>
+  <li>Testing gets harder too: the end-to-end test now has to bring up several services and depends on contracts between them.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">On an ordinary day, the monolith is cheaper</h4>
+  <p>At 1× traffic, the monolith uses 8 vCPU and the services use 10 (1 for each of the six and 4 for reports). The math only flips at scale: with the storefront at 10×, it is 25 against 80. Microservices pay off when one part grows much more than the others.</p>
+  <h4 class="deep-h">Who talks to whom</h4>
+  <ul>
+    <li><strong>Synchronous:</strong> the service calls the other and waits (HTTP, gRPC). It is simple, and latency and failures add up along the chain.</li>
+    <li><strong>Asynchronous:</strong> the service publishes an event to a queue and moves on. <code>PedidoPago</code> waits in the queue if <code>entregas</code> is down. In return, the result only arrives later.</li>
+  </ul>
+  <h4 class="deep-h">Resilience in the conversation between services</h4>
+  <p>The article lists the patterns that become mandatory: retry (try again), circuit breaker (stop calling whoever is failing), fallback (a backup answer), reprocessing queue and dead letter queue (the queue of messages that did not get through, kept for analysis). They have a module of their own further on.</p>
+  <h4 class="deep-h">Prerequisites before splitting</h4>
+  <p>Martin Fowler lists what the team needs before: provisioning servers fast, good monitoring and automated deploys. Without these, the cost of the network and of observing swallows the gains.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler and James Lewis: Microservices", href: "https://martinfowler.com/articles/microservices.html" },
+    { label: "microservices.io: Database per Service pattern", href: "https://microservices.io/patterns/data/database-per-service.html" },
+    { label: "microservices.io: Saga pattern", href: "https://microservices.io/patterns/data/saga.html" },
+    { label: "Martin Fowler: Microservice Prerequisites", href: "https://martinfowler.com/bliki/MicroservicePrerequisites.html" },
+  ]} />
+</Deep>
+
+<p>The store now has seven programs, and the first question is which cut to make. Six services or twelve? Should Shipping and Stock be one? A wrong cut leaves the services calling each other all the time. Next: where the boundaries are, and who decides.</p>
+
+<Flashcards cards={[
+  { q: "What is database per service?",
+    a: "Each service owns its database, and nobody reads another service's table. To find something out, it asks through the API or listens to an event." },
+  { q: "How long does the checkout take in microservices, and why?",
+    a: "200 ms: the 180 ms of the monolith plus 4 network hops of 5 ms each." },
+  { q: "How many vCPU does Black Friday need in microservices and in the monolith?",
+    a: "25 against 80. Only the catalog gets 10 replicas; the rest grows a little." },
+  { q: "What changed when the payment is approved and the stock fails?",
+    a: "There is no <code>ROLLBACK</code> that undoes everything anymore: you have to compensate, refunding the payment (the design is called Saga)." },
+  { q: "What is the trace_id for?",
+    a: "To tie together the 5 logs of order 1047, one in each service, and follow the order from start to finish." },
+]} />

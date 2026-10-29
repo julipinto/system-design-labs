@@ -1,0 +1,112 @@
+---
+title: "Resilience and blast radius"
+order: 6
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In lesson 5 the new screen is at 10% and v3 is still alive, and everyone depends on the same services. What happens when the <code>recomendacoes</code> goes down right when Lena opens the app? The home screen depends on all four services, as lesson 2 warned.</p>
+
+<OneLiner>A BFF needs a timeout on every call and a plan for when it fails (fallback), otherwise one slow service takes down the whole screen.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Failure</strong> scenario, step through with the <code>recomendacoes</code> down: first with a 100 ms timeout and then the "what if it goes wrong" step, with no timeout. Compare what Lena sees in each. Finally, take down the <code>catalogo</code> and see how many channels feel it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bff/bff-3d/?mode=falha" poster="labs/bff/bff-3d-previa.webp" title="Interactive figure: Timeout, fallback and blast radius" alt="Preview of the 3D figure: Timeout, fallback and blast radius" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena opens the app and the <code>bff-app</code> calls the four services at the same time. The <code>recomendacoes</code> doesn't respond.</li>
+  <li>The BFF waits at most <strong>100 ms</strong> for each service. Past the deadline, it gives up on that call, and only that one.</li>
+  <li>Instead of failing, it uses plan B (fallback): builds the screen <strong>without</strong> the "customers who bought this also bought" section, with <code>"recomendado": []</code>.</li>
+  <li>If the <code>pedidos</code> goes down, the order section shows "status unavailable right now". The rest of the screen stays whole.</li>
+  <li>Lena doesn't even notice: the screen arrived, just a little smaller.</li>
+</ol>
+</HowItWorks>
+
+<p>Change the <code>recomendacoes</code> response time and compare with and without the timeout.</p>
+
+<Widget name="timeout" title="Timeout and fallback" hint="Choose how long the recomendacoes takes and whether the BFF has a 100 ms timeout. See what Lena sees and how long the screen takes." />
+
+<p>What if it goes wrong? With no timeout, the <code>bff-app</code> waits for the <code>recomendacoes</code> for 30 s. Meanwhile more screens arrive, each stuck in the same wait. Connections pile up until the BFF falls, and the whole home screen disappears. A service that only decorates the screen took down the app.</p>
+
+<p>In code, the 100 ms timeout and the fallback go together. Example written for the lesson (Go):</p>
+
+<pre><code>{String.raw`func recomendados(ctx context.Context, id int) []Produto {
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+
+	r, err := recomendacoes.Para(ctx, id)
+	if err != nil { // timeout, error or service down
+		return []Produto{} // fallback: screen without the section
+	}
+	return r
+}`}</code></pre>
+
+<p>And if you use Resilience4j, the same limit is a configuration (Spring Boot YAML):</p>
+
+<pre><code>{String.raw`resilience4j:
+  timelimiter:
+    instances:
+      recomendacoes:
+        timeoutDuration: 100ms
+  circuitbreaker:
+    instances:
+      recomendacoes:
+        failureRateThreshold: 50       # opens the circuit above 50% failures
+        waitDurationInOpenState: 10s   # stays open for 10 s before testing again`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>The failure stays small.</strong> A decoration service doesn't take down the screen.</li>
+  <li><strong>The timeout belongs to the BFF.</strong> Whoever builds the screen knows which part is optional and which is essential.</li>
+  <li><strong>The blast radius remains.</strong> <code>bff-app</code> and <code>bff-web</code> depend on the same <code>catalogo</code>. If it goes down, both channels feel it.</li>
+  <li><strong>What stays open:</strong> splitting BFFs by channel doesn't split shared dependencies. Isolating calls inside each BFF (bulkhead) is a resilience topic, outside this module.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Blast radius</h4>
+  <p>It's how far a failure reaches: how many channels and users feel it when a piece goes down. With a BFF per channel, a BFF that falls takes down only its channel. But if <code>bff-app</code> and <code>bff-web</code> call the same <code>catalogo</code>, its failure hits both.</p>
+  <h4 class="deep-h">Why connections pile up</h4>
+  <p>Example calculation: if 100 screens arrive per second and each stays stuck for 30 s, the BFF holds 100 × 30 = 3,000 open connections. With a 100 ms timeout, each screen releases the connection in 0.1 s and about 10 remain.</p>
+  <h4 class="deep-h">Which screens accept a fallback</h4>
+  <ul>
+    <li><strong>Decoration</strong> (recommendations): the section disappears.</li>
+    <li><strong>Information</strong> (order status): shows "unavailable right now".</li>
+    <li><strong>Essential</strong> (cart price at checkout): the screen should warn and not let the user pay with wrong data.</li>
+  </ul>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article cites canary and blue-green as a way to reduce the blast radius. They reduce the radius of a <strong>bad BFF version</strong>, not of a service that goes down. For the second failure, timeout, fallback, circuit breaker and bulkhead apply.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Public article by Matheus Fidelis on resilience patterns (no affiliation)", href: "https://fidelissauro.dev/resiliencia/" },
+    { label: "Resilience4j: CircuitBreaker (parameters)", href: "https://resilience4j.readme.io/docs/circuitbreaker" },
+    { label: "Polly: circuit breaker strategy", href: "https://www.pollydocs.org/strategies/circuit-breaker.html" },
+    { label: "MDN: Retry-After header", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After" },
+  ]} />
+</Deep>
+
+<p class="gancho">The app survived the <code>recomendacoes</code> going down and nobody complained. But how did the store find out it happened, and how would it know the app is doing worse than the website? What's left is what each BFF measures that the service alone can't see.</p>
+
+<Flashcards cards={[
+  { q: "What does the <code>bff-app</code> do if the <code>recomendacoes</code> takes more than 100 ms?",
+    a: "Gives up on that call and answers with the screen without the section, with <code>\"recomendado\": []</code>." },
+  { q: "What happens with no timeout?",
+    a: "The BFF waits 30 s, connections pile up until it falls and the whole home screen disappears." },
+  { q: "What does Lena see if the <code>pedidos</code> goes down?",
+    a: "The whole screen, with the order section saying \"status unavailable right now\"." },
+  { q: "What is blast radius?",
+    a: "How far a failure reaches. If the <code>catalogo</code> goes down, <code>bff-app</code> and <code>bff-web</code> feel it together." },
+  { q: "Does a BFF per channel separate dependencies?",
+    a: "No. It separates the channels, but they still call the same services." },
+]} />

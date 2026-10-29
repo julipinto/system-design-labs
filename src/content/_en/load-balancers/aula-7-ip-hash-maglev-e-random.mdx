@@ -1,0 +1,101 @@
+---
+title: "IP hash, Maglev and random"
+order: 7
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The previous four algorithms choose by load, so Lena may land on one replica now and on another on the next request. If her cart is in <code>catalogo-2</code>'s memory, the second request reaches a replica that doesn't know it. The balancer needs to remember who is who. Instead of keeping a table of clients, it can <strong>calculate</strong> the replica from the IP: that's <strong>IP hash</strong>.</p>
+
+<OneLiner>IP hash turns the client's IP into a number and uses the remainder of the division by the pool size as the choice; the same client always lands on the same replica, at the cost of a distribution that can get lopsided and of changing everything when the pool changes.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Hash</strong> mode, look at <strong>The whole queue: each client on its replica</strong> and then <strong>What if it fails: 500 people behind one IP</strong>. Then go through <strong>What if it fails: catalogo-3 leaves and 2/3 move</strong> and <strong>Consistent hashing (Maglev): only 1/3 moves</strong> and count how many clients changed replica in each. Last, switch to <strong>Random</strong> and look at <strong>What if it fails: 10 requests give 2 · 5 · 3</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=hash" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: IP hash and Maglev" alt="Preview of the 3D figure: IP hash and Maglev" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The math.</strong> The balancer computes <code>hash(IP) % 3</code>. In this lesson's figure and widget, the example hash uses the last two numbers of the IP: <code>octet3 × 256 + octet4</code>. Lena (<code>177.38.20.5</code>) gives 20 × 256 + 5 = 5,125, and 5,125 % 3 = 1: <strong>always <code>catalogo-2</code></strong>, on every request. Bia, Caio and Davi also have their fixed replica.</li>
+  <li><strong>What it's for.</strong> Session in the replica's memory, local cache, requests that need to be resolved in order by the same server. Nothing has to be stored in the balancer: the IP and the math are enough.</li>
+  <li><strong>What if it fails: NAT.</strong> An office in SP has <strong>500 people</strong> behind <strong>one</strong> public IP (NAT). They all give the same hash and land on the same replica, which gets 500 times the load of one person alone, while the other two have spare capacity.</li>
+  <li><strong>What if it fails: the pool changes.</strong> Taking out <code>catalogo-3</code> turns <code>% 3</code> into <code>% 2</code>. Only those with <code>h % 6</code> in {"{"}0, 1{"}"} stay where they were: about <strong>2/3 of the clients change replica</strong>, and each one loses the session they had.</li>
+  <li><strong>Consistent hashing and Maglev.</strong> With consistent hashing, when <code>catalogo-3</code> leaves, only the clients that were on it (about <strong>1/3</strong>) change. <strong>Maglev</strong>, from Google, is a layer 4 balancer that uses a variant of this idea to change as little as possible when a replica joins or leaves.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-hash" title="IP hash and random on the same queue" hint="Choose 'IP hash' and see where each client's IP lands. Choose 'Random' and draw again to see how the result varies." />
+
+<Widget name="remap" title="How many clients change replica?" hint="Choose the pool size and how many clients there are. See the fraction that changes with the modulo and with consistent hashing when a replica leaves." />
+
+<h3 class="sec">Random: the simplest</h3>
+
+<p><strong>Random</strong> draws the replica for each request, looking at nothing. It keeps no state, decides in minimal time and scales easily. The cost is at low traffic: <strong>10 requests</strong> drawn among three replicas can give <strong>2 / 5 / 3</strong>, one replica with more than double another. With <strong>10,000</strong> requests, the result tends to be close to a third for each.</p>
+
+<WhyItMatters>
+  <li><strong>Affinity without a table.</strong> The hash gives "same client, same replica" without the balancer storing anything.</li>
+  <li><strong>The modulo is fragile.</strong> A replica joining or leaving shuffles about 2/3 of the clients, and the store loses sessions right when it's scaling or recovering.</li>
+  <li><strong>It hides imbalance.</strong> An IP is not a person: NAT and proxies pile people onto a single IP.</li>
+  <li><strong>Random is only good at volume.</strong> When the load is large and uniform, the law of large numbers does the balancer's job.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The article's code, up close</h4>
+<pre><code>{String.raw`hasher := md5.New()
+hasher.Write([]byte(clientIP))
+hashBytes := hasher.Sum(nil)
+
+hashIndex := binary.BigEndian.Uint32(hashBytes[:4]) % uint32(len(ipb.hosts))
+return ipb.hosts[hashIndex]`}</code></pre>
+  <ul>
+    <li>The article uses the MD5 of the IP text, takes the first 4 bytes as a 32-bit number and divides by the number of hosts. This lesson's widget swaps MD5 for a shorter calculation, just so it can be done in your head.</li>
+    <li>With the article's 7 test IPs, the output is always the same per IP: <code>192.168.1.1</code> always goes to <code>host1</code>, for example.</li>
+  </ul>
+  <h4 class="deep-h">How consistent hashing avoids the shuffle</h4>
+  <p>Instead of dividing by N, consistent hashing spreads replicas and clients around a ring of numbers. Each client goes to the first replica it finds walking around the ring. When a replica leaves, only those who pointed to it walk on to the next one. The original work is by Karger et al. (1997).</p>
+  <h4 class="deep-h">Maglev</h4>
+  <ul>
+    <li>It's Google's software network load balancer, described in an NSDI 2016 paper. The paper says it has served Google's traffic <strong>since 2008</strong>.</li>
+    <li>It runs on <strong>ordinary Linux servers</strong>, with no dedicated hardware. A single server can saturate a 10 Gbps link with small packets.</li>
+    <li>It uses its own consistent hash (Maglev hashing, with a lookup table) and keeps connection state, so a connection that already exists doesn't change replica when the pool changes. The minimal change is not exactly 1/3: Maglev accepts a bit more change in exchange for a well-balanced table.</li>
+    <li>In tools, Envoy has the <code>RING_HASH</code> and <code>MAGLEV</code> policies, and NGINX has <code>hash ... consistent</code>.</li>
+  </ul>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li>The article calls IP hash "consistent hash". What it shows, <code>hash % N</code>, is <strong>not</strong> consistent: it changes almost everything when N changes. Consistent hashing is a different technique, used by Maglev and by <code>RING_HASH</code>.</li>
+    <li>The article says Maglev "requires specific hardware and software" and is still "not widely used". Google's paper says the opposite: it runs on ordinary servers, and has been in production since 2008.</li>
+    <li>NGINX's <code>ip_hash</code> uses only the <strong>first three octets</strong> of the IPv4 (or the whole IPv6) as the key, so an entire /24 range lands together. This lesson's example uses the last two numbers of the IP, just so the math fits on the screen.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Maglev: a fast and reliable software network load balancer (Google, NSDI 2016)", href: "https://research.google/pubs/maglev-a-fast-and-reliable-software-network-load-balancer/" },
+    { label: "Karger et al., 1997: consistent hashing and random trees (PDF)", href: "https://www.cs.princeton.edu/courses/archive/fall09/cos518/papers/chash.pdf" },
+    { label: "NGINX: ip_hash, hash and random in the upstream module", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+    { label: "Envoy: RING_HASH, MAGLEV and RANDOM", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "HAProxy: balance source (hash of the source IP)", href: "https://docs.haproxy.org/3.0/configuration.html" },
+  ]} />
+</Deep>
+
+<p>With the six ways of choosing, the balancer decides well, but it only sees what it can read from the request. What's left is what it sees when it looks only at the IP and the port, and what changes when it opens the request and reads the path.</p>
+
+<Flashcards cards={[
+  { q: "How does IP hash choose the replica?",
+    a: "It computes a number from the client's IP and uses the remainder of the division by the pool size (<code>hash % 3</code>). The same IP always lands on the same replica." },
+  { q: "Where does Lena (<code>177.38.20.5</code>) land in the store's example?",
+    a: "Always on <code>catalogo-2</code>: the example hash gives 5,125, and 5,125 % 3 = 1." },
+  { q: "What goes wrong with 500 people behind one IP?",
+    a: "NAT gives them all a single IP, so they all have the same hash and land on the same replica." },
+  { q: "How many clients change replica when <code>catalogo-3</code> leaves?",
+    a: "With the modulo (% 3 becomes % 2), about 2/3. With consistent hashing or Maglev, only about 1/3: those that were on it." },
+  { q: "What does random show with 10 requests and with 10,000?",
+    a: "With 10, it can give 2 / 5 / 3, uneven. With 10,000, it tends to a third for each replica." },
+]} />

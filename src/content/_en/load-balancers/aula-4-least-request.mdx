@@ -1,0 +1,87 @@
+---
+title: "Least request"
+order: 4
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Round robin spun without looking at anyone, and <code>catalogo-2</code> ended up with all three searches. The obvious way out is to look: keep how many requests each replica has served and send the next one to the one that served the fewest. That's <strong>least request</strong>, in the form the article describes.</p>
+
+<OneLiner>Least request keeps a request counter per replica and sends the next one to the replica with the lowest counter; it works when requests are alike, and breaks when a new replica joins with its counter at zero.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>LR</strong> mode, step through <strong>Least request: goes to whoever served the fewest</strong> and <strong>Together from the start: same as round robin</strong> and watch each replica's counter go up. Then go on to <strong>catalogo-4 joins with counter 0</strong> and <strong>What if it fails: the next 3,000 go to catalogo-4</strong>. Where do the following requests go?</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=lr" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: Least request" alt="Preview of the 3D figure: Least request" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The counter.</strong> The balancer keeps one number per replica: <code>catalogo-1</code>, <code>catalogo-2</code> and <code>catalogo-3</code> start at 0. With each request sent, the chosen replica's counter goes up by 1.</li>
+  <li><strong>The choice.</strong> P1 arrives: all three have 0, and the tie goes to the first (<code>catalogo-1</code>). P2 arrives: replica 1 has 1, replicas 2 and 3 have 0, and it goes to 2. P3 goes to 3, and P4 goes back to 1.</li>
+  <li><strong>The result on the queue of 9.</strong> With all three together from the start, the order comes out the same as round robin's (1, 2, 3, 1, 2, 3, 1, 2, 3), and the searches P2, P5 and P8 land on <code>catalogo-2</code> again. Counting requests sees quantity, not duration.</li>
+  <li><strong>Where it shines.</strong> In a lookup service that receives an id and quickly returns the resource, every request costs the same, and the counter really does balance.</li>
+  <li><strong>What if it fails.</strong> The store grows: <code>catalogo-4</code> joins with counter <strong>0</strong>, while the other three are at <strong>3,000</strong>. By the rule, the next <strong>3,000 requests all go to it</strong>, until it ties. That's an involuntary denial of service on the new host, right when it has just come up.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lr" title="Least request on the same queue" hint="See the distribution of the 9 requests. Then turn on 'catalogo-4 joins with counter 0' and see where each request goes." />
+
+<WhyItMatters>
+  <li><strong>One step beyond the rotation.</strong> The balancer now has memory and decides by what happened, not by position.</li>
+  <li><strong>The counter needs care.</strong> A counter that only grows makes the new host always look like the least used. That's why implementations reset or window the count.</li>
+  <li><strong>The name is misleading.</strong> In the article, "least request" counts requests <em>served</em>. In real tools, the same name counts requests <em>in flight</em>, which is close to lesson 6.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The article's code, up close</h4>
+<pre><code>{String.raw`minIndex := 0
+minRequests := lr.requests[0]
+
+for i, reqs := range lr.requests {
+	if reqs < minRequests {
+		minIndex = i
+		minRequests = reqs
+	}
+}
+
+lr.requests[minIndex]++
+return lr.hosts[minIndex]`}</code></pre>
+  <ul>
+    <li>The loop walks the counters and keeps the smallest. The strict <code>&lt;</code> makes a tie stay with the first host.</li>
+    <li>The <code>++</code> at the end is what makes the counter go up, and nothing makes it go down: that's why the new host, with 0, becomes the target of everything.</li>
+    <li>With 30 requests, the article's output is <code>[10 10 10]</code>: a perfect distribution because all the requests in the simulation are equal.</li>
+  </ul>
+  <h4 class="deep-h">Corrections and cautions about the source article</h4>
+  <ul>
+    <li>The article defines least request by the fewest requests <strong>processed so far</strong>. Envoy's <code>LEAST_REQUEST</code> uses the number of <strong>active</strong> requests, and instead of looking at all replicas it picks two at random and chooses the one with fewer (<em>power of two choices</em>). With active requests, the new host doesn't monopolize the queue for long. This lesson's example follows the article, and lesson 6 shows the pending-requests version.</li>
+    <li>Envoy weights the result by <code>load_balancing_weight / (active requests + 1)</code> (with the default exponent 1.0). With exponent 0 it behaves like round robin.</li>
+    <li>The 3,000 counter is an example number to make the math round.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: LEAST_REQUEST, active requests and power of two choices", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "NGINX: upstream module (available methods)", href: "https://nginx.org/en/docs/http/ngx_http_upstream_module.html" },
+  ]} />
+</Deep>
+
+<p>Least request chose by the counter, and a counter counts the past, not what is happening now. What's left to see is whether, instead of requests already served, the balancer can look at the connections each replica has open at this moment.</p>
+
+<Flashcards cards={[
+  { q: "How does least request choose the replica?",
+    a: "By the lowest counter of requests served so far. A tie goes to the first on the list." },
+  { q: "On the queue of 9 requests, what does least request change compared to round robin?",
+    a: "Nothing: with the three replicas together from the start, the order is the same (1, 2, 3, 1, 2, 3, 1, 2, 3) and the searches all land on <code>catalogo-2</code>." },
+  { q: "What happens when <code>catalogo-4</code> joins with counter 0 and the others are at 3,000?",
+    a: "The next 3,000 requests all go to it: an involuntary denial of service. The way out is to reset or window the counters." },
+  { q: "What does Envoy call LEAST_REQUEST?",
+    a: "Choosing, between two randomly drawn replicas, the one with fewer active (in-flight) requests, not fewer requests already served as in the article." },
+]} />

@@ -54,11 +54,11 @@ const css = `
 .embedded #ctl-gateway button:nth-child(n+3),.embedded #ctl-gateway .sep{display:none!important}
 `;
 const reps = [
-  ["<title>Iso 3D</title>", "<title>API Gateway em 3D · SDLabs</title>"],
+  ["<title>Iso 3D</title>", EN ? "<title>API Gateway in 3D · SDLabs</title>" : "<title>API Gateway em 3D · SDLabs</title>"],
   ["<i></i>Iso 3D</div>", "<i></i>API Gateway · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-4-roteamento-autenticacao-e-autorizacao">Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-4-roteamento-autenticacao-e-autorizacao">' + (EN ? "Back to module" : "Voltar ao módulo") + '</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read(EN ? "fig3d.en.js" : "fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

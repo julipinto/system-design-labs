@@ -1,0 +1,86 @@
+---
+title: "Market technologies"
+order: 9
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>So far <code>lb-loja</code> has been a drawing: it picks by round robin, takes replicas out of the pool, reads the path if it has the certificate. Somebody had to write that program. When the store puts a real balancer in front of <code>catalogo</code>, it won't write one: it will choose among half a dozen tools that do everything the earlier lessons described.</p>
+
+<OneLiner>Envoy, NGINX, HAProxy, Traefik, Kubernetes Ingress Controllers and the cloud's managed balancers do the same things with different emphasis: Envoy and Traefik for dynamic configuration, NGINX and HAProxy for maturity, the cloud for the promise that nobody has to operate anything.</OneLiner>
+
+<DoIt>
+  <p>Pick your scenario and use the list below to say out loud which tool the store would use and why. If you want to check the result on a real tool, the next lesson brings up an Envoy.</p>
+</DoIt>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Envoy.</strong> Born at Lyft and now a CNCF project. It works at L4 and L7 (HTTP, gRPC, WebSocket) and is the base of Istio, Contour, Gloo and Envoy Gateway, among others. It sits at the center for whoever wants dynamic configuration and lots of metrics.</li>
+  <li><strong>NGINX.</strong> A web server and reverse proxy created by Igor Sysoev, famous for holding many connections with little memory. It's what the store already uses in front of <code>pagamentos</code> (lesson 2), and it balances too.</li>
+  <li><strong>HAProxy.</strong> Written by Willy Tarreau in 2000, it's an L4 and L7 balancer used where the balancer has to be fast and stable. It offers round robin, least connection and source IP hash, among others.</li>
+  <li><strong>Traefik.</strong> From 2015, a reverse proxy and balancer that discovers on its own the containers that come up and go down in Docker and Kubernetes and changes routes on the spot, without restarting.</li>
+  <li><strong>Ingress Controllers and managed ones.</strong> In a Kubernetes cluster, an Ingress Controller (NGINX, HAProxy, Traefik, Envoy) is the entry point from outside to the services. In the cloud, the ALB does L7 and the NLB does L4, and AWS takes care of the operation.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The same lessons, in each tool</h3>
+
+<div class="sr-tablewrap"><table class="sr-table">
+<thead><tr><th>Tool</th><th>Layers</th><th>Round robin</th><th>Least load</th><th>Hash</th></tr></thead>
+<tbody>
+<tr><th scope="row">Envoy</th><td>L4 and L7</td><td><code>ROUND_ROBIN</code></td><td><code>LEAST_REQUEST</code> (active requests)</td><td><code>RING_HASH</code>, <code>MAGLEV</code>; <code>RANDOM</code></td></tr>
+<tr><th scope="row">NGINX</th><td>L7 and L4 (stream module)</td><td>default, with weights</td><td><code>least_conn</code></td><td><code>ip_hash</code>, <code>hash</code>; <code>random</code></td></tr>
+<tr><th scope="row">HAProxy</th><td>L4 and L7</td><td><code>roundrobin</code></td><td><code>leastconn</code></td><td><code>source</code>, <code>uri</code></td></tr>
+<tr><th scope="row">AWS ALB</th><td>L7</td><td><code>round_robin</code> (default)</td><td><code>least_outstanding_requests</code></td><td>(<code>weighted_random</code> instead)</td></tr>
+<tr><th scope="row">AWS NLB</th><td>L4</td><td colspan="3">network flow hash (the connection)</td></tr>
+</tbody></table></div>
+
+<WhyItMatters>
+  <li><strong>The lessons become configuration vocabulary.</strong> "Least request" is <code>LEAST_REQUEST</code> in Envoy and "LOR" is <code>least_outstanding_requests</code> in the ALB. Whoever understood the algorithm reads the tool's documentation without getting lost.</li>
+  <li><strong>There is no best one.</strong> The choice depends on who operates it, what already exists in the house and how much the routing changes through the day.</li>
+  <li><strong>The name is misleading again.</strong> The same tool shows up as reverse proxy, balancer, Ingress Controller and sidecar, which repeats lesson 2's point.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Dates and corrections to the source article</h4>
+  <ul>
+    <li><strong>NGINX:</strong> the article says "created by Igor Sysoev in 2002". Development began earlier, but the <strong>first public version (0.1.0) is from October 4, 2004</strong>, according to the changelog at nginx.org. So, when in doubt, cite 2004 as the year it reached the world.</li>
+    <li><strong>HAProxy:</strong> "written in 2000 by Willy Tarreau" is what the article and Wikipedia say. The official site doesn't give the year.</li>
+    <li><strong>Envoy:</strong> the first public commit is from August 2016. It joined the CNCF in September 2017 and graduated in November 2018. The article says it was created by Lyft; the CNCF page doesn't name the company.</li>
+    <li><strong>Traefik:</strong> the year 2015 is the article's. I didn't confirm it in a primary source.</li>
+  </ul>
+  <h4 class="deep-h">When to choose what</h4>
+  <ul>
+    <li><strong>Already on Kubernetes:</strong> an Ingress Controller (the choice is usually whatever the team already knows how to operate).</li>
+    <li><strong>Needs lots of dynamic configuration and metrics:</strong> Envoy, or something built on it.</li>
+    <li><strong>Needs a classic, simple, very fast balancer:</strong> HAProxy or NGINX.</li>
+    <li><strong>Doesn't want to operate it:</strong> the ALB or the NLB, knowing that algorithms and tuning are limited to what AWS offers.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy at the CNCF: join and graduation dates", href: "https://www.cncf.io/projects/envoy/" },
+    { label: "NGINX: changelog (0.1.0, October 4, 2004)", href: "https://nginx.org/en/CHANGES" },
+    { label: "Wikipedia: HAProxy (written in 2000 by Willy Tarreau)", href: "https://en.wikipedia.org/wiki/HAProxy" },
+    { label: "Traefik: documentation", href: "https://doc.traefik.io/traefik/" },
+    { label: "AWS: Application Load Balancer and Network Load Balancer", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+  ]} />
+</Deep>
+
+<p>Knowing the tools is half of it; the other half is seeing one of them running with the configuration file in hand. What's left is how a real Envoy writes in YAML everything <code>lb-loja</code> did in this module, and what happens when one of the servers behind it goes down.</p>
+
+<Flashcards cards={[
+  { q: "Which tools play the role of both balancer and reverse proxy?",
+    a: "Envoy, NGINX, HAProxy and Traefik do both, besides Kubernetes Ingress Controllers. The cloud's managed ones (ALB and NLB) also balance." },
+  { q: "What is the difference between ALB and NLB?",
+    a: "The ALB works at layer 7 (HTTP, path-based routing). The NLB works at layer 4 (TCP and UDP, focused on throughput)." },
+  { q: "How does an algorithm's name change from one tool to another?",
+    a: "For example, lesson 6's LOR is <code>least_outstanding_requests</code> in the ALB, and round robin is <code>ROUND_ROBIN</code> in Envoy and <code>roundrobin</code> in HAProxy." },
+  { q: "When was NGINX released to the public?",
+    a: "The first public version (0.1.0) is from October 4, 2004. The article says 2002, which is when Igor Sysoev started." },
+]} />

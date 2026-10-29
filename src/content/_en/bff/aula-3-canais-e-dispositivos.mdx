@@ -1,0 +1,99 @@
+---
+title: "Channels and devices"
+order: 3
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In lesson 2 the <code>bff-app</code> delivered the app's home in 12 KB. But the store has other ways of asking: the website, where Lena sees large photos, and now a voice assistant, where she just talks. The same data has to arrive in three formats.</p>
+
+<OneLiner>A channel is a way for Lena to talk to the store (app, website, voice). Each channel gets its own BFF, which knows only its own format, rhythm and rules.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Channels</strong> scenario, step until the status of order 1048 reaches all three. See what each channel gets from the same data: a thumbnail, a page, a sentence. Which one gets no photo at all?</p>
+</DoIt>
+
+<Figure3D path="en/labs/bff/bff-3d/?mode=canais" poster="labs/bff/bff-3d-previa.webp" title="Interactive figure: One BFF per channel" alt="Preview of the 3D figure: One BFF per channel" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena asks about order 1048 in the app. The <code>bff-app</code> answers with small JSON, a thumbnail and short pagination, and trusts the JWT the gateway already checked.</li>
+  <li>Bia opens the website. The <code>bff-web</code> renders the page on the server (SSR), with large photos, and keeps the session in a central cache (the module 5 Redis).</li>
+  <li>Lena asks the assistant: "where is my order?". The <code>bff-voz</code> returns short text, no photo: <code>"Your order 1048 is on its way and arrives Thursday."</code></li>
+  <li>The three BFFs call the same service, the <code>pedidos</code>. The data is one, and what changes is the shape.</li>
+  <li>The partner <code>marketplace-xyz</code> doesn't get a BFF: it stays on the gateway, with the generic public API. A BFF is for your <strong>own</strong> frontend.</li>
+</ol>
+</HowItWorks>
+
+<p>See the same order status in the three formats and check what each channel cuts.</p>
+
+<Widget name="qual-bff" title="Which BFF?" hint="Choose the channel and see the format it gets for the status of order 1048, who builds the response and what is left out." />
+
+<p>For the gateway to send each request to the right BFF, one route per prefix is enough. Example in Envoy (the <code>gw-loja</code> could be another product, the idea is the same):</p>
+
+<pre><code>{String.raw`routes:
+- match: { prefix: "/app/" }
+  route: { cluster: bff-app, timeout: 1s }
+- match: { prefix: "/web/" }
+  route: { cluster: bff-web, timeout: 3s }
+- match: { prefix: "/voz/" }
+  route: { cluster: bff-voz, timeout: 1s }
+- match: { prefix: "/" }             # the rest, like marketplace-xyz, stays on the public API
+  route: { cluster: api-publica }`}</code></pre>
+
+<WhyItMatters>
+  <li><strong>Each channel evolves on its own.</strong> The app changes the thumbnail without touching the website, and voice gets a new sentence without touching either.</li>
+  <li><strong>No <code>if</code> per channel.</strong> Each BFF knows only its own audience and the code stays short.</li>
+  <li><strong>Cache and security rules per channel.</strong> The website keeps its session in Redis, the app uses only the JWT.</li>
+  <li><strong>The price:</strong> three BFFs are three things to maintain and scale. Lesson 4 shows what happens when they start repeating logic.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">What stays in the code without a BFF per channel</h4>
+  <p>In a single backend, each endpoint decides by channel. With every new endpoint, the <code>if</code> grows:</p>
+  <pre><code>{String.raw`if (canal == "app") {
+  resposta = { id, status, foto: miniatura }
+} else if (canal == "web") {
+  resposta = renderizarPagina(pedido, fotos: grandes)
+} else if (canal == "voz") {
+  resposta = "Your order " + id + " is on its way and arrives Thursday."
+}`}</code></pre>
+  <p>Every new rule for a channel goes through this code, and whoever edits it for the app can break voice.</p>
+  <h4 class="deep-h">When the same response serves different channels</h4>
+  <p>If a response changes by channel and goes through a shared cache, the <code>Vary</code> header says which request header goes into the cache key. With one BFF per channel, this almost disappears: each one has its own route and its own response.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article gives Memcached as an example of session cache for the web channel. In the store, the Redis from module 5 plays that role. It isn't an error, it's the same idea with the piece the story already has.</li>
+    <li>The article mentions MQTT and WebSockets for IoT. The store's voice channel is question and answer, so it stays on HTTP. Both protocols come in when the channel needs an open, intermittent connection.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "Sam Newman: Pattern: Backends For Frontends", href: "https://samnewman.io/patterns/architectural/bff/" },
+    { label: "Phil Calçado: The Back-end for Front-end Pattern (BFF)", href: "https://philcalcado.com/2015/09/18/the_back_end_for_front_end_pattern_bff.html" },
+    { label: "Envoy: route configuration (route_components, timeout)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "MDN: Vary header", href: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Vary" },
+  ]} />
+</Deep>
+
+<p class="gancho">Each channel has its BFF, and each BFF has an owner. But the website's screen alone is already too big for one team: in module 6 the store was split among three teams, Vitrine, Checkout and Logística. What's left is what changes when each piece of the screen gets its own BFF.</p>
+
+<Flashcards cards={[
+  { q: "What is a channel?",
+    a: "A way for the user to talk to the store: the app, the website, voice. Each one gets its own BFF." },
+  { q: "What does the bff-web do that the bff-app doesn't?",
+    a: "Renders the page on the server (SSR), with large photos, and keeps the session in Redis." },
+  { q: "What does the bff-voz return for 'where is my order?'",
+    a: "A short sentence, no photo: \"Your order 1048 is on its way and arrives Thursday.\"" },
+  { q: "Why doesn't marketplace-xyz have a BFF?",
+    a: "A BFF is for your own frontend. The partner uses the generic public API, on the gateway." },
+  { q: "What happens without a BFF per channel?",
+    a: "A single backend, with an if per channel that grows with every endpoint." },
+]} />

@@ -1,0 +1,36 @@
+---
+// Microservices, Monoliths and Domains module (English): the 8 lessons in src/content/_en/microsservicos/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/microsservicos.css';
+
+const entries = (await getCollection('en-microsservicos')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/microsservicos/quiz/');
+---
+<ModuleLayout
+  title="Microservices, Monoliths and Domains · SDLabs"
+  description="When and how to split a monolith into microservices: noisy neighbor, blast radius, database per service, DDD, Conway's Law and domain events, with interactive labs."
+  module="microsservicos"
+  heading="Microservices, Monoliths and Domains"
+  lead="The fast store is still one program, and it already gets in its own teams' way. When to split, where to cut and what it costs: monolith, microservices, domains and order 1047 going through it all."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/microsservicos/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

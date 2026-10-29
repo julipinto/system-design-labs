@@ -1,0 +1,94 @@
+---
+title: "Round robin"
+order: 3
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>The last lesson left a question: how does <code>lb-loja</code> choose among three replicas? The simplest answer is not to choose: hand one request to each, in turn. That's <strong>round robin</strong>. We'll feed it the same queue of 9 requests that will run through the next five lessons.</p>
+
+<OneLiner>Round robin hands each request to the next replica on the list, in a circle, without looking at how much work the request is or how the replica is doing; it is fair in the count and blind to the work.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>RR</strong> mode, step through <strong>Round robin: each in its turn</strong> and <strong>9 requests: 3 for each</strong> and compare the three work numbers (ms). Then look at <strong>With weight: catalogo-3 has twice the CPU</strong>, <strong>With quantum: each turn lasts 300 ms</strong> and <strong>What if it fails: the 3 searches on catalogo-2</strong>. Do the numbers match, even with 3 requests for each?</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=rr" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: Round robin" alt="Preview of the 3D figure: Round robin" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The queue.</strong> 9 requests arrive, in this order: P1 Lena (cat) · P2 Bia (search) · P3 Caio (cat) · P4 Davi (cat) · P5 Lena (search) · P6 Bia (cat) · P7 Caio (cat) · P8 Davi (search) · P9 Lena (cat). The <strong>cat</strong> is <code>GET /produtos/42</code> and takes <strong>20 ms</strong>. The <strong>search</strong> is <code>GET /busca?q=pelucia&amp;ordem=preco</code> and takes <strong>900 ms</strong>.</li>
+  <li><strong>The rotation.</strong> The balancer keeps just one number, the index of the next replica, and advances it with each request: 1, 2, 3, 1, 2, 3, 1, 2, 3. Each replica gets 3 requests. The math looks fair.</li>
+  <li><strong>The problem.</strong> The three searches (P2, P5 and P8) all landed on <code>catalogo-2</code>: it has <strong>2.7 s</strong> of work (3 × 900 ms), while 1 and 3 have <strong>60 ms</strong> each (3 × 20 ms). Round robin counted requests and didn't look at what each one cost.</li>
+  <li><strong>With quantum.</strong> The article's Go code switches replicas only after some time, the <em>quantum</em>: with a 300 ms quantum and one request every 200 ms, each replica gets <strong>2 requests in a row</strong>. If a spike comes within the quantum, all of it lands on a single replica.</li>
+  <li><strong>With weight.</strong> If <code>catalogo-3</code> has twice the CPU, it gets <strong>weight 2</strong> and enters twice per round: 1, 2, 3, 3. That's weighted round robin, and it handles the difference between machines, not the difference between requests.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-rr" title="The same queue, three rotations" hint="Pick the rule and see where each request goes and how much work (ms) each replica piles up. Start with round robin and switch to 'RR with quantum' and 'RR with weight'." />
+
+<WhyItMatters>
+  <li><strong>It's the starting point.</strong> Stateless, measures nothing, works well when requests cost about the same and replicas are equal. It's the default in NGINX and the ALB.</li>
+  <li><strong>It shows what "fair" hides.</strong> Three requests for each is fair in the count. In CPU, one replica worked 45 times more than the others.</li>
+  <li><strong>It opens the way to the next rules.</strong> All the other lessons in the module try to see what round robin can't: how many requests each has already served, how many connections it has, how many requests it hasn't finished yet.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Where the name comes from</h4>
+  <p>Round robin was born in CPU process scheduling: each process in the queue uses the CPU for a <strong>quantum</strong> and goes back to the end of the queue, so nobody waits forever (the starvation the article explains). In the balancer, the "process" became the request.</p>
+  <h4 class="deep-h">The article's code, up close</h4>
+<pre><code>{String.raw`func (rb *RoundRobin) getHost() string {
+	rb.mutex.Lock()
+	defer rb.mutex.Unlock()
+
+	// still inside the quantum: stay on the same host
+	if time.Now().Before(rb.ultimoAcesso.Add(rb.quantum)) {
+		return rb.hosts[rb.index]
+	}
+
+	// the quantum is over: move on to the next host
+	rb.ultimoAcesso = time.Now()
+	rb.index = (rb.index + 1) % len(rb.hosts)
+	return rb.hosts[rb.index]
+}`}</code></pre>
+  <ul>
+    <li>The <code>mutex</code> exists because several requests arrive at the same time and all of them touch <code>index</code>.</li>
+    <li>The <code>% len(rb.hosts)</code> makes the index go back to 0 after the last host. That's the "in a circle".</li>
+    <li>With <code>quantum = 300 ms</code> and one request every 200 ms, the article's output is: requests 1 and 2 on <code>host1</code>, 3 and 4 on <code>host2</code>, 5 and 6 on <code>host3</code>, and so on.</li>
+  </ul>
+  <h4 class="deep-h">Corrections and cautions about the source article</h4>
+  <ul>
+    <li>The article treats the quantum as part of load-balancing round robin. Real tools (Envoy, NGINX, HAProxy) rotate by <strong>request</strong>, with <strong>weights</strong>. The time quantum belongs to the CPU scheduler and to the Go example.</li>
+    <li>The author's examples repository calls Envoy's weight (<code>load_balancing_weight</code>) a "quantum". Weight decides <em>how many requests per round</em>; quantum decides <em>for how long</em>. They are different ideas (lesson 10).</li>
+    <li>In the store's queue, the weighted round robin result (1, 2, 3, 3) spreads the searches across the three replicas, but only because the queue is short and the order helps. With a different order, the problem comes back.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "Envoy: ROUND_ROBIN is a weighted round robin", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "NGINX: round robin is the default method and accepts weights", href: "https://nginx.org/en/docs/http/load_balancing.html" },
+    { label: "HAProxy: balance roundrobin (each server in turn, according to weight)", href: "https://docs.haproxy.org/3.0/configuration.html" },
+    { label: "AWS ALB: routing algorithms for target groups (round_robin is the default)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html" },
+    { label: "Scaler: round robin in process scheduling", href: "https://www.scaler.com/topics/round-robin-scheduling-in-os/" },
+  ]} />
+</Deep>
+
+<p>Round robin gave 3 requests to each replica and one of them still ended up with 2.7 s of work. The mistake was counting requests without asking who was busy. What's left to see is whether, instead of rotating blindly, the balancer can send the next request to whoever has served the fewest so far.</p>
+
+<Flashcards cards={[
+  { q: "How does round robin choose the replica?",
+    a: "It keeps an index and advances it with each request, in a circle: 1, 2, 3, 1, 2, 3. It doesn't look at the request or the replica." },
+  { q: "Why does round robin's math look fair and isn't?",
+    a: "Each replica gets 3 requests, but the 3 searches of 900 ms all land on <code>catalogo-2</code>: 2.7 s of work against 60 ms on the others." },
+  { q: "What does the quantum change in round robin?",
+    a: "The replica only changes after some time. With a 300 ms quantum and one request every 200 ms, each replica gets 2 in a row. A spike inside the quantum lands on a single replica." },
+  { q: "What is weight for in round robin?",
+    a: "To compensate for different machines: <code>catalogo-3</code> with twice the CPU has weight 2 and enters twice per round. It doesn't compensate for different requests." },
+]} />

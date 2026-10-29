@@ -1,0 +1,69 @@
+---
+title: "Introduction to microservices"
+order: 1
+min: 5
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>Module 5 ended with a fast store: the plush cat (product 42) is in Redis, the photo is on the Recife CDN, and the price dropped to 79.90. But fast does not mean well divided. The whole store is still <strong>one program</strong>, the <code>loja</code> process, on an 8 vCPU server, with the <code>loja</code> database (the PostgreSQL from module 4). Seven modules live inside it: Catalog, Cart, Orders, Payments, Stock, Shipping and Reports. Three teams edit the same code, and two things started going wrong.</p>
+
+<OneLiner>A monolith is one program with everything inside; microservices are several small programs, each owning its own piece. Splitting is easy. Knowing when and where to cut is the hard part.</OneLiner>
+
+<DoIt>
+  <p>In the figure, click <strong>Next step</strong> (or →) and follow the checkout of order 1047 through the rooms of the building. Watch the panel: each call costs about 0.01 ms and none of them leaves the process. In the last step, watch the <code>ROLLBACK</code> undo everything when the stock runs out.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/monolito-3d/?mode=mono" poster="labs/microsservicos/monolito-3d-previa.webp" title="Interactive figure: the checkout of order 1047 crosses the 7 modules of the monolith in a single transaction" alt="Preview of the 3D figure: the loja process with 7 modules on top of the loja database; at 23:00 Reports uses 7 of 8 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>Lena, from Recife, buys <strong>another plush cat</strong> as a gift for her brother. It is <strong>order 1047</strong>: product 42, quantity 1, 79.90, shipping of 15.00, total of <strong>94.90</strong>.</li>
+  <li>The <code>loja</code> process receives the checkout. The Cart module calls Orders, which calls Payments, which calls Stock, which calls Shipping. These are <strong>function calls</strong> inside the same process, about 0.01 ms each.</li>
+  <li>Everything runs inside <strong>one transaction</strong> in the <code>loja</code> database: <code>BEGIN</code> at the start, <code>COMMIT</code> at the end (the ACID from module 3). When the order is paid, the cat's stock goes from <strong>3 to 2</strong>.</li>
+  <li>The whole checkout takes <strong>180 ms</strong>. If the payment fails halfway, the <code>ROLLBACK</code> gives the stock back by itself.</li>
+  <li>While the program is small, this is great. When it grows, two problems show up: one module gets in the way of the others, and when one goes down, they all go down.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>The question of this module is practical: <strong>when is it worth splitting</strong> the program, and <strong>where to cut</strong>. A cut in the wrong place gives you one program with a network in the middle, slower and just as tangled.</li>
+  <li>One problem at a time. Lesson 2 shows what the monolith does well and the two defects the store found. Lesson 3 splits the program and shows what that costs.</li>
+  <li>Lessons 4 and 5 teach how to find the boundaries (DDD). Lesson 6 shows how teams shape the design (Conway's Law). Lessons 7 and 8 apply everything to order 1047.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The words of the module</h4>
+  <ul>
+    <li><strong>Module:</strong> a part of the code with one responsibility (Catalog, Orders). It can live inside a bigger program.</li>
+    <li><strong>Process:</strong> a running program, with its own memory. The monolith is one process; each service is another.</li>
+    <li><strong>Service:</strong> a module that became a separate program, with its own database, and talks to the others over the network.</li>
+    <li><strong>vCPU:</strong> a slice of a processor. The store's server has 8.</li>
+  </ul>
+  <h4 class="deep-h">Where these numbers come from</h4>
+  <p>180 ms, 8 vCPU, 7 modules and 40 minutes of deploy are example numbers, picked so the math is easy to check. What matters is the proportion between them.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Martin Fowler and James Lewis: Microservices", href: "https://martinfowler.com/articles/microservices.html" },
+    { label: "microservices.io: Monolithic Architecture pattern", href: "https://microservices.io/patterns/monolithic.html" },
+  ]} />
+</Deep>
+
+<p>The store works, and works well, because a single program has a lot going for it that you only notice once it is gone. Next: what that advantage is, and the two defects the store ran into, with numbers.</p>
+
+<Flashcards cards={[
+  { q: "What is a monolith?",
+    a: "One program with all the modules inside, in the same process, usually with a single database. The modules call each other as functions." },
+  { q: "What are the 7 modules of the <code>loja</code> program?",
+    a: "Catalog, Cart, Orders, Payments, Stock, Shipping and Reports." },
+  { q: "How long does the checkout of order 1047 take in the monolith, and why?",
+    a: "180 ms. The calls between modules are local functions (about 0.01 ms) and everything fits in one transaction, with <code>BEGIN</code> and <code>COMMIT</code>." },
+  { q: "What is the question of this module?",
+    a: "When is it worth splitting the program, and where to cut." },
+]} />

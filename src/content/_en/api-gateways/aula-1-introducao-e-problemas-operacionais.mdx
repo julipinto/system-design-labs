@@ -1,0 +1,78 @@
+---
+title: "Introduction and operational problems"
+order: 1
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">Module 7 ended with <code>lb-loja</code> spreading the catalog across the replicas and routing by path at L7. But the store has opened two new doors: a mobile app, which Lena uses in Recife, and an API for partners, <code>marketplace-xyz</code>, which resells the plush cat. The people knocking on the store are now people the store doesn't control, and each service from module 6 still answers in its own way: <code>catalogo</code> lets anyone in, <code>pedidos</code> checks one token and <code>pagamentos</code> checks another. For the partner, that is six URLs and three ways to prove who they are.</p>
+
+<OneLiner>An API Gateway is the store's single door: every outside request comes in through <code>api.loja.com.br</code>, and the rules that apply to everyone (route, identity, limit, version) are applied there, once.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Without</strong> mode, click <strong>Next step</strong> to the end and count three things: how many addresses the app has to know, in how many places someone would have to check the login, and where you can block the bot. Stop at the last step, <strong>"What if it goes wrong: pedidos changes address"</strong>, and see who has to change. Then click <strong>Route</strong> and read the first step, <strong>"One door: api.loja.com.br"</strong>, to count again.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/gateway-3d/?mode=sem" poster="labs/api-gateways/gateway-3d-previa.webp" title="Interactive figure: Without gateway" alt="Preview of the 3D figure: Without gateway" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Six addresses.</strong> Without a gateway, Lena's app knows <code>catalogo.loja.com.br</code>, <code>carrinho.loja.com.br</code>, <code>pedidos.loja.com.br</code> and three more. The partner gets the same list, with the documentation for each one.</li>
+  <li><strong>Six ways to check who is calling.</strong> <code>catalogo</code> lets anyone in, <code>pedidos</code> asks for one token and <code>pagamentos</code> asks for another. Each team implemented it their own way, and nothing guarantees the ways are the same or that they are right.</li>
+  <li><strong>Swapping a service becomes the client's problem.</strong> If <code>pedidos</code> is replaced by a new service at another address, the app and the partner have to change URL. The app only changes when Lena updates it, and the partner only changes when their team has room in the sprint.</li>
+  <li><strong>The bot.</strong> On Black Friday, a competitor's bot asks for <code>GET /produtos/42</code> at 500 requests per second. <code>catalogo</code> handles 100 per second without degrading. To stop the bot, you have to configure every service it can reach.</li>
+  <li><strong>The cost of operating.</strong> Six TLS certificates to renew, six places to block an IP and six logs in six formats to read when something goes wrong.</li>
+</ol>
+</HowItWorks>
+
+<p>With a monolith none of this existed, because the store was a single URL (lesson 2 shows why). The API Gateway gives that single URL back. <code>gw-loja</code> listens on <code>api.loja.com.br</code>, receives every outside request and forwards it to the right service. Behind it sit each service's load balancers, from module 7, and the replicas. The app now knows one address, so does the partner, and the bot has a single place to get in.</p>
+
+<WhyItMatters>
+  <li><strong>One address, one set of docs.</strong> The partner integrates once, and the store swaps what is behind the door without telling anyone, as long as the contract (the routes and the responses) stays the same.</li>
+  <li><strong>One rule, applied once.</strong> Checking the token, counting each client's requests and writing the log all happen at the gateway. The services stop repeating the same code six times.</li>
+  <li><strong>One place to look.</strong> Certificate, bot blocking and log live in a single spot. When the bot shows up, the store knows where to act.</li>
+  <li><strong>The price.</strong> Every outside request goes through one more component, which has to be up. Lessons 3 and 5 come back to this.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">What a gateway usually does</h4>
+  <ul>
+    <li><strong>Routing:</strong> look at method and path and pick the service (lessons 2 and 4).</li>
+    <li><strong>Authentication and authorization:</strong> check who is calling and what that person can do (lesson 4).</li>
+    <li><strong>Usage limits:</strong> rate limiting and throttling (lesson 5).</li>
+    <li><strong>Versioning and path rewriting:</strong> v1 and v2 side by side (lesson 6).</li>
+    <li><strong>Other:</strong> response caching, web application firewall, header and body modification, metrics and logs.</li>
+  </ul>
+  <h4 class="deep-h">A pattern, not a product</h4>
+  <p>The gateway is an architecture pattern, described for years for microservices. Kong, NGINX, Envoy and the cloud providers' managed gateways are implementations of it. Lesson 7 uses Kong only because its public lab is easy to run.</p>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li>The article says gateways are "primarily intermediaries for REST APIs". In practice, the products also handle gRPC and WebSocket: the Kong JWT plugin page lists <code>grpc</code>, <code>grpcs</code>, <code>ws</code> and <code>wss</code> next to <code>http</code> and <code>https</code>. The article itself mentions WebSockets in the load balancer section.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "microservices.io: API Gateway pattern", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "HubSpot: what an API gateway is and how it works", href: "https://blog.hubspot.com/website/api-gateway" },
+    { label: "Microsoft Azure: Gateway Offloading pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/gateway-offloading" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows what it wants: one door, with the common rules in front. What's left is why the store only needed it after splitting the program into services, and what the monolith hid from the client without anyone having to build anything.</p>
+
+<Flashcards cards={[
+  { q: "What is an API Gateway, in one sentence?",
+    a: "The single door of an architecture: it receives every outside request, applies the common rules (route, identity, limit, version) and hands it to the right service." },
+  { q: "Which operational problems show up without a gateway?",
+    a: "The client knows 6 URLs, each service checks the login its own way, swapping a service forces the client to change address, and blocking a bot, renewing a certificate and reading logs happen in 6 places." },
+  { q: "Who is the module's bot and why does it matter?",
+    a: "A competitor's bot asks for the cat's price 500 times per second, and the catalog handles 100. Without a single place to stop it, the blocking has to be done service by service." },
+  { q: "What sits behind gw-loja?",
+    a: "lb-loja (module 7) and, behind it, the replicas: app → gw-loja → lb-loja → catalogo-1/2/3." },
+]} />

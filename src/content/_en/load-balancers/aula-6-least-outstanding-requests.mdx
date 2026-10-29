@@ -1,0 +1,74 @@
+---
+title: "Least outstanding requests"
+order: 6
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>Last lesson, least connection sent the search to <code>catalogo-2</code>, which already had three heavy searches, because it looked at connections instead of work. The right question is: how many requests has this replica received and <strong>not yet answered</strong>? That's <strong>least outstanding requests</strong>, LOR.</p>
+
+<OneLiner>LOR sends the next request to the replica with the fewest pending requests, that is, ones that have come in and haven't had a response yet; it's the closest thing to measuring how much work each replica has right now.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>LOR</strong> mode, step to <strong>The same moment: 0 · 3 · 1 pending</strong> and then <strong>P9 goes to catalogo-1: 20 ms</strong>. Which replica does LOR pick? Compare with least connection's choice (<strong>LC</strong> mode). Finally, look at <strong>What if it fails: the replica that fails fast</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/balanceador-3d/?mode=lor" poster="labs/load-balancers/balanceador-3d-previa.webp" title="Interactive figure: Least outstanding requests" alt="Preview of the 3D figure: Least outstanding requests" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Pending request.</strong> A pending request is one the balancer has already forwarded and hasn't received the response for. An idle connection has none; a connection with a 900 ms search in the middle has one.</li>
+  <li><strong>The snapshot of the same moment.</strong> <code>catalogo-1</code>: 5 idle connections, <strong>0 pending</strong>. <code>catalogo-2</code>: 3 connections running a search, <strong>3 pending</strong>. <code>catalogo-3</code>: 4 connections, <strong>1 pending</strong>.</li>
+  <li><strong>The choice.</strong> LOR compares the pending counts (0, 3 and 1) and sends the request to <code>catalogo-1</code>, the only one really free. Least connection had picked 2 in the same scenario.</li>
+  <li><strong>On the queue of 9 requests.</strong> Requests arrive one every 100 ms. The 900 ms search leaves the replica "busy" for several following requests, and LOR steers the cats to the others. In the end, each replica has <strong>940 ms</strong> of work (one search and two cats).</li>
+  <li><strong>What AWS's ALB calls it.</strong> In the Application Load Balancer, the algorithm is called <code>least_outstanding_requests</code>, next to <code>round_robin</code> (the default) and <code>weighted_random</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="sim-lor" title="LOR on the same queue" hint="See each replica's work at the end of the queue. Switch between round robin, least connection and LOR to compare the totals." />
+
+<WhyItMatters>
+  <li><strong>It measures saturation.</strong> The more pending, the more queue and the longer the response time. LOR is the closest thing to that without looking inside the replica.</li>
+  <li><strong>It suits uneven requests.</strong> The 900 ms search and the 20 ms cat in the same pool are the case it exists for.</li>
+  <li><strong>It has a cost.</strong> The balancer needs to know when <em>each</em> request ends, which is harder than counting connections.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Difference from least connection</h4>
+  <p>The article sums it up this way: least connection looks at "how many connections" are active, and LOR looks at "how many requests" are still being processed. A persistent connection with 1 pending request and one with 10 count the same in the first and very differently in the second.</p>
+  <h4 class="deep-h">Limits</h4>
+  <ul>
+    <li><strong>More state:</strong> tracking the start and end of each request, in real time, across several balancers at once.</li>
+    <li><strong>Knowing when it ended:</strong> the article points out that determining precisely when a request finished can be hard (streaming responses, for example).</li>
+    <li><strong>Pending is not CPU:</strong> a request waiting on the database counts as pending without spending CPU on the replica.</li>
+  </ul>
+  <h4 class="deep-h">Where it shows up</h4>
+  <p>In the ALB, it's an option per <em>target group</em>. Envoy's <code>LEAST_REQUEST</code> also counts active requests (lesson 4), which brings it closer to LOR than to the article's "least request".</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "AWS ALB: routing algorithms (round_robin, least_outstanding_requests, weighted_random)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html" },
+    { label: "AWS: introduction to the Application Load Balancer (round robin by default, or LOR)", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+    { label: "Envoy: LEAST_REQUEST and active requests", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+  ]} />
+</Deep>
+
+<p>The four algorithms so far choose by load and don't care who asked. But Lena's cart may live in one replica's memory, and then it matters that her next request goes back to the same one. What's left is how to make the balancer remember who is who without keeping a table of clients.</p>
+
+<Flashcards cards={[
+  { q: "What is a pending request?",
+    a: "A request the balancer forwarded and hasn't received a response for. An idle connection has no pending request." },
+  { q: "In the store's snapshot, which replica does LOR pick and why?",
+    a: "<code>catalogo-1</code>: 0 pending, against 3 on <code>catalogo-2</code> and 1 on <code>catalogo-3</code>. Least connection had picked 2." },
+  { q: "What is the difference between least connection and LOR?",
+    a: "Least connection counts how many connections are open. LOR counts how many requests are still being processed." },
+  { q: "What does LOR cost?",
+    a: "The balancer has to track the start and end of each request, which means more state and more work than turning an index." },
+]} />

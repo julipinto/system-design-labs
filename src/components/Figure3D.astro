@@ -27,14 +27,22 @@ const src = withBase(path);
   (function () {
     const wrap = document.currentScript.previousElementSibling;
     if (!wrap || !matchMedia('(min-width: 720px)').matches) return;
-    const mount = () => { if (wrap.querySelector('iframe')) return;
+    const mount = () => { if (wrap.querySelector('iframe') || !wrap.offsetParent) return;
       const f = document.createElement('iframe'); f.className = 'f3d-frame'; f.src = wrap.dataset.src; f.loading = 'lazy';
       f.title = wrap.dataset.title; f.allow = 'fullscreen';
       // com o mouse em cima, a figura recebe o foco: as setas do teclado passam a funcionar sem precisar clicar
       f.addEventListener('pointerenter', () => { try { f.focus({ preventScroll: true }); } catch (e) {} });
       wrap.querySelector('.f3d-poster').replaceWith(f); };
-    if ('IntersectionObserver' in window) new IntersectionObserver((es, io) => { if (es.some(e => e.isIntersecting)) { mount(); io.disconnect(); } }, { rootMargin: '300px' }).observe(wrap);
-    else mount();
+    // a cena 3D trava a página por ~1,5 s ao iniciar: espera a troca de aula e o pacote da trilha assentarem
+    // (900 ms visível) e o navegador ficar ocioso; até lá a prévia fica no lugar
+    let timer = 0;
+    const later = () => { timer = setTimeout(() => { timer = 0; ('requestIdleCallback' in window) ? requestIdleCallback(mount, { timeout: 1500 }) : mount(); }, 900); };
+    if ('IntersectionObserver' in window) new IntersectionObserver((es, io) => {
+      if (es.some(e => e.isIntersecting)) { if (!timer) later(); }
+      else if (timer) { clearTimeout(timer); timer = 0; }
+      if (wrap.querySelector('iframe')) io.disconnect();
+    }, { rootMargin: '300px' }).observe(wrap);
+    else later();
   })();
 </script>
 <style is:global>

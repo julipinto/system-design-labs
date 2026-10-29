@@ -1,0 +1,89 @@
+---
+title: "API versioning"
+order: 6
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the gateway learned to hold back the bot without blocking Lena, and the store was left with a different kind of problem: the API itself has to change. The orders team wants to return the total as an object, with value and currency, and Lena's old app, which reads the total as a number, can't break the day that goes live. In lesson 2, the contract swap was the "what if it goes wrong". Now it is the topic.</p>
+
+<OneLiner>Versioning means keeping the old and the new version of the API up at the same time, each on its own route; the gateway rewrites the path to the right service and can send a slice of the traffic (canary) to a new implementation.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Version</strong> mode, click <strong>Next step</strong> and compare the responses of the steps <strong>"v1: the total is a number"</strong> and <strong>"v2: the total becomes an object"</strong>. Advance through <strong>"Canary: 10% → 50% → 100%"</strong> and watch how much of the traffic goes to each service. At the last step, <strong>"What if it goes wrong: v1 shut down early"</strong>, see what the partner receives.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/gateway-3d/?mode=versao" poster="labs/api-gateways/gateway-3d-previa.webp" title="Interactive figure: Versioning and canary" alt="Preview of the 3D figure: Versioning and canary" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="reescrita" title="Where does this path go?" hint="Type a path or pick a ready one and see which route the gateway matches, which service receives it, which path reaches it and what it answers." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Two routes, two services.</strong> <code>/api/v1/pedidos</code> goes to the <code>pedidos</code> service, which answers <code>{`{ "id": 1048, "total": 94.90 }`}</code>. <code>/api/v2/pedidos</code> goes to <code>pedidos-v2</code>, which answers <code>{`{ "id": 1048, "total": { "valor": 94.90, "moeda": "BRL" } }`}</code>. A field changed shape, and that breaks the v1 contract.</li>
+  <li><strong>Each app stays on its version.</strong> Lena's old app keeps calling v1 and keeps reading a number. The new app calls v2. The client decides when to switch versions.</li>
+  <li><strong>The path rewrite.</strong> The gateway receives <code>/api/v2/pedidos/1048</code>, strips the route prefix and hands <code>/pedidos/1048</code> to <code>pedidos-v2</code>. The new service doesn't know "v2" exists in the URL: it only knows <code>/pedidos</code>. The version is the gateway's business.</li>
+  <li><strong>Canary on the same version.</strong> Sometimes the store rewrites <code>pedidos</code> with the <strong>same contract</strong> as v1, just with a better implementation. Instead of switching everything at once, the gateway sends <strong>10%</strong> of v1's traffic to the new implementation.</li>
+  <li><strong>Ramping up gradually.</strong> If errors don't rise, the gateway goes to 50% and then to 100%. If they rise, it goes back to 0% without the client noticing. A canary only works if both sides respect the same contract.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: v1 shut down early</h3>
+
+<ol class="flow steps">
+  <li><strong>v2 is stable, and someone shuts down v1.</strong> The team thinks nobody uses it anymore and removes the <code>/api/v1/pedidos</code> route from the gateway.</li>
+  <li><strong>The partner still uses it.</strong> <code>marketplace-xyz</code> integrated on v1 and never updated. The next morning, every call from them gets a <strong>404</strong>, and the marketplace's orders stop coming in.</li>
+  <li><strong>The fix is to warn with a deadline and to measure.</strong> v1 starts answering with the <code>Deprecation</code> header (it's already considered old) and <code>Sunset</code> (the date it will stop), and the gateway counts, per client, who still calls it. It is only shut down when that count reaches zero, or when the agreed deadline ends.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>The old app doesn't break.</strong> The Lena who didn't update the app keeps buying.</li>
+  <li><strong>The new service stays simple.</strong> It doesn't carry "v1" and "v2" inside the code, because the gateway handles the version.</li>
+  <li><strong>The swap is gradual.</strong> The canary turns a risky cutover into three small steps, each one with the option to go back.</li>
+  <li><strong>Retiring v1 is a process.</strong> Notice, deadline and measurement keep the partner from finding out through the 404.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Where to put the version</h4>
+  <ul>
+    <li><strong>In the path</strong> (<code>/api/v2/pedidos</code>): it's what the store uses, and the easiest to route and to see in the logs.</li>
+    <li><strong>In a header or in the query:</strong> the URL doesn't change, and the gateway has to look at the header to choose the service. It works, but it is harder to test with a browser.</li>
+  </ul>
+  <h4 class="deep-h">What a breaking change is</h4>
+  <p>Adding a new field is usually safe, because the old app ignores it. Removing a field, changing the type (from number to object) or changing the meaning breaks things. The store's <code>total</code> is of the second kind, and that's why it got a v2.</p>
+  <h4 class="deep-h">The warning headers</h4>
+  <ul>
+    <li><code>Deprecation</code> (RFC 9745): warns that the resource is or will be deprecated. The value is a date, like <code>Deprecation: @1688169599</code>.</li>
+    <li><code>Sunset</code> (RFC 8594): warns of the moment the URL is expected to stop responding.</li>
+  </ul>
+  <p>The store would send both on v1, and a partner with a header monitor finds out the deadline before the shutdown.</p>
+  <h4 class="deep-h">Canary is a release pattern</h4>
+  <p>The name comes from the canary miners took into the mine: if the canary got sick, there was gas. In practice, a small slice of the traffic suffers first, and its errors warn the rest. The gateway can only split the traffic, and the decision to go from 10% to 50% depends on measuring the errors.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 9745: Deprecation header", href: "https://datatracker.ietf.org/doc/html/rfc9745" },
+    { label: "RFC 8594: Sunset header", href: "https://datatracker.ietf.org/doc/html/rfc8594" },
+    { label: "Martin Fowler: Canary Release", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+    { label: "Kong: the Route entity (strip_path and path_handling)", href: "https://developer.konghq.com/gateway/entities/route/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With route, login, limit and version, <code>gw-loja</code> has the module's four pieces. What's left is how this looks in a real gateway: what is in a Kong configuration file, line by line, and what the public lab leaves out.</p>
+
+<Flashcards cards={[
+  { q: "Why did the store need a v2 of orders?",
+    a: "The total field changed shape (from a number to an object with value and currency), which breaks the v1 contract. The old app stays on v1, and the new app uses v2." },
+  { q: "What does the gateway do with /api/v2/pedidos/1048?",
+    a: "It matches the v2 route, strips the prefix and hands /pedidos/1048 to the pedidos-v2 service." },
+  { q: "How does the store's canary work?",
+    a: "10% of v1's traffic goes to the new implementation, with the same contract. It goes up to 50% and 100% if errors don't rise; it goes back if they do." },
+  { q: "What happens if v1 is shut down while the partner still uses it?",
+    a: "The partner gets a 404 and stops working. The right way is to warn with Deprecation and Sunset and to measure in the gateway who still calls v1." },
+]} />

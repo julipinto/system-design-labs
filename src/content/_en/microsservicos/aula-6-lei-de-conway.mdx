@@ -1,0 +1,73 @@
+---
+title: "Conway's Law"
+order: 6
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p>In the last lesson DDD drew the contexts from the business. But the people who will build each context are in teams, and teams have boundaries too. The store had three teams organized by layer, and the system came out with three layers. That is no coincidence: it has a name, Conway's Law, and you can use it in your favor.</p>
+
+<OneLiner>Conway's Law says a system ends up with the shape of the communication of the organization that built it; so, to get the system you want, you design the teams in the same shape.</OneLiner>
+
+<DoIt>
+  <p>In the figure, the <strong>Conway</strong> scenario starts with teams by layer (frontend, backend and DBA). Step forward and count how many teams a simple change passes through. Then see the three teams by domain (Storefront, Checkout and Logistics) and the services group into three islands.</p>
+</DoIt>
+
+<Figure3D path="en/labs/microsservicos/monolito-3d/?mode=conway" poster="labs/microsservicos/monolito-3d-previa.webp" title="Interactive figure: teams by layer and teams by domain, and the service design each organization produces" alt="Preview of the 3D figure: the loja process with 7 modules on top of the loja database; at 23:00 Reports uses 7 of 8 vCPU" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Before: teams by layer.</strong> The store has a <strong>frontend</strong> team, a <strong>backend</strong> team and a <strong>DBA</strong> team. The system comes out in 3 layers, exactly like the teams. A new shipping field in the checkout goes through all three: the screen, the rule and the column.</li>
+  <li><strong>The cost.</strong> Every business change crosses 3 teams, with 3 queues, 3 priorities and 3 meetings. Nobody owns the whole checkout, so nobody answers for the whole of it.</li>
+  <li><strong>After: teams by domain.</strong> The store reorganizes into 3 teams: <strong>Storefront</strong> (Catalog and search), <strong>Checkout</strong> (Cart, Orders and Payments) and <strong>Logistics</strong> (Stock and Shipping). Each team owns a piece of the business end to end.</li>
+  <li><strong>The design follows.</strong> The services start to mirror the teams: Checkout keeps its three services, Logistics its two. Communication between services of the same team is easy (you just talk); between teams, it goes through a contract.</li>
+  <li><strong>Inverse Conway maneuver.</strong> Instead of waiting for the system to copy the teams, you design the teams <strong>in the shape of the architecture</strong> you want. If the goal is services by domain, you form one team per domain first.</li>
+</ol>
+</HowItWorks>
+
+<WhyItMatters>
+  <li>Architecture is a matter of organization as much as a technical one. A service design that ignores the shape of the teams loses to the shape of the teams.</li>
+  <li>The DDD contexts (lesson 4) and the teams of lesson 6 help each other: a bounded context with an owning team is the most stable combination.</li>
+  <li>It also explains the monolith. A small team, together, talking all day, naturally produces an integrated system, and that is fine.</li>
+  <li>When the system and the teams do not match, the friction shows up as deploy queues, alignment meetings and services nobody takes ownership of.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The original statement</h4>
+  <p>Melvin Conway wrote that organizations that design systems are bound to produce designs that are copies of their own communication structure. He did not propose a law of nature, but an observation: the first design of the system tends to follow the divisions of the team, because it is easier to split the work along them.</p>
+  <h4 class="deep-h">The story of the paper</h4>
+  <p>The text, "How Do Committees Invent?", came out in Datamation magazine in April 1968. Before that, in 1967, Conway had sent it to the Harvard Business Review, which turned it down on the grounds that it did not prove its thesis. The name "Conway's Law" came later, given by Fred Brooks, according to Fowler.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li>The article says the paper was "rejected by Harvard". Who rejected it was the <strong>Harvard Business Review</strong>, the magazine, not the university. The title in Portuguese also reads better as "Como os comitês inventam?".</li>
+    <li>The article ties monoliths to centralized organizations and microservices to autonomous teams. It is a tendency, not a rule: a small, close-knit team builds a monolith, but a large company can also keep one.</li>
+  </ul>
+  <h4 class="deep-h">When to split the teams before the services</h4>
+  <p>If the goal is three services by domain, but the teams are still one per layer, the services will end up with the same seams as the layers. Reorganizing the teams is the expensive part, and that is why it comes first.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Monoliths, Microservices and Domains (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/monolitos-microservicos/" },
+    { label: "Melvin Conway: How Do Committees Invent? (melconway.com)", href: "https://www.melconway.com/Home/Committees_Paper.html" },
+    { label: "Melvin Conway: Conway's Law (melconway.com)", href: "https://www.melconway.com/Home/Conways_Law.html" },
+    { label: "Martin Fowler: Conway's Law", href: "https://martinfowler.com/bliki/ConwaysLaw.html" },
+  ]} />
+</Deep>
+
+<p>With the contexts drawn and the three teams formed, it is time to put it to the test. Next: how to map a real purchase, from Lena's first look to the package at the door, and turn the map into entities, value objects and aggregates.</p>
+
+<Flashcards cards={[
+  { q: "What does Conway's Law say?",
+    a: "The design of the system copies the communication structure of the organization that built it." },
+  { q: "What teams did the store have before, and what teams does it have after?",
+    a: "Before: frontend, backend and DBA (by layer). After: Storefront, Checkout and Logistics (by domain)." },
+  { q: "What is the inverse Conway maneuver?",
+    a: "Designing the teams in the shape of the architecture you want, instead of waiting for the system to copy the teams." },
+  { q: "Who rejected Conway's paper in 1967?",
+    a: "The Harvard Business Review magazine, not the university. It came out in Datamation, in 1968." },
+]} />

@@ -1,0 +1,78 @@
+---
+title: "Monoliths and microservices"
+order: 2
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the gateway became the store's single door, but a question was left: why didn't the store have this problem before it was split into services? Because the monolith was already a single door. The client called one address, and what lived behind it (catalog, cart, orders) was an issue inside the process. When module 6 split the program, the internal division started showing up in the URL.</p>
+
+<OneLiner>In the monolith the client saw a single URL; with microservices it started seeing the store's internal division, and the gateway hides that division again.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Route</strong> mode, click <strong>Next step</strong> up to <strong>"GET /api/v1/produtos/42 goes to the catalog"</strong> and then up to <strong>"strip_path: the catalog receives /produtos/42"</strong>. Look at <strong>which address Lena typed</strong> and <strong>which path the catalog received</strong>: are they the same? Then click <strong>Without</strong>, advance to <strong>"What if it goes wrong: pedidos changes address"</strong> and notice what changes in the app and what changes in the gateway.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/gateway-3d/?mode=rota" poster="labs/api-gateways/gateway-3d-previa.webp" title="Interactive figure: Routing and strip_path" alt="Preview of the 3D figure: Routing and strip_path" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Monolith.</strong> Lena calls <code>GET loja.com.br/produtos/42</code> and then <code>POST loja.com.br/pedidos</code>. The address is the same, the balancer picks one of the copies of the program, and catalog and orders talk through a function call inside it. The division into modules exists, but only the people working on the code see it.</li>
+  <li><strong>Microservices.</strong> Module 6 split the program. Each service got its own address, and the division into modules became the list of URLs the client has to know. Whoever decided how to organize the teams ended up deciding what the partner types.</li>
+  <li><strong>Gateway.</strong> The store publishes a single URL, <code>api.loja.com.br</code>, and tells the services apart by the start of the path: <code>/api/v1/produtos</code> goes to <code>catalogo</code>, <code>/api/v1/carrinho</code> to <code>carrinho</code>, <code>/api/v1/pedidos</code> to <code>pedidos</code> and <code>/api/v1/clientes</code> to <code>clientes</code>. For the client, it is one API with four topics.</li>
+  <li><strong>The path changes along the way.</strong> The gateway receives <code>/api/v1/produtos/42</code>, strips the route prefix (<code>strip_path</code>) and hands <code>/produtos/42</code> to the catalog. The service doesn't know a <code>/api/v1</code> exists, and the gateway decides the public prefix.</li>
+  <li><strong>Swapping a service underneath.</strong> The orders team publishes a new service at another internal address. The store changes the <code>/api/v1/pedidos</code> route in the gateway, in one place, and the app and the partner never find out.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the swap with a different contract</h3>
+
+<ol class="flow steps">
+  <li><strong>The address is the same, the response is not.</strong> The new orders service returns <code>{`{ "id": 1048, "total": { "valor": 94.90, "moeda": "BRL" } }`}</code>, and the old one returned <code>{`{ "id": 1048, "total": 94.90 }`}</code>.</li>
+  <li><strong>The app breaks.</strong> It reads <code>total</code> expecting a number and gets an object. The URL didn't change and the gateway worked, but Lena's confirmation screen doesn't show the amount.</li>
+  <li><strong>The gateway hides the address, not the contract.</strong> When the shape of the response changes, the swap needs another route or another version. That is the topic of lesson 6.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>The client is free of the internal organization.</strong> If the orders team is split into two services tomorrow, the route is still <code>/api/v1/pedidos</code>.</li>
+  <li><strong>A swap becomes a configuration change.</strong> Changing a route is a configuration change in the gateway. Changing the URL in every client depends on each client, and the partner is in no hurry.</li>
+  <li><strong>The contract is what the client sees.</strong> Routes, methods and response format are what has to keep holding, and the gateway helps protect them but doesn't create them on its own.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Two ways to pick the service</h4>
+  <ul>
+    <li><strong>By the start of the path:</strong> <code>/api/v1/produtos/*</code> goes to the catalog, whatever the method. It is the simplest.</li>
+    <li><strong>By method and path:</strong> <code>GET /api/v1/pedidos/*</code> can go to a read service and <code>POST /api/v1/pedidos</code> to a separate write service. Lesson 4 uses this to decide who needs to log in.</li>
+  </ul>
+  <h4 class="deep-h">A door outward and a door inward</h4>
+  <p>The article points out that the pattern serves both to expose services to the public and to organize communication between systems inside the same company. In the store, <code>gw-loja</code> is the external gateway. Nothing stops a logistics team from having an internal gateway for its own services.</p>
+  <h4 class="deep-h">Where this shows up in module 6</h4>
+  <p>Conway's law says a system's design ends up mirroring the design of the teams. The URL per service is a concrete example: without a gateway, the store's org chart becomes the address the partner types.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "microservices.io: API Gateway pattern", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "Microsoft Azure: Gateway Routing pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/gateway-routing" },
+    { label: "Kong: the Route entity (paths and strip_path)", href: "https://developer.konghq.com/gateway/entities/route/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The gateway now hides the addresses, but the store already had a component in front of the replicas, module 7's <code>lb-loja</code>. What's left is whether the gateway replaces it, or whether the two do different jobs and can sit one behind the other.</p>
+
+<Flashcards cards={[
+  { q: "What did the client see in the monolith and what did it start seeing with microservices?",
+    a: "In the monolith, a single URL. With microservices, one URL per service: the store's internal division became visible to whoever calls." },
+  { q: "What is strip_path?",
+    a: "The gateway removes the route prefix from the URL before handing it to the service: it receives /api/v1/produtos/42 and hands /produtos/42 to the catalog." },
+  { q: "What stays the same for the app when the store swaps the pedidos service for a new one?",
+    a: "The public URL, /api/v1/pedidos. Only the route in the gateway changes, to point at the new service." },
+  { q: "Why can the swap still break the app?",
+    a: "Because the gateway hides the address, not the contract. If the response changes shape (total from a number to an object), the app breaks even with the same URL." },
+]} />

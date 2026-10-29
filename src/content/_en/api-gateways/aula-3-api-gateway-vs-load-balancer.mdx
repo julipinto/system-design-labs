@@ -1,0 +1,77 @@
+---
+title: "API Gateway vs Load Balancer"
+order: 3
+min: 6
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the gateway hid the services' addresses, but the store already had <code>lb-loja</code>, which module 7 put in front of the catalog replicas. Both receive a request and pass it along, and it is easy to think one of them is redundant. It isn't: each answers a different question.</p>
+
+<OneLiner>The load balancer chooses among N replicas of the same thing; the gateway chooses among different APIs and decides who can call what, how much and in which version.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>LB</strong> mode, click <strong>Next step</strong> and follow Lena's <code>GET /api/v1/produtos/42</code> from the app to a catalog replica. Note <strong>at which step the service is chosen</strong> ("The gateway decides which API, who and how much") and <strong>at which step the replica is chosen</strong> ("The LB decides which replica"). Keep going to <strong>"What if it goes wrong: only the LB in front"</strong> and see what the bot can do without the gateway.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/gateway-3d/?mode=lb" poster="labs/api-gateways/gateway-3d-previa.webp" title="Interactive figure: Gateway + load balancer" alt="Preview of the 3D figure: Gateway + load balancer" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The load balancer's question.</strong> <code>lb-loja</code>, when it sits in front of the catalog, has three identical replicas, <code>catalogo-1</code> (10.0.1.11), <code>catalogo-2</code> (10.0.1.12) and <code>catalogo-3</code> (10.0.1.13). A request arrives, and the only decision is which of them serves it. It doesn't look at who the client is or how many times that client has already asked.</li>
+  <li><strong>The gateway's question.</strong> <code>gw-loja</code> receives <code>GET /api/v1/produtos/42</code> and has to decide other things: does this path belong to <code>catalogo</code> or to <code>pedidos</code>? Does it need a login? Has the client gone over the limit? Is it version 1 or 2? None of these questions makes sense for a replica balancer.</li>
+  <li><strong>Both, one behind the other.</strong> The full path is <code>app → gw-loja → lb-loja → catalogo-1/2/3</code>. The gateway decides the <strong>service</strong>, and the load balancer decides the <strong>replica</strong>.</li>
+  <li><strong>Each one handles what it knows.</strong> The replicas' health check and the distribution algorithm (module 7) stay with the load balancer. Token, limit and version stay with the gateway. That's why the gateway points at the address of <code>lb-loja</code> and not at the three replica IPs: if it did, it would have to redo the distribution and the health checks on its own.</li>
+  <li><strong>The same software can play both roles.</strong> Envoy and NGINX balance and also work as a gateway. The difference between the two is the role each plays in the architecture, not the program that runs.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the gateway is everyone's door</h3>
+
+<ol class="flow steps">
+  <li><strong>A single gateway replica.</strong> The store runs a single <code>gw-loja</code>. It hangs at 8:00 PM, and the catalog, the cart and orders are all healthy, but nobody outside can reach any of them.</li>
+  <li><strong>The gateway needs replicas too.</strong> The store starts <code>gw-loja-1</code>, <code>gw-loja-2</code> and <code>gw-loja-3</code> and puts a load balancer in front of them, with a health check. The problem module 7 solved for the catalog comes back one layer up.</li>
+  <li><strong>The price shows up in lesson 5.</strong> With three gateway replicas, who counts each client's requests? If each one has its own counter, the bot gets through 3 times more than the limit.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>One doesn't replace the other.</strong> Without the balancer, the gateway would have to distribute across replicas. Without the gateway, the balancer knows nothing about login or version.</li>
+  <li><strong>The layers stay simple.</strong> Each one solves one question, and the figure shows this as two stations in sequence.</li>
+  <li><strong>The gateway is a new point of failure.</strong> Every outside request goes through it, so it also needs replicas and a balancer in front.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Gateway, reverse proxy and balancer</h4>
+  <p>All three receive a request and pass it on, and the products blur together: NGINX is a reverse proxy, a balancer and, with configuration, a gateway. Module 7 separated the reverse proxy (1 to 1) from the balancer (1 to N). The gateway adds knowledge of the API: which routes exist and who can use them.</p>
+  <h4 class="deep-h">And balancing inside the gateway?</h4>
+  <p>Some gateways ship with built-in balancing. Kong, for example, has the Upstream entity, with targets and weights. It works for a few replicas, but the store already has <code>lb-loja</code> with a health check, and repeating that logic in the gateway means keeping two distribution rules.</p>
+  <h4 class="deep-h">A correction to the source article</h4>
+  <ul>
+    <li>The article tells the two apart by protocol: the balancer serves "anything" and the gateway serves REST. The split that holds up is the role. The balancer chooses the replica and the gateway governs access, and both already work with HTTP, gRPC and WebSocket.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "GeeksforGeeks: what an API gateway is in system design", href: "https://www.geeksforgeeks.org/what-is-api-gateway-system-design/" },
+    { label: "microservices.io: API Gateway pattern", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "Kong: the Upstream entity (targets, weights and balancing)", href: "https://developer.konghq.com/gateway/entities/upstream/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now has the gateway in front of the balancer, and the gateway is the only one that sees the whole request. What's left is what it does with it: how it picks the route, how it finds out who Lena is and how it decides what Lena can do.</p>
+
+<Flashcards cards={[
+  { q: "Which question does the load balancer answer and which does the gateway answer?",
+    a: "The load balancer: which replica serves it. The gateway: which service, whether this person can call it, whether they went over the limit and which version." },
+  { q: "What is the path of a request from the app to the catalog?",
+    a: "app → gw-loja → lb-loja → catalogo-1/2/3. The gateway chooses the service and the load balancer chooses the replica." },
+  { q: "Why does the gateway point at lb-loja and not at the 3 IPs?",
+    a: "Because the health check and the distribution algorithm already belong to the load balancer. Pointing at the IPs would force the gateway to redo them." },
+  { q: "What happens if the store has a single gateway replica?",
+    a: "If it goes down, the whole store disappears for anyone outside, even with every service healthy. The gateway needs replicas and a balancer in front too." },
+]} />

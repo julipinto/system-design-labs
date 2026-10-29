@@ -1,0 +1,76 @@
+---
+title: "Layers 4 and 7"
+order: 8
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p>In the earlier lessons the balancer chose the replica by looking at load or IP. But the store doesn't have only <code>catalogo</code>: it also has <code>carrinho</code> and <code>pedidos</code> (module 6), and the same address <code>loja.com.br</code> has to take each request to the right service. For that, the balancer needs to read the request. And what it can read depends on the <strong>layer</strong> it works at, the same layers as the OSI model in module 1.</p>
+
+<OneLiner>A layer 4 balancer sees only the outside of the envelope (IP and port) and forwards the whole connection, fast; a layer 7 one terminates TLS, opens the HTTP request and can route by path, at the cost of more CPU and more latency.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>L4</strong> mode, look at <strong>L4 reads only IP and port</strong> and <strong>Picks the replica and forwards the connection</strong>. Then switch to <strong>L7</strong> and go through <strong>L7 terminates TLS and opens the request</strong> and <strong>Reads the path and picks the service</strong>: what showed up that was closed before, and what had to be done with TLS for that? Finally, look at <strong>What if it fails: /busca with no rule</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/load-balancers/camadas-3d/?mode=l4" poster="labs/load-balancers/camadas-3d-previa.webp" title="Interactive figure: Layer 4 (L4)" alt="Preview of the 3D figure: Layer 4 (L4)" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Layer 4 (transport).</strong> The balancer sees only <code>TCP 177.38.20.5:51514 → 203.0.113.10:443</code>: the IP and port of whoever asks, the IP and port of whoever receives. It doesn't read HTTP. It picks a replica and <strong>forwards the whole connection</strong> to it, without opening the content, which stays encrypted.</li>
+  <li><strong>Layer 7 (application).</strong> The balancer opens the request and reads <code>GET /produtos/42 HTTP/1.1</code>, <code>Host: loja.com.br</code> and <code>Cookie: sessao=…</code>. With that, it can decide by path, by host, by a header or by the cookie.</li>
+  <li><strong>The price of opening.</strong> To read the HTTP, the balancer has to <strong>terminate TLS</strong>: the <code>loja.com.br</code> certificate lives on it (module 1, lesson 5), and it talks plain HTTP, or a new encrypted connection, to the replica.</li>
+  <li><strong>What that buys.</strong> L7 routes by path: <code>/produtos/*</code> goes to <code>catalogo</code>, <code>/carrinho/*</code> to <code>carrinho</code> and <code>/pedidos/*</code> to <code>pedidos</code>. With L4, the three services would each need an address and a port.</li>
+  <li><strong>The cost.</strong> In the store's example, L7 spends more CPU and adds about <strong>1 ms</strong> per request, and L4 adds almost nothing, about <strong>0.1 ms</strong>. Both numbers are examples, but the proportion is the idea: reading costs.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="camadas" title="Does L4 or L7 see this?" hint="Each row is a piece of Lena's request. Choose who sees it: only layer 7, or layer 4 too." />
+
+<WhyItMatters>
+  <li><strong>Speed or intelligence.</strong> L4 fits where throughput is what matters (millions of connections, protocols that aren't HTTP). L7 fits where routing depends on the content.</li>
+  <li><strong>One address for several services.</strong> L7 lets the store have a single <code>loja.com.br</code>, with module 6's services hidden behind it.</li>
+  <li><strong>The same step serves other jobs.</strong> Whoever terminates TLS and reads the request can also cache, compress and reject bad requests. This is where the balancer starts to look like a reverse proxy (lesson 2).</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The two layers in the cloud</h4>
+  <ul>
+    <li><strong>AWS:</strong> the <em>Application Load Balancer</em> (ALB) is L7 (HTTP, HTTPS, gRPC), with routing by path, host and header. The <em>Network Load Balancer</em> (NLB) is L4 (TCP, UDP, TLS), built for throughput and low latency.</li>
+    <li><strong>Mixed:</strong> it's common to have an L4 in front, splitting the traffic among several L7s, which in turn route to the services.</li>
+  </ul>
+  <h4 class="deep-h">What L4 does with the connection</h4>
+  <p>Without reading the application, L4 only needs all the packets of one connection (the same source and destination IP and port pair) to reach the same replica. That's why it can use IP hash or consistent hashing (lesson 7) easily: the decision comes from the numbers on the envelope.</p>
+  <h4 class="deep-h">A note on TLS</h4>
+  <p>Terminating TLS at the balancer is the article's TLS <em>offload</em>: it takes the work of encrypting and decrypting off the replicas. In exchange, the traffic between the balancer and the replica goes in the clear, unless it's encrypted again (which many people do).</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Load Balancers and Reverse Proxies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-balancing/" },
+    { label: "AWS: Application Load Balancer, layer 7", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" },
+    { label: "AWS: Network Load Balancer, layer 4", href: "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html" },
+    { label: "Envoy: load balancing algorithms (they work on L4 and L7)", href: "https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers" },
+    { label: "RFC 9110: HTTP semantics", href: "https://www.rfc-editor.org/rfc/rfc9110" },
+  ]} />
+</Deep>
+
+<p>We now know what each layer sees and what each costs. What's left is which tools do this in practice, which one the store would use and when each was born.</p>
+
+<Flashcards cards={[
+  { q: "What does a layer 4 balancer see of Lena's request?",
+    a: "Only <code>TCP 177.38.20.5:51514 → 203.0.113.10:443</code>: IP and port. It doesn't read HTTP and forwards the whole connection to one replica." },
+  { q: "What does the layer 7 one read that the layer 4 one doesn't?",
+    a: "<code>GET /produtos/42 HTTP/1.1</code>, the <code>Host: loja.com.br</code> and the <code>Cookie: sessao=…</code>. That's why it can route by path." },
+  { q: "What does the balancer need to do to operate at layer 7 with HTTPS?",
+    a: "Terminate TLS: the <code>loja.com.br</code> certificate lives on it, so that it can read the request." },
+  { q: "Where do <code>/produtos/*</code>, <code>/carrinho/*</code> and <code>/pedidos/*</code> go?",
+    a: "To the <code>catalogo</code>, <code>carrinho</code> and <code>pedidos</code> services, respectively. That's layer 7's path-based routing." },
+  { q: "What is the cost of each layer in the example?",
+    a: "L7: about 1 ms more per request and more CPU. L4: about 0.1 ms. They are example numbers." },
+]} />

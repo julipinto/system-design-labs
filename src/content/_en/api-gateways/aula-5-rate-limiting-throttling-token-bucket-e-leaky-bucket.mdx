@@ -1,0 +1,102 @@
+---
+title: "Rate limiting, throttling, token bucket and leaky bucket"
+order: 5
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In the last lesson the gateway learned who is calling, and that didn't hold back the competitor's bot: it asks for <code>GET /api/v1/produtos/42</code> 500 times per second, and the catalog handles 100 without degrading. To stop the excess before it reaches the service, the gateway counts each client's requests. What's left is deciding how to count, because Lena also sends requests in bursts and can't be treated like the bot.</p>
+
+<OneLiner>Rate limiting is a fixed rule that blocks whoever goes over the limit (429); token bucket lets a burst through until the bucket empties, leaky bucket delivers at a constant pace; throttling is the gateway tightening the limit when the service behind it gets sick.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in <strong>Token</strong> mode, click <strong>Next step</strong> and note, at each step, how many requests get through and how many get a 429: the bot's burst of 200, Lena's 12 requests in the shared bucket and Lena's 12 in her own bucket ("One bucket per key"). At the last step, look at the headers of the refused response. Then click <strong>Leaky</strong> and <strong>Throttle</strong> and compare the output: is it smooth or bursty? Finally, in <strong>Replicas</strong>, count how many requests per second the bot gets through with three local counters.</p>
+</DoIt>
+
+<Figure3D path="en/labs/api-gateways/limite-3d/?mode=token" poster="labs/api-gateways/limite-3d-previa.webp" title="Interactive figure: Token bucket" alt="Preview of the 3D figure: Token bucket" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<Widget name="buckets" title="Simulator: token bucket and leaky bucket" hint="Pick the bucket, the capacity and the rate, and fire Lena's burst or the bot. See how many get through, how many get a 429 and what the output looks like every 100 ms." />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The per-client limit.</strong> The store decides each key can make <strong>10 requests per second</strong>. The eleventh, within the same second, doesn't reach the catalog: the gateway answers <strong>429 Too Many Requests</strong>, with <code>Retry-After: 1</code> (wait 1 second), <code>RateLimit-Limit: 10</code> and <code>RateLimit-Remaining: 0</code>. The limit is a preventive measure, applied before the service suffers.</li>
+  <li><strong>Token bucket.</strong> A bucket holds tokens, up to a maximum capacity, and gains new tokens at a fixed pace. Each request spends one token, and with no token the request is refused. In the article's example, the bucket has <strong>200 tokens</strong> and gains <strong>100 per second</strong>: a burst of 200 requests at once goes through whole, and after that only 100 per second get through.</li>
+  <li><strong>Lena and the bot in the same bucket.</strong> Per key, the store uses a bucket of <strong>20 tokens</strong> refilled at <strong>10 per second</strong>. Lena opens the app and fires 12 requests at once (list, photos, price): all of them pass, and 8 tokens are left. The bot, at 500 per second, drains the 20 tokens in under 1 second. From then on only what the bucket refills gets through, about 10 per second. Of the 500 requests in the first second, about 30 pass and 470 get a 429.</li>
+  <li><strong>Leaky bucket.</strong> Here the bucket is a fixed-size <strong>queue</strong>, with a hole in the bottom that lets requests out at a <strong>constant pace</strong>. In the store: queue of 50 and output of 50 per second. Lena's burst enters the queue and leaves in about a quarter of a second. If the queue fills up, the leftover request is dropped. The catalog never receives more than 50 per second, not even when 500 arrive together.</li>
+  <li><strong>Throttling.</strong> The catalog started taking 2 seconds to answer. The gateway, without anyone asking, lowers the global limit from 100 to <strong>50 per second</strong>, until the response time goes back to normal. Rate limiting is the rule the store wrote beforehand, and throttling is the gateway's reaction to what is happening right now.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: three gateways, three counters</h3>
+
+<ol class="flow steps">
+  <li><strong>Each replica counts on its own.</strong> Lesson 3 asked for three gateway replicas. Each one keeps its own counter in memory, with a limit of 10 per second per key.</li>
+  <li><strong>The bot spreads out.</strong> The balancer splits the bot's requests among the three replicas. Each one sees about a third, still under 10 per second each, and lets them through. Added up, the bot gets <strong>30 per second</strong>, triple the limit.</li>
+  <li><strong>It is module 5's local cache problem.</strong> Each replica has its own copy of the truth, and the sum doesn't add up.</li>
+  <li><strong>The fix is a shared counter.</strong> The three replicas read and write the counter in Redis. The limit goes back to 10 per second, with a caveat: the article warns that this consistency is eventual, and a few extra requests may get through between one read and the next write.</li>
+</ol>
+
+<p>After the four mechanisms, the gateway has several possible answers for the same call. The simulator below gathers everything the last two lessons defined: the route, the credential and the quota decide among 200, 401, 403, 404 and 429.</p>
+
+<Widget name="resposta" title="Which response does the call get?" hint="Build the call: the route, who is calling and whether the client's quota is already used up. The gateway evaluates in the order Kong runs: route, authentication, authorization and limit." />
+
+<WhyItMatters>
+  <li><strong>The limit protects the service.</strong> The catalog handles 100 per second, and the gateway stops one client from using all of it.</li>
+  <li><strong>The limit is also a product.</strong> The article points out that higher limits can be sold to clients on better plans. The partner could get 50 per second, and the bot none.</li>
+  <li><strong>A good burst and a bad burst look alike.</strong> Lena with 12 requests and the bot with 500 both arrive fast, and the difference is in size and duration. The token bucket lets the first through and cuts the second.</li>
+  <li><strong>The counter has to be shared by all.</strong> With more than one gateway replica, a local counter lets N times the limit through.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">Token bucket and leaky bucket side by side</h4>
+  <ul>
+    <li><strong>Token bucket:</strong> allows a burst, limited by the bucket's capacity, and the long-run average is the refill rate. The output follows the input, until the tokens run out.</li>
+    <li><strong>Leaky bucket (queue):</strong> the output is constant, and the burst waits in the queue. A request may take a few extra milliseconds, and the service never sees a spike.</li>
+  </ul>
+  <p>For the store: the token bucket is better for the public API, where the app fires several calls when opening a screen. The leaky bucket is better in front of whatever can't tolerate a spike, such as an old service that falls over past 50 requests per second.</p>
+  <h4 class="deep-h">Where each one shows up in products</h4>
+  <ul>
+    <li>AWS API Gateway limits with a token bucket: the throttling rate is the pace at which tokens are refilled, and the burst is the bucket's capacity.</li>
+    <li>Envoy's local rate limit filter also describes a token bucket.</li>
+    <li>NGINX's <code>limit_req</code> module says it uses the "leaky bucket" method, with <code>burst</code> for the queue size (the default is zero).</li>
+  </ul>
+  <h4 class="deep-h">Who "the client" is</h4>
+  <p>The gateway needs a key to count by. With a login, it uses the API key or the token's client. Without a login, as in <code>GET /api/v1/produtos/42</code>, what's left is the IP address, and then module 7's office, with 500 people behind one IP, shares a single bucket. RFC 6585 says 429 can apply to one resource, to the whole server or to a set of servers, and doesn't define how to identify the user.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Leaky bucket.</strong> The article says the bucket has a "size equal to the refill rate" (50 tokens per second and a bucket of 50). What defines the leaky bucket is something else: a queue that leaks at a constant pace. The queue size is free. In the store: queue of 50, output of 50 per second, and the two numbers could be different. Wikipedia describes two versions, the leaky bucket as a meter and as a queue, and the lesson uses the second.</li>
+    <li><strong>"Doesn't allow requests above the rate".</strong> In the queue leaky bucket, the burst is accepted until the queue fills up. What it doesn't allow is output above the rate.</li>
+    <li><strong>References.</strong> The article cites a page on thermal throttling (the processor that lowers its frequency when it heats up) and another on throttling in WCF. They work as analogies, but neither deals with gateways.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on API Gateways (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/api-gateway/" },
+    { label: "RFC 6585: 429 Too Many Requests", href: "https://datatracker.ietf.org/doc/html/rfc6585" },
+    { label: "Wikipedia: token bucket", href: "https://en.wikipedia.org/wiki/Token_bucket" },
+    { label: "Wikipedia: leaky bucket", href: "https://en.wikipedia.org/wiki/Leaky_bucket" },
+    { label: "NGINX: limit_req module (leaky bucket and burst)", href: "https://nginx.org/en/docs/http/ngx_http_limit_req_module.html" },
+    { label: "AWS API Gateway: throttling with a token bucket", href: "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now holds back the bot without blocking Lena. What's left is what the gateway does when the store itself has to change the API: how the old app keeps working while the new app uses a response in a different format.</p>
+
+<Flashcards cards={[
+  { q: "What does the gateway answer to a client that went over the limit?",
+    a: "429 Too Many Requests, with Retry-After: 1, RateLimit-Limit: 10 and RateLimit-Remaining: 0 in the store's example (10 requests per second per key)." },
+  { q: "How does a token bucket of 200 tokens refilled at 100 per second work?",
+    a: "A burst of 200 requests goes through at once (it spends the tokens); after that only 100 per second get through, what the bucket refills." },
+  { q: "What defines a leaky bucket?",
+    a: "A fixed-size queue that leaks at a constant pace (queue of 50, output of 50 per second). The burst waits in the queue, and the excess, once the queue is full, is dropped." },
+  { q: "What is the difference between rate limiting and throttling?",
+    a: "Rate limiting is preventive: a fixed rule per client. Throttling is reactive: the gateway lowers the global limit (100 to 50 per second) when the service behind it slows down." },
+  { q: "Why do three gateway replicas with a local counter let the bot through at 30 per second?",
+    a: "Each replica counts on its own and lets up to 10 per second through, and the sum is 3 × 10. With a shared counter in Redis, the limit goes back to 10 (with eventual consistency)." },
+]} />

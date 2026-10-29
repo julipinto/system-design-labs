@@ -1,0 +1,107 @@
+---
+title: "API composition"
+order: 2
+min: 7
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+
+<p class="ponte">In lesson 1 Lena's app made 4 trips of 120 ms over 4G and received 180 KB. What changes if whoever makes the 4 calls sits inside the store's network, next to the services?</p>
+
+<OneLiner>API composition turns one client call into several service-to-service calls, made in parallel by the BFF, which joins the responses into one.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Compose</strong> scenario, step until the response is complete. See how many calls leave the phone, how many leave the BFF and which one decides the total time. Compare the clock and the KB with the <strong>No BFF</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/bff/bff-3d/?mode=compor" poster="labs/bff/bff-3d-previa.webp" title="Interactive figure: API composition in the bff-app" alt="Preview of the 3D figure: API composition in the bff-app" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The app makes <strong>one</strong> call: <code>GET /app/home</code>. It takes a 120 ms round trip on 4G.</li>
+  <li>The <code>gw-loja</code> checks the JWT and hands the request to the <code>bff-app</code>, as in module 8.</li>
+  <li>The <code>bff-app</code>, already inside the store's network, calls <code>catalogo</code>, <code>carrinho</code>, <code>recomendacoes</code> and <code>pedidos</code> <strong>at the same time</strong>.</li>
+  <li>Since the four leave together, the BFF waits only for the slowest: <strong>25 ms</strong>. In a queue, it would be the sum of the four times.</li>
+  <li>With the responses in hand, the BFF builds the screen's JSON: only the fields it draws, a thumbnail photo and no <code>custo_fornecedor</code>. That's <strong>12 KB</strong> and the total is ~<strong>150 ms</strong> (120 of network + 25 from the services + ~5 to assemble).</li>
+</ol>
+</HowItWorks>
+
+<p>This is the real response from the <code>bff-app</code>, the same one the figure builds piece by piece:</p>
+
+<pre><code>{String.raw`GET /app/home
+Authorization: Bearer <JWT checked by gw-loja>
+
+200 OK
+{
+  "destaque":    { "id": 42, "nome": "gato de pelúcia", "preco": 79.90, "foto": "gato-320.webp" },
+  "carrinho":    { "itens": 1 },
+  "recomendado": [{ "id": 7, "nome": "caneca azul", "preco": 19.90 }],
+  "pedido":      { "id": 1048, "status": "a caminho" }
+}`}</code></pre>
+
+<p>Now do the math yourself: change the network, the number of calls and the response size.</p>
+
+<Widget name="tela-inicial" title="Home screen calculator" hint="Choose the network, how many calls the screen makes, whether there is a BFF and the response size. The calculation shows the total time and the data used." />
+
+<WhyItMatters>
+  <li><strong>The bottleneck leaves 4G.</strong> Four trips of 120 ms became one. The four calls that remain cost milliseconds, because they stay inside the store's network.</li>
+  <li><strong>The frontend stays simple.</strong> The app doesn't know which services exist, or in what order to call them. If the <code>recomendacoes</code> changes address, only the BFF changes.</li>
+  <li><strong>The BFF filters and adapts.</strong> It removes sensitive fields, renames, sorts and enriches before answering.</li>
+  <li><strong>The price:</strong> now the screen depends on all four services at once. Lesson 6 shows what to do when one of them fails.</li>
+</WhyItMatters>
+
+<Deep min={6}>
+  <h4 class="deep-h">The same code, in Go</h4>
+  <p>Example written for the lesson (it doesn't come from any repository). The <code>errgroup</code> fires the four calls in goroutines and <code>g.Wait()</code> waits for the slowest.</p>
+  <pre><code>{String.raw`func home(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 300*time.Millisecond)
+	defer cancel()
+
+	var h Home
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) { h.Destaque, err = catalogo.Produto(ctx, 42); return })
+	g.Go(func() (err error) { h.Carrinho, err = carrinho.Resumo(ctx, usuario(r)); return })
+	g.Go(func() (err error) { h.Recomendado, err = recomendacoes.Para(ctx, 42); return })
+	g.Go(func() (err error) { h.Pedido, err = pedidos.Ultimo(ctx, usuario(r)); return })
+
+	if err := g.Wait(); err != nil { // any failure takes down the whole screen
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+		return
+	}
+	json.NewEncoder(w).Encode(h)
+}`}</code></pre>
+  <p>Note the comment: as it stands, <strong>one failure takes down the screen</strong>. That's the "what if it goes wrong" of lesson 6.</p>
+  <h4 class="deep-h">When one call depends on another</h4>
+  <p>If call 2 needs the result of call 1, the BFF waits. Even so, each wait costs the 25 ms of the internal network, not the 120 ms of 4G.</p>
+  <h4 class="deep-h">The cost of composition</h4>
+  <p>Whoever composes depends on everyone. If each service answers well 99.9% of the time and the screen needs all four, it answers well 0.999<sup>4</sup> ≈ <strong>99.6%</strong> of the time. microservices.io lists this among the drawbacks of the API Composition pattern, along with the work of joining data in memory.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on BFF (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/bffs/" },
+    { label: "microservices.io: API Composition pattern", href: "https://microservices.io/patterns/data/api-composition.html" },
+    { label: "microservices.io: API Gateway / Backends for frontends pattern", href: "https://microservices.io/patterns/apigateway.html" },
+    { label: "Phil Calçado: The Back-end for Front-end Pattern (BFF)", href: "https://philcalcado.com/2015/09/18/the_back_end_for_front_end_pattern_bff.html" },
+    { label: "RFC 6750: Authorization: Bearer (section 2.1)", href: "https://www.rfc-editor.org/rfc/rfc6750#section-2.1" },
+  ]} />
+</Deep>
+
+<p class="gancho">The app's home dropped to ~150 ms and 12 KB. But Lena's website asks for the same home with large photos, and a voice assistant wants just one sentence. What's left is whether a single backend can handle the three ways of asking.</p>
+
+<Flashcards cards={[
+  { q: "What is API composition?",
+    a: "One client call turns into several service-to-service calls, made by the BFF, which joins the responses into one." },
+  { q: "Why does the BFF wait only 25 ms if it calls four services?",
+    a: "Because it calls all four at the same time and waits only for the slowest." },
+  { q: "Where do the app home's ~150 ms come from?",
+    a: "120 ms of 4G network + 25 ms from the slowest service + ~5 ms for the BFF to build the response." },
+  { q: "How much does the response shrink with the BFF?",
+    a: "From 180 KB to 12 KB, without the 8 high-res photos, without the long description and without custo_fornecedor." },
+  { q: "What's the price of composition?",
+    a: "The screen now depends on all services at once: if one fails, the whole screen fails, unless there is a fallback." },
+]} />
