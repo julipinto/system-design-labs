@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+import orquestradorMain from '../../../lab-code/_en/saga/orquestrador-main.go?raw';
 
 <p class="ponte">In the last lesson the saga learned to undo, repeat and ask for help, and each of those steps needed an answer to one question: what has already happened to 1057? The answer is in a <strong>log</strong>. Each saga transition becomes a row that is only appended, and that list is the orchestrator's memory.</p>
 
@@ -47,7 +47,7 @@ import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>The lab's orchestrator writes the log to a table, <code>saga_events</code>, created in <code>initSchema</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+<p>The lab's orchestrator writes the log to a table, <code>saga_events</code>, created in <code>initSchema</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments were translated to English):</p>
 
 <CodeLab code={orquestradorMain} from={147} to={170} />
 

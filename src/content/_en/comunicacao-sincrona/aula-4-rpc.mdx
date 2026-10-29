@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import rpcServer from '../../../lab-code/comunicacao-sincrona/rpc-server.go?raw';
+import rpcServer from '../../../lab-code/_en/comunicacao-sincrona/rpc-server.go?raw';
 import rpcClient from '../../../lab-code/comunicacao-sincrona/rpc-client.go?raw';
 
 <p class="ponte">In the last lesson Davi's Pix got three ways of notifying the screen, and all of them speak HTTP in text. Inside the store, the <code>pedidos</code> calls the <code>pagamentos</code> and the <code>entregas</code> service all day long, and building the verb, the path and the JSON each time feels like a long way to ask for a calculation. What the <code>pedidos</code> wanted to write was <code>frete.Calcular(...)</code>, as if the function lived in the same program.</p>
@@ -29,7 +29,7 @@ import rpcClient from '../../../lab-code/comunicacao-sincrona/rpc-client.go?raw'
 <ol class="flow steps">
   <li><strong>The idea.</strong> Birrell and Nelson (1984) described RPC with one goal: the programmer writes the usual function call, and the rest becomes plumbing. On the client side, a <strong>stub</strong> looks like the function, but inside it serializes the arguments and sends them over the network. On the server side, a <strong>skeleton</strong> deserializes, calls the real function and returns the result along the same path.</li>
   <li><strong>REST names things, RPC names actions.</strong> The REST from lesson 2 says <code>/pedidos/1050</code> and lets the method say what to do. RPC says what to do: <code>Frete.Calcular</code>. In the store, the <code>pedidos</code> calls the <code>entregas</code> service with <code>{`Frete.Calcular(Args{Cep: "50050-000", PesoKg: 0.4})`}</code> and gets <strong>15.00</strong>, the shipping to Recife from module 6, for a 0.4 kg package.</li>
-  <li><strong>The lab.</strong> The author's public repository has an RPC server using Go's <code>net/rpc</code> package. It registers the type <code>Proteinas</code>, listens on port <strong>1234</strong> and exposes the method <code>Recomendacao</code> (the comments in the file are in Portuguese):</li>
+  <li><strong>The lab.</strong> The author's public repository has an RPC server using Go's <code>net/rpc</code> package. It registers the type <code>Proteinas</code>, listens on port <strong>1234</strong> and exposes the method <code>Recomendacao</code> (the comments in the file were translated to English):</li>
 </ol>
 </HowItWorks>
 

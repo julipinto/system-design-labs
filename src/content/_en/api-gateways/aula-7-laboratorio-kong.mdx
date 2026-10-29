@@ -99,7 +99,7 @@ products-route   /api/v1/products  true  v1
 orders-route     /api/v1/orders    true  v1
 orders-route-v2  /api/v2/orders    true  v0`}</code></pre>
 
-<p><code>strip_path</code> and <code>path_handling</code> show up in the Admin API as they are in the file, and v2, with no <code>path_handling</code>, ended up as <code>v0</code>, as lines 33 to 39 describe. The full output is in <a href={withBase('labs/api-gateways/lab/api-gateway-saida.txt')}>api-gateway-saida.txt</a> (the file is in Portuguese).</p>
+<p><code>strip_path</code> and <code>path_handling</code> show up in the Admin API as they are in the file, and v2, with no <code>path_handling</code>, ended up as <code>v0</code>, as lines 33 to 39 describe. The full output is in <a href={withBase('en/labs/api-gateways/lab/api-gateway-saida.txt')}>api-gateway-saida.txt</a> (the comments are translated; the commands and outputs are kept as they ran).</p>
 
 <p>None of these routes has login or a limit. To turn on the limit, the store would add a plugin to the same file. This snippet is <strong>an example of mine</strong>, and is not part of the repository.</p>
 

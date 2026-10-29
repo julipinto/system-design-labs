@@ -12,8 +12,8 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import booksMain from '../../../lab-code/comunicacao-sincrona/books-main.go?raw';
-import booksHandlers from '../../../lab-code/comunicacao-sincrona/books-handlers.go?raw';
+import booksMain from '../../../lab-code/_en/comunicacao-sincrona/books-main.go?raw';
+import booksHandlers from '../../../lab-code/_en/comunicacao-sincrona/books-handlers.go?raw';
 
 <p class="ponte">In the last lesson the charge <code>c-7731</code> stayed at the PSP without anyone knowing, because the call from <code>pagamentos</code> was as uncertain as the text that carried it. So it is worth opening that text. The most common call between services is HTTP, with the REST style on top, and Davi's order fits in a few lines you can read one by one.</p>
 
@@ -84,7 +84,7 @@ Location: /cobrancas/c-7731
 
 <h3 class="sec">The lab: a Books API in Go</h3>
 
-<p>The author's public repository has a books API (Go, Fiber v2 and PostgreSQL 15) that plays the same role as <code>pedidos</code>: <code>books</code> is the equivalent of <code>pedidos</code>. The routes, <code>main.go</code> unchanged (the line numbers are the file's own; the comments and messages in the file are in Portuguese):</p>
+<p>The author's public repository has a books API (Go, Fiber v2 and PostgreSQL 15) that plays the same role as <code>pedidos</code>: <code>books</code> is the equivalent of <code>pedidos</code>. The routes, <code>main.go</code> unchanged (the line numbers are the file's own; the comments in the file were translated to English; the messages are kept as in the original):</p>
 
 <CodeLab code={booksMain} from={39} to={48} />
 

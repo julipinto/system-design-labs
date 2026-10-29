@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import estoqueMain from '../../../lab-code/saga/estoque-main.go?raw';
+import estoqueMain from '../../../lab-code/_en/saga/estoque-main.go?raw';
 
 <p class="ponte">In the last lesson the pieces still had to be put together: durable state, conditional transition, log, compensation and outbox. The author's public lab puts some of them together in an order system you can bring up and test. It's worth reading with 1057 in hand, because it makes a choice the store didn't: <strong>it reserves the stock before charging</strong>.</p>
 
@@ -51,7 +51,7 @@ import estoqueMain from '../../../lab-code/saga/estoque-main.go?raw';
 
 <h3 class="sec">What the stock code does</h3>
 
-<p>The 10% failure is a random draw in the <code>estoque</code> service (read, <strong>not run</strong>; <code>estoque/main.go</code>, unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+<p>The 10% failure is a random draw in the <code>estoque</code> service (read, <strong>not run</strong>; <code>estoque/main.go</code>, unchanged, with the original's line numbers; the comments were translated to English):</p>
 
 <CodeLab code={estoqueMain} from={293} to={299} />
 

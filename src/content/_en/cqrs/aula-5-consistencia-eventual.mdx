@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import eventsHandler from '../../../lab-code/cqrs/sql-events-handler.go?raw';
+import eventsHandler from '../../../lab-code/_en/cqrs/sql-events-handler.go?raw';
 
 <p class="ponte">In the last lesson the Recife replica showed the problem: the read model <strong>is behind</strong> the write model, and Lena did not see 1056 (the same as 1055 in module 17). With events feeding the model, that delay is the <strong>design</strong>, not a defect: it is the <em>eventual consistency</em> from module 3 (BASE). The job now is to <strong>predict</strong> the gap, give Lena a way to see her own order and know how to measure it.</p>
 
@@ -47,7 +47,7 @@ import eventsHandler from '../../../lab-code/cqrs/sql-events-handler.go?raw';
 
 <h3 class="sec">If it goes wrong: the projector applies the same event twice</h3>
 
-<p>The projector in the author's lab (<code>hospital-cqrs-sql/internal/events/handler.go</code>) does a plain <code>INSERT</code> into the <em>view</em>, with no <code>ON CONFLICT</code>. The excerpt below is from that file, unchanged, with the original line numbers (the comments are in Portuguese); read <code>View_Farmacia</code> as the store's "document".</p>
+<p>The projector in the author's lab (<code>hospital-cqrs-sql/internal/events/handler.go</code>) does a plain <code>INSERT</code> into the <em>view</em>, with no <code>ON CONFLICT</code>. The excerpt below is from that file, unchanged, with the original line numbers (the comments were translated to English); read <code>View_Farmacia</code> as the store's "document".</p>
 
 <CodeLab code={eventsHandler} from={84} to={98} />
 

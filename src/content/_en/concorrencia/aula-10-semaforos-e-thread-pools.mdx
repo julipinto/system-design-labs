@@ -56,7 +56,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 
 <Deep min={6}>
   <h4 class="deep-h">The lab code, unchanged</h4>
-  <p>This is <code>semaphore/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). The <code>semaforo</code> channel has a buffer of 3: the <code>semaforo &lt;- struct&#123;&#125;&#123;&#125;</code> in the loop takes a slot and the <code>&lt;-semaforo</code> inside the goroutine releases it.</p>
+  <p>This is <code>semaphore/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments were translated to English). The <code>semaforo</code> channel has a buffer of 3: the <code>semaforo &lt;- struct&#123;&#125;&#123;&#125;</code> in the loop takes a slot and the <code>&lt;-semaforo</code> inside the goroutine releases it.</p>
   <pre><code>{String.raw` 1  package main
  2  
  3  import (
@@ -65,7 +65,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  6  	"time"
  7  )
  8  
- 9  // Função para simular o tempo de preparo de cada atividade do churrasco
+ 9  // Function to simulate the preparation time of each barbecue activity
 10  func grelhar(item int, tempoPreparo int) {
 11  	fmt.Printf("Preparando o alimento %v...\n", item)
 12  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
@@ -76,32 +76,32 @@ import Figure3D from '../../../components/Figure3D.astro';
 17  
 18  	var wg sync.WaitGroup
 19  
-20  	// Numero maximo de goroutines / threads / alimentos que podem ser assados
+20  	// Maximum number of goroutines / threads / foods that can be grilled
 21  	var capacidadeDaGrelha = 3
-22  	// Alimentos disponíveis pra colocar na grelha
+22  	// Foods available to put on the grill
 23  	var alimentosChurrasco = 10
 24  
-25  	// Criando canal que tenha o tamanho maximo igual ao tamanho da grelha
+25  	// Creating a channel whose maximum size equals the size of the grill
 26  	semaforo := make(chan struct{}, capacidadeDaGrelha)
 27  
-28  	// Inicia o processo de assar os alimentos disponíveis
+28  	// Starts the process of grilling the available foods
 29  	for i := 0; i < alimentosChurrasco; i++ {
 30  
-31  		wg.Add(1)              // Adiciona 1 atividade ao contador do WaitGroup
-32  		semaforo <- struct{}{} // Adquire 1 espaço no semáforo adicionando 1 item ao channel
+31  		wg.Add(1)              // Adds 1 activity to the WaitGroup counter
+32  		semaforo <- struct{}{} // Acquires 1 slot in the semaphore by adding 1 item to the channel
 33  
-34  		// Começando a assar os alimentos na churrasqueira
+34  		// Starting to grill the foods on the barbecue
 35  		go func(i int) {
 36  			alimento := i + 1
 37  
-38  			grelhar(alimento, 2) // Inicia o preparo da comida
-39  			<-semaforo           // Libera um espaço no semaforo quando terminar o preparo
-40  			wg.Done()            // Termina uma ativilidade no contador do WaitGroup
+38  			grelhar(alimento, 2) // Starts preparing the food
+39  			<-semaforo           // Releases a slot in the semaphore when the preparation is done
+40  			wg.Done()            // Finishes an activity in the WaitGroup counter
 41  
 42  		}(i)
 43  	}
 44  
-45  	wg.Wait() // Espera todos os alimentos serem preparados
+45  	wg.Wait() // Waits for all foods to be prepared
 46  	fmt.Println("Acabou o churrasco :/")
 47  
 48  }`}</code></pre>

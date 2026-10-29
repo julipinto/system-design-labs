@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import cdcHandler from '../../../lab-code/cqrs/cdc-handler.go?raw';
+import cdcHandler from '../../../lab-code/_en/cqrs/cdc-handler.go?raw';
 
 <p class="ponte">In the last lesson the dual write failed because the event was born in the application, <strong>outside</strong> the transaction. But the database already has a list of everything it <strong>confirmed</strong>, in order: the log. It is the CDC from module 17, lesson 5 (<code>wal_level=logical</code>, replication slot, <code>pgoutput</code>, Debezium). Here the focus is different: using that log to <strong>feed the read model</strong>, with the application publishing nothing.</p>
 
@@ -35,7 +35,7 @@ import cdcHandler from '../../../lab-code/cqrs/cdc-handler.go?raw';
 
 <h3 class="sec">How the lab consumes this log</h3>
 
-<p>The excerpt below is from the <code>cdc_handler.go</code> of <code>hospital-cqrs-cdc</code>, unchanged, with the original line numbers (the comments and log messages are in Portuguese). It consumes the topics <code>hospital_db.public.prescricoes</code> and <code>hospital_db.public.prescricao_medicamentos</code>; read "prescrição" as "order".</p>
+<p>The excerpt below is from the <code>cdc_handler.go</code> of <code>hospital-cqrs-cdc</code>, unchanged, with the original line numbers (the comments were translated to English; log messages are kept as in the original). It consumes the topics <code>hospital_db.public.prescricoes</code> and <code>hospital_db.public.prescricao_medicamentos</code>; read "prescrição" as "order".</p>
 
 <CodeLab code={cdcHandler} from={59} to={123} />
 

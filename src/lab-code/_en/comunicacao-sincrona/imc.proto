@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package imc;
+
+option go_package = "service/imc";
+
+// The IMCService service offers the operation of squaring a number.
+service IMCService {
+  // IMC squares a number.
+  rpc Calcular (IMCRequest) returns (IMCResponse) {}
+}
+
+// IMCRequest holds the height and weight for which we want to calculate the BMI.
+message IMCRequest {
+  double weight = 1;
+  double height = 2;
+}
+
+// IMCResponse holds the result of the BMI calculation.
+message IMCResponse {
+  double result = 1;
+}

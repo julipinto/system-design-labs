@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import rehydrate from '../../../lab-code/event-sourcing/ledger_internal_listeners_rehydratate_listener.go?raw';
+import rehydrate from '../../../lab-code/_en/event-sourcing/ledger_internal_listeners_rehydratate_listener.go?raw';
 
 <p class="ponte">Last lesson rebuilding a whole <strong>model</strong> took hours, and that is fine, because it is rare. What happens all the time is smaller and more demanding: before accepting an <code>Enviar</code>, the <code>Pedido</code> aggregate needs to know what state 1047 is in. And the Store only keeps events. What is left is rebuilding its state right now, on every command. That job has a name: <strong>rehydrating</strong>.</p>
 

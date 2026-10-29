@@ -76,7 +76,7 @@ WHERE sku = 'GATO-042' AND quantidade > 0;
 
 <Deep min={5}>
   <h4 class="deep-h">The lab code, unchanged</h4>
-  <p>This is <code>mutex/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). It is the same <code>race_condition</code> from lesson 6 with a <code>sync.Mutex</code> around <code>grelhados++</code>. Note the 100 ms <code>time.Sleep</code> <strong>inside</strong> the critical section.</p>
+  <p>This is <code>mutex/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments were translated to English). It is the same <code>race_condition</code> from lesson 6 with a <code>sync.Mutex</code> around <code>grelhados++</code>. Note the 100 ms <code>time.Sleep</code> <strong>inside</strong> the critical section.</p>
   <pre><code>{String.raw` 1  package main
  2  
  3  import (
@@ -85,42 +85,42 @@ WHERE sku = 'GATO-042' AND quantidade > 0;
  6  	"time"
  7  )
  8  
- 9  // Variável compartilhada para contar os alimentos grelhados
+ 9  // Shared variable to count the grilled foods
 10  var grelhados int = 0
 11  
-12  // Variável de Mutex
+12  // Mutex variable
 13  var grelhaOcupada sync.Mutex
 14  
-15  // Função para simular o tempo de preparo de um alimento na churrasqueira
+15  // Function to simulate the preparation time of a food on the barbecue
 16  func grelhar() {
-17  	grelhaOcupada.Lock() // Trava o acesso ao contador (grelha)
+17  	grelhaOcupada.Lock() // Locks access to the counter (grill)
 18  
 19  	fmt.Println("Grelhando um alimento na churrasqueira")
 20  	grelhados++
 21  	time.Sleep(time.Millisecond * 100)
 22  
 23  	fmt.Println("Liberando a grelha pro proximo alimento")
-24  	grelhaOcupada.Unlock() // Destrava o acesso ao contador (grelha)
+24  	grelhaOcupada.Unlock() // Unlocks access to the counter (grill)
 25  }
 26  
 27  func main() {
 28  
-29  	// Wait Group para esperar todas as goroutines terminarem
+29  	// Wait Group to wait for all goroutines to finish
 30  	var wg sync.WaitGroup
 31  
-32  	// Alimentos disponíveis pra colocar na grelha
+32  	// Foods available to put on the grill
 33  	var alimentosChurrasco = 100
 34  
-35  	// Simula a concorrência pela grelha
+35  	// Simulates the contention for the grill
 36  	for i := 0; i < alimentosChurrasco; i++ {
-37  		wg.Add(1) // Adiciona 1 alimento ao contador do WaitGroup
+37  		wg.Add(1) // Adds 1 food to the WaitGroup counter
 38  		go func() {
-39  			grelhar()       // Inicia o processo de grelhar o alimento
-40  			defer wg.Done() // Remove um contador do wait group da grelha
+39  			grelhar()       // Starts the process of grilling the food
+40  			defer wg.Done() // Removes one count from the grill wait group
 41  		}()
 42  	}
 43  
-44  	wg.Wait() // Espera que todas as goroutines chamem Done()
+44  	wg.Wait() // Waits for all goroutines to call Done()
 45  
 46  	fmt.Println("Total de itens grelhados na churrasqueira:", grelhados)
 47  

@@ -79,7 +79,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   <h4 class="deep-h">Redlock: the two positions</h4>
   <p>Redlock tries to give more of a guarantee by using 5 independent Redis instances: the lock only counts if the majority agree. Kleppmann (2016) argues that it depends on timing assumptions that do not hold in practice (clocks and pauses) and that it does not generate a fencing token. Salvatore Sanfilippo, the author of Redis, answered in "Is Redlock safe?" that the assumptions are reasonable. Both readings are published, and it is worth reading both.</p>
   <h4 class="deep-h">The lab code: Redis</h4>
-  <p>This is <code>mutex_distribuido_redis/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments and printed messages are in Portuguese, as in the original). It has a <code>Get</code> loop that waits 2 s at a time, and then a <code>SetNX</code> loop with the string <code>"locked"</code> and a 10 s TTL.</p>
+  <p>This is <code>mutex_distribuido_redis/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments were translated to English; printed messages are kept as in the original). It has a <code>Get</code> loop that waits 2 s at a time, and then a <code>SetNX</code> loop with the string <code>"locked"</code> and a 10 s TTL.</p>
   <pre><code>{String.raw`  1  package main
   2  
   3  import (
@@ -96,7 +96,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  14  	Quantidade float64
  15  }
  16  
- 17  // Função mock para exemplificar a chegada de alguma mensagem
+ 17  // Mock function to illustrate the arrival of a message
  18  func consomeMensagem() PedidoDeCompra {
  19  	return PedidoDeCompra{
  20  		Id:         "12345",
@@ -105,7 +105,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  23  	}
  24  }
  25  
- 26  // Função mock para exemplificar o processamento de uma mensagem
+ 26  // Mock function to illustrate the processing of a message
  27  func processaMensagem(pedido PedidoDeCompra) bool {
  28  	fmt.Println("Processando pedido:", pedido.Id)
  29  	time.Sleep(10 * time.Second)
@@ -123,17 +123,17 @@ import Figure3D from '../../../components/Figure3D.astro';
  41  		DB:       0,  // use default DB
  42  	})
  43  
- 44  	// looping de consumo
+ 44  	// consume loop
  45  	NovoPedido := consomeMensagem()
  46  	mutexKey := NovoPedido.Id
  47  
  48  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
  49  
- 50  	// Timeout para evitar espera infinita (30 segundos)
+ 50  	// Timeout to avoid waiting forever (30 seconds)
  51  	timeout := time.After(30 * time.Second)
  52  	retryCount := 0
  53  
- 54  	// Loop para aguardar o mutex ser liberado
+ 54  	// Loop to wait for the mutex to be released
  55  	for {
  56  		select {
  57  		case <-timeout:
@@ -144,7 +144,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  62  
  63  		retryCount++
  64  
- 65  		// Verifica se o Lock já existe
+ 65  		// Checks whether the Lock already exists
  66  		lock, err := client.Get(ctx, mutexKey).Result()
  67  		if err != nil && err != redis.Nil {
  68  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
@@ -154,17 +154,17 @@ import Figure3D from '../../../components/Figure3D.astro';
  72  
  73  		if lock != "" {
  74  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
- 75  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 75  			time.Sleep(2 * time.Second) // Waits 2 seconds before trying again
  76  			continue
  77  		}
  78  
- 79  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 79  		// If we got here, the mutex does not exist, so we can try to acquire it
  80  		break
  81  	}
  82  
- 83  	// Loop para tentar adquirir o mutex usando SETNX (SET if Not eXists)
+ 83  	// Loop to try to acquire the mutex using SETNX (SET if Not eXists)
  84  	for {
- 85  		// Usa SETNX para garantir atomicidade - só cria se não existir
+ 85  		// Uses SETNX to guarantee atomicity - only creates if it does not exist
  86  		success, err := client.SetNX(ctx, mutexKey, "locked", 10*time.Second).Result()
  87  		if err != nil {
  88  			fmt.Printf("Erro ao tentar criar mutex: %v\n", err)
@@ -173,15 +173,15 @@ import Figure3D from '../../../components/Figure3D.astro';
  91  		}
  92  
  93  		if success {
- 94  			// Mutex criado com sucesso
+ 94  			// Mutex created successfully
  95  			fmt.Println("Mutex criado e adquirido para o recurso por 10s:", mutexKey)
  96  			break
  97  		} else {
- 98  			// Mutex foi criado por outra thread durante a tentativa
+ 98  			// Mutex was created by another thread during the attempt
  99  			fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
 100  			time.Sleep(2 * time.Second)
 101  
-102  			// Verifica se ainda existe
+102  			// Checks whether it still exists
 103  			lock, err := client.Get(ctx, mutexKey).Result()
 104  			if err != nil && err != redis.Nil {
 105  				fmt.Printf("Erro ao verificar existência do mutex: %v\n", err)
@@ -190,14 +190,14 @@ import Figure3D from '../../../components/Figure3D.astro';
 108  			}
 109  
 110  			if lock != "" {
-111  				continue // Volta ao início do loop para aguardar
+111  				continue // Goes back to the start of the loop to wait
 112  			}
-113  			// Se não existe mais, tenta criar novamente
+113  			// If it no longer exists, tries to create it again
 114  			continue
 115  		}
 116  	}
 117  
-118  	// Processa o registro
+118  	// Processes the record
 119  	success := processaMensagem(NovoPedido)
 120  	if !success {
 121  		return
@@ -205,7 +205,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 123  
 124  	fmt.Println("Pedido processado:", mutexKey)
 125  
-126  	// Libera o Mutex
+126  	// Releases the Mutex
 127  	_, err := client.Del(ctx, mutexKey).Result()
 128  	if err != nil {
 129  		fmt.Printf("Erro ao liberar mutex: %v\n", err)
@@ -231,7 +231,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  13  	Quantidade float64
  14  }
  15  
- 16  // Função mock para exemplificar a chegada de alguma mensagem
+ 16  // Mock function to illustrate the arrival of a message
  17  func consomeMensagem() PedidoDeCompra {
  18  	return PedidoDeCompra{
  19  		Id:         "123456",
@@ -240,7 +240,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  22  	}
  23  }
  24  
- 25  // Função mock para exemplificar o processamento de uma mensagem
+ 25  // Mock function to illustrate the processing of a message
  26  func processaMensagem(pedido PedidoDeCompra) bool {
  27  	fmt.Println("Processando pedido:", pedido.Id)
  28  	time.Sleep(10 * time.Second)
@@ -249,24 +249,24 @@ import Figure3D from '../../../components/Figure3D.astro';
  31  
  32  func main() {
  33  
- 34  	// Conecta ao ZooKeeper
+ 34  	// Connects to ZooKeeper
  35  	conn, _, err := zk.Connect([]string{"0.0.0.0"}, 1000*time.Second)
  36  	if err != nil {
  37  		panic(err)
  38  	}
  39  	defer conn.Close()
  40  
- 41  	// looping de consumo
+ 41  	// consume loop
  42  	NovoPedido := consomeMensagem()
  43  	mutexKey := fmt.Sprintf("/%v", NovoPedido.Id)
  44  
  45  	fmt.Printf("Tentando adquirir mutex para o recurso: %s\n", mutexKey)
  46  
- 47  	// Timeout para evitar espera infinita (30 segundos)
+ 47  	// Timeout to avoid waiting forever (30 seconds)
  48  	timeout := time.After(30 * time.Second)
  49  	retryCount := 0
  50  
- 51  	// Loop para aguardar o mutex ser liberado
+ 51  	// Loop to wait for the mutex to be released
  52  	for {
  53  		select {
  54  		case <-timeout:
@@ -277,7 +277,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  59  
  60  		retryCount++
  61  
- 62  		// Verifica se o Znode de lock já existe
+ 62  		// Checks whether the lock Znode already exists
  63  		exists, _, err := conn.Exists(mutexKey)
  64  		if err != nil {
  65  			fmt.Printf("Erro ao verificar existência do mutex %s: %v\n", mutexKey, err)
@@ -287,19 +287,19 @@ import Figure3D from '../../../components/Figure3D.astro';
  69  
  70  		if exists {
  71  			fmt.Printf("Mutex travado para o recurso %s, tentativa %d - aguardando liberação...\n", mutexKey, retryCount)
- 72  			time.Sleep(2 * time.Second) // Aguarda 2 segundos antes de tentar novamente
+ 72  			time.Sleep(2 * time.Second) // Waits 2 seconds before trying again
  73  			continue
  74  		}
  75  
- 76  		// Se chegou aqui, o mutex não existe, pode tentar adquiri-lo
+ 76  		// If we got here, the mutex does not exist, so we can try to acquire it
  77  		break
  78  	}
  79  
- 80  	// Tentativa de criar o lock para o registro
- 81  	acl := zk.WorldACL(zk.PermAll) // Permissões abertas, ajuste conforme necessário
+ 80  	// Attempt to create the lock for the record
+ 81  	acl := zk.WorldACL(zk.PermAll) // Open permissions, adjust as needed
  82  	var path string
  83  
- 84  	// Loop para tentar adquirir o mutex
+ 84  	// Loop to try to acquire the mutex
  85  	for {
  86  		var err error
  87  		path, err = conn.Create(mutexKey, []byte{}, zk.FlagEphemeral, acl)
@@ -308,7 +308,7 @@ import Figure3D from '../../../components/Figure3D.astro';
  90  				fmt.Printf("Mutex foi criado por outra thread durante a tentativa, aguardando liberação...\n")
  91  				time.Sleep(2 * time.Second)
  92  
- 93  				// Verifica novamente se ainda existe
+ 93  				// Checks again whether it still exists
  94  				exists, _, existsErr := conn.Exists(mutexKey)
  95  				if existsErr != nil {
  96  					fmt.Printf("Erro ao verificar existência do mutex: %v\n", existsErr)
@@ -317,24 +317,24 @@ import Figure3D from '../../../components/Figure3D.astro';
  99  				}
 100  
 101  				if exists {
-102  					continue // Volta ao início do loop para aguardar
+102  					continue // Goes back to the start of the loop to wait
 103  				}
-104  				// Se não existe mais, tenta criar novamente
+104  				// If it no longer exists, tries to create it again
 105  				continue
 106  			}
-107  			// Outro tipo de erro
+107  			// Another kind of error
 108  			fmt.Printf("Erro ao criar mutex: %v\n", err)
 109  			time.Sleep(1 * time.Second)
 110  			continue
 111  		}
 112  
-113  		// Mutex criado com sucesso
+113  		// Mutex created successfully
 114  		break
 115  	}
 116  
 117  	fmt.Println("Mutex criado e adquirido para o recurso", mutexKey)
 118  
-119  	// Processa o registro
+119  	// Processes the record
 120  	success := processaMensagem(NovoPedido)
 121  	if !success {
 122  		return
@@ -342,11 +342,11 @@ import Figure3D from '../../../components/Figure3D.astro';
 124  
 125  	fmt.Println("Pedido processado:", mutexKey)
 126  
-127  	// Libera o Mutex manualmente
+127  	// Releases the Mutex manually
 128  	conn.Delete(path, -1)
 129  	fmt.Println("Mutex liberado para o recurso:", mutexKey)
 130  
-131  	// Caso a sessão com o zookeeper acabe, todos os locks gerados pela conexão serão liberados.
+131  	// If the session with ZooKeeper ends, all locks created by the connection are released.
 132  	time.Sleep(50 * time.Second)
 133  }`}</code></pre>
   <h4 class="deep-h">Corrections to the source article</h4>

@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import hashingGo from '../../../lab-code/sharding/hashing.go?raw';
+import hashingGo from '../../../lab-code/_en/sharding/hashing.go?raw';
 
 <p class="ponte">In the last lesson the ranges left some shards empty and others overloaded: the date range and the id range sent all the writes to the last one. A <strong>hash function</strong> fixes that spreading: it scrambles the <code>cliente_id</code> into a number, and the remainder of dividing that number by the total number of shards picks the shard. But this math hides a trap, which shows up on the day the total number of shards changes.</p>
 
@@ -39,7 +39,7 @@ import hashingGo from '../../../lab-code/sharding/hashing.go?raw';
 
 <h3 class="sec">The author's code, hashing with SHA-256</h3>
 
-<p>The <code>hashing/main.go</code> lab does the same with 10 <em>tenants</em> (customers) and 3 shards. The part that matters (original code from the repository; the comments are in Portuguese):</p>
+<p>The <code>hashing/main.go</code> lab does the same with 10 <em>tenants</em> (customers) and 3 shards. The part that matters (original code from the repository; the comments were translated to English):</p>
 
 <CodeLab code={hashingGo} from={10} to={32} />
 

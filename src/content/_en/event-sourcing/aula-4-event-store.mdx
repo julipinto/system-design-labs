@@ -13,9 +13,9 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import eventsTable from '../../../lab-code/event-sourcing/ledger_database_migrations_000003_create_events_table.up.sql?raw';
-import appendEvent from '../../../lab-code/event-sourcing/ledger_database_migrations_000005_create_append_event_function.up.sql?raw';
-import txListener from '../../../lab-code/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
+import eventsTable from '../../../lab-code/_en/event-sourcing/ledger_database_migrations_000003_create_events_table.up.sql?raw';
+import appendEvent from '../../../lab-code/_en/event-sourcing/ledger_database_migrations_000005_create_append_event_function.up.sql?raw';
+import txListener from '../../../lab-code/_en/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
 
 <p class="ponte">Last lesson the aggregate decided that <code>PedidoEnviado</code> could get in, and it received the stream's next version. But get in <strong>where</strong>? It needs a place that keeps each stream in order, never deletes anything and <strong>stops two commands from taking the same version</strong>. That place is the <strong>Event Store</strong>.</p>
 

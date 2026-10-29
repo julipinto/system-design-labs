@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import replicacaoLab from '../../../lab-code/replicacao/replicacao-lab.sh?raw';
+import replicacaoLab from '../../../lab-code/_en/replicacao/replicacao-lab.sh?raw';
 
 <p class="ponte">Last lesson the store decided to keep the <code>pedidos</code> database in SP, Rio and Recife. Now it has to decide <strong>who receives the writes</strong>. If only one site writes, the design is simple and that site is a single point of failure. If every site writes, none is a single point, but two sites can change the same data at the same time.</p>
 
@@ -28,7 +28,7 @@ import replicacaoLab from '../../../lab-code/replicacao/replicacao-lab.sh?raw';
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>Primary/Replica.</strong> One node, the <strong>primary</strong>, receives all the writes and passes them on to the <strong>replicas</strong>, which only read. Since reads spread across the replicas, the store gains read capacity without changing anything about writes. The cost is that the primary is the <strong>single point of failure</strong> until a replica is promoted.</li>
-  <li><strong>The lab.</strong> SDLabs starts three PostgreSQL 14 instances on the same machine, on three ports: <code>55432</code> is the "SP" primary, <code>55433</code> is "Rio" and <code>55434</code> is "Recife". The commands below were run on 10/20/2026. The <code>trust</code> setting is for the lab only: production uses a password and TLS. The comments in the script are in Portuguese.</li>
+  <li><strong>The lab.</strong> SDLabs starts three PostgreSQL 14 instances on the same machine, on three ports: <code>55432</code> is the "SP" primary, <code>55433</code> is "Rio" and <code>55434</code> is "Recife". The commands below were run on 10/20/2026. The <code>trust</code> setting is for the lab only: production uses a password and TLS. The comments in the script were translated to English.</li>
 </ol>
 </HowItWorks>
 

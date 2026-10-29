@@ -12,8 +12,8 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import checkoutJs from '../../../../public/labs/testes-de-carga/lab/checkout.js?raw';
-import lojaSimJs from '../../../../public/labs/testes-de-carga/lab/loja-sim.js?raw';
+import checkoutJs from '../../../../public/en/labs/testes-de-carga/lab/checkout.js?raw';
+import lojaSimJs from '../../../../public/en/labs/testes-de-carga/lab/loja-sim.js?raw';
 
 <p class="ponte">Module 23 ended with a <strong>plan</strong> for Black Friday on 11/26/2027: 200 orders per second, 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. The math says <strong>300/s nominal</strong> and <strong>210/s sustainable</strong>. But nobody measured the connection pool, the PSP, the customer mix, or the gap between nominal and what the store really does.</p>
 
@@ -39,11 +39,11 @@ import lojaSimJs from '../../../../public/labs/testes-de-carga/lab/loja-sim.js?r
 
 <p>The real store is not available to knock over. SDLabs used a <strong>checkout queue simulator</strong>, in Node, 45 lines long: each pod is a single-server FIFO queue with exponential service time. <code>POST /pedidos</code> goes through <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> and the DB, and the <strong>shard</strong> comes from <code>murmur3(cliente_id) mod N</code>, as in module 16. The <code>lb-loja</code> does <em>round robin</em> and cuts off at 2 s.</p>
 
-<p><strong>k6 v2.3.0</strong> and the outputs are real and were run on 10/20 and 10/21/2026. The <strong>system</strong> is a model: the math from modules 14, 15, 16 and 23 turned into code. The service times are the plan's: 33 ms of CPU on <code>pedidos</code> (30/s per pod), 50 ms on <code>pagamentos</code> (20/s), 2 ms on <code>estoque</code> and 6.67 ms on the DB (150/s per shard). With no queueing, they add up to <strong>91.7 ms</strong>. The comments in the file below are in Portuguese, as in the lab's original.</p>
+<p><strong>k6 v2.3.0</strong> and the outputs are real and were run on 10/20 and 10/21/2026. The <strong>system</strong> is a model: the math from modules 14, 15, 16 and 23 turned into code. The service times are the plan's: 33 ms of CPU on <code>pedidos</code> (30/s per pod), 50 ms on <code>pagamentos</code> (20/s), 2 ms on <code>estoque</code> and 6.67 ms on the DB (150/s per shard). With no queueing, they add up to <strong>91.7 ms</strong>. The comments in the file below were translated; the code and the names are as in the lab's original.</p>
 
 <pre><code>{lojaSimJs}</code></pre>
 
-<p>With the target system and environment defined, the script is missing. The same <code>checkout.js</code> serves every test in this module: the <code>TIPO</code> variable picks the load profile, and the customers come from the test's mix (40% <code>mkt-01</code>, 60% spread out, the constant from module 16). The comments in this file are in Portuguese too.</p>
+<p>With the target system and environment defined, the script is missing. The same <code>checkout.js</code> serves every test in this module: the <code>TIPO</code> variable picks the load profile, and the customers come from the test's mix (40% <code>mkt-01</code>, 60% spread out, the constant from module 16). The comments in this file were translated too.</p>
 
 <pre><code>{checkoutJs}</code></pre>
 

@@ -139,7 +139,7 @@ import { withBase } from '../../../lib/url.js';
 
 <h3 class="sec">The other side: the reverse proxy</h3>
 
-<p>Each <code>reverse-proxy-N.yaml</code> has the same shape, but a cluster with <strong>one</strong> address only. This is the part of <code>reverse-proxy-1.yaml</code> that sets it apart from the balancer. The comments in the YAML are in Portuguese, as in the original file: "Máximo 10 requisições" is maximum 10 requests, "Repor 10 tokens" is refill 10 tokens, "A cada 60 segundos" is every 60 seconds.</p>
+<p>Each <code>reverse-proxy-N.yaml</code> has the same shape, but a cluster with <strong>one</strong> address only. This is the part of <code>reverse-proxy-1.yaml</code> that sets it apart from the balancer. The comments in the YAML were translated to English; the original file has them in Portuguese.</p>
 
 <pre><code>{String.raw`          http_filters:
           - name: envoy.filters.http.local_ratelimit
@@ -149,9 +149,9 @@ import { withBase } from '../../../lib/url.js';
               value:
                 stat_prefix: local_rate_limiter
                 token_bucket:
-                  max_tokens: 10        # Máximo 10 requisições
-                  tokens_per_fill: 10   # Repor 10 tokens
-                  fill_interval: 60s    # A cada 60 segundos
+                  max_tokens: 10        # Maximum of 10 requests
+                  tokens_per_fill: 10   # Refill 10 tokens
+                  fill_interval: 60s    # Every 60 seconds
           ...
                 route:
                   cluster: backend_service
@@ -204,7 +204,7 @@ curl -si http://localhost/ | head -1                   # 1 in 3 returns 503, unt
     <li>Each proxy lets only 10 requests per minute through (the <code>local_ratelimit</code>). Six curls fit with room to spare. In 45 curls in a row, with the bucket full, the first <code>429</code> came on the 17th request and only 21 got through (the other 24 returned 429), not the 30 that the 3 × 10 math suggests: each Envoy <em>worker</em> has its own bucket.</li>
   </ul>
   <h4 class="deep-h">What came out when I ran it</h4>
-  <p>I ran the lab on October 21, 2026, with Docker 29.9.1 and the image <code>envoyproxy/envoy:v1.27-latest</code>. Two adjustments in my clone: port <code>80:80</code> became <code>8088:80</code> (80 was already in use) and the subnet <code>172.20.0.0/16</code> changed, because it clashed with another Docker network. That's why the curls below go to <code>localhost:8088</code>. For the failure test, I raised the <code>local_ratelimit</code>'s <code>max_tokens</code> so a 429 wouldn't mix with the failures. The full output is in <a href={withBase('labs/load-balancers/lab/envoy-patterns-saida.txt')}>envoy-patterns-saida.txt</a>.</p>
+  <p>I ran the lab on October 21, 2026, with Docker 29.9.1 and the image <code>envoyproxy/envoy:v1.27-latest</code>. Two adjustments in my clone: port <code>80:80</code> became <code>8088:80</code> (80 was already in use) and the subnet <code>172.20.0.0/16</code> changed, because it clashed with another Docker network. That's why the curls below go to <code>localhost:8088</code>. For the failure test, I raised the <code>local_ratelimit</code>'s <code>max_tokens</code> so a 429 wouldn't mix with the failures. The full output is in <a href={withBase('en/labs/load-balancers/lab/envoy-patterns-saida.txt')}>envoy-patterns-saida.txt</a>.</p>
 <pre><code>{String.raw`$ for i in 1 2 3 4 5 6; do curl -si http://localhost:8088/ | grep -iE '^(HTTP|x-proxy-server)'; done
 HTTP/1.1 200 OK   x-proxy-server: reverse-proxy-1
 HTTP/1.1 200 OK   x-proxy-server: reverse-proxy-1

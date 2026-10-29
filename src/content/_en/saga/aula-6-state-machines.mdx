@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+import orquestradorMain from '../../../lab-code/_en/saga/orquestrador-main.go?raw';
 
 <p class="ponte">In the last lesson the orchestrator needed a place to note <strong>which step each saga is at</strong>, and that place is a database. What's left is giving shape to what gets noted. The shape is a <strong>state machine</strong>: the saga is in a state, an event arrives, and the pair (state, event) says where to go and what to do.</p>
 
@@ -48,7 +48,7 @@ transitar('s-1057','COBRANDO','PAGO','e-1902', …)  ->  f   (20:15:41.210, the 
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>The lab's orchestrator declares the states as constants (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+<p>The lab's orchestrator declares the states as constants (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments were translated to English):</p>
 
 <CodeLab code={orquestradorMain} from={18} to={30} />
 

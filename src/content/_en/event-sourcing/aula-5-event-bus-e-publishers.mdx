@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import txListener from '../../../lab-code/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
+import txListener from '../../../lab-code/_en/event-sourcing/ledger_internal_listeners_transaction_listener.go?raw';
 
 <p class="ponte">Last lesson <code>PedidoEnviado</code> went into the Event Store as version 3 of <code>pedido-1047</code>, in order and without a race. But the Store is a <strong>log</strong>: nobody reads from it on every screen. Whoever needs the facts (<code>estoque</code>, <code>meus-pedidos</code>, billing) is <strong>outside</strong>, and someone has to carry them there. That is the job of the <strong>Event Bus</strong>.</p>
 

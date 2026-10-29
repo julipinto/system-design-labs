@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+import orquestradorMain from '../../../lab-code/_en/saga/orquestrador-main.go?raw';
 
 <p class="ponte">In the last lesson the saga log was left with a problem: writing the row and sending the command are <strong>two writes</strong>, and between them the orchestrator can go down. It's the same problem as module 18 (<code>pedidos</code> saved the order and published the event separately), now <strong>inside the saga</strong>, in the coordinator and in every service.</p>
 
@@ -36,7 +36,7 @@ import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>In the orchestrator's <code>processReply</code>, the command is sent before the state is saved (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese). First the send, on the <code>pedidos-reply</code> reply:</p>
+<p>In the orchestrator's <code>processReply</code>, the command is sent before the state is saved (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments were translated to English). First the send, on the <code>pedidos-reply</code> reply:</p>
 
 <CodeLab code={orquestradorMain} from={335} to={348} />
 

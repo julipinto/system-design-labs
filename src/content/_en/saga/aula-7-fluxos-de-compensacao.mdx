@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+import orquestradorMain from '../../../lab-code/_en/saga/orquestrador-main.go?raw';
 
 <p class="ponte">In the last lesson the state machine took 1057 from <code>RESERVANDO</code> to <code>COMPENSANDO</code> and then to <code>ESTORNANDO</code>. What's left is to see <strong>what happens inside those states</strong>: which compensations run, in what order, and what to do when the undo itself fails.</p>
 
@@ -58,7 +58,7 @@ import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
 
 <h3 class="sec">What if it goes wrong (c): the author's lab, read</h3>
 
-<p>The excerpt below is the lab orchestrator's <code>startCompensation</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese):</p>
+<p>The excerpt below is the lab orchestrator's <code>startCompensation</code> (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments were translated to English):</p>
 
 <CodeLab code={orquestradorMain} from={400} to={448} />
 

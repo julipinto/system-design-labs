@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import murmurGo from '../../../lab-code/sharding/murmur.go?raw';
+import murmurGo from '../../../lab-code/_en/sharding/murmur.go?raw';
 import murmurMod from '../../../lab-code/sharding/murmur-go.mod?raw';
 
 <p class="ponte">In the last lesson the store ended up with all the pieces: the key, the ranges, the hash, the ring, the map and shuffle sharding. The author's public repository has four small Go programs that show the hash and the ring with real data, plus the <code>partitioning/</code> table that lesson 4 read. This lesson runs each one, checks the output against the article's, and says where the code does not do what the lesson promised.</p>
@@ -41,7 +41,7 @@ import murmurMod from '../../../lab-code/sharding/murmur-go.mod?raw';
 
 <CodeLab code={murmurMod} />
 
-<p>And the end of <code>main.go</code> (original code from the repository; the comments are in Portuguese): the <code>shardDistribution</code> map is created on line 69, incremented on 75 and printed on lines 80 to 82. It is the loop missing from the excerpt printed in the article, which lists 12 names and does not count.</p>
+<p>And the end of <code>main.go</code> (original code from the repository; the comments were translated to English): the <code>shardDistribution</code> map is created on line 69, incremented on 75 and printed on lines 80 to 82. It is the loop missing from the excerpt printed in the article, which lists 12 names and does not count.</p>
 
 <CodeLab code={murmurGo} from={63} to={83} />
 

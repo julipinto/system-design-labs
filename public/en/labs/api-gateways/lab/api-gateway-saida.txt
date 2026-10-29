@@ -1,0 +1,52 @@
+# Lab api-gateway (Kong 3.4, DB-less), run on 2026-10-21 (docker 29.9.1). No compose adjustments.
+
+$ curl -si localhost:8000/api/v1/users      -> 200  {"app":"App 1 - Users Service","message":"Users Service V1","port":"8081"}
+$ curl -si localhost:8000/api/v1/products   -> 200  {"app":"App 2 - Products Service","message":"Products Service V1","port":"8082"}
+$ curl -si localhost:8000/api/v1/orders     -> 200  {"app":"App 3 - Orders Service","message":"Orders Service V1","port":"8083"}
+$ curl -si localhost:8000/api/v2/orders     -> 200  {"app":"App 3 - Orders Service","message":"Orders Service V2","port":"8084"}
+$ curl -si localhost:8000/api/v1/products/42 -> 404 "404 page not found" (text/plain; the Go app was the one that refused)
+
+$ curl -s localhost:8001/routes   (name paths strip_path path_handling)
+orders-route-v2 ['/api/v2/orders'] True v0
+products-route ['/api/v1/products'] True v1
+orders-route ['/api/v1/orders'] True v1
+users-route ['/api/v1/users'] True v1
+
+$ docker compose ps -> kong, orders, orders-v2, products: healthy; users-service: (unhealthy)
+  healthcheck: "wget: server returned error: HTTP/1.1 404 Not Found" (the app exposes /users/health, not /health)
+
+# plugin added at the end of kong.yml and `docker compose restart kong`
+plugins:
+  - name: rate-limiting
+    service: products-service
+    config: {second: 10, limit_by: ip, policy: local}
+
+# 15 requests in a row (curl in a loop, ~2 ms each, within the same second):
+200 x10, 429 x5
+--- request 1
+HTTP/1.1 200 OK
+X-RateLimit-Remaining-Second: 9
+X-RateLimit-Limit-Second: 10
+RateLimit-Limit: 10
+RateLimit-Remaining: 9
+RateLimit-Reset: 1
+--- request 10
+HTTP/1.1 200 OK   (Remaining-Second: 0, RateLimit-Remaining: 0)
+--- request 11
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1
+X-RateLimit-Remaining-Second: 0
+X-RateLimit-Limit-Second: 10
+RateLimit-Limit: 10
+RateLimit-Remaining: 0
+RateLimit-Reset: 1
+Content-Type: application/json; charset=utf-8
+{
+  "message":"API rate limit exceeded"
+}
+
+# 15 requests in parallel (xargs -P 15), 4 rounds: 10/5, 11/4, 11/4, 11/4 (200 / 429).
+#   When the burst crosses the turn of the second (some requests took 2 to 4 s, see below), 1 extra gets through.
+# Note: isolated requests sometimes take 2 to 4 s (about 1 in 10; time_starttransfer=4.0 on /api/v1/users); the normal is 1 to 2 ms.
+# The limit only applies to the products-service route: /users and /orders do not carry RateLimit-* headers.
+$ docker compose down -v ; docker ps -> only the 3 containers from other projects

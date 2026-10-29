@@ -13,8 +13,8 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import outboxInit from '../../../lab-code/cqrs/outbox-init.sql?raw';
-import outboxRelay from '../../../lab-code/cqrs/outbox-relay.go?raw';
+import outboxInit from '../../../lab-code/_en/cqrs/outbox-init.sql?raw';
+import outboxRelay from '../../../lab-code/_en/cqrs/outbox-relay.go?raw';
 
 <p class="ponte">In the last lesson CDC took the dual write out of the code, but the event came out as a changed <strong>row</strong>, and the store wants the whole <code>PedidoCriado</code>, with items and price at the time. The way out is to write the <strong>event as data</strong>, in a table of the same database, in the <strong>same transaction</strong> as the order. If the order goes in, the event goes in; if the transaction rolls back, both disappear.</p>
 
@@ -43,7 +43,7 @@ COMMIT 832`}</code></pre>
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>The table below is the excerpt from <code>database/init.sql</code> of <code>hospital-cqrs-outbox</code>, unchanged, with the original line numbers (the comments are in Portuguese).</p>
+<p>The table below is the excerpt from <code>database/init.sql</code> of <code>hospital-cqrs-outbox</code>, unchanged, with the original line numbers (the comments were translated to English).</p>
 
 <CodeLab code={outboxInit} from={72} to={83} />
 

@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import commandHandler from '../../../lab-code/cqrs/sql-commands-handler.go?raw';
+import commandHandler from '../../../lab-code/_en/cqrs/sql-commands-handler.go?raw';
 
 <p class="ponte">In the last lesson the read model depended on every <code>PedidoCriado</code> <strong>going out</strong> when the order <strong>came in</strong>, and the question was left open. The most obvious way is for the command to do both things in sequence: write to the database and publish to the broker. That is the <strong>dual write</strong>, and it is the wrong way, because these are <strong>two writes in two places</strong> and nothing makes them atomic.</p>
 
@@ -38,7 +38,7 @@ import commandHandler from '../../../lab-code/cqrs/sql-commands-handler.go?raw';
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>The excerpt below is from the <code>commands/handler.go</code> of <code>hospital-cqrs-sql</code>, unchanged, with the original line numbers (the comments and log messages are in Portuguese). Read "prescrição" as "order".</p>
+<p>The excerpt below is from the <code>commands/handler.go</code> of <code>hospital-cqrs-sql</code>, unchanged, with the original line numbers (the comments were translated to English; log messages are kept as in the original). Read "prescrição" as "order".</p>
 
 <CodeLab code={commandHandler} from={50} to={86} />
 

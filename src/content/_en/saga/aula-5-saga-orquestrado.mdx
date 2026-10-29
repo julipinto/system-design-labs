@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
+import orquestradorMain from '../../../lab-code/_en/saga/orquestrador-main.go?raw';
 
 <p class="ponte">In the last lesson choreography left 1057 without an owner: the event gets lost and nobody notices, and the flow isn't written anywhere. The other answer is to put the whole map <strong>in one place</strong>. That place is the <strong>orchestrator</strong>: it gives the orders, waits for the reply and decides when to compensate.</p>
 
@@ -39,7 +39,7 @@ import orquestradorMain from '../../../lab-code/saga/orquestrador-main.go?raw';
 
 <h3 class="sec">What the author's lab does</h3>
 
-<p>The author's lab (public repository, only <code>orquestrado/</code> exists) has the orchestrator in <code>orquestrador/main.go</code>. This excerpt is the core: the reply arrives on a topic and the orchestrator sends the next command (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments are in Portuguese).</p>
+<p>The author's lab (public repository, only <code>orquestrado/</code> exists) has the orchestrator in <code>orquestrador/main.go</code>. This excerpt is the core: the reply arrives on a topic and the orchestrator sends the next command (read, <strong>not run</strong>; unchanged, with the original's line numbers; the comments were translated to English).</p>
 
 <CodeLab code={orquestradorMain} from={327} to={364} />
 

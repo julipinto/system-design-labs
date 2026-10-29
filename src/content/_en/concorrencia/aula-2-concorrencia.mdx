@@ -62,7 +62,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   <p>Each order occupies the CPU for 2 ms out of every 20 ms, or 10% of the time. Ten orders add up to 100%.</p>
   <p>The 18 ms is the whole order waiting for the database (the network, the queue in the connection pool, the queries). The <code>SELECT</code> and the <code>UPDATE</code> of the cat reservation, 2 ms each, are only a part of that, and they are what lesson 6 works on.</p>
   <h4 class="deep-h">The lab code, unchanged</h4>
-  <p>This is <code>concurrency/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). Each task becomes a goroutine with <code>go preparar(...)</code>, the <code>WaitGroup</code> counts how many are still missing, and the <code>churrasco</code> channel returns each one that finishes.</p>
+  <p>This is <code>concurrency/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments were translated to English). Each task becomes a goroutine with <code>go preparar(...)</code>, the <code>WaitGroup</code> counts how many are still missing, and the <code>churrasco</code> channel returns each one that finishes.</p>
   <pre><code>{String.raw` 1  package main
  2  
  3  import (
@@ -76,7 +76,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 11  	Tempo int
 12  }
 13  
-14  // Função para simular o tempo de preparo de cada atividade do churrasco
+14  // Function to simulate the preparation time of each barbecue activity
 15  func preparar(item string, tempoPreparo int, churrasco chan<- string) {
 16  	fmt.Printf("Preparando %s...\n", item)
 17  	time.Sleep(time.Duration(tempoPreparo) * time.Second)
@@ -85,13 +85,13 @@ import Figure3D from '../../../components/Figure3D.astro';
 20  
 21  func main() {
 22  
-23  	// Canal das atividades que compõe o churrasco
+23  	// Channel for the activities that make up the barbecue
 24  	churrasco := make(chan string)
 25  
-26  	// Wait Group para esperar todas as goroutines terminarem
+26  	// Wait Group to wait for all goroutines to finish
 27  	var wg sync.WaitGroup
 28  
-29  	// Lista de Atividades do Churrasco
+29  	// List of Barbecue Activities
 30  	tarefas := []Atividade{
 31  		{"picanha", 5},
 32  		{"costela", 7},
@@ -103,19 +103,19 @@ import Figure3D from '../../../components/Figure3D.astro';
 38  	}
 39  
 40  	for _, tarefa := range tarefas {
-41  		wg.Add(1)                                         // Adiciona 1 atividade ao contador do WaitGroup
-42  		go preparar(tarefa.Nome, tarefa.Tempo, churrasco) // Inicia o preparo de uma atividade do churrasco numa goroutine
+41  		wg.Add(1)                                         // Adds 1 activity to the WaitGroup counter
+42  		go preparar(tarefa.Nome, tarefa.Tempo, churrasco) // Starts preparing a barbecue activity in a goroutine
 43  	}
 44  
 45  	go func() {
-46  		wg.Wait()        // Espera que todas as goroutines chamem Done()
-47  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+46  		wg.Wait()        // Waits for all goroutines to call Done()
+47  		close(churrasco) // Closes the channel after all barbecue activities finish
 48  		fmt.Println("\nChurrasco terminou :/")
 49  	}()
 50  
 51  	for item := range churrasco {
 52  		fmt.Printf("%s foi preparado.\n", item)
-53  		wg.Done() // Remove um contador do wait group
+53  		wg.Done() // Removes one count from the wait group
 54  	}
 55  
 56  }`}</code></pre>

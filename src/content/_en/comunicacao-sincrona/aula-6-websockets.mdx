@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import chatServer from '../../../lab-code/comunicacao-sincrona/chat-server.go?raw';
+import chatServer from '../../../lab-code/_en/comunicacao-sincrona/chat-server.go?raw';
 
 <p class="ponte">gRPC solved how the <code>pedidos</code> calls the <code>pagamentos</code>, but in it, as in REST, the one asking is always the client. Lena, with order <strong>1048</strong> "on its way", wants to see the truck moving on the app's map without touching anything. Asking for the position every 5 s repeats the short polling problem from lesson 3, only now with an authentication on every question.</p>
 
@@ -53,7 +53,7 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=`}</code></pre>
 
 <h3 class="sec">The lab: a chat in Go</h3>
 
-<p>The author's public repository has a chat with <code>gorilla/websocket</code>: the server listens on port <strong>8080</strong>, on the route <code>/ws</code>, and a terminal client connects, sends and receives lines. The <code>server_chat.go</code>, unchanged (the comments in the file are in Portuguese):</p>
+<p>The author's public repository has a chat with <code>gorilla/websocket</code>: the server listens on port <strong>8080</strong>, on the route <code>/ws</code>, and a terminal client connects, sends and receives lines. The <code>server_chat.go</code>, unchanged (the comments in the file were translated to English):</p>
 
 <CodeLab code={chatServer} />
 

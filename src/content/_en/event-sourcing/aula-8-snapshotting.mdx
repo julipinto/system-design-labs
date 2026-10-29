@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import snapshotsSql from '../../../lab-code/event-sourcing/ledger_database_migrations_000004_create_snapshots_table.up.sql?raw';
+import snapshotsSql from '../../../lab-code/_en/event-sourcing/ledger_database_migrations_000004_create_snapshots_table.up.sql?raw';
 
 <p class="ponte">Last lesson left an ugly number: after 1 million events, each command for the blue mug pays <strong>1.8 s</strong> just to know the balance. Most of that work is <strong>repeated</strong>: the first 999,000 events have not changed since the last time someone added them up. It would be enough to store the result of that sum somewhere. That stored result is called a <strong>snapshot</strong>.</p>
 

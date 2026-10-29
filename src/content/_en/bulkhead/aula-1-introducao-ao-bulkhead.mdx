@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import lojaPool from '../../../../public/labs/bulkhead/lab/loja-pool.js?raw';
+import lojaPool from '../../../../public/en/labs/bulkhead/lab/loja-pool.js?raw';
 import poolK6 from '../../../../public/labs/bulkhead/lab/pool.js?raw';
 
 <p class="ponte">Module 24 ended with a finding that <code>checkout.js</code> would never have caught: the 23:00 report, running alongside normal traffic, left <strong>1 in 3 checkout orders</strong> and <strong>1 in 10 status checks</strong> with a <code>503</code>. Nobody had made a mistake. Lena's order (<strong>1054</strong>) and its status check share the <strong>same 20-connection pool</strong> to the <code>pedidos</code> database with the module 6 report. Handling the time and failure of each call (module 21) does not fix this. What is missing is handling the <strong>boundary</strong>.</p>

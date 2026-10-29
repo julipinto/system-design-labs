@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import scylla from '../../../lab-code/event-sourcing/balance_pkg_scylla_scylla.go?raw';
+import scylla from '../../../lab-code/_en/event-sourcing/balance_pkg_scylla_scylla.go?raw';
 
 <p class="ponte">Last lesson the snapshot solved the cost of reading <strong>one</strong> stream, which the Store hands back in version order. But the tracking screen does not read from the Store: it receives the events over the bus. And the bus, with partitions, retries and parallel consumers, <strong>does not deliver in the order the Store wrote</strong>. If the projection applies the old event on top of the new one, the model ends up wrong.</p>
 

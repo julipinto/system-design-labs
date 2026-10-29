@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import ringGo from '../../../lab-code/sharding/consistent-hashing-remove.go?raw';
+import ringGo from '../../../lab-code/_en/sharding/consistent-hashing-remove.go?raw';
 
 <p class="ponte">In the last lesson, going from 3 shards to 4 with <code>mod</code> moved <strong>75.2%</strong> of the rows: 75 GB to copy, 25 minutes, and most of it going between old shards. The ideal would be to move only the part the new shard will hold, 1 row in 4. The <strong>ring</strong> (hash ring) gets close to that, because it swaps the division for a search in a sorted list.</p>
 
@@ -56,7 +56,7 @@ import ringGo from '../../../lab-code/sharding/consistent-hashing-remove.go?raw'
 
 <h3 class="sec">The author's lab: 3 points and an empty shard</h3>
 
-<p>The repository has <code>consistent-hashing-remove/main.go</code>, a ring with <strong>3 points per shard</strong> and SHA-256. Adding a node creates the points and reorders the ring (original code from the repository; the comments are in Portuguese):</p>
+<p>The repository has <code>consistent-hashing-remove/main.go</code>, a ring with <strong>3 points per shard</strong> and SHA-256. Adding a node creates the points and reorders the ring (original code from the repository; the comments were translated to English):</p>
 
 <CodeLab code={ringGo} from={32} to={42} />
 

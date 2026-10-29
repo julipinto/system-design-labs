@@ -13,8 +13,8 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import mongo from '../../../lab-code/event-sourcing/statement_pkg_mongodb_client.go?raw';
-import stmt from '../../../lab-code/event-sourcing/statement_listeners_transaction_listener.go?raw';
+import mongo from '../../../lab-code/_en/event-sourcing/statement_pkg_mongodb_client.go?raw';
+import stmt from '../../../lab-code/_en/event-sourcing/statement_listeners_transaction_listener.go?raw';
 
 <p class="ponte">Last lesson the version let the consumer ignore the old event. But 1047's <code>e-502</code> arrived <strong>twice with the same version</strong>, and "version not higher" only works for whoever keeps the last state. And stock, which <strong>adds up</strong>? Module 6 already showed the damage: the duplicated <code>PedidoPago</code> and the cat's balance going from 3 to 2 and then to <strong>1</strong>, for a single order. That is the <strong>idempotency</strong> problem.</p>
 

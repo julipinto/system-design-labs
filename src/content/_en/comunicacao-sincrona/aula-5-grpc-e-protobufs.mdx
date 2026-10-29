@@ -13,9 +13,9 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
-import imcProto from '../../../lab-code/comunicacao-sincrona/imc.proto?raw';
-import grpcServer from '../../../lab-code/comunicacao-sincrona/grpc-server.go?raw';
-import grpcClient from '../../../lab-code/comunicacao-sincrona/grpc-client.go?raw';
+import imcProto from '../../../lab-code/_en/comunicacao-sincrona/imc.proto?raw';
+import grpcServer from '../../../lab-code/_en/comunicacao-sincrona/grpc-server.go?raw';
+import grpcClient from '../../../lab-code/_en/comunicacao-sincrona/grpc-client.go?raw';
 
 <p class="ponte">In the last lesson <code>net/rpc</code> gave the call the look of a function and no contract: the type lives in the Go on each side, only Go reads the format and the call can wait forever. gRPC closes those three gaps. The contract becomes a <code>.proto</code> file that generates code in any language, the format is Protobuf, which sends only numbers and values, and the call's deadline is part of how you call.</p>
 
@@ -73,7 +73,7 @@ message CobrancaResponse { string cobranca_id = 1; string status = 2; }`}</code>
 
 <h3 class="sec">The lab: BMI over gRPC</h3>
 
-<p>The author's public repository calculates the body mass index (BMI) over gRPC. This is the <code>imc.proto</code>, unchanged (the comments in the file are in Portuguese):</p>
+<p>The author's public repository calculates the body mass index (BMI) over gRPC. This is the <code>imc.proto</code>, unchanged (the comments in the file were translated to English):</p>
 
 <CodeLab code={imcProto} />
 

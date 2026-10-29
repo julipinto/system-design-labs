@@ -65,7 +65,7 @@ import poolJs from '../../../../public/labs/testes-de-carga/lab/pool.js?raw';
 
 <h3 class="sec">What if it goes wrong: the assessment only sees what the test covered</h3>
 
-<p><code>checkout.js</code> measures <strong>one flow</strong>. In the store, at 11 PM the <code>mkt-01</code> <strong>report</strong> runs, and the order status is queried all the time. Neither was in the script. The mixed scenario below (<code>pool.js</code>) puts together the checkout at 10/s, the order status at 40/s and the 11 PM report at 10 queries/s of 4 s, between 20 s and 50 s, against a server with a <strong>single pool of 20 connections</strong>. The comments in this file are in Portuguese, as in the lab's original.</p>
+<p><code>checkout.js</code> measures <strong>one flow</strong>. In the store, at 11 PM the <code>mkt-01</code> <strong>report</strong> runs, and the order status is queried all the time. Neither was in the script. The mixed scenario below (<code>pool.js</code>) puts together the checkout at 10/s, the order status at 40/s and the 11 PM report at 10 queries/s of 4 s, between 20 s and 50 s, against a server with a <strong>single pool of 20 connections</strong>. The scenario and endpoint names (<code>escrita</code>, <code>leitura</code>, <code>relatorio</code>) are in Portuguese, as in the lab's original.</p>
 
 <pre><code>{poolJs}</code></pre>
 

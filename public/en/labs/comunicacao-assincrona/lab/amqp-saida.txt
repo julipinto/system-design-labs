@@ -1,0 +1,40 @@
+# Lab protocolos-assincronos/messages/rabbit-mq (default, fanout, topic), run on 2026-10-21 (docker 29.9.1, rabbitmq:3-management = RabbitMQ 3.13.7, streadway/amqp v1.1.0)
+# Go compiled with golang:1.21-alpine; producers and consumers run on an alpine image on the compose network (amqp://user:password@rabbitmq:5672 instead of localhost, only in the clone).
+
+# 1) startup: the compose does not come up on the first try
+$ docker compose up -d       (volume ./tmp:/var/lib/rabbitmq)
+default-rabbitmq-1  Exited (1)
+Error when reading /var/lib/rabbitmq/.erlang.cookie: eacces
+# reproduced 3 times, with a fresh ./tmp and also with a named volume. `docker start` of the same container (2nd start) works: RabbitMQ 3.13.7.
+
+# 2) default/ (direct): producer for 4 s
+sent ("Mensagem de venda enviada" lines): 212188
+$ rabbitmqctl list_exchanges            ecommerce.nova.venda  direct  durable=true
+$ rabbitmqctl list_queues               cobrar  durable=true  messages=208902
+$ rabbitmqctl list_bindings             ecommerce.nova.venda -> cobrar (key cobrar)
+# the producer printed 212,188 and the broker had 208,902: without publisher confirms, the producer does not know how many arrived (some were in flight when the timeout killed it)
+
+# default consumer, during the read (rabbitmqctl list_channels connection prefetch_count messages_unacknowledged)
+prefetch_count = 0    messages_unacknowledged = 467    (list_queues: cobrar 7640 total, 6102 ready, 1538 unacked, 1 consumer)
+# the consumer read all 208,902 in 5 s and the queue went to 0
+
+# 3) type conflict: fanout/producer.go against the broker where ecommerce.nova.venda is already direct
+Falha ao construir a exchange Exception (406) Reason: "PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'ecommerce.nova.venda' in vhost '/': received 'fanout' but current is 'direct'"
+
+# 4) non-persistent messages: producer for 2 s -> cobrar: 119161 messages (durable queue)
+$ docker restart default-rabbitmq-1
+cobrar  durable=true  messages=0           ecommerce.nova.venda  direct     (queue and exchange came back; the messages did not)
+
+# 5) fanout/ on a fresh broker: producer
+sent: 1000
+ecommerce.nova.venda  fanout
+informar_logistica 1000 | cobrar_pedido 1000 | reservar_estoque 1000     (bindings with empty routing key)
+consumer-cobranca for 3 s: received 1000; cobrar_pedido 0, the other two still have 1000
+
+# 6) topic/ (exchange ecommerce.nova.venda.faturamento): 3 producer rounds (20 messages each)
+prioridade.alta: 1, 2 and 1 messages (4 of 60); the 1st round on its own came out with 0 of 20
+queue.faturamento.prioritario 4 | queue.faturamento 56 | queue.faturamento.datalake 60
+bindings: prioridade.default -> queue.faturamento | prioridade.alta -> queue.faturamento.prioritario | prioridade.* -> queue.faturamento.datalake
+[Prioritario] faturando o pedido queue.faturamento.prioritario: id:faturamento.prioridade.alta:...
+
+$ docker compose down -v ; docker ps -> only the 3 containers from other projects

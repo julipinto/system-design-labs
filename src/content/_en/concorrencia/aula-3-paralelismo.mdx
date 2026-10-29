@@ -52,7 +52,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 
 <Deep min={6}>
   <h4 class="deep-h">The lab code, unchanged</h4>
-  <p>This is <code>parallelism/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments are in Portuguese, as in the original). The <code>sliceSize</code> is <code>(16 + 8 − 1) ÷ 8 = 2</code>, and the loop cuts the list two by two, one goroutine per slice.</p>
+  <p>This is <code>parallelism/main.go</code> from Matheus Fidelis's public examples repository (the numbers on the left were added for reading; the comments were translated to English). The <code>sliceSize</code> is <code>(16 + 8 − 1) ÷ 8 = 2</code>, and the loop cuts the list two by two, one goroutine per slice.</p>
   <pre><code>{String.raw` 1  package main
  2  
  3  import (
@@ -68,11 +68,11 @@ import Figure3D from '../../../components/Figure3D.astro';
 13  	Responsavel int
 14  }
 15  
-16  // Função para simular o tempo de preparo de cada atividade do churrasco - Agor aceita uma lista de atividades
+16  // Function to simulate the preparation time of each barbecue activity - Now it accepts a list of activities
 17  func preparar(atividades []Atividade, churrasco chan<- Atividade, amigo int, wg *sync.WaitGroup) {
 18  	defer wg.Done()
 19  	for _, atividade := range atividades {
-20  		atividade.Responsavel = amigo // Identifica um responsável pela tarefa
+20  		atividade.Responsavel = amigo // Identifies someone responsible for the task
 21  		fmt.Printf("Amigo %v começou a prepação de %s...\n", amigo, atividade.Nome)
 22  		time.Sleep(time.Duration(atividade.Tempo) * time.Second)
 23  		churrasco <- atividade
@@ -81,18 +81,18 @@ import Figure3D from '../../../components/Figure3D.astro';
 26  
 27  func main() {
 28  
-29  	// Canal das atividades que compõe o churrasco
+29  	// Channel for the activities that make up the barbecue
 30  	churrasco := make(chan Atividade)
 31  
-32  	// Wait Group para esperar todas as goroutines terminarem
+32  	// Wait Group to wait for all goroutines to finish
 33  	var wg sync.WaitGroup
 34  
-35  	// Recuperando o número de CPU's (pessoas) disponíveis para ajudar no churrasco
+35  	// Getting the number of CPUs (people) available to help with the barbecue
 36  	numCPU := runtime.NumCPU()
 37  
 38  	fmt.Printf("Número de CPU's (amigos) pra ajudar no churrasco: %v.\n", numCPU)
 39  
-40  	// Lista de Atividades do Churrasco - Atividade / Tempo de Execução / Amigo Responsável
+40  	// List of Barbecue Activities - Activity / Execution Time / Responsible Friend
 41  	tarefas := []Atividade{
 42  		{"picanha", 5, 0},
 43  		{"costela", 7, 0},
@@ -114,13 +114,13 @@ import Figure3D from '../../../components/Figure3D.astro';
 59  
 60  	fmt.Printf("Número tarefas do churrasco: %v.\n", len(tarefas))
 61  
-62  	// Dividindo lista de tarefas do churrasco entre os CPU's (amigos) disponíveis
-63  	// Efetuando o balanceamento arrendondando a divisão sempre pra cima para evitar
-64  	// que alguém CPU (amigo) fique sem fazer nada :)
+62  	// Splitting the barbecue task list among the available CPUs (friends)
+63  	// Balancing by always rounding the division up to avoid
+64  	// a CPU (friend) being left with nothing to do :)
 65  	sliceSize := (len(tarefas) + numCPU - 1) / numCPU
 66  	fmt.Printf("Número tarefas pra cada CPU (amigo): %v.\n", sliceSize)
 67  
-68  	// Dividindo as tarefas entre as CPUs (amigos)
+68  	// Splitting the tasks among the CPUs (friends)
 69  	for i := 0; i < len(tarefas); i += sliceSize {
 70  		end := i + sliceSize
 71  		amigo := end / 2
@@ -132,8 +132,8 @@ import Figure3D from '../../../components/Figure3D.astro';
 77  	}
 78  
 79  	go func() {
-80  		wg.Wait()        // Espera que todas as goroutines chamem Done()
-81  		close(churrasco) // Fecha o canal após todas as atividades do churrasco terminarem
+80  		wg.Wait()        // Waits for all goroutines to call Done()
+81  		close(churrasco) // Closes the channel after all barbecue activities finish
 82  	}()
 83  
 84  	for atividade := range churrasco {
