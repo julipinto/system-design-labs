@@ -1,0 +1,132 @@
+---
+title: "Introduction to Cell-Based"
+order: 1
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last module the store got bulkheads by <strong>function</strong>, by <strong>customer</strong> and by <strong>priority</strong> (the 20-connection pool split 16 + 4, the <code>mkt-01</code> cap of 100 req/s, the 12 · 6 · 2 lanes). It is still <strong>a single stack</strong>: <code>estoque</code>, <code>pagamentos</code>, Redis and <code>lb-loja</code> belong to everyone, and one version of <code>pedidos</code> serves the whole store. What happens when <strong>one order</strong> takes that version down?</p>
+
+<OneLiner>The <em>bulkhead</em> splits <strong>resources</strong>. The <strong>cell</strong> splits the <strong>whole stack</strong>: an independent copy with its own database, queue and cache, serving a <strong>fixed share</strong> of the customers and <strong>sharing no state</strong> with the others.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Stack</strong> scenario, step forward and press <strong>Send the poison</strong>, then <strong>Split into cells</strong> and <strong>Send the poison again</strong>: compare who gets a <code>503</code> with the single stack and with the 4 cells. Then press the <strong>Radius</strong> button to see each cell's bars.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cell-based/celulas-3d/?mode=pilha" poster="labs/cell-based/celulas-3d-previa.webp" title="Interactive figure: Single stack × cells" alt="Preview of the 3D figure: Single stack × cells" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>20:25:00.000.</strong> The <code>mkt-01</code> bot sends a <code>POST /pedidos</code> with an item of <code>quantidade: 2147483648</code>. That is 2³¹, one more than fits in an <code>int32</code>.</li>
+  <li><strong>The <code>panic</code>.</strong> <code>pedidos</code> 2.6.0 adds up the total, overflows the integer and crashes.</li>
+  <li><strong>The retry.</strong> <code>gw-loja</code> tries again (up to 3 times, module 21) and the bot sends an <code>Idempotency-Key</code>. The key does not help: the crash happens <strong>before</strong> any deduplication. The same request takes down all <strong>3 pods</strong> in ~150 ms (3 × ~50 ms).</li>
+  <li><strong>The comeback.</strong> Each pod restarts in <strong>30 s</strong> (the module 14 math), and the bot resends once per second. It crashes again.</li>
+  <li><strong>The block.</strong> Someone blocks the <code>mkt-01</code> key after <strong>4 min</strong> (an example). Until then, <strong>30 orders/s × 240 s = 7,200 attempts</strong> fail: 100% of the traffic, Lena included (<code>503</code>, without using up an order number, like the 504 on 1052).</li>
+</ol>
+</HowItWorks>
+
+<p>This is a <em>poison pill</em>: one request, well-formed on the surface, that crashes whatever processes it. The module 25 bulkheads do not hold it back, because <code>pedidos</code> is <strong>a shared service</strong> and the pod that crashes serves everyone.</p>
+
+<h3 class="sec">The same request, with cells</h3>
+
+<p>Now the store is <strong>four copies</strong> of the stack, and each serves a share of the customers. The router reads the <code>cliente_id</code> in the JWT (module 8) and sends the <code>mkt-01</code> poison to <code>celula-mkt</code>. It has a <strong>floor</strong> of <strong>2 pods</strong> of <code>pedidos</code> and goes down on its own. The partner loses <strong>12 orders/s × 240 s = 2,880 attempts</strong>, 40% of the traffic. The <strong>1.5 million individual customers</strong> lose <strong>0</strong>.</p>
+
+<p>At the same instant, at 20:25:00.000, Lena buys two plush cats as a gift for her nieces. The order lands in <code>celula-recife</code>, which does not know <code>celula-mkt</code> exists: <strong>order 1060</strong>, 2 × 79.90 = 159.80 + Recife shipping 15.00 = <strong>174.80</strong>, <code>201</code>. The cat's stock goes from 19 to 17. In the single stack, that order would have run into the <code>503</code> with the others. The order numbers in the story are didactic: 1060 is from Black Friday night, and 1059 from module 22 is from a Tuesday after it.</p>
+
+<Widget name="veneno" title="Poison: single stack × cells" hint="Number of cells (1 to 10), traffic split (uniform, the store's 40 · 33 · 15 · 12 or editable), attempts per second and minutes until the block. Shows the lost attempts (7,200 × 2,880), the radius by customer type and what gets stuck in the topic (24,000 × 9,600)." />
+
+<h3 class="sec">The radius of each cell</h3>
+
+<p>The store's four cells are not the same size. The city mix from module 22 (<strong>55 · 25 · 20</strong>) applies to the <strong>60%</strong> of the traffic that is not <code>mkt-01</code>, and the partner takes the other <strong>40%</strong> (the 40% of the rows in module 16). The measured load is 30 orders/s:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cell</th><th>Who it serves</th><th>Share</th><th>Orders/s</th><th>Primary in</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-mkt</code></th><td>the partner <code>mkt-01</code></td><td><strong>40%</strong></td><td>12.0</td><td>Recife</td></tr>
+    <tr><th><code>celula-sp</code></th><td>individuals in SP (Bia, Davi)</td><td><strong>33%</strong> (55% × 60%)</td><td>9.9</td><td>SP</td></tr>
+    <tr><th><code>celula-rio</code></th><td>individuals in Rio (Caio)</td><td><strong>15%</strong> (25% × 60%)</td><td>4.5</td><td>Rio</td></tr>
+    <tr><th><code>celula-recife</code></th><td>individuals in Recife (Lena)</td><td><strong>12%</strong> (20% × 60%)</td><td>3.6</td><td>Recife</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each cell's <strong>blast radius</strong> is its <strong>share of the traffic</strong>, not 1 ÷ N. With N = 4 the naive math gives 25%, but the <strong>worst case</strong> is <strong>40%</strong> (<code>celula-mkt</code>), the average is 25% and the efficiency is 1 ÷ (4 × 0.40) = <strong>62.5%</strong>. Without separating <code>mkt-01</code> there would be 3 cells of 55 · 25 · 20%, with a worst case of <strong>55%</strong>. For the <strong>individual customer</strong> the partner's radius drops from 100% to <strong>0%</strong>.</p>
+
+<p><code>celula-mkt</code> lives in Recife for an arithmetic reason: that way no region holds more than <strong>52%</strong> of the traffic (SP 33%, Rio 15%, Recife 12% + 40%). In SP it would be 73%, in Rio 55%.</p>
+
+<Widget name="raio" title="Blast radius of the cells" hint="N cells and the distribution (uniform, the store's, SP split in 2). Shows the average and worst-case radius, the efficiency 1 ÷ (N × max.) and the 55 · 25 · 20 × 40% mix." />
+
+<h3 class="sec">Shard, bulkhead and cell</h3>
+
+<p>The word "cell" sits close to two that already appeared. The difference is <strong>what gets divided</strong>:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Pattern</th><th>What it divides</th><th>In the store</th><th>What stays shared</th></tr></thead>
+  <tbody>
+    <tr><th><em>Shard</em> (module 16)</th><td>the <strong>data</strong></td><td><code>shard-0..2</code> by <code>murmur3(cliente_id) mod 3</code></td><td>all the services, Redis, the balancer</td></tr>
+    <tr><th><em>Bulkhead</em> (module 25)</th><td>the <strong>resources</strong></td><td>the pool of 20 as 16 + 4, the 100 req/s cap</td><td><code>estoque</code>, <code>pagamentos</code>, <code>lb-loja</code></td></tr>
+    <tr><th><strong>Cell</strong></th><td>the <strong>whole stack</strong></td><td><code>celula-recife@2.6.0</code>: <code>lb</code> down to PostgreSQL</td><td>almost nothing (the router and the control plane, lesson 3)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The cell <strong>replaces the shard</strong>: its database is the "shard" for that share of the customers. The difference is who picks the share. In module 16 it was a hash, and here it is a <strong>registry table</strong> (<code>cliente_id → cell</code>), which lesson 3 opens up.</p>
+
+<div class="callout why" role="note">
+  <h3>Two meanings of "cell"</h3>
+  <p>The article and AWS use "cell" for the <strong>copy of the whole stack, one per share of the customers</strong>. WSO2, which the article also cites, uses the same word for something else: a <strong>bounded context aligned to a team</strong>, with a set of components published through a gateway ("each cell belongs to a team", "no cells inside cells", sized by Conway's law). They talk about <strong>domains</strong>, not customers, and their analogy is with the microservices of module 6. Two patterns with the same name. This module uses the AWS one.</p>
+</div>
+
+<p>The ship's bulkhead, which module 25 already used, serves here only as a bridge: Azure calls the <em>bulkhead</em> "also known as cell-based architecture". The bulkhead that module 25 put <strong>inside</strong> the pool, the cell puts <strong>around the whole store</strong>.</p>
+
+<h3 class="sec">What if it goes wrong: cells that share the stock</h3>
+
+<p>Suppose four separate <code>pedidos</code> services, but connected to the <strong>same</strong> <code>estoque</code> and the <strong>same</strong> Redis. <code>estoque</code> became the point where the four meet: any failure in it (a stuck reservation, an exhausted pool, a bad version) stops all four cells together. The radius is back to <strong>100%</strong>: it is the "hidden channel" from module 25, now in a design that <strong>looks</strong> isolated. If the cell shares even one part, the isolation is decoration.</p>
+
+<WhyItMatters>
+  <li><strong>One order can take down the stack.</strong> The <code>quantidade: 2147483648</code> cost 7,200 attempts in 4 minutes, 100% of the traffic.</li>
+  <li><strong>The cell contains the request.</strong> With 4 cells the <code>mkt-01</code> poison costs 2,880 attempts, all from the partner, and Lena closes 1060.</li>
+  <li><strong>The radius is the share, not 1 ÷ N.</strong> 40 · 33 · 15 · 12%: the worst case is the biggest cell.</li>
+  <li><strong>Splitting only part is not enough.</strong> A global <code>estoque</code> or Redis brings back the 100% radius.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Two meanings of "cell".</strong> The article and AWS mean the copy of the stack per share of customers. The WSO2 reference (2018 to 2025) means a team's bounded context. The text uses the AWS meaning and flags the other.</li>
+    <li><strong>The 1 ÷ N table.</strong> The article's is the one from module 25 and holds only with <strong>uniform</strong> traffic, and it rounds 33.3% and 66.7% to 33% and 66%. With <code>mkt-01</code> at 40% the cells are 40 · 33 · 15 · 12%, and the radius is the biggest share.</li>
+    <li><strong>"Cells eliminate <em>poison pills</em>".</strong> They contain the poisoned <strong>request</strong>, because each cell is a separate process and queue. The <strong>data</strong> poison (a corrupted row) is replicated to the passive cell (lesson 4).</li>
+    <li><strong>References.</strong> The WSO2 text at <code>wso2.com/library/conference/2025/07/…</code> answers 403 to bots and is not cited; the WSO2 reference architecture on GitHub goes in instead. The re:Invent talk is a video and <strong>was not watched</strong> for these lessons.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Cell-Based Architecture (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: What is a cell-based architecture?", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html" },
+    { label: "Microsoft: Bulkhead pattern (\"also known as cell-based architecture\")", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead" },
+    { label: "WSO2: cell-based reference architecture (another meaning of \"cell\")", href: "https://github.com/wso2/reference-architecture/blob/master/reference-architecture-cell-based.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store is now four copies, and one can fall without taking the others. What's left is what is <strong>inside</strong> a cell: which parts make it up, what makes it a cell and not just a set of pods, what it costs and what happens to a cat that exists on only one shelf.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between shard, bulkhead and cell?",
+    a: "The shard divides the data, the bulkhead divides the resources and the cell divides the whole stack: lb, gateway, services, database, Redis and topic." },
+  { q: "What did the quantity 2147483648 do to the single stack?",
+    a: "It overflowed the int32, took down the 3 pedidos pods in ~150 ms and, at every 30 s comeback, again: 7,200 failed attempts in 4 minutes, 100% of the traffic." },
+  { q: "And with 4 cells?",
+    a: "Only celula-mkt goes down: 12 × 240 = 2,880 attempts from the partner (40%). Lena buys 1060 in celula-recife, and individual customers lose 0." },
+  { q: "What is the radius of the four cells and the worst case?",
+    a: "40 · 33 · 15 · 12%. The worst case is 40% (celula-mkt), the average is 25% and the efficiency is 62.5%." },
+  { q: "What happens if the cells share the stock?",
+    a: "The radius goes back to 100%: it is the hidden channel from module 25, and the isolation becomes decoration." },
+]} />

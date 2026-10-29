@@ -1,0 +1,130 @@
+---
+title: "Breakpoint test"
+order: 7
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the 60 orders per second burst broke "today", but didn't say <strong>at how much</strong> it breaks. The breakpoint answers that: it raises the load slowly until it breaks and marks the point.</p>
+
+<OneLiner>The <strong>breakpoint</strong> raises the load <strong>until it breaks</strong> and says <strong>where</strong>. "Breaking" has <strong>three points</strong>: the <strong>target</strong> (p95 &gt; 800 ms), the <strong>errors</strong> (&gt; 0.1%) and the <strong>collapse</strong> (the <em>goodput</em> drops).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Breakpoint</strong> scenario, raise the rate and mark the three points: where the p95 goes past 800 ms, where errors appear and where the <em>goodput</em> starts to drop.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=breakpoint" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The breaking point" alt="Preview of the 3D figure: The breaking point" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Ramp.</strong> <code>ramping-arrival-rate</code> from 1 to <code>TOPO</code> orders/s over <code>DUR</code>: <code>TIPO=breakpoint TOPO=60 DUR=3m ABORT=0 k6 run checkout.js</code>.</li>
+  <li><strong>10 s windows.</strong> The CSV (<code>--out csv=bp.csv</code>) feeds <code>analisa.py</code>, which computes p50, p95, p99, errors and completed per window.</li>
+  <li><strong>Offered rate.</strong> It is the ramp's rate in the middle of the window; <em>completed/s</em> is what came back.</li>
+  <li><strong>Three points.</strong> Target, errors and collapse, read from the windows.</li>
+  <li><strong>Confirm by step.</strong> A constant rate for 2 min confirms the point that the ramp only located.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">"Today": from 1 to 60 orders per second</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Offered/s</th><th>Completed/s</th><th>p50</th><th>p95</th><th>p99</th><th>Errors</th></tr></thead>
+  <tbody>
+    <tr><th>25.6</th><td>25.2</td><td>119 ms</td><td>364 ms</td><td>457 ms</td><td>0%</td></tr>
+    <tr><th>32.1</th><td>32.8</td><td>142 ms</td><td>357 ms</td><td>467 ms</td><td>0%</td></tr>
+    <tr><th>35.4</th><td>34.9</td><td>139 ms</td><td>345 ms</td><td>389 ms</td><td>0%</td></tr>
+    <tr><th><strong>38.7</strong></th><td>36.3</td><td>331 ms</td><td><strong>932 ms</strong></td><td>1,088 ms</td><td>0%</td></tr>
+    <tr><th><strong>42.0</strong></th><td>37.2</td><td>1,087 ms</td><td>2,001 ms</td><td>2,001 ms</td><td><strong>6.8%</strong></td></tr>
+    <tr><th>45.2</th><td>40.6</td><td>1,074 ms</td><td>2,000 ms</td><td>2,001 ms</td><td>6.5%</td></tr>
+    <tr><th>48.5</th><td>36.7</td><td>1,912 ms</td><td>2,001 ms</td><td>2,002 ms</td><td>22.6%</td></tr>
+    <tr><th>51.8</th><td><strong>29.1</strong></td><td>1,975 ms</td><td>2,001 ms</td><td>2,002 ms</td><td>42.0%</td></tr>
+    <tr><th>55.1</th><td><strong>25.9</strong></td><td>2,000 ms</td><td>2,001 ms</td><td>2,001 ms</td><td>52.2%</td></tr>
+    <tr><th>58.4</th><td><strong>25.5</strong></td><td>2,000 ms</td><td>2,001 ms</td><td>2,002 ms</td><td>55.4%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Total: 5,470 requests, <strong>18.84%</strong> failures, <code>dropped_iterations</code> 19. The three points: the <strong>target</strong> falls between <strong>35 and 39</strong> orders/s offered (two rounds: p95 of 820 ms in the 35.4/s window and 932 ms in the 38.7/s one, because the break varies between rounds); the <strong>errors</strong> start at <strong>~42/s</strong>, which is 2 pods × 20/s of <code>pagamentos</code>; and the <strong>collapse</strong> comes later, when the <em>goodput</em> drops from ~40 to ~26/s. Above the ceiling, <strong>more load means fewer completed orders</strong>.</p>
+
+<h3 class="sec">The plan and plan 2</h3>
+
+<p>On the "plan" (3 shards, <code>mkt-01</code> at 60%, ramp from 1 to 360/s in 4 min) the p95 stays at 196–284 ms up to ~160/s and then climbs: 388 ms at 188/s, 444 at 203, 491 at 233, 763 at 248 and <strong>928 ms at 263/s</strong>. The target crosses at <strong>~250/s</strong>. Errors start at 278/s (p95 of 1,576 ms and 0.3%) and reach 4.8% at 293/s, 11.4% at 308/s and 40.9% at 353/s. The maximum <em>goodput</em> was ~271/s and dropped to 195/s with 353 offered. Total: 42,726 requests, 7.69% failures, <code>dropped_iterations</code> 593.</p>
+
+<p>The plan's breaking point is <strong>~250/s, not 300/s</strong>, and the cause is the <strong>hot shard</strong>: 60% of 250 is <strong>150/s</strong>, the shard's ceiling from module 16. The math "55.6% efficiency = 250/s useful" was confirmed by k6 within 3%.</p>
+
+<p>On "plan 2" (<code>mkt-01</code> on a 2× dedicated shard, same ramp) the p95 goes from 338 ms at 188/s to 421 at 218, 583 at 233, 728 at 263 and <strong>1,003 ms at 278/s</strong>: the target crosses at <strong>~270/s</strong> (90% of nominal). Errors start at ~300/s: 0.6% at 308/s, 3.1% at 323, 10.6% at 338 and 32.2% at 353. The maximum <em>goodput</em> was ~292/s. At ~300/s the next link is <strong>10 pods × 30/s</strong> (<code>pedidos</code>) and <strong>15 × 20/s</strong> (<code>pagamentos</code>) <strong>together</strong>, and the p95 falls earlier, at 90% of nominal.</p>
+
+<h3 class="sec">The ramp locates, the step confirms</h3>
+
+<p>A ramp measures the ceiling with a delay: the queue is still filling when the rate goes past it. A <strong>constant</strong> rate for 2 min, in steady state, gave this:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Environment</th><th>Rate</th><th>Requests</th><th>p95</th><th>Errors</th><th>Target</th></tr></thead>
+  <tbody>
+    <tr><th>"today"</th><td>33/s</td><td>3,960</td><td>431 ms</td><td>0%</td><td>passes</td></tr>
+    <tr><th>"today"</th><td><strong>36/s</strong></td><td>4,320</td><td><strong>798 ms</strong></td><td>0%</td><td>passes, by 2 ms</td></tr>
+    <tr><th>plan 2</th><td>250/s</td><td>29,924</td><td>698 ms</td><td>0%</td><td>passes</td></tr>
+    <tr><th>plan 2</th><td><strong>265/s</strong></td><td>31,711</td><td><strong>819 ms</strong></td><td>0%</td><td>fails</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>"Today" sustains <strong>36/s</strong> (the ramp said 35 to 39) and plan 2 sustains <strong>~260/s</strong> (the ramp said ~270). A 3 to 4 min ramp is <strong>~4% optimistic</strong>: it serves to locate, and the 2 min step confirms. <code>dropped_iterations</code> was 75 and 90, about 0.3% of ~30,000: the generator.</p>
+
+<Widget name="rampa" title="Ramp vs. step" hint="Ramp duration, final rate and the point where the target falls in steady state: the widget shows where the ramp reports the break (optimistic) and what the step confirms. It also redoes the math of the author's report's ramp of 10 users per minute." />
+
+<h3 class="sec">k6 cuts on the cumulative</h3>
+
+<p>With <code>ABORT=1</code>, <code>abortOnFail</code> stopped the test at <strong>128 s</strong> (≈ 43 orders/s offered) with a <strong>cumulative</strong> <code>p(95)=894 ms</code> (2,764 requests) and no errors. <strong>By window</strong>, the p95 had already crossed 800 ms in the 100–110 s window (820 ms, ≈ 35 orders/s). The automatic cut came late: ~8 orders/s and ~20 s more. To locate the point, use the <strong>window</strong> (the CSV or Prometheus), not the aggregate.</p>
+
+<h3 class="sec">What if it goes wrong: the generator becomes the bottleneck, or the environment is elastic</h3>
+
+<p>First case: the <strong>generator</strong>. In the plan's round <code>dropped_iterations</code> was <strong>593</strong> (1.4%): k6 fell behind and stopped sending orders it should have sent. k6 and the server shared the same machine, so the generator competed with the system. Monitor the generator's CPU and check whether <code>vus</code> gets close to <code>maxVUs</code>.</p>
+
+<p>Second case: <strong>a breakpoint in an elastic environment</strong>. With the HPA on, the system adds replicas while the load climbs and the test "finds the limit of the cloud bill". k6 says to <strong>turn elasticity off</strong> to find the <strong>system's</strong> limit, run in <em>staging</em> and test autoscaling in a separate test.</p>
+
+<WhyItMatters>
+  <li><strong>"Breaking" has three points.</strong> Target (35–39/s, today), errors (~42/s) and collapse (goodput at ~26/s): each calls for a different action.</li>
+  <li><strong>The plan breaks at ~250/s, not 300.</strong> <code>mkt-01</code>'s hot shard (60% × 250 = 150/s) is the link; the dedicated shard takes it to ~260/s.</li>
+  <li><strong>Use the window, not the cumulative.</strong> k6's cut at 128 s came ~20 s and ~8 orders/s after the real point.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"10 users per minute up to 10,000."</strong> 10,000 ÷ 10 = <strong>1,000 min = 16 h 40 min</strong>, and the 3,700 point comes at <strong>6 h 10 min</strong>. A ramp that slow measures the steady state of each step; a short one gives an optimistic point. k6 recommends <code>ramping-arrival-rate</code> and ramps that leave enough time.</li>
+    <li><strong><code>abortOnFail</code> evaluates the cumulative</strong>, not the window: the cut came at 128 s with a cumulative p95 of 894 ms, and the window had crossed 800 ms 20 s earlier.</li>
+    <li><strong>Breakpoint in an elastic environment.</strong> The article suggests analyzing the scaling policies; k6 recommends turning elasticity off and testing autoscaling separately.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: breakpoint testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/breakpoint-testing/" },
+    { label: "Grafana blog: Breakpoint testing", href: "https://grafana.com/blog/2024/01/30/breakpoint-testing/" },
+    { label: "Grafana k6: thresholds", href: "https://grafana.com/docs/k6/latest/using-k6/thresholds/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The breaking point is measured, but a test is only worth something if it answers a question. What's left is what to <strong>ask</strong> before running.</p>
+
+<Flashcards cards={[
+  { q: "What are the three breaking points?",
+    a: "The target (p95 > 800 ms), the errors (> 0.1%) and the collapse (the goodput drops). On 'today': 35–39/s, ~42/s and a drop to ~26/s." },
+  { q: "Where does the plan break and why?",
+    a: "At ~250/s, not 300. mkt-01's hot shard gets 60% of the traffic: 60% × 250 = 150/s, the shard's ceiling." },
+  { q: "And plan 2, with the dedicated shard?",
+    a: "The target falls at ~260/s in steady state (~270 on the ramp) and the errors at ~300/s." },
+  { q: "Why is the ramp optimistic?",
+    a: "The queue is still filling when the rate goes past the ceiling. The ramp locates (~4% optimistic); the 2 min step confirms." },
+  { q: "Why does abortOnFail come late?",
+    a: "It evaluates the cumulative p95: it stopped at 128 s with 894 ms, when the 100–110 s window had already crossed 800 ms." },
+]} />

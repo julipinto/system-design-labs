@@ -1,0 +1,86 @@
+---
+title: "Spike test"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the load went up in steps and the store had 45 s at each level to adjust. The 8 PM newsletter doesn't give that time: the catalog reached 640 req/s in the 8:03 PM minute, and the checkout gets the burst <strong>all at once</strong>. What's left is whether the store <strong>absorbs</strong> it and <strong>recovers</strong>.</p>
+
+<OneLiner>The <strong>spike</strong> is a sudden jump in load that <strong>comes back</strong>. It asks whether the system absorbs the burst, whether it recovers and <strong>how long</strong> that takes.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Spike</strong> scenario, press <strong>Turn on pre-scaling</strong> and compare the errors at the top with those of the burst without it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=spike" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The spike" alt="Preview of the 3D figure: The spike" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Low base.</strong> 5 orders/s for 30 s: the store is calm.</li>
+  <li><strong>Jump.</strong> From 5 to 60/s in <strong>10 s</strong>, with <code>ramping-arrival-rate</code> (the <code>stages</code> in <code>checkout.js</code>).</li>
+  <li><strong>Top.</strong> 60 s at 60/s, well above the ~40/s that "today" handles.</li>
+  <li><strong>Drop.</strong> Back to 5/s for 90 s, to measure the recovery.</li>
+  <li><strong>Read by window.</strong> The p95 and <em>goodput</em> of each 10 s window, not the final summary.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the burst did to "today"</h3>
+
+<p>In the jump window, with the rate climbing from 5 to 60/s, the p95 hit <strong>1.05 s</strong>. At the top, with <strong>60 orders/s offered</strong>, errors were between <strong>47% and 65%</strong> and the <em>goodput</em> between <strong>21 and 30/s</strong>, less than the 40/s of capacity. k6 exited with code <code>99</code>.</p>
+
+<p>When it dropped to 5/s, the p95 went back to <strong>168 ms in the first window</strong>. No queue was left.</p>
+
+<h3 class="sec">The autoscaling math</h3>
+
+<p>Module 14's HPA reacts in about <strong>60 s</strong>. On a 60/s top against 40/s of capacity, 20 orders per second are missing during those 60 s: 20 × 60 = <strong>1,200 orders</strong> refused or delayed before the first new replica is ready. The 10 s burst ends before autoscaling starts to help.</p>
+
+<p>When the burst is <strong>known</strong>, like the 8 PM newsletter, the fix is to <strong>pre-scale</strong> beforehand (module 23's plan says to pre-scale at 7:50 PM). The spike is there to prove it: with pre-scaling, the same burst fits.</p>
+
+<h3 class="sec">What if it goes wrong: the recovery that is only errors</h3>
+
+<p>Going back to 168 ms in one window looks too good. The explanation is what the simulator does: it <strong>discards</strong> requests that go past 2 s, because the client gave up. The queue doesn't empty because the system got fast, it empties because it turned into <code>504</code>. The quick recovery is, in part, <strong>error</strong>.</p>
+
+<p>Looking only at the p95 after the peak would hide this. You have to read the p95 <strong>and</strong> the top phase's errors together: the 47–65% errors are the price of the recovery you see afterwards.</p>
+
+<WhyItMatters>
+  <li><strong>The spike tests what the breakpoint doesn't.</strong> A burst in a short time, before autoscaling reacts.</li>
+  <li><strong>The HPA is slow for 10 s.</strong> 20/s above capacity × 60 s of delay = 1,200 orders unserved.</li>
+  <li><strong>Recovering fast can be error.</strong> The queue turned into <code>504</code>: check the top's errors along with the p95 after it.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Spike, stress and the k6 reference</h4>
+  <ul>
+    <li><strong>The article</strong> treats the spike as a variation or complement of stress, which can run inside a stress or a breakpoint test. Here it runs alone, with its own shape.</li>
+    <li><strong>Pre-scaling is not elasticity.</strong> What the spike tests with pre-scaling on is the <strong>capacity already in place</strong>. The HPA's own behavior (~60 s) calls for a separate test, as k6 recommends.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: spike testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/spike-testing/" },
+    { label: "Grafana blog: Spike testing", href: "https://grafana.com/blog/2024/01/30/spike-testing/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaler", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The burst showed that the store breaks, but not <strong>where</strong>. What's left is how much load fits <strong>before</strong> it breaks.</p>
+
+<Flashcards cards={[
+  { q: "What does the spike ask?",
+    a: "Whether the system absorbs a sudden jump, whether it recovers and how long that takes." },
+  { q: "What was the result of 5 → 60/s in 10 s on 'today'?",
+    a: "p95 of 1.05 s at the jump; at the top, 47–65% errors and goodput of 21 to 30/s." },
+  { q: "How many orders does autoscaling leave unserved?",
+    a: "20 orders/s above capacity × 60 s of HPA delay = 1,200 orders refused or delayed." },
+  { q: "What is the fix for a known burst?",
+    a: "Pre-scale beforehand, like at 7:50 PM for the 8 PM newsletter (module 23)." },
+  { q: "Why would the 168 ms recovery mislead?",
+    a: "The simulator discards what goes past 2 s: the queue turned into 504. The quick recovery is, in part, error." },
+]} />

@@ -1,0 +1,33 @@
+// Glossary for the Cell-Based Architecture module (English). Same format as the Portuguese file.
+const [L1, L2, L3, L4] = ['aula-1-introducao-ao-cell-based', 'aula-2-estrutura-celular', 'aula-3-roteamento-celular', 'aula-4-replicacao-celular'];
+
+export const terms = [
+  { term: 'Cell', aliases: ['cell', 'cells', 'celula-sp', 'celula-rio', 'celula-recife', 'celula-mkt'], short: 'The whole store stack (lb, gateway, services, database, Redis and topic) serving a fixed share of the customers. There are 4: sp 33%, rio 15%, recife 12% and mkt 40%.', lesson: L1 },
+  { term: 'Poison pill', aliases: ['poison pill', 'poison pills', 'poison'], short: 'A request that takes down whatever processes it. The quantity 2147483648 overflows the int32 and takes down the 3 pedidos pods in ~150 ms.', lesson: L1 },
+  { term: 'Blast radius', aliases: ['blast radius', 'radius'], short: 'The share of the traffic a failure hits. With cells it is each cell\'s share (40 · 33 · 15 · 12%), not 1 ÷ N.', lesson: L1 },
+  { term: 'Worst case', aliases: ['worst case'], short: 'The radius of the biggest cell: 40% (celula-mkt). The average is 25% and the efficiency is 1 ÷ (4 × 0.40) = 62.5%.', lesson: L1 },
+  { term: 'Shard', aliases: ['shard', 'shards'], short: 'Divides the data (module 16). The cell divides the whole stack, and its database is the shard for that share.', lesson: L1 },
+  { term: 'Bulkhead', aliases: ['bulkhead', 'bulkheads'], short: 'Divides resources (module 25): pools, lanes, caps. It is still a single stack, with shared stock and Redis.', lesson: L1 },
+  { term: 'Hidden channel', aliases: ['hidden channel'], short: 'What stays shared and brings the radius back to 100%: a global stock, a single Redis, a map published to all the edges at once.', lesson: L1 },
+  { term: 'Floor', aliases: ['floor'], short: 'The minimum replicas per service (2) to survive one pod. Across the 4 cells the 2027 plan goes from 41 to 53 vCPU.', lesson: L2 },
+  { term: 'Cell gateway', aliases: ['gateway'], short: 'The cell\'s only door: all outside communication goes through it, and nothing inside knows anything outside.', lesson: L2 },
+  { term: 'Stock per cell', aliases: ['stock per cell', 'allocation'], short: 'The 19 cats split by demand: sp 6 · rio 3 · recife 2 · mkt 8. Order 1060 zeroes celula-recife with 17 in the network.', lesson: L2 },
+  { term: 'Cell zero', aliases: ['cell zero'], short: 'The synthetic deploy cell, with the test customers sint-01…03 (ZIP codes from SP, Rio and Recife) and 0% of real customers. It finds the defect before the 1st ring.', lesson: L2 },
+  { term: 'Deploy rings', aliases: ['rings'], short: 'The exposure order for a version: cell zero 0%, celula-recife 12%, celula-rio 27%, celula-sp 60% and celula-mkt 100%.', lesson: L2 },
+  { term: 'Router', aliases: ['router'], short: 'The shared part that is left: reads the key, looks up the map and hands off. It has to be thin, deterministic and more available than the cells.', lesson: L3 },
+  { term: 'Edge cell', aliases: ['edge cell', 'edge cells'], short: 'Where the router runs: edge-loja, with 3 regional instances and the map in memory. No business logic.', lesson: L3 },
+  { term: 'Map', aliases: ['map'], short: 'The cliente_id → cell table: 1.5 million × ~100 B = 150 MB, in memory at the edge. mapa-v42 is good; mapa-v43 is the bad one.', lesson: L3 },
+  { term: 'Control plane', aliases: ['control plane'], short: 'Decides placement, migration and publishes the map. It stays off the order path: if it goes down, the edges keep going with the last map.', lesson: L3 },
+  { term: 'Partition key', aliases: ['key'], short: 'The field that decides the cell, stable and tied to the business: the cliente_id read from the JWT.', lesson: L3 },
+  { term: 'Rehash storm', aliases: ['rehash storm', 'rehash'], short: 'Changing N reshuffles the keys. From 4 to 5 cells: 80.1% with hash mod N, ~20% on the ring and 0 with the registry table.', lesson: L3 },
+  { term: 'Static stability', aliases: ['static stability'], short: 'The edge keeps routing with the last map when the control plane dies, without asking anyone for anything.', lesson: L3 },
+  { term: 'Edge consumer', aliases: ['edge consumer'], short: 'Reads the domain topic and republishes each message on the cell\'s topic (pedidos.mkt). The PSP webhook comes in through it, with celula=… in the charge reference.', lesson: L3 },
+  { term: 'Backlog per cell', aliases: ['backlog'], short: 'With per-cell topics the poison traps 9,600 events, all from the partner, instead of 24,000 (14,400 from individual customers).', lesson: L3 },
+  { term: 'Passive cell', aliases: ['passive cell', 'passive'], short: 'The copy of a cell\'s database in another region: sp → rio (300 ms), rio → sp, recife → sp (800 ms), mkt → sp. It takes over if the active goes down.', lesson: L4 },
+  { term: 'Lag', aliases: ['lag'], short: 'The passive\'s delay: 300 ms (10 ms RTT) or 800 ms (80 ms RTT). The expected loss is rate × lag.', lesson: L4 },
+  { term: 'Expected loss', aliases: ['expected loss', 'RPO'], short: 'Rate × lag: celula-sp 2.97 · celula-rio 1.35 · celula-recife 2.88 · celula-mkt 9.6 orders. The cell reduces the rate per primary.', lesson: L4 },
+  { term: '2PC', aliases: ['2PC', 'Two-Phase Commit'], short: 'Two rounds (prepare and commit) that wait for the slowest participant: 24 ms with SP + Rio, 164 ms with Recife. It blocks and adds up the availability.', lesson: L4 },
+  { term: 'Headroom', aliases: ['headroom'], short: 'The spare capacity for failover: with N equal cells each survivor gets 1 ÷ (N − 1) more; the maximum normal occupancy goes from 35% (N = 2) to 66.5% (N = 20).', lesson: L4 },
+  { term: 'Shuffle sharding', aliases: ['shuffle sharding', 'shuffle'], short: 'Each customer in k cells drawn from N. The chance of losing all of them is 1 ÷ C(N,k): 0.526% (N = 20, k = 2), 2.22% (N = 10), 16.7% (N = 4).', lesson: L4 },
+  { term: 'Data poison', aliases: ['data poison'], short: 'A corrupted row in the active\'s database. It is replicated to the passive and takes it down too; the request poison stays in the cell.', lesson: L4 },
+];

@@ -1,0 +1,84 @@
+---
+title: "Average load test"
+order: 4
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the smoke proved the test runs, at 2 orders per second. Now the question is the <strong>normal store</strong>'s: at the load it expects, for long enough, does the target hold? Black Friday 2026 brought 30 orders/s to the checkout.</p>
+
+<OneLiner><strong>Average load</strong> checks the target at the <strong>expected load</strong>, for <strong>long enough</strong> to show what only shows up with time. It answers "is the normal store doing fine?", not "does Black Friday fit?".</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Average</strong> scenario, press <strong>Change to 36/s</strong> (from 30 to 36 orders/s) and read the steady-state p95: it goes from 381 up to almost 800 ms.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=media" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The average load" alt="Preview of the 3D figure: The average load" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Fixed rate.</strong> <code>TIPO=media RATE=30</code> uses <code>constant-arrival-rate</code>: 30 orders per second, with no ramp.</li>
+  <li><strong>Time.</strong> 2 minutes here, to fit in an afternoon. The article says hours or days, to find memory leaks and patterns.</li>
+  <li><strong>Target.</strong> The same <em>thresholds</em>: p95 &lt; 800 ms and errors &lt; 0.1%.</li>
+  <li><strong>Compare with the math.</strong> Module 23's M/M/1 predicted an average of <strong>~259 ms</strong> across the chain (49 + 200 + 2 + 7). What's left is to see what k6 measures.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">30 orders per second, 2 minutes</h3>
+
+<p>In the "today" environment there were <strong>3,601</strong> requests with an <strong>average of 157.5 ms</strong>, median 129.5, p90 309.9, <strong>p95 381.3</strong>, <strong>p99 498.6</strong> and max 617.0 ms. Errors: <strong>0%</strong>. Both targets passed.</p>
+
+<p>M/M/1 said ~259 ms on average, and k6 measured <strong>157 ms</strong>. The difference has a cause: the <code>lb-loja</code>'s <em>round robin</em> makes arrivals at each pod more regular than a random draw, and a queue with regular arrivals waits less. Module 23's model is <strong>conservative</strong>, and measuring tells you by how much.</p>
+
+<h3 class="sec">The plan with the 2027 average</h3>
+
+<p>The Black Friday 2027 average is <strong>125 orders/s</strong> (200 × 400 ÷ 640, the math from module 23). With <code>RATE=125</code> in the "plan" environment there were <strong>15,001</strong> requests, an <strong>average of 109.9 ms</strong>, <strong>p95 247.2</strong>, p99 357.4 and max 631.1 ms, with <strong>0%</strong> errors and exit code <code>0</code>. <code>shard-2</code> received 75/s of the 150 it can handle: <strong>50%</strong>.</p>
+
+<p>The test passed with room to spare. Keep that phrase in mind, because the next section shows what it hides.</p>
+
+<h3 class="sec">What if it goes wrong: the day's average is not the peak</h3>
+
+<p>The 125/s passed with a p95 of 247 ms, and the breakpoint of the <strong>same environment</strong> breaks at ~250/s, <strong>double</strong> (lesson 7). If someone reads the average test as "the plan is validated", they conclude there are 125/s of headroom. The real headroom, at the 200/s peak, is much smaller.</p>
+
+<p>The test wasn't wrong. It answered what was asked: is the normal store doing fine. The Black Friday question was a different one and calls for another type of test.</p>
+
+<WhyItMatters>
+  <li><strong>Average load is the baseline.</strong> If the store doesn't pass at the expected load, the other tests make no sense.</li>
+  <li><strong>Time reveals what rate doesn't.</strong> Memory leaks and patterns only show up in hours; that's why the article says to run it for a long time.</li>
+  <li><strong>Passing with room to spare doesn't validate the peak.</strong> 125/s passes at a 247 ms p95 and the plan breaks at 250/s.</li>
+</WhyItMatters>
+
+<Deep min={2}>
+  <h4 class="deep-h">Long average and the <em>soak</em></h4>
+  <ul>
+    <li><strong>k6 has a name for this:</strong> <em>soak</em>, average load for hours. The article treats it as a long "average load"; here the 2 minutes don't look for leaks, they show the shape of the test.</li>
+    <li><strong>The k6 page.</strong> The <em>Average-load testing</em> text is at <code>/load-testing/</code>; the address <code>/average-load-testing/</code> returns 404.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: average-load testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/load-testing/" },
+    { label: "Grafana k6: scenarios", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The normal load passes. What's left is what the store does <strong>above</strong> the expected, and whether it recovers when the load comes back down.</p>
+
+<Flashcards cards={[
+  { q: "What does average load answer?",
+    a: "Whether the target holds at the expected load, for long enough. It doesn't answer whether Black Friday fits." },
+  { q: "What were the numbers for 30 orders/s over 2 min?",
+    a: "3,601 requests, average 157.5 ms, p95 381.3, p99 498.6, 0% errors." },
+  { q: "Why did k6 measure 157 ms when M/M/1 predicted 259?",
+    a: "Round robin makes arrivals more regular than a random draw. Module 23's model is conservative." },
+  { q: "What is the 2027 average and how did the plan do on it?",
+    a: "125 orders/s (200 × 400 ÷ 640): 15,001 requests, p95 247 ms, 0% errors, shard-2 at 50%." },
+  { q: "Why doesn't passing the average validate the plan?",
+    a: "The same environment's breakpoint breaks at ~250/s, double. The average answers about the normal store, not about the peak." },
+]} />

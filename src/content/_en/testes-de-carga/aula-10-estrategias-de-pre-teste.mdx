@@ -1,0 +1,100 @@
+---
+title: "Pre-test strategies"
+order: 10
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the test got clear targets. The full test, though, goes through four services and three shards, and when it breaks it doesn't say which piece broke. Before it, the article says to measure <strong>one unit alone</strong>.</p>
+
+<OneLiner>The <strong>pre-test</strong> measures <strong>one replica</strong> first, then N, <strong>until the link changes</strong>: the point where computing power stops being the bottleneck and the next dependency takes over.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Pre-test</strong> scenario, press <strong>Add a pod</strong> until <code>pedidos</code> has 3 and watch the <strong>link</strong> change: the capacity goes up by 30 per pod until <code>pagamentos</code> becomes the limit.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=pre" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The pre-test" alt="Preview of the 3D figure: The pre-test" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>One replica.</strong> Ramp until the target breaks. One <code>pedidos</code> pod has 30/s nominal (33 ms) and ~21/s sustainable at 70%.</li>
+  <li><strong>One more.</strong> Double and repeat: 60/s nominal with 2 pods, 90/s with 3.</li>
+  <li><strong>Until the link changes.</strong> When the capacity stops growing linearly, the bottleneck is another piece.</li>
+  <li><strong>Isolate the dependencies.</strong> With <code>pagamentos</code> "infinite" (100 pods), only <code>pedidos</code> limits.</li>
+  <li><strong>Validate the async part.</strong> Turn on <strong>one</strong> consumer replica with a full queue and see if it holds up.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The <code>pedidos</code> pre-test</h3>
+
+<p>The environment was <code>pedidos</code> with 1, 2 and 3 pods, <code>pagamentos</code> with 100 pods (the "infinite") and plenty of shards. The ramp was 2 min up to 38 × N orders/s, with the rate offered:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th><code>pedidos</code> pods</th><th>Nominal (33 ms)</th><th>p95 crosses 800 ms at</th><th>First errors</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>30/s</td><td>~35/s (323 ms at 33.4; 1,371 ms at 36.5)</td><td>none up to 38/s</td></tr>
+    <tr><th>2</th><td>60/s</td><td>~62/s (678 ms at 60.4; 1,485 ms at 66.6)</td><td>72.9/s (25.5%)</td></tr>
+    <tr><th>3</th><td>90/s</td><td>~88/s (426 ms at 81.0; 1,024 ms at 90.5)</td><td>99.9/s (8.8%)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Capacity scales <strong>linearly, ~30 per pod</strong>, while <code>pedidos</code> is the link, and the target falls <strong>close to the nominal</strong>. The ramp measures the ceiling with a delay (lesson 7), which is why the target point comes a little above the nominal on pods 1 and 2.</p>
+
+<h3 class="sec">The link changes</h3>
+
+<p>Now the proof. The real "today" has 3 pods on <code>pedidos</code>, and the table above would say <strong>~88/s</strong>. The "today" breakpoint (lesson 7) broke at <strong>36/s</strong>. The difference is <code>pagamentos</code>, which has 2 pods of 20/s and is the link. With <code>pagamentos</code> "infinite", three pods would go past 85/s; with 2 pods, the chain stops at ~40/s nominal.</p>
+
+<Widget name="pre" title="Pre-test: which link limits" hint="Pods of pedidos (1 to 10), capacity per pod (30/s), pods of pagamentos (2 to 15 or unlimited), regular shards (3 or 4) and the shard dedicated to mkt-01: shows each link's capacity, which one limits and, when there is a measurement, the point k6 found (36 · ~250 · ~260)." />
+
+<h3 class="sec">The async pre-test</h3>
+
+<p>For queue consumers the article changes the procedure: you <strong>dam up</strong> a huge amount of messages, <strong>turn on a single replica</strong> and check that it consumes only the planned throughput <strong>without dying</strong>. The store's math comes from module 23: each <code>entregas</code> partition processes 40 events/s. A replica with a queue full of millions of events can't pull more than it can process, or memory blows up and the replica dies before the second one turns on.</p>
+
+<h3 class="sec">What if it goes wrong: dependencies with no limit</h3>
+
+<p>Testing <code>pedidos</code> with <code>pagamentos</code> "infinite" says 3 pods go past 80/s. It is an honest answer to a question nobody asked: <code>pagamentos</code> is not infinite. The real "today" breaks at <strong>36/s</strong>. The pre-test only counts if the dependencies have the <strong>same shape</strong> as in production, or if the report says they don't.</p>
+
+<WhyItMatters>
+  <li><strong>One replica gives the plan's math.</strong> ~30/s per <code>pedidos</code> pod, linear until the link changes.</li>
+  <li><strong>The link changes.</strong> 3 pods say 88/s; with a 2-pod <code>pagamentos</code>, "today" breaks at 36/s.</li>
+  <li><strong>An unlimited dependency lies.</strong> The result only holds for the configuration it was measured in.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The article's pre-test and the author's README</h4>
+  <ul>
+    <li><strong>The README</strong> uses 1 replica at 100 req/s, with CPU 75% and 300 ms. Little's math: 100 × 0.3 = <strong>30 requests in flight</strong> on one replica.</li>
+    <li><strong>The article says</strong> to repeat "until computing power stops being the bottleneck" in one sentence. The module shows that with a number: <code>pagamentos</code> at 36/s.</li>
+    <li><strong>The ramp measures the ceiling with a delay.</strong> To confirm, use the 2 min step (lesson 7).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: scenarios", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+    { label: "The author's public repository: exemplos/load-test (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">Pre-test, average, stress, spike and breakpoint gave numbers. What's left is how to <strong>put it all in a document</strong> that the product side can read.</p>
+
+<Flashcards cards={[
+  { q: "What does the pre-test measure?",
+    a: "One unit alone (1 replica), then N, until the link changes. It gives the capacity per replica for the plan." },
+  { q: "What were the results for pedidos with 1, 2 and 3 pods?",
+    a: "The target falls at ~35, ~62 and ~88/s: close to the nominal 30, 60 and 90, ~30 per pod." },
+  { q: "How do you prove the link changes?",
+    a: "'Today' (3 pods) breaks at 36/s, not ~88: the 2-pod pagamentos is the link. With it 'infinite', 3 pods go past 85/s." },
+  { q: "What is the async validation?",
+    a: "Dam up messages and turn on a single replica: it should consume only the planned throughput without dying (entregas, 40 events/s per partition)." },
+  { q: "Why do unlimited dependencies mislead?",
+    a: "The result only holds for the measured configuration: with pagamentos infinite, 3 pods go past 80/s and the real 'today' breaks at 36." },
+]} />

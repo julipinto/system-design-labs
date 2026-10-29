@@ -1,0 +1,115 @@
+---
+title: "Load vs. stress tests"
+order: 2
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the smoke ran and both targets passed, at 2 orders per second. That doesn't say whether the store handles the plan's 200/s. Two similar questions need to be told apart: <strong>does the store do well at the load it expects?</strong> and <strong>what happens when more comes?</strong></p>
+
+<OneLiner><strong>Load</strong> is the <strong>expected</strong>, measured against a target. <strong>Stress</strong> is the <strong>adverse</strong>: above it, in peaks, until you see what degrades. And <em>how</em> the load is injected (open or closed model) can hide the break.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Model</strong> scenario, first set <strong>20 VUs</strong> (closed model) and then <strong>54 orders/s</strong> (open model) and compare the throughput and errors of the two.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=modelo" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: Open vs. closed model" alt="Preview of the 3D figure: Open vs. closed model" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Load:</strong> the <strong>expected</strong> behavior. The question is "does it hold the target?": 200 orders/s with p95 ≤ 800 ms.</li>
+  <li><strong>Stress:</strong> the <strong>adverse</strong> behavior. The question is "what degrades first and how does it come back?": 300/s, peaks and bursts.</li>
+  <li>The <strong>five types</strong> (smoke, average load, stress, spike and breakpoint) fit on both sides. k6 also names the <em>soak</em>, average load for hours.</li>
+  <li><strong>Open model:</strong> the generator fixes the <strong>rate</strong> (<code>*-arrival-rate</code>) and lets the VUs vary. 54 orders/s arrive, whether the system is answering or not.</li>
+  <li><strong>Closed model:</strong> the generator fixes the <strong>VUs</strong> (<code>constant-vus</code>). Each VU only sends the next order when the previous one comes back, so the rate depends on the system.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The five load shapes and the question of each</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Type</th><th>Shape over time</th><th>Question</th><th>In the store</th></tr></thead>
+  <tbody>
+    <tr><th>Smoke</th><td>few VUs, seconds</td><td>does it work at minimal load?</td><td>2/s × 30 s: 61 reqs, p95 156 ms</td></tr>
+    <tr><th>Average load</th><td>the expected load, long</td><td>does it hold the target in the normal case?</td><td>30/s × 2 min: p95 381 ms</td></tr>
+    <tr><th>Stress</th><td>above it, in steps</td><td>what degrades and how does it come back?</td><td>100 → 300/s on plan 2</td></tr>
+    <tr><th>Spike</th><td>sudden jump and back</td><td>does it survive the burst?</td><td>5 → 60/s in 10 s: 47–65% errors</td></tr>
+    <tr><th>Breakpoint</th><td>ramp until it breaks</td><td>where does it break?</td><td>1 → 60/s ("today"), 1 → 360/s ("plan")</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="tipos" title="The five profiles over time" hint="Pick a type and change the rate and duration: the drawing shows the load k6 would inject, how many requests that makes and the question the test answers." />
+
+<h3 class="sec">Users are not orders per second</h3>
+
+<p>The author's report talks about "500 simultaneous users" and "600 TPS with 800 active users". Users and rate are different units, and the bridge between them is Little's Law: <strong>VUs = rate × (response time + pause)</strong>. With 800 users and 600 TPS, each user's cycle is 800 ÷ 600 = <strong>1.33 s</strong>. Without the declared pause, the numbers don't convert. Lesson 8 does this math for the store's 200 orders/s.</p>
+
+<h3 class="sec">The same system, two generators</h3>
+
+<p>The "today" environment has a capacity of ~40 orders/s, capped by <code>pagamentos</code> (2 pods × 20/s). Rounds of 60 s each:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Generator</th><th>Throughput</th><th>Average</th><th>p95</th><th>Errors</th></tr></thead>
+  <tbody>
+    <tr><th>Closed, 20 VUs</th><td>38.1/s</td><td>520 ms</td><td>1.07 s</td><td><strong>0%</strong></td></tr>
+    <tr><th>Closed, 60 VUs</th><td>41.1/s</td><td>1.43 s</td><td>2 s</td><td>8.35%</td></tr>
+    <tr><th>Open, 54/s</th><td>~26/s</td><td>median 2 s</td><td>2 s</td><td><strong>52%</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>With 20 VUs Little's Law checks out: 20 = 38.07 × 0.520. Throughput doesn't go past ~40/s no matter how many VUs you add, because each VU <strong>waits</strong> for the response before sending another. The closed generator regulates itself and never shows the 52% error that the open one showed at 54/s, which is a rate the store can really receive.</p>
+
+<Widget name="modelo" title="Open vs. closed" hint="System capacity, VUs of the closed model and rate of the open model. Shows throughput, p95 and errors on both sides: 20 VUs give 38/s and 0%; 54/s open gives 52%." />
+
+<h3 class="sec">What if it goes wrong: the closed test passes</h3>
+
+<p>A test with 20 VUs and no pause ends with <strong>0% errors</strong> and a p95 of 1.07 s. The p95 is already past the 800 ms target (k6 exits with <code>99</code>), but no errors show up, and anyone who reads only the errors says everything is fine. The closed generator <strong>hides the break</strong> because when the system slows down, it slows down too. This is what the k6 documentation calls <em>coordinated omission</em>: the generator omits the requests it should have sent while it was waiting.</p>
+
+<p>The store's customers don't wait: the 8 PM newsletter arrives at a rate, not at a number of users who answer one at a time. For that case, the model is the open one.</p>
+
+<WhyItMatters>
+  <li><strong>Load and stress ask different things.</strong> One has a pass target; the other looks for what degrades and how it comes back.</li>
+  <li><strong>"Users" don't convert to rate without the pause.</strong> 800 ÷ 600 = 1.33 s of cycle; without that, the number is just a guess.</li>
+  <li><strong>The closed generator hides the break.</strong> 20 VUs gave 0% errors where a rate of 54/s gave 52%.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Simultaneous users" as a unit of load.</strong> The article's and the lab's report use 500, 1,300 and 3,700 users and "600 TPS with 800 active users". Users are the <strong>closed</strong> model; rate is the open model's <strong>input</strong>. Here, 20 VUs gave 38.1/s and 0% errors, against 52% at 54/s in the open model.</li>
+    <li><strong>"Stress is a much higher load".</strong> What stress measures is how the system degrades and recovers (lesson 5), not only the size of the load.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: test types", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/" },
+    { label: "Grafana k6: open vs. closed model", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/" },
+    { label: "Gil Tene: How NOT to measure latency (YouTube)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">Before putting on 2,000 users or 300 orders per second, you need to know the <strong>smallest possible load</strong> that proves the test runs: that's the smoke.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between a load test and a stress test?",
+    a: "Load measures the expected against a target (200 orders/s, p95 ≤ 800 ms). Stress goes to the adverse (300/s, peaks) to see what degrades and how it comes back." },
+  { q: "What is the formula that links VUs to rate?",
+    a: "VUs = rate × (response time + pause), Little's Law. 800 users for 600 TPS give a 1.33 s cycle." },
+  { q: "What sets the open model apart from the closed one?",
+    a: "The open one fixes the rate and lets the VUs vary; the closed one fixes the VUs and lets the rate vary, because each VU waits for the response." },
+  { q: "What were the results for 20 VUs and for 54/s?",
+    a: "20 VUs closed: 38.1/s, p95 1.07 s, 0% errors. 54/s open: 52% errors on the same system." },
+  { q: "What is coordinated omission?",
+    a: "The closed generator waits for the system to answer and omits the requests it should have sent in that time; that is why the break disappears from the result." },
+]} />

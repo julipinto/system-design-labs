@@ -1,0 +1,161 @@
+---
+title: "Cell structure"
+order: 2
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson <code>celula-mkt</code> went down on its own and Lena closed 1060 in <code>celula-recife</code>. What's left is opening the box: what is <strong>inside</strong> a cell, what it costs and what happens to a cat that exists on only one shelf.</p>
+
+<OneLiner>A cell isolates along <strong>five dimensions at once</strong> (execution, persistence, observability, deploy and failure), and <strong>all outside communication goes through its gateway</strong>. Isolating only the database is a <em>shard</em>, and only the CPU is a <em>bulkhead</em>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Cell</strong> scenario, open <code>celula-recife</code> and follow order <strong>1060</strong> from the gateway to the database without leaving the wall. Then press the <strong>Last cat</strong> button and watch the cell's stock go from 2 to 0.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cell-based/celulas-3d/?mode=celula" poster="labs/cell-based/celulas-3d-previa.webp" title="Interactive figure: Inside the cell" alt="Preview of the 3D figure: Inside the cell" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The door.</strong> Lena's order enters <code>celula-recife@2.6.0</code> through the <strong>cell's</strong> <code>gw</code>, after its <code>lb</code>. There is no other door: anyone outside only talks to the gateway.</li>
+  <li><strong>The service.</strong> <code>pedidos</code> (2 pods, the floor) validates the 2 cats and calls the <code>estoque</code> <strong>of the same cell</strong>. It does not even know a <code>celula-sp</code> exists.</li>
+  <li><strong>The stock.</strong> The cell had <strong>2</strong> cats allocated (<code>REC-1</code>) and Lena takes both: <strong>2 → 0</strong>. Across the whole store the cat went from 19 to 17.</li>
+  <li><strong>The database.</strong> The cell's PostgreSQL writes 1060 with a <strong>local commit of 2 ms</strong>. In the single stack the primary was in SP and Lena's write crossed the country (80 ms RTT, module 17).</li>
+  <li><strong>The topic.</strong> The event leaves on the <strong>cell's</strong> <code>pedidos</code> topic (<code>pedidos.recife</code>) and its <code>entregas</code> consumes it. Total: <strong>174.80</strong>, Recife shipping included.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The five dimensions</h3>
+
+<p>The path above shows <strong>execution</strong> and <strong>persistence</strong> inside the wall. The other three only show up when something goes wrong, and a cell is only a cell if all five hold:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Dimension</th><th>What is isolated</th><th>In <code>celula-recife</code></th></tr></thead>
+  <tbody>
+    <tr><th>Execution</th><td>CPU, memory, replicas, autoscaling</td><td>its own pods, with a floor of 2 per service</td></tr>
+    <tr><th>Persistence</th><td>database, cache, queue</td><td>PostgreSQL, Redis and the <code>pedidos.recife</code> topic</td></tr>
+    <tr><th>Observability</th><td>metrics, logs and traces</td><td>the <code>celula=recife</code> label on everything (module 28)</td></tr>
+    <tr><th>Deploy</th><td>version and pipeline</td><td><code>celula-recife@2.6.0</code>, released separately</td></tr>
+    <tr><th>Failure</th><td>the measurable radius</td><td>12% of the traffic, 3.6 orders/s</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Two <strong>global</strong> components break the design: a shared queue or a single cache. If one has to exist, it comes in through a cell component at the edge (lesson 3). Inside, the opposite rule holds: each service in the cell only knows the ones in its own cell.</p>
+
+<h3 class="sec">State: passive replication only</h3>
+
+<p>The cell <strong>shares no state</strong> with the others, except for a <strong>passive</strong> copy of its database in another cell, which only takes over if the active one goes down (lesson 4). That is where the freedom the article mentions comes from: each cell can have its own <em>tuning</em>, <em>runtime</em> version or experiment with no risk to the others.</p>
+
+<h3 class="sec">How big is a cell: sizing</h3>
+
+<p>AWS asks three things of the size. The cell has to <strong>fit the biggest load</strong> one customer can bring, be <strong>testable at real scale</strong> and still have <strong>economies of scale</strong> (if it is too small, the floor eats everything). AWS also recommends a <strong>maximum limit</strong> per cell and cells of the <strong>same size</strong>.</p>
+
+<p>The store <strong>does not follow</strong> the last recommendation: <code>celula-mkt</code> has 40% and <code>celula-recife</code> has 12%. The registry map decides who goes where, and <code>mkt-01</code> got its own cell because it was the noisy neighbor. The price shows up in lesson 4: unequal cells make the <em>failover</em> headroom unequal.</p>
+
+<h3 class="sec">The cost of the floor</h3>
+
+<p>A cell <strong>does not shrink to zero</strong>: each service needs at least <strong>2 replicas</strong> to survive one pod. With the 2027 plan from module 23 (200 orders/s and 950 req/s on the catalog; 1 replica = 1 vCPU; target ρ of 70%) and the four services in the math, the total changes like this:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Cell</th><th>Orders/s</th><th>Catalog req/s</th><th><code>catalogo</code></th><th><code>pedidos</code></th><th><code>pagamentos</code></th><th><code>estoque</code></th><th>vCPU</th></tr></thead>
+  <tbody>
+    <tr><th><code>celula-mkt</code></th><td>80</td><td>100 (cap)</td><td>2</td><td>4</td><td>6</td><td>2</td><td><strong>14</strong></td></tr>
+    <tr><th><code>celula-sp</code></th><td>66</td><td>522.5</td><td>8</td><td>4</td><td>5</td><td>2</td><td><strong>19</strong></td></tr>
+    <tr><th><code>celula-rio</code></th><td>30</td><td>237.5</td><td>4</td><td>2</td><td>3</td><td>2</td><td><strong>11</strong></td></tr>
+    <tr><th><code>celula-recife</code></th><td>24</td><td>190</td><td>3</td><td>2</td><td>2</td><td>2</td><td><strong>9</strong></td></tr>
+    <tr><th>Cells total</th><td>200</td><td>1,050</td><td>17</td><td>12</td><td>16</td><td>8</td><td><strong>53</strong></td></tr>
+    <tr><th>Single stack (module 23)</th><td>200</td><td>950</td><td>14</td><td>10</td><td>15</td><td>2</td><td><strong>41</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>That is <strong>+12 vCPU (+29.3%)</strong>. <code>estoque</code> goes from 2 to <strong>8</strong> (the floor, four times), <code>pedidos</code> and <code>pagamentos</code> pay the rounding <strong>per cell</strong>, and the catalog goes up because the <code>mkt-01</code> cap (100 req/s, module 25) reserves 2 replicas.</p>
+
+<p>On a <strong>regular day</strong> (5 orders/s) the single stack uses <strong>9 vCPU</strong> (2 + 3 + 2 + 2) and the four cells, at the floor, use <strong>4 × 8 = 32 vCPU</strong>: <strong>3.6×</strong>. That is the price of isolation, and it is the loss of <strong>statistical multiplexing</strong> from module 25 (Erlang C): one larger fleet serves the same load better than four smaller ones.</p>
+
+<Widget name="piso" title="Cost of the floor" hint="Total orders/s (5 to 300), catalog (req/s), target ρ and floor (1 to 3 replicas) per service. Compares the single stack with the cells (9 × 32 on a regular day; 41 × 53 in 2027) and shows which service weighs most." />
+
+<h3 class="sec">Stock per cell: the last cat</h3>
+
+<p>The <code>estoque</code> is <strong>also the cell's</strong>, and a cat is a physical object on a shelf (module 6: <code>GATO-042</code>). The 19 units left after 1056 are split <strong>in proportion to demand</strong>: 33 · 15 · 12 · 40% of 19 give 6.3 · 2.9 · 2.3 · 7.6. Rounded, <code>celula-sp</code> <strong>6</strong>, <code>celula-rio</code> <strong>3</strong>, <code>celula-recife</code> <strong>2</strong> and <code>celula-mkt</code> <strong>8</strong> (sum 19). The three individual-customer cells have one warehouse each: <code>SP-1</code>, <code>RIO-1</code> and <code>REC-1</code>.</p>
+
+<p>Order 1060 takes the 2 cats from <code>celula-recife</code>, which is left with <strong>0</strong>. The other three add up to <strong>17</strong>. The next Recife customer sees "sold out" <strong>with 17 cats in the network</strong>.</p>
+
+<Widget name="estoque" title="Stock allocation" hint="Units (1 to 50) and the proportional split (6 · 3 · 2 · 8 for 19). Order 1060 zeroes celula-recife; then rebalance, or turn on the global stock (oversell × 100% radius)." />
+
+<h3 class="sec">Deploy per cell</h3>
+
+<p>Module 22 split the version by <em>shard</em> rings (20 · 20 · 60%). Now the rings are <strong>cells</strong>, and each has a name and a version (<code>celula-recife@2.6.0</code>). The cumulative exposure goes like this:</p>
+
+<ol class="flow steps">
+  <li><strong>Cell zero</strong> (synthetic): test customers <code>sint-01…03</code> with ZIP codes from SP, Rio and Recife. <strong>0%</strong> of real customers.</li>
+  <li><strong><code>celula-recife</code>:</strong> <strong>12%</strong> of the traffic.</li>
+  <li><strong><code>celula-rio</code>:</strong> cumulative <strong>27%</strong>.</li>
+  <li><strong><code>celula-sp</code>:</strong> cumulative <strong>60%</strong>.</li>
+  <li><strong><code>celula-mkt</code>:</strong> <strong>100%</strong>.</li>
+</ol>
+
+<p>There is a trap. The regional cell is <strong>not representative</strong> of the regional defect. Version 2.5.0 from module 22 (shipping 0.00 in Recife) would break <strong>100% of the Recife customers</strong> in the very first real ring, even though they are 12% of the traffic. What protects you is <strong>cell zero with a Recife ZIP code</strong>: it finds the defect with <code>frete_zero</code> = 1 synthetic order and a loss of <strong>R$ 0</strong>.</p>
+
+<h3 class="sec">What if it goes wrong: the last cat</h3>
+
+<p><code>celula-recife</code> zeroed its stock and the network has 17 cats. The three ways out cost different things:</p>
+
+<ol class="flow steps">
+  <li><strong>Accept the "local sold out".</strong> Loses the sale and stays consistent. For a cat at 79.90, that is expensive.</li>
+  <li><strong>Rebalance.</strong> The control plane moves 2 units from SP to Recife, <strong>asynchronously</strong>, within seconds, when the allocation drops below 20%. This is the path taken.</li>
+  <li><strong>Reserve across cells</strong> with a <em>saga</em> (module 19). It sells, but <strong>couples</strong> two cells on the critical path, which is what the cell exists to avoid.</li>
+</ol>
+
+<p>The temptation is a <strong>global</strong> <code>estoque</code>. The <em>oversell</em> goes away, but the radius is back to <strong>100%</strong>, the same hidden channel as in lesson 1.</p>
+
+<WhyItMatters>
+  <li><strong>Five dimensions together.</strong> Execution, persistence, observability, deploy and failure: if one is missing, the design becomes a <em>shard</em> or a <em>bulkhead</em>.</li>
+  <li><strong>The floor is expensive.</strong> 41 → 53 vCPU in the 2027 plan and 9 → 32 on a regular day.</li>
+  <li><strong>A physical resource does not follow the key.</strong> The cat is allocated per cell, and the last one leaves a cell sold out with 17 in the network.</li>
+  <li><strong>Deploy is the main risk.</strong> Cell zero finds the defect before any real customer.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article and what it lacks</h4>
+  <ul>
+    <li><strong>Size, placement and migration.</strong> The article says the segmentation is deterministic and that "tomorrow the customer is still in cell X". That holds for <strong>reading</strong> the map. The <strong>control plane</strong> changes the map (placing and migrating customers when a cell fills up, lesson 3). The article lacks cell size (a maximum limit and cells of the same size, in AWS), placement and migration.</li>
+    <li><strong>Cost.</strong> The article does not mention the floor. The math (41 → 53 vCPU; 9 → 32) is done here with the module 23 plan.</li>
+    <li><strong>Stock.</strong> A <strong>global</strong> physical resource does not follow the "customer" key. AWS treats this as the service's <strong>grain</strong>: allocating per cell is a decision, not a detail.</li>
+    <li><strong>Global dependencies.</strong> DNS, identity (the JWT), the PSP, the certificates and the map itself remain shared. The article does not list them.</li>
+    <li><strong>Deploy.</strong> The article mentions "complex pipelines" and experimentation in cells. The 0 → 12 → 27 → 60 → 100% rings and cell zero are the design that module 22 calls for.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Cell-Based Architecture (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: Cell sizing", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-sizing.html" },
+    { label: "AWS Well-Architected: Cell placement", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-placement.html" },
+    { label: "Microsoft: Deployment Stamps pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp" },
+    { label: "WSO2: cell-based reference architecture (granularity recommendations, for contrast only)", href: "https://github.com/wso2/reference-architecture/blob/master/reference-architecture-cell-based.md" },
+  ]} />
+</Deep>
+
+<p class="gancho">Lena entered <code>celula-recife</code> because someone, before the door, knew that <code>lena-77</code> lives there. What's left is how the order <strong>gets</strong> to the right cell: who decides, where that runs, what happens when the map changes and how the async event finds its way.</p>
+
+<Flashcards cards={[
+  { q: "What are the cell's five isolation dimensions?",
+    a: "Execution, persistence, observability, deploy and failure. Only the database is a shard; only the CPU is a bulkhead." },
+  { q: "How much does the floor cost in the 2027 plan?",
+    a: "41 vCPU in the single stack against 53 in the 4 cells (+12, +29.3%). On a regular day, 9 against 32 (3.6×)." },
+  { q: "How are the 19 cats split across the cells?",
+    a: "6 (sp) · 3 (rio) · 2 (recife) · 8 (mkt), in proportion to demand. Order 1060 zeroes celula-recife with 17 cats in the network." },
+  { q: "What are the three ways out for the last cat?",
+    a: "Accept the local sold out, rebalance the allocation through the control plane (the one adopted) or reserve across cells with a saga, which couples two cells." },
+  { q: "What is the order of the per-cell deploy rings?",
+    a: "Cell zero (0%), celula-recife (12%), celula-rio (27%), celula-sp (60%) and celula-mkt (100%). Cell zero with a Recife ZIP code finds the 0.00 shipping before any real customer." },
+]} />

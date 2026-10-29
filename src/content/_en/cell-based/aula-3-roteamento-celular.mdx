@@ -1,0 +1,117 @@
+---
+title: "Cell routing"
+order: 3
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson Lena entered <code>celula-recife</code> and took the last two cats there. Someone had to know, <strong>before</strong> the door, that <code>lena-77</code> lives in Recife. That someone is the <strong>router</strong>, the only part of the store that all the cells share.</p>
+
+<OneLiner>The router has to be <strong>thin</strong> (only route), <strong>deterministic</strong> (the same key, the same cell) and <strong>more available than the cells</strong>. If it is not, it becomes the new single point of failure.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Router</strong> scenario, step forward and press <strong>+ 1 cell</strong>: compare how many customers change place with <code>mod N</code> (80.1%), with the ring (~19.7%) and with the table (0). Then press the <strong>Async</strong> button to see the poison in the shared topic and in each cell's topics.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cell-based/celulas-3d/?mode=roteador" poster="labs/cell-based/celulas-3d-previa.webp" title="Interactive figure: The router" alt="Preview of the 3D figure: The router" hint="Drag to rotate · use ← → or Next step · switch scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The arrival.</strong> DNS takes <code>api.loja.com.br</code> to the nearest <em>edge cell</em> (<code>edge-loja</code>, 3 regional instances: SP, Rio and Recife).</li>
+  <li><strong>The key.</strong> The edge reads the <code>cliente_id</code> in the JWT (module 8): <code>lena-77</code>. It does not open the order body or know what a cat is.</li>
+  <li><strong>The map.</strong> A lookup in <code>mapa-v42</code>, which lives <strong>in memory</strong> on the edge itself (1.5 million customers × ~100 B = <strong>150 MB</strong>), returns <code>celula-recife</code>.</li>
+  <li><strong>The handoff.</strong> The request goes on to the cell's <code>gw</code> (lesson 2). From there the edge is out of the way.</li>
+</ol>
+</HowItWorks>
+
+<p>The map does not appear on its own. Another part, the <strong>control plane</strong>, decides the <strong>placement</strong> (which cell a new customer goes into), the <strong>migration</strong> (moving a customer between cells) and <strong>publishes</strong> the map. It stays <strong>off the order path</strong>: if it goes down, the edge keeps routing with the last map.</p>
+
+<h3 class="sec">The key and the map</h3>
+
+<p>The key has to be <strong>stable</strong> and tied to the business: <code>cliente_id</code>, <code>conta_id</code>, <code>tenant_id</code>. To tie it to the cell there are <strong>three ways</strong>, which module 16 already showed for the shard:</p>
+
+<ol class="flow steps">
+  <li><strong>Registry table.</strong> One row <code>cliente_id → cell</code>. The 150 MB map. Moving a customer is editing a row.</li>
+  <li><strong><code>hash mod N</code>.</strong> No table, but every change in N <strong>reshuffles</strong> almost everything.</li>
+  <li><strong>Ring (consistent hash).</strong> Each cell takes points on the ring and a new member only takes a slice.</li>
+</ol>
+
+<p>The difference shows up when the store goes from 4 to <strong>5 cells</strong>. In a simulation with 100,000 keys, <code>hash mod N</code> moves <strong>80.1%</strong> of them (3 → 4 moves 75.0%; with <code>murmur3</code> module 16 measured 75.2%). The ring moves about <strong>20%</strong> (theory: 1 ÷ (N + 1); module 16 measured 25.7% for 3 → 4). The table moves <strong>only the ones you move</strong>. This is the article's <em>rehash storm</em>: <code>mod N</code> would make 80% of the customers change cell, and the data migrates with them.</p>
+
+<Widget name="roteador" title="Router" hint="Customer (lena-77, bia-31, caio-58, davi-12, mkt-01), N (3 to 10) and method (table, mod N, ring). The N → N + 1 button counts who changed cell (80.1% × ~20% × 0%)." />
+
+<p>Moving a customer with the table has a data cost. <code>mkt-01</code> has 20 million rows of 2 KB: <strong>40 GB</strong>. At 50 MB/s that is <strong>800 s = 13 min 20 s</strong> (the module 16 math): copy, apply what arrived during the copy and <strong>flip the map</strong>. Cheaper than 80% of the store, but not free.</p>
+
+<h3 class="sec">Edge cells: thin, not "smart"</h3>
+
+<p>The router runs where the request passes: DNS, gateway, edge <em>proxy</em> or mesh (module 10). The article asks for a "smart and agnostic" layer that goes "beyond a proxy". AWS asks for the <strong>opposite</strong>: the <strong>thinnest possible</strong> layer, with no business logic, simple enough to be <strong>tested in full</strong>. The text follows AWS: any logic at the edge is logic that goes down with all four cells.</p>
+
+<p>The article also says the edge should be "as <em>stateless</em> as possible, but it can have registry state". The state is the <strong>map</strong>: small, in memory and with <strong>static stability</strong>. If the control plane dies, the edges keep going with the last map they received, without asking anyone for anything to continue.</p>
+
+<p>And the single-point math shows up. In <strong>series</strong>, a router at 99.99% and a cell at 99.9% give 0.9999 × 0.999 = <strong>99.89%</strong>. The router is the <strong>ceiling</strong> for all the cells, so it has to be more available than they are and have several instances.</p>
+
+<h3 class="sec">Synchronous cells</h3>
+
+<p>On the synchronous path the routing is on the <strong>critical path</strong>, and the cell's latency is what the customer <strong>feels</strong>. That is why each cell is its <strong>own</strong> unit of capacity: CPU, memory, database connection pool, <em>thread pools</em> and <em>rate limit</em> are configured <strong>per cell</strong>, not globally. The <code>mkt-01</code> cap of 100 req/s (module 25) is, in practice, the size of <code>celula-mkt</code>.</p>
+
+<h3 class="sec">Asynchronous cells</h3>
+
+<p>In the async case the routing happens before the topic. An <strong>edge consumer</strong> reads a domain topic and <strong>republishes</strong> each message on the cell's topic, which only knows its own messaging. That is the path of the PSP webhook: it arrives at <strong>a single address</strong>, and the edge reads the cell from the <strong>charge reference</strong>. The SP Pix charge, <code>c-7733</code>, carries <code>celula=sp</code> and goes to the <code>celula-sp</code> topic.</p>
+
+<p>The Kafka poison shows the gain. On a <strong>shared</strong> <code>pedidos</code> topic (3 partitions, 4 events per order: 30 orders/s = 120 events/s, 40/s per partition, module 13), the consumer <strong>crashes on deserialization</strong>, before reading the DLQ policy. The poison's partition <strong>gets stuck</strong>. In <strong>10 min (600 s)</strong> there are <strong>24,000</strong> events stuck (40 × 600), and <strong>60% (14,400)</strong> are from individual customers: Lena's <code>PedidoPago</code>, delayed.</p>
+
+<p>With <strong>per-cell</strong> topics, <code>pedidos.mkt</code> receives 12 × 4 ÷ 3 = <strong>16 events/s per partition</strong>: <strong>9,600</strong> stuck, <strong>all from the partner</strong>. The other three cells keep going with a lag of <strong>0</strong>, and the <em>backlog</em> stays in the cell that produced it.</p>
+
+<h3 class="sec">What if it goes wrong: the bad map</h3>
+
+<p><code>mapa-v43</code> ships with a typo: <code>bia-31 → celula-xx</code>, a cell that does not exist. The control plane publishes the file to <strong>all the edges at once</strong>, and whoever looks up the map gets a <code>503</code>. The config is <strong>shared</strong> and the radius is back to <strong>100%</strong>, the same problem as in lesson 1 by another route.</p>
+
+<p>The way out is the deploy one: <strong>validate</strong> the map first (every key points to a live cell), publish <strong>per edge</strong>, in rings, and keep the <strong>last good map</strong> to roll back to. Static stability protects against the control plane going down, but not against a bad map it published itself.</p>
+
+<WhyItMatters>
+  <li><strong>The router is the shared part that is left.</strong> Thin, deterministic and more available than the cells, or it becomes the new single point of failure.</li>
+  <li><strong>The registry table does not cause a <em>rehash storm</em>.</strong> From 4 to 5 cells: 80.1% (<code>mod N</code>), ~20% (ring) and 0 (table).</li>
+  <li><strong>The per-cell topic keeps the backlog.</strong> 24,000 stuck events become 9,600, and the 14,400 from individual customers become 0.</li>
+  <li><strong>The map is shared config.</strong> Publishing to all the edges at once brings back the 100% radius.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article and what it lacks</h4>
+  <ul>
+    <li><strong>"Smart edge cells".</strong> The article asks for a "smart and agnostic" router that goes beyond a basic <em>proxy</em>. AWS asks for the thinnest possible layer, with no business logic, testable in full. The text follows AWS.</li>
+    <li><strong>"Deterministic" × "stays in cell X".</strong> It holds for reading the map. The control plane <strong>changes</strong> the map (placement and migration, like the 13 min 20 s for <code>mkt-01</code>). The article lacks the control plane off the order path.</li>
+    <li><strong><em>Rehash</em> numbers.</strong> The 100,000-key simulation used SHA-256 (3 → 4: 75.0%; 4 → 5: 80.1%). Module 16 measured 75.2% with <code>murmur3</code>. The widget uses <code>murmur3</code> and gives close values, not identical ones.</li>
+    <li><strong>What was not run.</strong> A real cellular system and Kafka with the poison. The stuck-event numbers are <strong>rate × time</strong> on top of the qualitative description.</li>
+    <li><strong>References.</strong> The 2025 WSO2 talk answers 403 to bots and is not cited. The closest code in the author's public repository is <code>exemplos/sharding</code> (key routing, module 16); there is no cells lab.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on Cell-Based Architecture (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/cell-based/" },
+    { label: "AWS Well-Architected: Cell routing", href: "https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/cell-routing.html" },
+    { label: "AWS Builders' Library: Reliability, constant work, and a good cup of coffee", href: "https://aws.amazon.com/builders-library/reliability-and-constant-work/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+    { label: "The author's public repository: exemplos/sharding (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+  ]} />
+</Deep>
+
+<p class="gancho">So far the cell went down because of a request poison, and the others kept going. What's left is what happens when the <strong>cell</strong> really goes down, on the server: where its customers go, what is lost from the data and how much it costs to keep a ready copy in another cell.</p>
+
+<Flashcards cards={[
+  { q: "How does Lena's order reach celula-recife?",
+    a: "DNS takes it to edge-loja; it reads the cliente_id in the JWT, looks up the in-memory map (150 MB) and hands off to the cell's gateway. The control plane stays off the path." },
+  { q: "What should the edge be?",
+    a: "Thin (only route), deterministic and more available than the cells: 99.99% × 99.9% = 99.89%, the ceiling for all the cells." },
+  { q: "How much does the rehash move from 4 to 5 cells?",
+    a: "80.1% with hash mod N, ~20% on the ring and 0 with the registry table (only the ones you move)." },
+  { q: "What does the shared topic do to the poison?",
+    a: "The partition gets stuck: 24,000 events stuck in 10 min, 14,400 from individual customers. With per-cell topics it is 9,600, all from the partner." },
+  { q: "What does the bad mapa-v43 show?",
+    a: "Shared config published to all the edges brings back the 100% radius. The fix is to validate, publish per edge and keep the last good map." },
+]} />

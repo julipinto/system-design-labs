@@ -1,0 +1,92 @@
+---
+title: "Metrics and service levels"
+order: 9
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the test got a question, a mix and a rate. The last piece is missing: <strong>how do you know it passed?</strong> A k6 table has about twenty numbers, and the article answers that "passing" means meeting the <strong>service levels</strong> that the product research defined.</p>
+
+<OneLiner>Passing is <strong>measuring against a target</strong>: the <strong>p95</strong> (not the average), the <strong>error rate</strong>, the <strong>saturation</strong> and the <strong>measuring point</strong>. The targets become k6 <em>thresholds</em> and, later, SLOs.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Breakpoint</strong> scenario, compare the p95 <strong>per window</strong> with the <strong>cumulative</strong> one: the cumulative only crosses the target about 20 s later.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=breakpoint&step=5" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The breaking point" alt="Preview of the 3D figure: The breaking point" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Latency: p95.</strong> The target is <code>http_req_duration: p(95)&lt;800</code>. The average hides the tail.</li>
+  <li><strong>Errors.</strong> <code>http_req_failed: rate&lt;0.001</code>, that is, 0.1%. It includes the <code>504</code>s from the <code>lb-loja</code>.</li>
+  <li><strong>Saturation.</strong> CPU, pool, queue: what shows the <em>why</em> of the break, not only how much.</li>
+  <li><strong>Measuring point.</strong> The same order has different times in k6, in the <code>lb-loja</code> and in the service; the target says which one counts.</li>
+  <li><strong>One pane.</strong> The article's <em>single pane of glass</em> brings the test's dashboards, alerts and logs into one view.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Average, p95 and p99 are not the same number</h3>
+
+<p>In the 30 orders/s test the <strong>average</strong> was 157.5 ms: green, far from any target. The <strong>p99</strong> was 498.6 ms, three times higher, and it is what 1 in every 100 customers felt. The p95 of 381 ms sits in the middle. Percentiles also <strong>don't add up</strong> (module 14): the chain's p95 is not the sum of the services' p95s, but the percentile of the complete responses.</p>
+
+<h3 class="sec">Per window vs. cumulative</h3>
+
+<p>k6 computes the p95 of the whole test from the start. A 3 min ramp with 100 s of calm pulls the cumulative down: lesson 7's <code>abortOnFail</code> stopped at <strong>128 s</strong> with a cumulative p95 of <strong>894 ms</strong>, but the p95 <strong>per window</strong> had already gone past 800 ms in the <strong>100–110 s</strong> window (820 ms). The cumulative serves for the final summary; the window serves to locate the break.</p>
+
+<h3 class="sec">What "passed" means</h3>
+
+<p>Two targets, and both have to pass: p95 ≤ 800 ms <strong>and</strong> errors ≤ 0.1%. The widget below reads the numbers and says whether it passed, and, given a table of windows, where lesson 7's three points are.</p>
+
+<Widget name="leitor" title="Result reader" hint="Pick a real result or type avg, p95, p99, errors and rate: the widget says whether it passed against p95 ≤ 800 ms and errors ≤ 0.1%. Pick a table of windows to find the target, errors and collapse points." />
+
+<p>The author's report has a case the reader fails. In the <em>spike</em>, the expectation is "average response time &lt; 400 ms" and the result, "400 ms". Four hundred <strong>is not</strong> less than four hundred. The text says "came close to the limit", but by the report's own rule the result is <strong>failed</strong>, and the target needs an explicit sign: <code>&lt;</code> or <code>≤</code>.</p>
+
+<h3 class="sec">What if it goes wrong: the green average and the late abort</h3>
+
+<p>Reading the 157 ms <strong>average</strong> and declaring the plan approved forgets the 499 ms p99 and the <code>504</code>s that appear from ~42 orders/s on "today" (6.8% in lesson 7).</p>
+
+<p>The second mistake is trusting <code>abortOnFail</code> as the marker of the break: it fires <strong>late</strong> because it looks at the cumulative. For a cut that counts, the right way is to evaluate by window in the CSV or in a dashboard like Prometheus (histograms) and use the abort only as protection so the system doesn't go down.</p>
+
+<WhyItMatters>
+  <li><strong>p95 and p99 show what the average hides.</strong> A 157 ms average had a 499 ms p99.</li>
+  <li><strong>The measuring point is part of the target.</strong> k6, <code>lb-loja</code> and the service measure different times for the same order.</li>
+  <li><strong>The window locates; the cumulative summarizes.</strong> The abort at 128 s came ~20 s after the window that crossed 800 ms.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>Result vs. expectation.</strong> The lab's report approves a result of "400 ms" for an expectation of "&lt; 400 ms". It doesn't pass.</li>
+    <li><strong>Average vs. p95.</strong> The article uses average and p95 side by side. Missing are <strong>p99</strong>, the <em>goodput</em> (what <strong>completed</strong>, not what arrived) and <code>dropped_iterations</code> (the generator out of breath).</li>
+    <li><strong><code>abortOnFail</code></strong> evaluates the cumulative, not the window.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: thresholds", href: "https://grafana.com/docs/k6/latest/using-k6/thresholds/" },
+    { label: "Google SRE book: Testing for Reliability", href: "https://sre.google/sre-book/testing-reliability/" },
+    { label: "Gil Tene: How NOT to measure latency (YouTube)", href: "https://www.youtube.com/watch?v=lJ8ydIuPFeU" },
+  ]} />
+</Deep>
+
+<p class="gancho">With clear targets, the full test is expensive and can break at any link. What's left is whether it's worth <strong>measuring each piece alone</strong> before measuring the whole store.</p>
+
+<Flashcards cards={[
+  { q: "Why isn't the average enough to pass?",
+    a: "Because it hides the tail: a 157 ms average with a 499 ms p99. The target is the p95, along with the errors." },
+  { q: "What are the two targets and how do they go into k6?",
+    a: "p95 ≤ 800 ms and errors ≤ 0.1%, as thresholds: http_req_duration p(95)<800 and http_req_failed rate<0.001." },
+  { q: "What is the difference between window and cumulative?",
+    a: "The cumulative weighs the whole test and lags. The abort at 128 s (894 ms) came after the 100–110 s window (820 ms)." },
+  { q: "Why does 400 ms for an expectation of < 400 ms fail?",
+    a: "Because 400 is not less than 400. The author's report says it 'came close to the limit', but by its own target the result doesn't pass." },
+  { q: "What does the article lack besides average and p95?",
+    a: "The p99, the goodput (what completed) and dropped_iterations (the generator out of breath)." },
+]} />

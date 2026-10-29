@@ -1,0 +1,110 @@
+---
+title: "Performance assessment"
+order: 11
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import poolJs from '../../../../public/labs/testes-de-carga/lab/pool.js?raw';
+
+<p class="ponte">In the last lesson the pre-test gave the math of one replica and showed that the link changes. There are now five tests with real numbers, and they only help the product side if they become <strong>one document</strong> with goals, results and a to-do list. The article calls this a report template.</p>
+
+<OneLiner>The <strong>assessment</strong> is the <strong>report</strong>: goals, scenarios, results and <strong>backlog</strong>, written for engineering and for product. It says what the test showed and what it <strong>still doesn't show</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Report</strong> scenario, fill in the sheet with the five results and then press <strong>Run the mixed scenario</strong>, where the 20-connection pool is split among the flows.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=relatorio" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The report" alt="Preview of the 3D figure: The report" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Overview.</strong> Date, journey (checkout), version, environment (the simulator) and tool (k6 v2.3.0).</li>
+  <li><strong>Goals.</strong> p95 ≤ 800 ms, errors ≤ 0.1%, ≥ 200 orders/s. These are lesson 9's targets.</li>
+  <li><strong>Scenarios.</strong> Pre-test, average, spike, stress and breakpoint, each with an expectation, a result and notes.</li>
+  <li><strong>Conclusions.</strong> What each number says about the plan.</li>
+  <li><strong>Backlog.</strong> What to do, and what the test <strong>didn't cover</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The template, filled in with the real tests</h3>
+
+<p>The author's README template has the sections above, with example numbers. The table below is the same mold with the results run in this module.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Scenario</th><th>Expectation</th><th>Result</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><th>Pre-test (1, 2, 3 pods)</th><td>~30/s per pod</td><td>target falls at ~35, ~62, ~88/s</td><td>linear until the link changes (lesson 10)</td></tr>
+    <tr><th>Average, "today" (30/s)</th><td>p95 ≤ 800 ms</td><td>p95 381 ms, 0% errors</td><td>passes; M/M/1 was conservative</td></tr>
+    <tr><th>Average, plan (125/s)</th><td>p95 ≤ 800 ms</td><td>p95 247 ms, 0% errors</td><td>passes with room to spare, and the peak is another thing</td></tr>
+    <tr><th>Spike, "today" (5 → 60/s)</th><td>absorb and come back</td><td>47–65% errors at the top</td><td>recovery in one window because the queue turned into 504</td></tr>
+    <tr><th>Stress, plan 2 (up to 300/s)</th><td>target up to 200/s</td><td>target up to 250/s; 300/s fails</td><td>comes back in 10–20 s</td></tr>
+    <tr><th>Breakpoint, plan</th><td>300/s</td><td>~250/s</td><td><code>mkt-01</code>'s hot shard</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">The conclusions and the backlog</h3>
+
+<ol class="flow steps">
+  <li><strong>"Today" breaks at 36 orders/s</strong> (target, confirmed in steady state: p95 of 798 ms) and ~42 (errors). The link is <code>pagamentos</code> with 2 pods. Above that the <em>goodput</em> drops from 40 to 26/s.</li>
+  <li><strong>The plan breaks at ~250/s, not 300.</strong> <code>mkt-01</code>'s hot shard (60% of the traffic, 150/s ceiling). <strong>Action:</strong> the 2× dedicated shard (module 16).</li>
+  <li><strong>With the dedicated shard the target falls at ~260/s</strong> in steady state (~270 on the ramp) and the errors at ~300/s. Module 23's sheet (sustainable <strong>210</strong> at 70%) is <strong>conservative by ~24%</strong> (260 ÷ 210), and the 200/s target has <strong>~30% headroom</strong> up to the breaking point (260 ÷ 200).</li>
+  <li><strong>The test found nothing inside <code>pedidos</code>.</strong> It found what k6 can't see, in the next section.</li>
+  <li><strong>Pending items.</strong> A real PSP (the simulator has <code>pagamentos</code> with exponential time, without the 8 s), cache, read replicas, elasticity (the HPA was <strong>off</strong>, as k6 says), the mix with searches and <code>entregas</code> with Kafka.</li>
+</ol>
+
+<p>Module 23's sheet is <strong>corrected</strong> like this: the sustainable 210 was the ρ ≤ 70% policy, which still holds as an operating rule. The test shows that the point where the target falls is ~260, and the distance between the two is the plan's margin.</p>
+
+<h3 class="sec">What if it goes wrong: the assessment only sees what the test covered</h3>
+
+<p><code>checkout.js</code> measures <strong>one flow</strong>. In the store, at 11 PM the <code>mkt-01</code> <strong>report</strong> runs, and the order status is queried all the time. Neither was in the script. The mixed scenario below (<code>pool.js</code>) puts together the checkout at 10/s, the order status at 40/s and the 11 PM report at 10 queries/s of 4 s, between 20 s and 50 s, against a server with a <strong>single pool of 20 connections</strong>. The comments in this file are in Portuguese, as in the lab's original.</p>
+
+<pre><code>{poolJs}</code></pre>
+
+<p>In the 25 to 50 s window, <strong>33% of the checkout orders</strong> (83 of 250) and <strong>10% of the status queries</strong> (101 of ~1,000) got a <code>503</code>, and the report was refused 53% of the time. Outside the window, 0%. Lena's order did nothing wrong: the report ate her pool.</p>
+
+<p><code>checkout.js</code> would never see this, because it tests one flow at a time. Module 25 runs the same scenario with the pool split 16 + 4 and the customer sees 0% of <code>503</code>.</p>
+
+<WhyItMatters>
+  <li><strong>The report is the deliverable.</strong> Goals, scenarios, results and backlog: product and engineering read the same paper.</li>
+  <li><strong>The numbers correct the sheet.</strong> The plan breaks at ~250/s without the dedicated shard, ~260/s with it; the sustainable 210 is conservative by ~24%.</li>
+  <li><strong>The test only sees what the script covers.</strong> The mixed scenario found one flow knocking over another, and 1 in 3 checkout orders got a <code>503</code>.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Corrections to the base article and the author's README</h4>
+  <ul>
+    <li><strong>The lab's report doesn't add up.</strong> In stress, "2,000 users for 1 hour with an increase of 500 every 15 min": 4 steps of 500 go from 500 to 2,000 in 1 h, and the load doesn't stay at 2,000 for 1 h. In the spike, an average of 400 ms against "&lt; 400 ms" doesn't pass.</li>
+    <li><strong>The README's numbers are examples.</strong> The repository has only the <code>README.md</code> and five images; <strong>there is no test script</strong>. This module's numbers were measured in the simulator and replace the ones there.</li>
+    <li><strong>Tools.</strong> The article cites Locust, JMeter, Gatling and Oha; SDLabs uses k6. The article lacks the warning that the <strong>generator is also a system</strong> (here it shared the machine with the simulator), clock synchronization and distributed testing.</li>
+    <li><strong>The simulator is a model:</strong> exponential per pod, round robin, no real PSP, Kafka, catalog or HPA.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "The author's public repository: exemplos/load-test (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+    { label: "Grafana k6: documentation", href: "https://grafana.com/docs/k6/latest/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The test found the plan, the breaking point and <strong>one flow knocking over another by sharing the same pool</strong>. What's left is how to stop one flow, like the report or the <code>mkt-01</code> bot, from taking resources from the ones that aren't at fault: that's module 25, Bulkhead Pattern.</p>
+
+<Flashcards cards={[
+  { q: "What goes in a performance assessment?",
+    a: "Overview, goals, scenarios (expectation, result, note), conclusions and backlog, for engineering and product." },
+  { q: "What are the module's conclusions?",
+    a: "'Today' breaks at 36/s (link: pagamentos); the plan at ~250/s (hot shard); with a dedicated shard, ~260/s; the 210 sheet is conservative by ~24%." },
+  { q: "What does module 23's sheet now say?",
+    a: "210/s still holds as the ρ ≤ 70% policy, but the target only falls at ~260/s: the 200/s target has ~30% headroom." },
+  { q: "What did the mixed scenario show?",
+    a: "With a single pool of 20 connections, 33% of checkout orders and 10% of status queries got a 503 during the 11 PM report." },
+  { q: "Why would checkout.js never see this?",
+    a: "It measures one flow at a time. Only the mixed scenario showed one flow knocking over another by sharing the pool." },
+]} />

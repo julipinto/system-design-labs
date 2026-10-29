@@ -1,0 +1,96 @@
+---
+title: "Stress test"
+order: 5
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the normal load passed with room to spare, and that says nothing about Black Friday. What's left is pushing the load <strong>above the expected</strong>: the plan promises 200 orders/s, and module 23's math says 300/s is the nominal limit. What does the store do in between?</p>
+
+<OneLiner><strong>Stress</strong> takes the load above the expected, <strong>in steps</strong>, and watches <strong>what degrades first</strong> and <strong>how the store recovers</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Stress</strong> scenario, climb the steps from 100 to 300 orders/s and follow the <em>goodput</em>, the orders that <strong>completed</strong> per second, at each level.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=estresse" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The stress" alt="Preview of the 3D figure: The stress" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Staircase.</strong> <code>ramping-arrival-rate</code> with levels: 100, 200, 250 and 300 orders/s, back to 100. Each climb lasts 20 s and each level <strong>45 s</strong>.</li>
+  <li><strong>10 s windows.</strong> k6's CSV lets you compute the p95 of each window, not only the cumulative one.</li>
+  <li><strong>Indicators.</strong> CPU, memory, network, I/O, <strong>pool</strong> and <strong>queue</strong>, as the article says, along with p95, errors and <em>goodput</em>.</li>
+  <li><strong>Target level.</strong> 200/s is what the plan promises; 250 and 300 are the adverse.</li>
+  <li><strong>Descent.</strong> The return to 100/s measures whether the store <strong>recovers</strong> and how long it takes.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The staircase on plan 2</h3>
+
+<p>The environment was "plan 2": 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code> and the 2× dedicated shard for <code>mkt-01</code>. There were 59,567 requests.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Level</th><th>p50</th><th>p95 per window</th><th>p99</th><th>Errors</th><th>Completed/s</th></tr></thead>
+  <tbody>
+    <tr><th>100/s</th><td>82–86 ms</td><td>208–232 ms</td><td>279–317 ms</td><td>0%</td><td>~100</td></tr>
+    <tr><th>200/s (the target)</th><td>136–153 ms</td><td>334–406 ms</td><td>445–587 ms</td><td>0%</td><td>~200</td></tr>
+    <tr><th>250/s</th><td>211–269 ms</td><td>504–738 ms</td><td>639–1,068 ms</td><td>0%</td><td>~250</td></tr>
+    <tr><th>300/s (stress)</th><td>863–1,204 ms</td><td>1,497–2,000 ms</td><td>1,960–2,001 ms</td><td>0.7% to 5.1%</td><td>280–293</td></tr>
+    <tr><th>back to 100/s</th><td>90 ms</td><td>244 ms (2nd window)</td><td>362 ms</td><td>0%</td><td>100</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Total: average 419 ms, p95 1.48 s, p99 1.92 s, failures <strong>0.54%</strong>, <code>dropped_iterations</code> 182, exit code <code>99</code>. The target (p95 ≤ 800 ms) <strong>holds up to 250/s</strong>: the worst window was 738 ms. At 300/s it falls, and errors appear. The <em>goodput</em> at 300/s sits at 280–293/s, <strong>below what arrives</strong>.</p>
+
+<h3 class="sec">The recovery</h3>
+
+<p>When the load goes back to 100/s, the first window still has a p95 of 1,247 ms, and the second is already at 244 ms. The store comes back in <strong>one to two windows</strong> (10 to 20 s). Recovery is fast because the bottleneck <strong>discards what already expired</strong>: after 2 s the simulator throws the request away, and the queue empties on its own. The same effect shows up in the spike, in the next lesson.</p>
+
+<h3 class="sec">What if it goes wrong: more load, fewer orders</h3>
+
+<p>In the "today" environment the capacity is ~40 orders/s. When the load goes past that, the <em>goodput</em> <strong>drops</strong> from ~40 to ~26/s. <code>pagamentos</code> spends capacity on requests whose customer <strong>already gave up</strong> (at 2 s) and less is left for those still waiting. The result goes against intuition: <strong>more load means fewer completed orders</strong>.</p>
+
+<p>This is the kind of finding only stress gives. The article says stress "exceeds the normal flow"; what the store gains is knowing that, above the ceiling, pushing more doesn't help.</p>
+
+<WhyItMatters>
+  <li><strong>Stress shows the order of degradation.</strong> First the p95 (250 to 300/s), then the errors (300/s), last the goodput.</li>
+  <li><strong>Recovery is part of the result.</strong> In 10 to 20 s the p95 goes back to ~220 ms, because the bottleneck discards what expired.</li>
+  <li><strong>Above the ceiling, goodput drops.</strong> From ~40 to ~26/s on "today": the store does less when it receives more.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li><strong>"Stress is a much higher load".</strong> What stress measures is <strong>how the system degrades and recovers</strong>. The article doesn't mention the drop in <em>goodput</em> above the ceiling, which here went from 40 to ~26/s.</li>
+    <li><strong>The lab's report doesn't add up.</strong> "Went past the limits at around 1,500 users" and "2,000 for 1 hour with an increase of 500 every 15 min" are incompatible: 4 steps of 500 go from 500 to 2,000 in 1 h, and the load does <strong>not</strong> stay at 2,000 for 1 h.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Grafana k6: stress testing", href: "https://grafana.com/docs/k6/latest/testing-guides/test-types/stress-testing/" },
+    { label: "Grafana k6: ramping-arrival-rate executor", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The staircase climbs slowly and the store has time to react. What's left is what happens when the load goes up <strong>all at once</strong>, like the 8 PM newsletter.</p>
+
+<Flashcards cards={[
+  { q: "What does stress measure besides the size of the load?",
+    a: "What degrades first and how the store recovers after the load comes back." },
+  { q: "What was plan 2's staircase?",
+    a: "100 → 200 → 250 → 300 → 100 orders/s, 20 s climbs and 45 s levels. Target held up to 250/s (worst window 738 ms)." },
+  { q: "What happens at 300/s?",
+    a: "p95 of 1.5 to 2 s, errors of 0.7% to 5.1% and goodput of 280 to 293/s: below what arrives." },
+  { q: "Why is recovery fast?",
+    a: "The bottleneck discards what already expired (2 s). The queue empties and the p95 goes back to ~244 ms in 10 to 20 s." },
+  { q: "Why can more load give fewer completed orders?",
+    a: "Above the ceiling pagamentos spends capacity on customers who already gave up: the goodput of 'today' drops from ~40 to ~26/s." },
+]} />

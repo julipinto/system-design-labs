@@ -1,0 +1,96 @@
+---
+title: "Why load tests matter"
+order: 1
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import checkoutJs from '../../../../public/labs/testes-de-carga/lab/checkout.js?raw';
+import lojaSimJs from '../../../../public/labs/testes-de-carga/lab/loja-sim.js?raw';
+
+<p class="ponte">Module 23 ended with a <strong>plan</strong> for Black Friday on 11/26/2027: 200 orders per second, 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. The math says <strong>300/s nominal</strong> and <strong>210/s sustainable</strong>. But nobody measured the connection pool, the PSP, the customer mix, or the gap between nominal and what the store really does.</p>
+
+<OneLiner>A plan without a test is a <strong>hypothesis</strong>. A load test is how you <strong>refute it</strong> with a number, a measuring point and a target, before Black Friday does it for you.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Profiles</strong> scenario, pick "today", then "plan", and go through the five load shapes over time. Notice that the chain is the same and only the environment changes.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=perfis" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: The load shapes" alt="Preview of the 3D figure: The load shapes" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Test from build to maturity.</strong> The <strong>smoke</strong> runs on every <em>deploy</em> (<em>build</em>); the <strong>breakpoint</strong> runs before the event (<em>run</em>). Each phase asks a different question.</li>
+  <li><strong>Pick the target before the load.</strong> The checkout's targets from module 23 (the 300 ms p95 from module 14 was the catalog's target): <strong>p95 ≤ 800 ms</strong> and <strong>errors ≤ 0.1%</strong>. k6 receives them as <em>thresholds</em>.</li>
+  <li><strong>Pick the target system.</strong> The <strong>checkout</strong>: <code>POST /pedidos</code> goes through <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> and the DB. The <code>lb-loja</code> gives up at <strong>2 s</strong> (<code>504</code>).</li>
+  <li><strong>Pick the environment.</strong> "Today" is Black Friday 2026 (3 pods on <code>pedidos</code>, 2 on <code>pagamentos</code>); "plan" is the one from module 23; "plan 2" is the plan with the shard dedicated to <code>mkt-01</code>.</li>
+  <li><strong>Run and read.</strong> The script injects the load and k6 returns a table and an <strong>exit code</strong>: <code>0</code> passed, <code>99</code> a target failed.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the "system" of this module is</h3>
+
+<p>The real store is not available to knock over. SDLabs used a <strong>checkout queue simulator</strong>, in Node, 45 lines long: each pod is a single-server FIFO queue with exponential service time. <code>POST /pedidos</code> goes through <code>pedidos</code>, <code>pagamentos</code>, <code>estoque</code> and the DB, and the <strong>shard</strong> comes from <code>murmur3(cliente_id) mod N</code>, as in module 16. The <code>lb-loja</code> does <em>round robin</em> and cuts off at 2 s.</p>
+
+<p><strong>k6 v2.3.0</strong> and the outputs are real and were run on 10/20 and 10/21/2026. The <strong>system</strong> is a model: the math from modules 14, 15, 16 and 23 turned into code. The service times are the plan's: 33 ms of CPU on <code>pedidos</code> (30/s per pod), 50 ms on <code>pagamentos</code> (20/s), 2 ms on <code>estoque</code> and 6.67 ms on the DB (150/s per shard). With no queueing, they add up to <strong>91.7 ms</strong>. The comments in the file below are in Portuguese, as in the lab's original.</p>
+
+<pre><code>{lojaSimJs}</code></pre>
+
+<p>With the target system and environment defined, the script is missing. The same <code>checkout.js</code> serves every test in this module: the <code>TIPO</code> variable picks the load profile, and the customers come from the test's mix (40% <code>mkt-01</code>, 60% spread out, the constant from module 16). The comments in this file are in Portuguese too.</p>
+
+<pre><code>{checkoutJs}</code></pre>
+
+<h3 class="sec">The first result</h3>
+
+<p>The simplest command is <code>TIPO=smoke k6 run checkout.js</code>: 2 orders per second for 30 s in the "today" environment. It returned <strong>61</strong> requests with an average of <strong>81.9 ms</strong>, a p95 of <strong>155.6 ms</strong> and <strong>0%</strong> errors. Both targets passed. The theoretical sum with no queueing is 91.7 ms, and the average of 61 samples lands around that.</p>
+
+<p>It is a small, cheap result, and it already answered the question of whether the script runs against the system. The big questions come in the next lessons.</p>
+
+<h3 class="sec">What if it goes wrong: the environment is not production</h3>
+
+<p>Suppose the test runs in a pre-production with <strong>1 pod per service</strong>. One <code>pedidos</code> pod handles 30/s, and the naive extrapolation says 10 pods handle <strong>~300/s</strong>. The math matches the plan and gives confidence.</p>
+
+<p>The test with the plan's environment showed something else. The <strong>hot database</strong> is <code>shard-2</code>, which gets 60% of the traffic because of <code>mkt-01</code>. With a 150/s ceiling per shard, the plan breaks at <strong>~250/s</strong>, and "plan 2", with the dedicated shard, at <strong>~260/s</strong>. A 1-pod pre-production would never have seen that. The result depends on the environment having the <strong>same shape</strong> as production, not just the same services.</p>
+
+<WhyItMatters>
+  <li><strong>The plan is a hypothesis.</strong> The math from module 23 says 300/s; the test says where it breaks.</li>
+  <li><strong>The target comes before the load.</strong> Without p95 ≤ 800 ms and errors ≤ 0.1%, "passed" means nothing.</li>
+  <li><strong>The environment is part of the result.</strong> Extrapolating from 1 pod per service gives 300/s; the hot shard caps it at 250/s.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Tools, environment and what the base article leaves out</h4>
+  <ul>
+    <li><strong>The article describes</strong> k6, Locust, JMeter, Gatling and Oha. SDLabs uses <strong>k6</strong>, the same as the article and the author's repository. The other tools exist and would answer too, but they were not run.</li>
+    <li><strong>Missing from the article:</strong> the <strong>generator is also a system</strong> (here k6 and the simulator shared the same machine), clock synchronization between generators, and distributed testing.</li>
+    <li><strong>References:</strong> LoadView, Lux Quality and PerfMatrix are vendor blogs and are not in the sources block. The author's repository has only a <code>README.md</code> (the report template, lesson 11) and five images: <strong>there is no test script</strong>, and the numbers there are examples.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "The author's public repository: exemplos/load-test (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+    { label: "Grafana k6: documentation", href: "https://grafana.com/docs/k6/latest/" },
+    { label: "Google SRE book: Testing for Reliability", href: "https://sre.google/sre-book/testing-reliability/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store has a target, a system and a script. What's left is whether testing the load it <strong>expects</strong> is the same as testing <strong>stress</strong>, and how the way you inject the load changes the result.</p>
+
+<Flashcards cards={[
+  { q: "Why is a plan without a test a hypothesis?",
+    a: "Because the math (300/s nominal, 210 sustainable) was never measured: nobody saw the pool, the PSP, the mix or the hot shard. The test refutes or confirms it with a number." },
+  { q: "What are the checkout's targets?",
+    a: "p95 ≤ 800 ms and errors ≤ 0.1%, the checkout's from module 23, written as k6 thresholds. The lb-loja gives up at 2 s (504)." },
+  { q: "What is the simulator and what isn't it?",
+    a: "A queueing model in Node (45 lines): pod = FIFO queue with exponential time. k6 and the outputs are real; the system is the math from modules 14 to 23." },
+  { q: "What did the 2 orders/s smoke show?",
+    a: "61 requests, average 81.9 ms, p95 155.6 ms and 0% errors: the script runs and both targets pass." },
+  { q: "Why does extrapolating from 1 pod per service mislead?",
+    a: "It gives ~300/s (10 × 30), but the hot mkt-01 shard (60% of the traffic, 150/s ceiling) caps the plan at ~250/s." },
+]} />

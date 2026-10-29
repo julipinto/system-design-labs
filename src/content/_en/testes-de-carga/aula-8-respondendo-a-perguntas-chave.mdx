@@ -1,0 +1,108 @@
+---
+title: "Answering the key questions"
+order: 8
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the breakpoint found the breaking point, but with a script and a rate chosen by whoever ran it. Before running any other, it's worth asking: <strong>what does this test need to answer?</strong> Injecting load without a question burns hours and decides nothing.</p>
+
+<OneLiner>A test answers <strong>one question</strong>. The article's nine questions, answered with the store, say <strong>how much</strong> to inject, <strong>with which mix</strong> and <strong>against which target</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Journey</strong> scenario, press <strong>Add 5% search</strong> and watch the capacity per replica fall from 100 to 74 req/s.</p>
+</DoIt>
+
+<Figure3D path="en/labs/testes-de-carga/carga-3d/?mode=jornada" poster="labs/testes-de-carga/carga-3d-previa.webp" title="Interactive figure: Journey and mix" alt="Preview of the 3D figure: Journey and mix" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Traffic and goals.</strong> Today: 30 orders/s on Black Friday 2026 and 5 on a regular day. Targets: p95 ≤ 800 ms, errors ≤ 0.1%, ρ ≤ 70%.</li>
+  <li><strong>Peaks and growth.</strong> The 8 PM newsletter (640 req/s on the catalog at 8:03 PM). Growth: 45 · <strong>200</strong> · 300 orders/s (module 23).</li>
+  <li><strong>Protocols.</strong> HTTP/REST in the app, gRPC between services (module 12), Kafka in <code>entregas</code> (module 13) and the PSP webhook. k6 speaks HTTP, WebSocket and gRPC; Kafka needs an extension.</li>
+  <li><strong>Extreme scenario.</strong> Black Friday 2027 with a slow PSP (module 21).</li>
+  <li><strong>Journey and cost.</strong> The mix of actions and what each one costs in CPU.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The nine questions, with the store</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>The article's question</th><th>In the store</th></tr></thead>
+  <tbody>
+    <tr><th>Expected traffic today?</th><td>30 orders/s (Black Friday 2026); 5 on a regular day</td></tr>
+    <tr><th>Goals?</th><td>p95 ≤ 800 ms, errors ≤ 0.1%, ρ ≤ 70%</td></tr>
+    <tr><th>Peaks?</th><td>8 PM newsletter: 640 req/s on the catalog at 8:03 PM</td></tr>
+    <tr><th>Protocols and stimuli?</th><td>HTTP/REST, gRPC, Kafka and the PSP webhook</td></tr>
+    <tr><th>Growth?</th><td>45 · <strong>200</strong> · 300 orders/s</td></tr>
+    <tr><th>Extreme scenario?</th><td>Black Friday 2027 with a slow PSP</td></tr>
+    <tr><th>Critical features?</th><td>checkout, search, cart</td></tr>
+    <tr><th>Journeys?</th><td>card 60% · Pix 35% · refund 5% (declared example)</td></tr>
+    <tr><th>Most used × most expensive endpoints?</th><td>page 10 ms of CPU, search 80 ms; in the checkout the most expensive is <code>pagamentos</code> (50 ms)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The article's journey (50% card, 30% instant payment, 15% boleto, 5% refund) becomes, in the store, <strong>card 60 · Pix 35 · refund 5</strong>. It is a declared example, with the Pix from module 12. At 200 orders/s, the generator sends 120 card, 70 Pix and 10 refunds per second.</p>
+
+<h3 class="sec">Virtual users are not TPS</h3>
+
+<p>Lesson 2 introduced the math: <strong>VUs = rate × (response time + pause)</strong>. For the plan's 200 orders/s, with 0.4 s of response and <strong>3 s of thinking</strong> (the customer filling in the address), that's (0.4 + 3) × 200 = <strong>680 VUs</strong>. In the open model, k6 fixes the rate and <strong>lets the VUs vary</strong>: <code>preAllocatedVUs</code> and <code>maxVUs</code> only reserve what the rate asks for.</p>
+
+<Widget name="little" title="VUs, rate and pause" hint="Rate (1 to 400/s), response time and pause: computes the VUs (680 for 200/s) and converts the author's report's 800 users into a cycle (800 ÷ 600 = 1.33 s)." />
+
+<h3 class="sec">The expensive endpoint changes the math</h3>
+
+<p>Module 23 gave the cost: a page costs <strong>10 ms</strong> of CPU and a search <strong>80 ms</strong>. A mix with 5% searches has an average cost of 0.95 × 10 + 0.05 × 80 = <strong>13.5 ms</strong>, which reduces a catalog replica's capacity from 100 to <strong>74 req/s</strong>. For the plan's 950 req/s and ρ ≤ 70%, <strong>19</strong> replicas are needed, not 14.</p>
+
+<Widget name="jornada" title="Journey and mix" hint="Checkout weights (card, Pix, refund) and catalog search, from 0% to 20%: shows the average cost per request, the capacity per replica and the replicas needed (14 with no search, 19 with 5%)." />
+
+<h3 class="sec">What if it goes wrong: testing only the cheap endpoint</h3>
+
+<p>A test that hits only <code>GET /produtos/42</code> shows the catalog handling <strong>100 req/s</strong> per replica. The real journey, with 5% searches, handles <strong>74</strong>. Whoever picks the cheap endpoint because it "represents the catalog" sizes <strong>14 replicas where 19 are needed</strong>: a five-replica gap that only shows up on Black Friday.</p>
+
+<p>The same goes for the happy path: a test with only approved cards never sees the refund or the Pix. The article's key question is this one: <strong>what the customer does, how often, and what each action costs</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>The question comes before the load.</strong> The nine questions define rate, mix, target and scenario; without them the test only injects load.</li>
+  <li><strong>VUs come from the rate.</strong> 200 orders/s with 0.4 s and a 3 s pause is 680 VUs; the author's report doesn't give the pause.</li>
+  <li><strong>The mix changes the capacity.</strong> 5% search drops the replica from 100 to 74 req/s: 14 replicas become 19.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the base article leaves out</h4>
+  <ul>
+    <li><strong>The article recommends journeys</strong> but doesn't show the cost of getting the mix wrong. Here: 14 → 19 replicas with 5% search (module 23).</li>
+    <li><strong>Histograms.</strong> When the p95 comes from several replicas, it comes from summed histograms, not from an average of percentiles (module 14 and the Prometheus documentation).</li>
+    <li><strong>Executors.</strong> k6 separates the rate ones (<code>*-arrival-rate</code>) from the VU ones; the choice defines the open or closed model.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on load and stress testing (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/load-testing/" },
+    { label: "Prometheus: histograms and summaries", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Grafana k6: scenarios", href: "https://grafana.com/docs/k6/latest/using-k6/scenarios/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the question, the mix and the rate defined, what's left is how to <strong>decide that it passed</strong>: which number to look at and against which target.</p>
+
+<Flashcards cards={[
+  { q: "How many VUs does 200 orders/s need with 0.4 s of response and a 3 s pause?",
+    a: "(0.4 + 3) × 200 = 680 VUs. VUs = rate × (response + pause)." },
+  { q: "What is the store's journey, in place of the article's mix?",
+    a: "Card 60% · Pix 35% · refund 5% (declared example). At 200 orders/s: 120, 70 and 10 per second." },
+  { q: "What is the CPU cost of a page and of a search?",
+    a: "10 ms and 80 ms. With 5% search the average cost is 13.5 ms: 74 req/s per replica, not 100." },
+  { q: "How many replicas does the catalog need with 5% search?",
+    a: "19, not 14: 950 req/s ÷ (74 × 0.7)." },
+  { q: "Why does testing only the cheap endpoint mislead?",
+    a: "The catalog seems to handle 100 req/s per replica, and the real journey handles 74. The sizing comes out five replicas short." },
+]} />
