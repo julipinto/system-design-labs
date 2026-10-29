@@ -343,10 +343,13 @@ Tópicos como cartões com caixa de marcar desenhada (vazia em traço; marcada, 
 ## Do's and Don'ts
 
 ### Movimento
-Todo movimento responde a algo que a pessoa fez; nada se mexe sozinho nem pulsa. Saída exponencial (`--ease-out`), sem quique.
-- **O momento principal:** o pacote anda pela trilha até a próxima aula (700ms).
-- **Respostas curtas:** botão afunda a 0,97 ao apertar (120ms); o check de "Entendi" se desenha (420ms); o título da barra entra de baixo quando a aula muda (360ms); a resposta do flashcard e a ficha do glossário se abrem de cima para baixo com recorte (360 a 380ms); número que muda entra em varredura.
-- `prefers-reduced-motion`: tudo vira troca instantânea.
+Todo movimento responde a algo que a pessoa fez; nada se mexe sozinho, nada pulsa, nada entra animado ao rolar. Mola com amortecimento alto (excesso de no máximo ~2%) via a lib Motion (`motion`, nos scripts do Astro) ou `--ease-out`; páginas estáticas (quiz) usam Web Animations. Só `transform`, `opacity` e `clip-path`; altura por `grid-template-rows` 0fr→1fr ou FLIP.
+- **O momento principal:** o pacote anda pela trilha até a próxima aula (mola, ~700ms); na home, desce até o módulo onde a pessoa parou e a estação confirma com um respiro.
+- **Aula:** a troca no modo foco sai em 110ms e a nova entra em 300ms pelo lado da navegação; o índice abre com recorte e itens em fila curta; o "Aprofundar" anima a altura; a figura 3D troca da prévia para a cena em crossfade e só monta quando a página está ociosa.
+- **Respostas curtas:** botão afunda a 0,97 (120ms); o check de "Entendi" se desenha; o título da barra entra de baixo; flashcard e ficha do glossário abrem com recorte a partir de onde foram tocados (no celular a ficha sobe como folha, com mola).
+- **Dados:** barras crescem do valor anterior (`scaleX`); o mostrador de 7 segmentos varre só os dígitos que mudaram, depois que o valor assenta.
+- **Quiz:** a pergunta sai e a próxima entra da direita; a certa assenta, a errada desloca 3px uma vez; a explicação abre de cima; a tela final chega em sequência curta.
+- `prefers-reduced-motion`: tudo vira troca instantânea (ou fade de 120ms).
 
 **A Regra do Pacote.** Só uma coisa anda de um lugar para outro na página: o pacote na trilha. O resto do movimento abre, fecha ou confirma no lugar.
 
