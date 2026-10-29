@@ -1,0 +1,83 @@
+---
+title: "Feature flags"
+order: 11
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson shadow showed that the risk is not always infrastructure: sometimes it is the <strong>rule</strong> the customer sees, like the shipping calculation. For that case you need to separate two things that rolling, blue/green and canary join together: <strong>deploying</strong> the code and <strong>releasing</strong> the behavior. That is what a <em>feature flag</em> does.</p>
+
+<OneLiner>A <strong>feature flag</strong> separates <strong>deploying</strong> from <strong>releasing</strong>: the 2.5.0 code goes to 100% of the pods with the <code>frete_v2</code> flag <strong>off</strong>, and releasing is turning it on, by customer, in percentages. It gives the business a button, and going back takes <strong>seconds</strong> with no new deploy.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Flag</strong> scenario, go up from <strong>10% to 20%</strong> and see when Lena comes in: her <em>bucket</em> is <strong>19</strong>, so at 20% she is on, and at 10% she is not yet.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/liberacao-3d/?mode=flag" poster="labs/deployment/liberacao-3d-previa.webp" title="Interactive figure: Deploy × release" alt="Preview of the 3D figure: Deploy × release" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Deploy without releasing.</strong> 2.5.0 goes live through the safe rolling (lesson 3), with the <code>frete_v2</code> flag off: no effect on the customer, and the new code is already on every pod.</li>
+  <li><strong>The decision is a stable calculation on the customer.</strong> <code>bucket = murmur3("frete_v2:" + cliente_id) mod 100</code>, and <code>on = bucket &lt; percentage</code>. The same customer always lands on the same side; the function is the one from module 16.</li>
+  <li><strong>The store's buckets.</strong> <code>caio-58</code> → <strong>3</strong>, <code>lena-77</code> → <strong>19</strong>, <code>bia-31</code> → <strong>38</strong>, <code>mkt-01</code> → <strong>41</strong>, <code>davi-12</code> → <strong>94</strong>.</li>
+  <li><strong>The ladder.</strong> At <strong>1%</strong> nobody in the sample is on. At <strong>10%</strong> only Caio (Rio: the Recife defect does <strong>not show</strong>). At <strong>20%</strong> Lena comes in (Recife: it shows). At <strong>50%</strong>, Caio, Lena, Bia and <code>mkt-01</code>; at <strong>100%</strong>, Davi.</li>
+  <li><strong>The function spreads evenly.</strong> Across 100,000 customers (<code>c-0</code> to <code>c-99999</code>), <strong>985</strong> fall below 1, <strong>9,878</strong> below 10 and <strong>49,909</strong> below 50.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="bucket" title="Flag bucket" hint="Type the cliente_id, the flag name and the percentage. The widget calculates the murmur3, the bucket (0 to 99) and whether the flag is on. Presets: lena-77 (19), bia-31 (38), caio-58 (3), davi-12 (94), mkt-01 (41). The bar shows 100,000 customers: 985, 9,878 and 49,909." />
+
+<p>The same calculation, with another salt, gives the <code>nova_home</code> flag from module 9: <code>lena-77</code> → 80, <code>bia-31</code> → 2, <code>caio-58</code> → 72, <code>davi-12</code> → 67, <code>mkt-01</code> → 87. The <strong>flag name goes into the hash</strong>: each flag draws the customers again, and whoever is "first" on one flag is not first on the other.</p>
+
+<h3 class="sec">Types and lifespan</h3>
+
+<p>Fowler separates four types, with different lifespans: <em>release toggle</em> (days, and it should be <strong>removed</strong> afterwards), <em>experiment toggle</em> (A/B), <em>ops toggle</em> (turning off an expensive piece: the <em>kill switch</em>) and <em>permission toggle</em> (who is allowed: the article's customer cluster). The debt is real: each flag <strong>doubles</strong> the possible states, and 5 flags are <strong>32</strong> combinations.</p>
+
+<h3 class="sec">Where it is decided and how long it takes</h3>
+
+<p>The decision lives in <code>bff-app</code> (module 9: the screen flag) or in <code>pedidos</code> (the rule). The pod keeps the value in a local cache with a <strong>30 s TTL</strong> (the same pattern as module 5): turning it on or off takes <strong>up to 30 s</strong> to reach every pod. In that interval two pods can disagree, and that is why the calculation is <strong>per customer</strong> and not per request: the same person does not see both versions. The standard API for this is <strong>OpenFeature</strong>.</p>
+
+<h3 class="sec">What if it goes wrong: the flag service goes down and the default is wrong</h3>
+
+<p>The flag service goes down. The pod uses the <strong>last cached value</strong> and, when the cache expires, the <strong>compiled default</strong>. If the default was <code>true</code> (someone forgot to set it back after the launch), the feature turns on for <strong>everyone</strong> at once, <strong>without a deploy and without a canary</strong>: the zero shipping reaches all of Recife. The rule is <strong>default = old behavior (<code>false</code>)</strong>, and the flag is <strong>removed</strong> from the code as soon as it reaches 100% and stabilizes.</p>
+
+<WhyItMatters>
+  <li><strong>Deploying and releasing are different decisions.</strong> The flag gives the business the button, without asking for a deploy.</li>
+  <li><strong>The calculation is per customer.</strong> The same bucket always gives the same side, even with pods disagreeing for 30 s.</li>
+  <li><strong>Going back is turning it off.</strong> Up to 30 s, against the 90 s of rolling.</li>
+  <li><strong>An old flag is debt.</strong> 5 flags are 32 combinations; remove the flag as soon as the launch stabilizes.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <p>The article leaves out four points: the <strong>flag debt</strong>, the <strong>default</strong> when the flag service goes down, the <strong>consistency</strong> of the per-customer decision and the <strong>life cycle</strong> (release, experiment, ops, permission, in Fowler). The two Split.io texts in the reference list come from a flag vendor; they stay as supporting reading, not as sources.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: Feature Toggles", href: "https://martinfowler.com/articles/feature-toggles.html" },
+    { label: "OpenFeature: specification", href: "https://openfeature.dev/specification/" },
+    { label: "Split.io: canary release and feature flags (the article's reference; vendor blog)", href: "https://www.split.io/blog/canary-release-feature-flags/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The flag chooses <strong>which customers</strong> by draw, and the draw can take a while to reach the customer the defect hits. What is left is <strong>who gets it first</strong> when there are many different customers.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between deploying and releasing with a flag?",
+    a: "The 2.5.0 code goes to 100% of the pods with the frete_v2 flag off (deploy); turning it on, by customer, is releasing." },
+  { q: "How is the bucket calculated and when is the flag on?",
+    a: "bucket = murmur3('frete_v2:' + cliente_id) mod 100; it is on when bucket < percentage. The same customer always lands on the same side." },
+  { q: "What are the buckets of caio-58, lena-77, bia-31, mkt-01 and davi-12?",
+    a: "3, 19, 38, 41 and 94. At 10% only Caio is on; at 20% Lena comes in." },
+  { q: "How long does it take for a flag to turn off on every pod?",
+    a: "Up to 30 s (the local cache TTL). In that interval two pods can disagree; the per-customer calculation keeps the same person from seeing both versions." },
+  { q: "What happens if the flag service goes down with a default of true?",
+    a: "When the cache expires the feature turns on for everyone, with no deploy and no canary. The default should be the old behavior (false), and the flag is removed when it reaches 100%." },
+]} />

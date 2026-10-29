@@ -1,0 +1,103 @@
+---
+title: "Deploy and rollback"
+order: 1
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">At the end of module 21 the store could take a slow PSP without going down. But the most common cause of incidents does not come from outside: it is the <strong>change</strong> itself, a new version or a configuration. What is left is how to ship without being the incident. The math starts on an ordinary Tuesday at 14:00, with <code>pedidos</code> going from <strong>2.4.0</strong> to <strong>2.5.0</strong>.</p>
+
+<OneLiner><strong>Deploying</strong> is putting a version live; <strong>releasing</strong> is the customer starting to use it. Between the two sits the <strong>rollback</strong>, which swaps the <strong>code</strong> in seconds or minutes and <strong>does not give back the data</strong> the bad version already wrote.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Rollback</strong> scenario, go back from 2.5.0 to 2.4.0 and count the rows in the table that <strong>are still wrong</strong> after the rollback. The code came back in 90 s; the <code>frete = 0.00</code> on Lena's order (1059) stayed.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=rollback" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Deploy and rollback" alt="Preview of the 3D figure: Deploy and rollback" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The pipeline in two lines.</strong> <em>Commit</em> → image <code>pedidos:2.5.0</code> → tests → production. Continuous integration (CI) builds and tests the image; continuous delivery (CD) puts it live. The <em>deployment</em> is that last step.</li>
+  <li><strong>The module's change.</strong> 2.5.0 writes the <strong>shipping in its own column</strong> (<code>frete numeric(10,2)</code>; today it only exists inside <code>total</code> and the <code>detalhes</code> JSON) and calculates shipping with a new table by ZIP code range. The numbers below are a made-up <strong>example</strong> shared by the whole module.</li>
+  <li><strong>The defect only real data shows.</strong> The new table <strong>has no Recife range</strong> (ZIP 50000–52999) and returns <code>frete = 0.00</code>. 2.5.0 answers <code>201</code>, <code>/healthcheck</code> gives <code>200</code>, latency is the same and the error rate is <strong>0%</strong>. Lena's order 1059 (1 black T-shirt, 49.00 + shipping 15.00 = <strong>64.00</strong> on 2.4.0) goes out for <strong>49.00</strong>.</li>
+  <li><strong>Going back has a command.</strong> <code>kubectl rollout undo deployment/pedidos</code> returns the Deployment to the previous ReplicaSet, the one for 2.4.0. <code>kubectl rollout history</code> lists the saved revisions.</li>
+  <li><strong>How long it takes.</strong> It depends on the deployment model, and the table below is the map of the module: each following lesson opens one of its rows.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{`kubectl rollout history deployment/pedidos
+kubectl rollout undo deployment/pedidos
+kubectl rollout status deployment/pedidos`}</code></pre>
+
+<p>Those commands have a hidden limit: Kubernetes can only go back to a revision it <strong>still keeps</strong>. The <code>revisionHistoryLimit</code> field is <strong>10</strong> by default, and with <code>0</code> the option to go back disappears. The <code>progressDeadlineSeconds</code> field marks the rollout as stalled when it does not advance, which gives whoever is watching a reason to call <code>undo</code>.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Model</th><th>Time to go back (30 s pods, example)</th></tr></thead>
+  <tbody>
+    <tr><th>Recreate</th><td>40 s, <strong>offline</strong></td></tr>
+    <tr><th>Rolling (<code>undo</code>)</th><td>90 s</td></tr>
+    <tr><th>Blue/Green</th><td>~1 s with <em>blue</em> still up; ~30 s if it was already shut down</td></tr>
+    <tr><th>Canary</th><td>seconds: the weight goes back to 0 (the mesh pushes the rule, module 10)</td></tr>
+    <tr><th>Feature flag</th><td>up to 30 s (the flag's local cache)</td></tr>
+    <tr><th>The data</th><td><strong>does not come back</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Time is only one of the factors in the damage. The blast radius of a change is <strong>the fraction of traffic exposed × the time until someone notices × the cost of each wrong order</strong>. The models in this module differ in how they control the first two factors; none of them fixes the third. The widget below puts the six models side by side with the same defect, and the following lessons explain where each number comes from.</p>
+
+<Widget name="raio" title="Blast radius by model" hint="Choose the model, the orders per second (1 to 60), the Recife share (0 to 100%), the amount lost per order (15.00) and the minutes until someone notices (1 to 600). The widget shows the affected orders, the loss (R$ 54,000, R$ 450, R$ 0) and the time to go back." />
+
+<h3 class="sec">What if it goes wrong: the rollback does not give the data back</h3>
+
+<p>2.5.0 stays live until someone notices. The defect does not take anything down, so the only possible alarm is a <strong>business metric</strong> (orders with zero shipping, by city). Suppose finance notices after 60 minutes. Recife is 20% of 5 orders per second, or <strong>1 order/s</strong>: 1 × 3,600 s = <strong>3,600 orders</strong> with <code>frete = 0.00</code>, and 3,600 × 15.00 = <strong>R$ 54,000</strong>. If only the 23:00 report from module 6 caught it, 9 h later, that would be 32,400 orders and <strong>R$ 486,000</strong>.</p>
+
+<p><code>kubectl rollout undo</code> brings 2.4.0 back in 90 s. The 3,600 orders stay where they are, saved with <code>frete = 0.00</code>. Whoever wrote 2.5.0 left a trail (an <code>app_versao</code> column, or the <code>trace_id</code> from module 6 in the log), and the fix is a reconciliation <code>UPDATE</code> over only those rows. <strong>Rollback swaps the code, not the data.</strong></p>
+
+<WhyItMatters>
+  <li><strong>Deploying is not releasing.</strong> The version can be live without the customer using it; flags and canary exploit exactly that.</li>
+  <li><strong>Going back is part of the design.</strong> A rollback nobody rehearsed takes longer than the 90 s in the table.</li>
+  <li><strong>The alarm has to measure the defect.</strong> Pod health does not measure shipping; what decides the second factor of the radius is <strong>what you measure</strong>.</li>
+  <li><strong>Data is a different problem.</strong> Going back with the code does not undo saved rows; lesson 8 shows how to change the database without depending on going back.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The bakery analogy, once</h4>
+  <p>The article explains the models with a bakery that changes its bread recipe. It helps to feel the difference between swapping everything in the morning and swapping little by little. In the store, what the bakery does not show is the <strong>data</strong>: the bread the customer took home is like the row with <code>frete = 0.00</code>, which does not go back to the shelf.</p>
+  <h4 class="deep-h">Corrections and additions to the base article</h4>
+  <ul>
+    <li><strong>Rollback ≠ restoring data.</strong> The article says rollback should be built into every model; it should add that it covers the code, and the saved data stays.</li>
+    <li><strong>Tools.</strong> The article does not mention <em>progressive delivery</em> with Argo Rollouts or Flagger; lessons 4 to 7 use Argo Rollouts, from the author's repository.</li>
+    <li><strong>Freeze.</strong> Change freeze windows before events like Black Friday (module 23) are missing.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Kubernetes: Deployments (rollout undo, revisionHistoryLimit)", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Fowler: BlueGreenDeployment", href: "https://martinfowler.com/bliki/BlueGreenDeployment.html" },
+    { label: "Google SRE Workbook: Canarying Releases", href: "https://sre.google/workbook/canarying-releases/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Rollback brings the code back, and almost nobody would need it if deploying were simple. What is left is the <strong>simplest</strong> way to deploy, and why almost nobody uses it.</p>
+
+<Flashcards cards={[
+  { q: "What is the difference between deploying and releasing?",
+    a: "Deploying is putting the version live; releasing is the customer starting to use it. With a flag off, 2.5.0 is deployed and not released." },
+  { q: "What does kubectl rollout undo do, and what does it not do?",
+    a: "It returns the Deployment to the previous ReplicaSet (2.4.0). It does not give back the data already saved: the 3,600 orders with frete = 0.00 stay." },
+  { q: "What happens with revisionHistoryLimit set to 0?",
+    a: "Kubernetes keeps no old revisions, and the option to go back with rollout undo disappears. The default is 10." },
+  { q: "How much does the shipping defect cost if someone notices in 60 minutes?",
+    a: "Recife is 1 order/s: 3,600 orders × 15.00 = R$ 54,000. If only the 23:00 report caught it (9 h), R$ 486,000." },
+  { q: "What is the blast radius formula?",
+    a: "Fraction of traffic exposed × time until someone notices × cost per wrong order. The models control the first two; none of them fixes the third." },
+]} />

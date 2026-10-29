@@ -1,0 +1,84 @@
+---
+title: "Sharding, bulkheads and ring deployments"
+order: 12
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the flag drew customers by <em>bucket</em>, but a draw does not choose <strong>who</strong> should see the change first. When customers are very different (Recife is not São Paulo), the question changes: in what <strong>order</strong> does the version reach each group? The article's answer is <strong>rings</strong>, and module 16 already left the groups ready: the <strong>shards</strong>.</p>
+
+<OneLiner>In a <strong>ring deployment</strong> the same version goes through <strong>rings</strong> of growing risk, and only moves on to the next if the previous one stays healthy for the <em>bake</em> time. The ring limits the blast radius of the <strong>change</strong>, and <strong>who exercises the code</strong> matters more than the size of the ring.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Rings</strong> scenario, release 2.5.0 ring by ring and notice in which one the zero shipping shows up: <strong>ring 1</strong>, with 40% of the traffic already on the new version, because ring 0 has nobody from Recife.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/liberacao-3d/?mode=aneis" poster="labs/deployment/liberacao-3d-previa.webp" title="Interactive figure: Rings by shard" alt="Preview of the 3D figure: Rings by shard" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The rings come from the shards.</strong> With <code>mkt-01</code> on <code>shard-2</code> (module 16): <strong>ring 0</strong> = <code>shard-0</code> (20% of the traffic: <code>davi-12</code>), <strong>ring 1</strong> = <code>shard-1</code> (20%: <code>lena-77</code> and <code>bia-31</code>), <strong>ring 2</strong> = <code>shard-2</code> (<strong>60%</strong>: <code>caio-58</code> and <code>mkt-01</code>).</li>
+  <li><strong>The accumulated exposure grows in steps.</strong> 20% → 40% → 100%. Between one ring and the next, the <em>bake time</em>: the time to wait for whatever the defect would take to show up (AWS Builders' Library).</li>
+  <li><strong>Ring 0 is the <em>one-box</em>.</strong> AWS starts with a single box, to catch the defect with the smallest possible radius. But the shipping defect belongs to <strong>Recife</strong>, and Lena is on <code>shard-1</code>: ring 0 (<code>davi-12</code>, SP) <strong>sees nothing</strong>.</li>
+  <li><strong>The defect shows up in ring 1,</strong> with <strong>40%</strong> of the traffic already on 2.5.0. Ring 0 passed clean and gave a false sense of safety.</li>
+  <li><strong>The fix is to put synthetic customers</strong> with orders in <strong>every</strong> city into ring 0 (the <em>one-box</em> idea): Recife's zero shipping shows up already in ring 0, with no real customer exposed.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="aneis" title="Rings by shard" hint="Fractions of the 3 shards (20, 20 and 60%) and the defect's city; choose the order of the rings and whether ring 0 gets synthetic customers. The widget shows the accumulated exposure (20 → 40 → 100%) and in which ring the defect shows up (ring 1, without synthetics)." />
+
+<h3 class="sec">The cost, and the choice of the first ring</h3>
+
+<p>Rings require <strong>pods per ring</strong>: the 3 <code>pedidos</code> pods become 1 per shard, of 30 orders/s each. <code>shard-2</code>, with 60% of 30 orders/s, sees 18/s and fits. With Black Friday doubled, 60 × 60% = <strong>36/s</strong> goes over 30: the hot ring needs more pods. It also requires <strong>one version per ring</strong> to operate and monitor. The article warns about this cost, and it connects with the <strong>bulkhead</strong> (module 25: the ring is the blast radius of the <em>change</em>) and with <strong>cells</strong> (module 26).</p>
+
+<p>The article proposes choosing the first ring by customer <strong>cluster</strong>, with <em>k-means</em> over segment, volume and region. <em>k-means</em> only <strong>discovers</strong> similar groups from variables; it does <strong>not say</strong> which ones are low risk. In practice, the first ring comes from a <strong>risk and business criterion</strong> (employees, synthetic customers, small regions), and clustering helps in the second step, it is not a prerequisite.</p>
+
+<h3 class="sec">What if it goes wrong: the last ring has 60%</h3>
+
+<p>The step from <strong>40% to 100%</strong> is the biggest and the riskiest. If the defect only shows up under <code>mkt-01</code>'s load, it only blows up in ring 2, when 60% of the traffic changes at once. The fix is to split ring 2 (the dedicated <code>shard-2</code> from module 16) or to add an intermediate ring, so that no step goes beyond a fraction the store can afford to lose.</p>
+
+<WhyItMatters>
+  <li><strong>The ring is a chosen blast radius.</strong> The change only reaches the next group after the previous one stays healthy.</li>
+  <li><strong>Who exercises the code matters more than the size.</strong> Davi's ring 0 does not see Recife; synthetic customers in every city do.</li>
+  <li><strong>The big step is the weak point.</strong> 40% → 100% concentrates the risk in the last ring.</li>
+  <li><strong>It costs pods and operations.</strong> One ring per shard means more idle capacity and more versions to monitor.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Sharding Deployment."</strong> The most common name is <strong>ring deployment</strong> (or <em>waves</em>); AWS and Microsoft describe rings and waves with <em>bake time</em>. The article is right about the cost; it should add that <strong>global</strong> dependencies (configuration, authentication, catalog) bring back the global blast radius (module 25).</li>
+    <li><strong>Clustering with k-means.</strong> It discovers groups, not risk; synthetic customers in every city are worth more than a cluster.</li>
+    <li><strong>What the article is missing.</strong> N/N−1 compatibility in <strong>events</strong> and APIs (tolerant reader) and the change freeze before events like Black Friday.</li>
+    <li><strong>References.</strong> The Medium text on k-means was not checked and stays out; those from Split.io, Red Hat, Codefresh and Spacelift are vendor blogs and enter only as "go deeper".</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "AWS Builders' Library: Automating safe, hands-off deployments", href: "https://aws.amazon.com/builders-library/automating-safe-hands-off-deployments/" },
+    { label: "Azure Architecture Center: Deployment Stamps pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp" },
+    { label: "Kubernetes: Deployments", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows how to <strong>deploy</strong> without taking itself down: rolling, blue/green, canary, shadow, flags and rings. But <strong>how much</strong> it can take on next year's Black Friday, and what that costs, nobody has calculated. What is left is how to predict capacity with the numbers from module 14: that is module 23, <strong>Capacity Planning</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What are the store's rings and the accumulated exposure?",
+    a: "Ring 0 = shard-0 (20%), ring 1 = shard-1 (20%), ring 2 = shard-2 (60%). Exposure goes 20% → 40% → 100%." },
+  { q: "Why does ring 0 not see the shipping defect?",
+    a: "It has davi-12, from SP. The defect belongs to Recife, and Lena is on shard-1: it shows up in ring 1, with 40% of the traffic already on 2.5.0." },
+  { q: "How do you catch the defect already in ring 0?",
+    a: "Put synthetic customers with orders in every city into ring 0, the AWS one-box idea." },
+  { q: "Does k-means choose the first ring?",
+    a: "No. It discovers similar groups, but does not say which are low risk; the first ring comes from a risk and business criterion." },
+  { q: "What is the weak point of the store's rings?",
+    a: "The step from 40% to 100% (the 60% ring). The fix is to split ring 2 or add an intermediate ring." },
+]} />

@@ -1,0 +1,80 @@
+---
+title: "Shadow traffic"
+order: 9
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the data became compatible with both versions, but 2.5.0 still has not seen <strong>a single real order</strong>. Blue/green tested with synthetic traffic and the canary exposes a slice of customers. There is a way to test with real traffic and <strong>0% of customers exposed</strong>: <strong>copy</strong> the traffic. That is <em>shadow</em>.</p>
+
+<OneLiner>In <strong>shadow</strong> (or <em>mirror traffic</em>) a <strong>copy</strong> of part of the requests goes to the new version, and the <strong>response is discarded</strong>. The stable one keeps 100% and the customer never sees the shadow. To learn anything, you have to <strong>compare</strong> the two responses.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Shadow</strong> scenario, turn the mirror on at <strong>10%</strong> and read the comparator's diff: Lena's order goes out for <strong>64.00</strong> on 2.4.0 and for <strong>49.00</strong> on the shadow.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/liberacao-3d/?mode=shadow" poster="labs/deployment/liberacao-3d-previa.webp" title="Interactive figure: Copying the traffic" alt="Preview of the 3D figure: Copying the traffic" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>How Istio does it.</strong> In the <code>VirtualService</code>, <code>mirror</code> says where to copy and <code>mirrorPercentage</code> says how much. The copy carries a <code>Host</code> (or <code>Authority</code>) ending in <code>-shadow</code> and is <strong>"fire and forget"</strong>: the response is discarded.</li>
+  <li><strong>A mirror is duplication, not splitting.</strong> The stable one keeps 100% of the traffic; the shadow receives one extra copy. That is why the shadow adds load (and why canary and shadow should not be confused).</li>
+  <li><strong>The ideal case: <code>catalogo</code> (reads).</strong> Mirroring 10% of 640 req/s gives <strong>64 req/s</strong> to <strong>1</strong> replica of the new <code>catalogo</code>: ρ = <strong>64%</strong> and R = 37.8 ms (the table from module 14). It measures the new search's p95 of 900 ms on <strong>real traffic</strong>, with no customer exposed.</li>
+  <li><strong>The hard case: <code>pedidos</code> (writes).</strong> The mirror in <strong>dry-run</strong> mode (the article's code, below): 10% × 5/s = 0.5 order/s, or <strong>150 orders</strong> in 5 min, with <strong>30</strong> from Recife.</li>
+  <li><strong>Without a comparator, it only costs money.</strong> Istio discards the response; shadow 2.5.0 records its own with the <code>x-request-id</code>, and a <strong>comparator</strong> joins it with 2.4.0's field by field (<code>total</code>, <code>frete</code>, status).</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{`if os.Getenv("ENVIRONMENT") == "shadow" {
+    tx.Rollback()
+} else {
+    tx.Commit()
+}`}</code></pre>
+
+<p>The 150 orders copied in 5 minutes include the 30 from Recife, and <strong>all</strong> 30 diverge: 2.4.0 answered <code>total</code> 64.00 and shadow 2.5.0 answered 49.00. It is the shipping defect made visible, with <strong>0</strong> real orders affected and R$ <strong>0</strong> of loss. Compare with the canary from lesson 6 (30 real orders, R$ 450): shadow finds the same defect without exposing anyone.</p>
+
+<h3 class="sec">What if it goes wrong: the Rollback does not undo what left the transaction</h3>
+
+<p><code>tx.Rollback()</code> undoes the <code>INSERT</code>. But shadow 2.5.0 still <strong>really called <code>pagamentos</code></strong> and <strong>published the event</strong> to Kafka. That is <strong>0.5 duplicate charges/s</strong> × R$ 64.00 on average = <strong>150 charges in 5 min = R$ 9,600</strong>. The database stayed clean, and Lena was charged twice.</p>
+
+<p>The fix has four parts. Shadow calls a <strong>stub</strong> of <code>pagamentos</code> (or sends <code>Idempotency-Key</code> and the <code>x-shadow: 1</code> header, which <code>pagamentos</code> refuses to carry out). It publishes to a <code>pedidos.shadow</code> topic and <strong>never</strong> to <code>pedidos</code>. The idempotency from module 21 applies here too. And the shadow measures what matters: the divergence, not the charge.</p>
+
+<WhyItMatters>
+  <li><strong>The only model with 0% of customers exposed and real traffic.</strong> Blue/green uses synthetic traffic; the canary exposes a slice.</li>
+  <li><strong>Reads are the ideal case.</strong> <code>catalogo</code> at 64 req/s on 1 replica (64%) measures a new search without risk.</li>
+  <li><strong>Without a comparator, you learn nothing.</strong> The response is discarded; the 64.00 × 49.00 diff is the result.</li>
+  <li><strong>Writes need care outside the database.</strong> <code>tx.Rollback()</code> does not undo a charge, an event or an email.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correction to the base article: the dry-run</h4>
+  <p>The article proposes <code>tx.Rollback()</code> and mentions idempotency, but does not say that the rollback only undoes the <strong>database</strong> transaction, not the effects outside it (the call to <code>pagamentos</code>, the Kafka event, the email). It also does not mention the <strong>comparator</strong> (without it you learn nothing) or the cost of <strong>doubling the load</strong> on dependencies. The Christian Posta text on <em>shadowing</em> that the article cites returns 404 at the given path, which is why it is not in the sources.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Istio: traffic mirroring", href: "https://istio.io/latest/docs/tasks/traffic-management/mirroring/" },
+    { label: "Envoy: RequestMirrorPolicy (route components)", href: "https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto" },
+    { label: "Fowler: CanaryRelease (the link with canary)", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The theory of the mirror is clear: copy, discard the response and compare. What is left is how the author's lab sets this up in <strong>Istio</strong>, and what it leaves out.</p>
+
+<Flashcards cards={[
+  { q: "What is shadow traffic?",
+    a: "A copy of part of the traffic goes to the new version and the response is discarded. The stable one keeps 100%; the customer does not see the shadow." },
+  { q: "How does Istio mirror?",
+    a: "With mirror and mirrorPercentage in the VirtualService. The copy carries a Host/Authority ending in -shadow and is fire and forget." },
+  { q: "How much traffic does catalogo copy at 10%?",
+    a: "10% of 640 req/s = 64 req/s to 1 shadow replica: ρ = 64% and R = 37.8 ms." },
+  { q: "Why does the pedidos shadow need a comparator?",
+    a: "Istio discards the response. The comparator joins the 2.4.0 one and the 2.5.0 one by x-request-id and finds 64.00 against 49.00 on the 30 Recife orders." },
+  { q: "What does tx.Rollback() not undo?",
+    a: "The call to pagamentos and the Kafka event: 0.5 charges/s × R$ 64.00 = 150 charges in 5 min = R$ 9,600. The fix is a stub, x-shadow and a pedidos.shadow topic." },
+]} />

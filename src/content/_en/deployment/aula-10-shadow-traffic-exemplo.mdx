@@ -1,0 +1,96 @@
+---
+title: "Shadow traffic, the lab example"
+order: 10
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import shadowChip from '../../../lab-code/deployment/shadow-chip.yml?raw';
+import shadowShadow from '../../../lab-code/deployment/shadow-shadow.yml?raw';
+
+<p class="ponte">In the last lesson the mirror became clear on paper: copy, discard the response and compare. The author's lab has the YAML version, with <strong>two apps</strong> and Istio's <code>mirror</code>. It shows the mechanism well, and leaves out four pieces the store would need.</p>
+
+<OneLiner>In the lab, the <code>chip</code> app copies <strong>1%</strong> of the traffic to another app, <code>chip-shadow</code>, which lives in <strong>another namespace</strong>. The copy arrives and the stable one answers as normal. What is missing is the <strong>comparator</strong>, a large enough sample and capacity on the shadow.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Shadow</strong> scenario, on the last step, the mirror goes up to <strong>100%</strong>: read the shadow's CPU: with 1 replica for the 640 req/s of <code>catalogo</code>, it goes to 640% and the queue never stops.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/liberacao-3d/?mode=shadow&step=7" poster="labs/deployment/liberacao-3d-previa.webp" title="Interactive figure: Copying the traffic" alt="Preview of the 3D figure: Copying the traffic" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The two files</h3>
+
+<p>The first, <code>shadow/chip.yml</code>, is the app that receives the traffic. It has 10 replicas and a canary with steps 0 → 20 → 40 → 80 → 100 with a manual pause, and in the <code>virtualService</code> it turns the mirror on (read, <strong>not run</strong>; unchanged, with the line numbers of the original):</p>
+
+<CodeLab code={shadowChip} from={36} to={51} />
+
+<CodeLab code={shadowChip} from={81} to={92} />
+
+<ol class="flow steps">
+  <li>Lines 37 and 38 fix 10 replicas; 41 to 51 are the canary with a manual <code>pause</code>, as in lesson 7.</li>
+  <li>Line 89 turns the mirror on (<code>enabled: true</code>). Line 90 says where to copy, <code>chip.shadow.svc.cluster.local</code>, and line 91, port <code>8080</code>.</li>
+  <li>Line 92, <code>percent: 1</code>, is the fraction: <strong>1%</strong>. It is Istio's <code>mirrorPercentage</code>.</li>
+</ol>
+
+<p>The second, <code>shadow/shadow.yml</code>, is the shadow: the <code>chip-shadow</code> release, in the <code>shadow</code> namespace, version <code>v9</code>, with <strong>1 replica</strong> and no autoscaling.</p>
+
+<CodeLab code={shadowShadow} from={21} to={43} />
+
+<ol class="flow steps">
+  <li>Line 21 names the release (<code>chip-shadow</code>) and line 26, the <code>shadow</code> namespace. There are <strong>two</strong> apps: the mirror lives outside the stable one's namespace.</li>
+  <li>Lines 37 and 38 (<code>min: 1</code>, <code>max: 1</code>) fix <strong>1 replica</strong>, and line 43 (<code>setWeight: 100</code>) is the <code>Rollout</code>'s only step.</li>
+</ol>
+
+<h3 class="sec">What the lab shows and what is missing</h3>
+
+<p>What it shows: the <strong>1%</strong> copy reaches <code>chip-shadow</code> and the stable one answers as normal. That is the mechanism working. What is missing, in the order the store would feel it:</p>
+
+<ol class="flow steps">
+  <li><strong>The comparator.</strong> The lab only looks at Prometheus's <code>/metrics</code>. Without joining the shadow's response with the stable one's, there is no 64.00 × 49.00 diff that lesson 9 wanted.</li>
+  <li><strong>The sample.</strong> 1% of 5 orders/s is <strong>0.05/s</strong>, or <strong>3 orders per minute</strong>. For <code>pedidos</code> that is little; for <code>catalogo</code> at 640 req/s it is enough.</li>
+  <li><strong>The shadow's capacity.</strong> 1 replica for a stable one of 10: the shadow has <strong>less</strong> capacity than what it copies. The math of 10% × 640 = 64/s ≤ 100/s from lesson 9 is the limit.</li>
+  <li><strong>The <code>Rollout</code> with <code>canary.steps</code> on a shadow.</strong> An app that is only a shadow does not need steps; the single step (<code>setWeight: 100</code>) is noise inherited from the chart.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: mirroring 100% onto 1 replica</h3>
+
+<p>Someone swaps <code>percent: 1</code> for <code>percent: 100</code> on <code>catalogo</code>. The mirror copies the 640 req/s to <strong>1</strong> shadow replica that handles 100: 640 ÷ 100 = <strong>640%</strong> CPU, infinite queue. Since the response is discarded, <strong>nobody sees the damage</strong> except the shadow's own metric. And if the shadow shares a database or cache with the stable one, <strong>the stable one feels it</strong>: the mirror, which should be invisible, starts taking production down.</p>
+
+<WhyItMatters>
+  <li><strong>The mirror is a line of configuration.</strong> <code>percent</code> decides the extra load; one extra zero is an incident.</li>
+  <li><strong>A shadow is a separate app.</strong> Another namespace, another release, another capacity.</li>
+  <li><strong>A small sample does not teach.</strong> 1% of 5/s is 3 orders per minute.</li>
+  <li><strong>Damage in the shadow is silent.</strong> A discarded response does not become an error for the customer; only the shadow's metric shows it.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">It only runs in the author's homelab</h4>
+  <p>The files point to his domain, an internal ChartMuseum and Istio. They were read, <strong>not run</strong>, and the lab is a minimal example; the gaps above are about what the store would need, not defects of his.</p>
+  <Sources items={[
+    { label: "Author's public repository: exemplos/deployment-methods/shadow (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Istio: VirtualService (mirror and mirrorPercentage)", href: "https://istio.io/latest/docs/reference/config/networking/virtual-service/" },
+    { label: "Istio: traffic mirroring", href: "https://istio.io/latest/docs/tasks/traffic-management/mirroring/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Shadow protects against infrastructure and response defects, but the risk is not always there: sometimes it is the <strong>rule</strong> the customer sees. What is left is how to <strong>separate deploying from releasing</strong> and give the business a button.</p>
+
+<Flashcards cards={[
+  { q: "What are the two apps in the shadow lab?",
+    a: "chip (stable, 10 replicas, with mirror) and chip-shadow (shadow namespace, version v9, 1 replica). The mirror lives outside the stable one's namespace." },
+  { q: "How much does the lab mirror, and what does that come to for pedidos?",
+    a: "percent: 1. Of 5 orders/s, 0.05/s: 3 orders per minute, a small sample for pedidos." },
+  { q: "What does the lab not have?",
+    a: "A comparator (it only looks at /metrics), a large enough sample for writes, shadow capacity equal to the stable one's and a Rollout with steps that make no sense on a shadow." },
+  { q: "What happens when you mirror 100% of catalogo onto 1 replica?",
+    a: "640 ÷ 100 = 640% CPU, infinite queue. Nobody sees it, because the response is discarded, and if the shadow shares a database or cache the stable one feels it." },
+  { q: "Who can feel the mirror besides the shadow?",
+    a: "Any shared dependency (database, cache, payments): the duplicated load reaches it." },
+]} />

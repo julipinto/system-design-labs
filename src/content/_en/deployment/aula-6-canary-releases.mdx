@@ -1,0 +1,82 @@
+---
+title: "Canary releases"
+order: 6
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson blue/green switched everything at once, and the lab's analysis could not see the shipping. The next question is natural: what if the new version served only a <strong>slice</strong> of real traffic, measured, before growing? That is the <em>canary</em>, and what makes it work is <strong>what you measure</strong> and <strong>how much sample</strong> you have.</p>
+
+<OneLiner>In a <strong>canary</strong> the new version (the <em>canary</em>) serves a small slice of real traffic, next to the stable one, and <strong>only grows if the analysis passes</strong>. The decision depends on two things: the metric (<strong>technical and business</strong>) and the <strong>sample</strong>; the clock alone does not decide.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Canary</strong> scenario, go up to <strong>10%</strong> and watch Lena land on the canary: order <strong>1059</strong> goes out for 49.00, and the business analysis is what sees it.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=canary" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Canary" alt="Preview of the 3D figure: Canary" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The store's plan.</strong> It picks up the 10% canary from module 8 and the mesh from module 10: <strong>0%</strong> public with the header <code>x-versao: v2</code> (the team and synthetic customers), then <strong>10%</strong> for 5 min, <strong>50%</strong> for 5 min and <strong>100%</strong>.</li>
+  <li><strong>Every step has an analysis.</strong> Technical (5xx ≤ 0.1%, p95 ≤ 800 ms, the checkout target from module 24) <strong>and business</strong> (<code>pedidos_frete_zero{'{'}cidade{'}'}</code> = 0). Pod health never saw the shipping; the business metric does.</li>
+  <li><strong>Compare with the stable one, in the same interval.</strong> The SRE Workbook compares the canary with the <strong>control in the same interval</strong>, not with the day before: the day before had different traffic.</li>
+  <li><strong>Exact weight needs a mesh.</strong> Without <code>trafficRouting</code>, Argo Rollouts approximates the weight by the <strong>number of pods</strong> ("41% of 10 is closer to 4/10"). With 3 pods the minimum is <strong>1 of 3 = 33%</strong>. With the mesh (module 10) the weight is exact: 10%.</li>
+  <li><strong>Going back is weight zero.</strong> The mesh pushes the rule and traffic leaves the canary in seconds.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The sample, not the clock</h3>
+
+<p>Five minutes at 10% of 5 orders/s give 0.5/s × 300 s = <strong>150 orders</strong>. If 2.5.0's true error rate were <strong>1%</strong> (ten times the target), the chance of <strong>seeing no</strong> error in those 150 is 0.99<sup>150</sup> = <strong>22%</strong>. In one rollout out of five, the analysis would pass a real defect.</p>
+
+<p>To see at least one error with 95% confidence, you need ln(0.05) ÷ ln(0.99) = <strong>298 requests</strong>: at that traffic, <strong>10 min</strong> (with a 2% error rate, 148 requests; with 5%, 58). <code>catalogo</code>, at 640 req/s, gathers 64/s in the 10% canary and reaches 298 in <strong>4.7 s</strong>. The same criterion in minutes works for one service and is too short for the other.</p>
+
+<Widget name="canary-poder" title="Statistical power of the canary" hint="Traffic (req/s), canary share (%), true error rate (0.1 to 5%) and window (min). The widget shows the sample, the chance of seeing at least one error and the time to reach 95% (298 requests = 10 min at 0.5/s; 4.7 s at 64/s)." />
+
+<p>The shipping defect is a different kind: it is <strong>100% deterministic</strong> for Recife. At the 10% step, the 150 orders have 20% from Recife = <strong>30 orders</strong>, all wrong. The business metric catches them at the first step, and the loss is 30 × 15.00 = <strong>R$ 450</strong> (the 50% step, if it got there, would be 750 orders, 150 from Recife, R$ 2,250).</p>
+
+<h3 class="sec">What if it goes wrong: the window "passes" for lack of sample</h3>
+
+<p>Imagine a rare defect: 1% errors, unrelated to city. The 5 min window "passes" because there is little sample, and the canary goes up to 50% with the defect inside. The fix is to decide by <strong>number of requests</strong>, not by minutes: a minimum sample before each decision (298 to see a 1% error with 95% confidence) and, for the store, <strong>the step only advances if it has both: the window and the sample</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>The canary is a measured slice.</strong> It reduces the blast radius: the exposed fraction drops from 100% to 10%.</li>
+  <li><strong>The business metric decides.</strong> The technical analysis does not see zero shipping; only <code>pedidos_frete_zero</code> by city does.</li>
+  <li><strong>Sample, not clock.</strong> 150 orders leave a 22% chance of not seeing a 1% error.</li>
+  <li><strong>Exact weight needs a mesh.</strong> Without one, the weight is the number of pods (33% with 3 pods).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Correction to the base article: "weeks or months"</h4>
+  <p>The article tells the bakery canary in "weeks or months" and talks about latency and errors. In software a canary lasts <strong>minutes to hours</strong>, and what decides is the <strong>sample</strong> (150 orders × 22%) and the <strong>business metric</strong>. The article also does not say that the SRE Workbook compares the canary with the <strong>control in the same interval</strong>.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: CanaryRelease", href: "https://martinfowler.com/bliki/CanaryRelease.html" },
+    { label: "Google SRE Workbook: Canarying Releases", href: "https://sre.google/workbook/canarying-releases/" },
+    { label: "Argo Rollouts: Canary strategy", href: "https://argo-rollouts.readthedocs.io/en/stable/features/canary/" },
+    { label: "Flagger: progressive delivery with Istio (the article's reference)", href: "https://docs.flagger.app/tutorials/istio-progressive-delivery" },
+  ]} />
+</Deep>
+
+<p class="gancho">The canary measures, and the measurement is only worth it with sample and a look at the business. What is left is how the author's lab writes this in YAML, and what it leaves out.</p>
+
+<Flashcards cards={[
+  { q: "What is the store's canary plan?",
+    a: "0% public (header x-versao: v2), 10% for 5 min, 50% for 5 min and 100%, with technical and business analysis at every step." },
+  { q: "What is the canary compared with?",
+    a: "With the stable one in the same interval (SRE Workbook), not with the day before." },
+  { q: "How many orders does a 5 min step at 10% of 5/s have, and how many are from Recife?",
+    a: "150 orders and 30 from Recife (20%). Loss: 30 × 15.00 = R$ 450." },
+  { q: "What is the chance of seeing no 1% error in 150 orders?",
+    a: "0.99 to the power of 150 = 22%. To see at least one with 95% confidence, you need 298 requests (10 min at that traffic)." },
+  { q: "Why does exact weight need a mesh?",
+    a: "Without trafficRouting Argo approximates the weight by the number of pods (minimum of 1 of 3 = 33%). With the mesh the weight is exact." },
+]} />

@@ -1,0 +1,85 @@
+---
+title: "Big Bang (Recreate)"
+order: 2
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the way back became clear: the code comes back, the data does not, and the time depends on the model. What is left is the simplest model of all: <strong>stop everything and start again</strong>. This is the <em>Big Bang</em>, which Kubernetes calls <strong>Recreate</strong>, and it has a price you can add up in seconds.</p>
+
+<OneLiner>With <strong>Recreate</strong> all the old pods die before any new pod is born. It is the <strong>only</strong> model where 2.4.0 and 2.5.0 never serve together, and the price is <strong>downtime</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Recreate</strong> scenario, take down the 3 pods of 2.4.0 and follow the <strong>40 s</strong> clock until 2.5.0 serves. Notice that during that interval <code>lb-loja</code> only returns <code>503</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=recreate" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Recreate (Big Bang)" alt="Preview of the 3D figure: Recreate (Big Bang)" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The configuration.</strong> In Kubernetes it is <code>strategy.type: Recreate</code>: "all existing Pods are killed before new ones are created" (Deployment documentation). There is no <code>maxSurge</code> or <code>maxUnavailable</code>.</li>
+  <li><strong>The <code>pedidos</code> math.</strong> Shutting down the 3 old pods takes 10 s; each new pod takes 30 s to become ready (the math from module 14). That is <strong>40 s</strong> serving nobody.</li>
+  <li><strong>What that costs.</strong> At 5 orders/s, <strong>200</strong> orders refused in the 40 s. On the Black Friday from module 14, at 30/s, <strong>1,200</strong>.</li>
+  <li><strong>When it is worth it.</strong> When the two versions <strong>cannot coexist</strong> (2.5.0 changes the representation of a field that 2.4.0 does not understand), or when the gradual transition costs more than the stop.</li>
+  <li><strong>The article's case: Kafka.</strong> A consumer group with <em>leasing</em> does a <em>rebalance</em> every time a pod leaves or joins. In <code>entregas</code> (3 partitions, module 13), with <strong>6 s</strong> stopped per rebalance (a declared example), rolling spends 3 swaps × 2 rebalances × 6 s = <strong>36 s</strong> with consumption interrupted in parts. Recreate does <strong>1</strong> rebalance of 6 s after the 3 new ones join.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Who</th><th>Downtime</th><th>At 5 orders/s</th><th>At 30 orders/s</th></tr></thead>
+  <tbody>
+    <tr><th>Recreate of <code>pedidos</code></th><td>10 s + 30 s = 40 s</td><td>200 refused</td><td>1,200 refused</td></tr>
+    <tr><th>If 2.5.0 does not start</th><td>40 s + 40 s back = 80 s</td><td>400 refused</td><td>2,400 refused</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: 2.5.0 does not start</h3>
+
+<p>2.5.0 writes the <code>frete</code> column, and someone forgot to apply the migration. The first new pod tries to write and the database answers <code>column "frete" does not exist</code>; the pod goes into <em>CrashLoopBackOff</em>. The 3 old pods have <strong>already died</strong>: that is <strong>0 pods</strong> and 100% <code>503</code> until someone undoes it. <code>rollout undo</code> is another Recreate, with 40 s more: <strong>80 s</strong> offline in total, <strong>400</strong> orders refused at 5/s and <strong>2,400</strong> at 30/s.</p>
+
+<p>Notice what Recreate does <strong>not</strong> do: it does not let anyone see the shipping defect beforehand, because 2.5.0 starts healthy. When the defect is a business one, Recreate is the model with the biggest radius: 100% of the traffic at once and no results gate.</p>
+
+<WhyItMatters>
+  <li><strong>No mixed versions.</strong> It is the only guarantee only Recreate gives, and it justifies the price when versions cannot live together.</li>
+  <li><strong>The price is arithmetic.</strong> 40 s × orders per second, and it doubles if the new version does not start.</li>
+  <li><strong>The criterion goes beyond Kafka.</strong> What decides is the incompatibility between versions, not the type of service.</li>
+  <li><strong>No gate.</strong> Recreate checks nothing before serving with the new version.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Only viable with asynchronous communication and eventual consistency."</strong> The criterion is <strong>two versions being unable to coexist</strong>, or the transition costing more than the stop. Asynchrony and eventual consistency are not prerequisites; the price is the downtime.</li>
+    <li><strong>"Kafka consumers require Recreate."</strong> Cooperative <em>rebalance</em> (KIP-429) and static membership (<code>group.instance.id</code>) reduce the cost of rolling. Recreate is an option, not a requirement.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Kubernetes: Deployments (strategy Recreate)", href: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" },
+    { label: "Kafka: KIP-429, incremental consumer rebalance", href: "https://cwiki.apache.org/confluence/display/KAFKA/KIP-429%3A+Kafka+Consumer+Incremental+Rebalance+Protocol" },
+    { label: "Apache Kafka documentation", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Stopping everything costs 40 s, or 80 s when the new version does not start. What is left is whether you can swap <strong>without stopping</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What does Recreate do?",
+    a: "It shuts down all the old pods before creating the new ones: there are never two versions at once, but there is downtime." },
+  { q: "How long is pedidos offline with Recreate?",
+    a: "40 s: 10 s to shut down the 3 old pods and 30 s for the new ones to become ready. That is 200 orders refused at 5/s and 1,200 at 30/s." },
+  { q: "And if 2.5.0 does not start?",
+    a: "Recreate already killed the old ones: that is 80 s offline (40 s + 40 s back), with 400 orders refused at 5/s and 2,400 at 30/s." },
+  { q: "When does Recreate make sense?",
+    a: "When the two versions cannot coexist, or when the gradual transition costs more than the stop." },
+  { q: "Is Recreate the only way out for Kafka consumers?",
+    a: "No. Cooperative rebalance (KIP-429) and static membership reduce the cost of rolling." },
+]} />

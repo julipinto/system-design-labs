@@ -1,0 +1,107 @@
+---
+title: "Migrations and data versions"
+order: 8
+min: 16
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the canary analysis assumed something hidden: that the <strong>data</strong> serves both versions at the same time. 2.5.0 writes <code>frete</code> in its own column, and 2.4.0 is still live during the rolling, the canary or the blue/green. The deploy goes back; <strong>the data does not</strong>. That is why the column has to be born in a way both versions can take.</p>
+
+<OneLiner>Every production migration has to serve version <strong>N</strong> and <strong>N−1</strong>. The path is <strong>expand → deploy → <em>backfill</em> in batches → read from the new one → contract</strong>, and the migration runs <strong>before</strong> and <strong>after</strong> the deploy, never <strong>inside</strong> it.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Migration</strong> scenario, run the <em>backfill</em> in batches and then the single <code>UPDATE</code>, and compare the table space: <strong>+22%</strong> in batches against <strong>+100%</strong> at once.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/liberacao-3d/?mode=migracao" poster="labs/deployment/liberacao-3d-previa.webp" title="Interactive figure: The data that does not come back" alt="Preview of the 3D figure: The data that does not come back" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<p>The measurements below were run on a local PostgreSQL 14.24, on the <code>pedidos</code> table with <strong>1,000,000</strong> rows of about 2 KB (1,975 MB, as in module 16; the <code>detalhes</code> column is 1.8 KB). They come from the machine they ran on: they are good for the <strong>order of magnitude</strong>, not for extrapolating linearly.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Operation</th><th>Time</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><th><code>ADD COLUMN frete numeric(10,2)</code> (NULL)</th><td><strong>3.2 ms</strong></td><td>catalog only</td></tr>
+    <tr><th><code>ADD COLUMN moeda text NOT NULL DEFAULT 'BRL'</code></th><td><strong>1.9 ms</strong></td><td>constant default (PostgreSQL ≥ 11): stays in the metadata, the table is not rewritten</td></tr>
+    <tr><th><code>ADD COLUMN sorteio double precision NOT NULL DEFAULT random()</code></th><td><strong>7.9 s</strong></td><td><strong>volatile</strong> default: rewrites the whole table (the documentation warns about it)</td></tr>
+    <tr><th><code>UPDATE pedidos SET frete = 15.00</code> (1 statement)</th><td><strong>8.0 s</strong></td><td>the table goes from 1,975 to <strong>3,950 MB</strong> (+100%); a plain <code>VACUUM</code> does not give the space back</td></tr>
+    <tr><th>the same <code>UPDATE</code> in 100 batches of 10,000 rows</th><td>~66 ms per batch; 14.3 s in total</td><td>the table goes to <strong>2,407 MB</strong> (+22%), with <code>VACUUM</code> every 10 batches</td></tr>
+    <tr><th><code>CREATE INDEX</code> during 1 <code>INSERT</code></th><td>index <strong>2.0 s</strong></td><td>the <code>INSERT</code> waited <strong>1.03 s</strong>: it blocks writes</td></tr>
+    <tr><th><code>CREATE INDEX CONCURRENTLY</code></th><td>index <strong>2.95 s</strong> (+45%)</td><td>the <code>INSERT</code> waited <strong>28 ms</strong>: it does not block writes, it costs more</td></tr>
+    <tr><th><code>RENAME COLUMN total TO valor_total</code></th><td>milliseconds</td><td>2.4.0 breaks: <code>ERROR: column "total" does not exist</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Expand.</strong> <code>ADD COLUMN frete</code> (NULL), with <code>lock_timeout</code>. It takes 3.2 ms and 2.4.0 does not even notice: it ignores the new column.</li>
+  <li><strong>Deploy 2.5.0.</strong> It writes <code>total</code> <strong>and</strong> <code>frete</code>, and reads <code>total</code>. Since 2.4.0 coexists, rolling, canary and blue/green are safe.</li>
+  <li><strong>Backfill in batches.</strong> <code>frete = (detalhes-&gt;&gt;'frete')::numeric</code> on the old rows: the <code>detalhes</code> JSON from module 16 holds the shipping (1054 has <code>{'{"itens":[…],"frete":15.00}'}</code>). Batches of 10,000 rows, with a pause.</li>
+  <li><strong>Deploy 2.6.0.</strong> It starts to <strong>read</strong> <code>frete</code>, behind a flag (lesson 11).</li>
+  <li><strong>Contract.</strong> After the rollback window (7 days, example): <code>SET NOT NULL</code> and removal of the old code. The rule: the migration runs <strong>before</strong> (expand) and <strong>after</strong> (contract) the deploy, never <strong>inside</strong> it. Fowler calls the pattern <em>parallel change</em>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The batch has a price, and so does the lock</h3>
+
+<p>The store has 50M rows in 3 shards: <strong>16.67M per shard</strong> (33 GB of data; 46.7 GB with indexes, module 16). In batches of 10,000 rows with a <strong>1 s</strong> pause that is 1,667 batches × (0.066 + 1) s ≈ <strong>30 min per shard</strong>, on all 3 in parallel (order of magnitude). The single <code>UPDATE</code> <strong>doubles</strong> the table (+33 GB per shard) and holds the rows for about 2 minutes (8 s × 16.67 ≈ 133 s).</p>
+
+<p>And there is the <strong>lock queue</strong>. A long transaction (6 s) holds an open <code>SELECT</code>; the <code>ALTER TABLE</code> needs <code>ACCESS EXCLUSIVE</code> and <strong>waits</strong>; a simple <code>SELECT</code> that arrived <strong>after</strong> waited <strong>4.0 s</strong> behind the <code>ALTER</code>, because the queue blocks everyone. With <code>SET lock_timeout = '1s'</code> the <code>ALTER</code> gives up in <strong>1.0 s</strong> with <code>ERROR: canceling statement due to lock timeout</code> and the <code>SELECT</code> goes through. Every production migration carries <code>lock_timeout</code> and retries.</p>
+
+<Widget name="migracao" title="Migration: backfill, space and lock" hint="Rows (1M to 50M), batch (1,000 to 100,000), pause (0 to 5 s), ms per batch (66) and shards (1 to 4). The widget shows the backfill time (≈ 30 min per shard), the space of the single UPDATE (+100%) against the batched one (+22%) and the lock_timeout simulator (a 4.0 s queue against giving up in 1.0 s)." />
+
+<h3 class="sec">What if it goes wrong: two bombs</h3>
+
+<p><strong>The first: <code>RENAME</code> or <code>DROP</code> inside the deploy.</strong> The 90 s rolling leaves 2.4.0 reading a column that does not exist: <code>ERROR: column "total" does not exist</code>. It is the real error from the table above.</p>
+
+<p><strong>The second is the bomb from module 16.</strong> 2.6.0 swaps <code>mod 3</code> for <code>mod 4</code> in the function that picks the shard. During the rolling 2.6.0 sees 0% → 33% → 67% → 100% of the orders (150 orders in the 90 s), and <strong>75.2%</strong> of the keys change shard: 4 of the 5 customers in the sample (<code>lena-77</code> 1 → 0, <code>bia-31</code> 1 → 3, <code>caio-58</code> 2 → 1, <code>mkt-01</code> 2 → 1; only <code>davi-12</code> stays on 0). About <strong>113</strong> of those orders go to a shard where 2.4.0 does not look.</p>
+
+<p>And, <strong>after</strong> the rolling, 2.6.0 queries the <strong>status</strong> of Lena's orders (the endpoint the app uses by <em>short polling</em>, module 12, and that the saga and the refund also use) and <strong>does not find</strong> her 8 orders so far (1042, 1044, 1047, 1048, 1051, 1054, 1055 and 1056): they are on <code>shard-1</code>, and 2.6.0 looks on <code>shard-0</code>. The "my orders" screen (module 18) reads the projection and <strong>stays right</strong>: the error belongs to whoever reads <code>pedidos</code>.</p>
+
+<p>The <strong>routing function is versioned data</strong> (the slot map with an epoch from module 16, lesson 8). The change follows the same expand/contract: copy with CDC, <strong>read from both</strong> during the transition, swap the map and only then delete the source.</p>
+
+<WhyItMatters>
+  <li><strong>The data does not come back.</strong> That is why the migration has to serve N and N−1.</li>
+  <li><strong>Each command has a different cost.</strong> 3.2 ms for <code>ADD COLUMN</code>, 7.9 s with a volatile default, 8.0 s and +100% for the single <code>UPDATE</code>.</li>
+  <li><strong>The lock blocks whoever arrives later.</strong> Without <code>lock_timeout</code>, the waiting <code>ALTER</code> makes the whole queue wait.</li>
+  <li><strong>Routing is data too.</strong> Swapping <code>mod 3</code> for <code>mod 4</code> sends 113 orders to the wrong shard.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Links with events</h4>
+  <p>Whoever consumes <code>PedidoCriado</code> (module 17, ECST and CDC) has to ignore the <code>frete</code> field it does not know: that is the <strong>tolerant reader</strong>. And the DDL does <strong>not</strong> go through a logical CDC on its own: the connector from module 18 has to be told about the new column.</p>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <p>The article treats migrations in two paragraphs of definition. Missing are: expand/contract, <em>backfill</em> in batches, <code>lock_timeout</code> and the lock queue, <code>CREATE INDEX CONCURRENTLY</code>, <code>ADD COLUMN</code> with a volatile versus a constant default and the fact that the routing function (module 16) is data too.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "PostgreSQL 14: ALTER TABLE", href: "https://www.postgresql.org/docs/14/sql-altertable.html" },
+    { label: "PostgreSQL: CREATE INDEX (CONCURRENTLY)", href: "https://www.postgresql.org/docs/current/sql-createindex.html" },
+    { label: "PostgreSQL: lock_timeout (client configuration)", href: "https://www.postgresql.org/docs/current/runtime-config-client.html" },
+    { label: "PostgreSQL 14: explicit locking", href: "https://www.postgresql.org/docs/14/explicit-locking.html" },
+    { label: "Fowler: ParallelChange", href: "https://martinfowler.com/bliki/ParallelChange.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The column now accepts both versions, but 2.5.0 has not yet been seen with real traffic. What is left is how to <strong>test the new version with real traffic</strong> without risking the data.</p>
+
+<Flashcards cards={[
+  { q: "What are the five steps to change a column without breaking the previous version?",
+    a: "Expand (ADD COLUMN), deploy the new version, backfill in batches, deploy the one that reads the column, contract (NOT NULL and remove the old code)." },
+  { q: "How much do ADD COLUMN NULL, with a constant default and with a volatile default cost on 1 million rows?",
+    a: "3.2 ms, 1.9 ms and 7.9 s: the volatile default rewrites the whole table." },
+  { q: "What is the space difference between a single UPDATE and batches?",
+    a: "The single UPDATE takes the table from 1,975 to 3,950 MB (+100%); in batches of 10,000 with VACUUM, to 2,407 MB (+22%)." },
+  { q: "Why does every migration carry lock_timeout?",
+    a: "The ALTER waits for the lock and blocks the queue: a SELECT that arrived later waited 4.0 s. With a 1 s lock_timeout the ALTER gives up in 1.0 s and the SELECT goes through." },
+  { q: "What does the mod 3 to mod 4 bomb cause?",
+    a: "75.2% of the keys change shard: ~113 orders go where 2.4.0 does not look, and 2.6.0 does not find Lena's 8 orders (1042, 1044, 1047, 1048, 1051, 1054, 1055 and 1056)." },
+]} />

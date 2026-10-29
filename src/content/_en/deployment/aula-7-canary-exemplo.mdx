@@ -1,0 +1,111 @@
+---
+title: "Canary, the lab example"
+order: 7
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import canarySimple from '../../../lab-code/deployment/canary-simple-canary.yml?raw';
+import canaryAnalysis from '../../../lab-code/deployment/canary-analysis-canary.yml?raw';
+
+<p class="ponte">In the last lesson the canary was defined: a slice, measured, with sample and a business metric. The author's public lab has four versions of the same canary (<code>initial</code>, <code>simple</code>, <code>time</code> and <code>analysis</code>). Each one teaches a piece of Argo Rollouts, and the last one shows <strong>five gaps</strong> the store needs to close.</p>
+
+<OneLiner>The lab is a <strong>minimal</strong> example and works as one. Its canary climbs in <strong>steps</strong> (<code>setWeight</code>, <code>pause</code>, <code>analysis</code>), and the analysis is a Prometheus <strong>success rate</strong>. For the store, it still needs to measure the <strong>business</strong> and to measure only the <strong>canary</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Canary</strong> scenario, on the analysis step, press <strong>+ zero shipping</strong> and watch the canary abort in 5 min, with 30 Recife orders already saved with zero shipping. Then press <strong>5xx only</strong> and watch the defect pass and climb to 50% with nobody noticing.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=canary&step=3" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Canary" alt="Preview of the 3D figure: Canary" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">From initial to time: who decides to advance</h3>
+
+<p><code>initial</code> and <code>simple</code> are <strong>identical</strong>, except for <code>version</code> (<code>v3</code> and <code>v4</code>). Both have 10 replicas and these steps (read, <strong>not run</strong>; unchanged, with the line numbers of the original):</p>
+
+<CodeLab code={canarySimple} from={37} to={53} />
+
+<ol class="flow steps">
+  <li>Lines 37 and 38 fix <strong>10 replicas</strong> (<code>min: 10</code>, <code>max: 10</code>).</li>
+  <li>The steps raise the weight 0 → 10 → 20 → 40 → 80 → 100, and <code>pause: {'{ }'}</code> is a pause <strong>with no end</strong>: someone promotes by hand (<code>kubectl argo rollouts promote</code>).</li>
+  <li><code>time</code> swaps each pause for <code>pause: {'{duration: 10s}'}</code> (lines 44, 46, 48, 50 and 52 of the file). Promotion becomes automatic, <strong>by time, without looking at any metric</strong>: it is just a clock.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the canary by time</h3>
+
+<p>The lab's <code>time</code>, with 10 s per step, goes 0 → 10 → 20 → 40 → 80 → 100 in <strong>5 × 10 s = 50 s</strong>. That is faster than the 3-pod rolling from lesson 3 (90 s). <strong>A canary by time without analysis is rolling with more steps</strong>: nobody looked at anything between one step and the next, and 2.5.0 with zero shipping would reach 100% before the first metric window closed.</p>
+
+<h3 class="sec">The analysis: the success rate</h3>
+
+<p><code>analysis</code> swaps the pauses for analyses. The steps and the analysis template, line by line:</p>
+
+<CodeLab code={canaryAnalysis} from={41} to={73} />
+
+<ol class="flow steps">
+  <li>Lines 43 to 53: 20% → 30 s pause → <strong>analysis</strong> (<code>chip-check-success</code>) → 50% → 1 min pause → analysis → 100%.</li>
+  <li>Line 60: <code>interval: 2m</code>; line 73: <code>count: 1</code>. The analysis runs <strong>one</strong> measurement.</li>
+  <li>Line 61: <code>successCondition: result[0] &gt;= 0.95</code>, and line 62, <code>failureLimit: 1</code>.</li>
+  <li>Lines 66 to 72: the query divides the <code>irate</code> of the responses that are <strong>not</strong> <code>5xx</code> by the <code>irate</code> of all of them, with a 5 minute window.</li>
+</ol>
+
+<h3 class="sec">Five things the lab leaves out</h3>
+
+<p>The lab is a minimal example, and the five below are what separates an example from an analysis for the store.</p>
+
+<ol class="flow steps">
+  <li><strong>5% tolerance.</strong> <code>&gt;= 0.95</code> accepts 5% of <code>5xx</code>. The store's target is <strong>99.9%</strong>.</li>
+  <li><strong>It only sees <code>5xx</code>.</strong> <code>response_code!~"5.*"</code> counts the <code>201</code> with shipping 0 as success. Only a <strong>business metric</strong> catches it.</li>
+  <li><strong>Whole service.</strong> <code>destination_service=~"chip.chip.svc.cluster.local"</code> measures the whole service (stable + canary) and <strong>dilutes</strong> the canary's error by its weight. To measure only the canary you have to filter by subset or by version.</li>
+  <li><strong><code>irate</code> in a 5 m window.</strong> The Prometheus documentation says to use <code>rate</code> for rules and alerts and <code>irate</code> only for graphs of volatile counters.</li>
+  <li><strong><code>count: 1</code>.</strong> It is <strong>one</strong> measurement: the <code>interval: 2m</code> does not even matter.</li>
+</ol>
+
+<h3 class="sec">The store's analysis (an adaptation, not run)</h3>
+
+<p>The query the store would use swaps the response code for the business defect, by version and by city, and requires zero:</p>
+
+<pre><code>{`sum(increase(pedidos_criados_total{versao="2.5.0",frete="0"}[5m])) by (cidade)
+
+successCondition: result[0] == 0`}</code></pre>
+
+<p>It is an <strong>adaptation</strong> (it was not run, no cluster). With <code>by (cidade)</code> the query returns one series per city, so the real Argo condition needs adjusting (sum everything, or check each series). The idea is what matters: at the 10% step, the Recife series shows 30 and the canary aborts, with R$ 450 of loss instead of R$ 54,000.</p>
+
+<WhyItMatters>
+  <li><strong>A pause with no end is a human decision.</strong> <code>pause: {'{ }'}</code> waits for someone to promote; <code>duration</code> is just a clock.</li>
+  <li><strong>An analysis is a criterion, and the criterion is in the query.</strong> <code>&gt;= 0.95</code> over <code>5xx</code> is permissive and blind to the business.</li>
+  <li><strong>What you measure decides the radius.</strong> The whole service dilutes the canary; only the canary shows the canary.</li>
+  <li><strong>One measurement is not a trend.</strong> <code>count: 1</code> decides with one point.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Weight by mesh</h4>
+  <p>The lab uses Istio (module 10), and it is the mesh that gives the exact weight. The Argo Rollouts documentation has a page just about this, under "Istio".</p>
+  <Sources items={[
+    { label: "Author's public repository: exemplos/deployment-methods/canary (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Argo Rollouts: Canary strategy", href: "https://argo-rollouts.readthedocs.io/en/stable/features/canary/" },
+    { label: "Argo Rollouts: Analysis", href: "https://argo-rollouts.readthedocs.io/en/stable/features/analysis/" },
+    { label: "Argo Rollouts: traffic management with Istio", href: "https://argo-rollouts.readthedocs.io/en/stable/features/traffic-management/istio/" },
+    { label: "Prometheus: query functions (irate and rate)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/" },
+  ]} />
+</Deep>
+
+<p class="gancho">All of this assumes that the <strong>data</strong> serves both versions at the same time. What is left is what happens when the <strong>column changed</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What are an empty pause and a pause with duration in Argo Rollouts?",
+    a: "The empty pause waits for someone to promote by hand. The pause with duration promotes on its own after the time, without looking at any metric." },
+  { q: "How long does the lab's time canary take?",
+    a: "5 pauses of 10 s: 50 s to 100%, faster than a 3-pod rolling (90 s). A canary by time without analysis is rolling with more steps." },
+  { q: "What are the five gaps in the lab's analysis?",
+    a: "5% tolerance, only 5xx (201 with shipping 0 passes), whole service (dilutes the canary), irate instead of rate and count 1 (one measurement)." },
+  { q: "What is the store's business analysis?",
+    a: "The sum of pedidos_criados_total with version 2.5.0 and frete 0, by city, over 5 minutes, requiring zero. It is an adaptation, not run." },
+  { q: "Why does measuring the whole service dilute the error?",
+    a: "Stable and canary enter the same rate: a defective 10% canary shows up only by its weight. You need to filter by subset or by version." },
+]} />

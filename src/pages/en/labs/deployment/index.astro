@@ -1,0 +1,36 @@
+---
+// Deployment Models module (English): the 12 lessons in src/content/_en/deployment/, in `order` field order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/deployment.css';
+
+const entries = (await getCollection('en-deployment')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/deployment/quiz/');
+---
+<ModuleLayout
+  title="Deployment Models · SDLabs"
+  description="Shipping pedidos 2.5.0 on an ordinary Tuesday without Lena noticing, and being able to go back: rollback, recreate, rolling, blue/green, canary, migrations, shadow, feature flags and rings by shard, with the author's labs read, real PostgreSQL measurements, widgets and a quiz."
+  module="deployment"
+  heading="Deployment Models"
+  lead="A new version of pedidos goes live on a Tuesday at 14:00, with a defect only real data shows: the shipping table forgot Recife. How to ship without being the incident, and how to go back when the defect shows up."
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/deployment/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

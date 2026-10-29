@@ -1,0 +1,111 @@
+---
+title: "Blue/Green, the lab example"
+order: 5
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import bgSimple from '../../../lab-code/deployment/blue-green-simple-blue-green.yml?raw';
+import bgAutomated from '../../../lab-code/deployment/blue-green-automated-blue-green.yml?raw';
+
+<p class="ponte">In the last lesson blue/green promised to test green without customers and to go back in 1 s. The author's public lab has two files that do this with <strong>Argo Rollouts</strong>: a manual one (<code>simple</code>) and one with an automatic test before the switch (<code>automated</code>). It is worth reading the lines that matter, and what they <strong>do not</strong> catch.</p>
+
+<OneLiner>In Argo Rollouts, <code>blueGreen</code> connects two Services (<code>activeService</code> and <code>previewService</code>); the <strong>promotion</strong> swaps the pointer, and <code>prePromotionAnalysis</code> runs tests <strong>before</strong> it. It catches a <code>500</code> without customers, but it does <strong>not</strong> catch a <code>201</code> with zero shipping.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Blue/Green</strong> scenario, on the last step, use the buttons for the window that <em>blue</em> stays up (30 s, 60 s, 10 min) and compare what is left against the <strong>8 minutes</strong> it takes for the shipping defect to show up: with 60 s, blue is already gone and going back means starting 3 pods and waiting 30 s.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=bluegreen&step=6" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Blue/Green" alt="Preview of the 3D figure: Blue/Green" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<h3 class="sec">The simple one: manual promotion</h3>
+
+<p>The author's public repository (<code>exemplos/deployment-methods/</code>) is a homelab lab: it uses Argo CD, a Helm chart, the image <code>fidelissauro/chip:v1</code> and Istio. This excerpt is the core of <code>simple</code> (read, <strong>not run</strong>; unchanged, with the line numbers of the original).</p>
+
+<CodeLab code={bgSimple} from={37} to={45} />
+
+<ol class="flow steps">
+  <li>Lines 37 and 38 fix <strong>5 replicas</strong> (<code>min: 5</code>, <code>max: 5</code>, no autoscaling).</li>
+  <li>Line 42 says which Service gets the customer (<code>activeService: chip</code>) and line 43 which one gets the new version for testing (<code>previewService: chip-green</code>).</li>
+  <li>Line 44, <code>autoPromotionEnabled: false</code>, makes promotion a manual act: someone looks at green and approves.</li>
+  <li>Line 45, <code>scaleDownDelaySeconds: 60</code>, keeps <em>blue</em> up for <strong>60 s</strong> after the switch. The Argo default is 30 s.</li>
+</ol>
+
+<h3 class="sec">The automated one: tests before promotion</h3>
+
+<p><code>automated</code> is the same file with <code>prePromotionAnalysis</code> (lines 46 to 49) and two analysis templates. Notice that the <code>scaleDownDelaySeconds</code> line is <strong>commented out</strong> (line 45): without it the default applies, 30 s.</p>
+
+<CodeLab code={bgAutomated} from={41} to={49} />
+
+<p>The first template, <code>http-bench-analysis</code>, is a Kubernetes <em>Job</em> that runs <code>cassowary</code> (a load testing tool) against green:</p>
+
+<CodeLab code={bgAutomated} from={53} to={74} />
+
+<p>The second, <code>chip-check-success</code>, queries Prometheus for <strong>green</strong>'s success rate:</p>
+
+<CodeLab code={bgAutomated} from={76} to={93} />
+
+<ol class="flow steps">
+  <li>Line 72 tells <code>cassowary</code> (<code>-c 3 -n 1000</code>) to make 1,000 requests, with 3 connections, to <code>http://chip-green.chip:8080/system</code>. The target is <code>chip-green</code>: green alone, with no customers.</li>
+  <li>Lines 87 to 92 divide the responses that are <strong>not</strong> <code>5xx</code> by the total, only for <code>chip-green</code>. The condition on line 81, <code>result[0] >= 0.95</code>, requires 95% success.</li>
+  <li>If any analysis fails, Argo does <strong>not promote</strong>: green stays aside and blue keeps serving.</li>
+</ol>
+
+<h3 class="sec">What the lab shows and what it does not</h3>
+
+<p>The load test and the success rate run <strong>before</strong> the promotion, against green alone. That is the way to catch a <code>500</code> without any customer exposed, and it is what the lab shows well. What it does not catch:</p>
+
+<ol class="flow steps">
+  <li><strong>The zero shipping.</strong> To the analysis, <code>201</code> is success. 2.5.0 passes both analyses and goes to 100% of the traffic.</li>
+  <li><strong>The store's target.</strong> <code>&gt;= 0.95</code> accepts <strong>5%</strong> errors; the store's target is 0.1% (the 99.9% for checkout, module 24).</li>
+  <li><strong>The sample.</strong> 1,000 requests with 3 connections are few for a rare defect, and before promotion green gets no customers: the Prometheus rate measures, in practice, the test's own traffic.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the defect shows up 8 minutes later</h3>
+
+<p>The switch passed the tests. Eight minutes later someone sees the business metric (<code>frete_zero</code> by city, in Recife) and decides to go back. But the lab's <code>scaleDownDelaySeconds</code> is <strong>60 s</strong>, and <em>blue</em> was shut down at 60 s: going back is <strong>starting 3 pods and waiting 30 s</strong>, instead of flipping the pointer in 1 s. The "go back in 1 s" window closed long before the defect showed up.</p>
+
+<p>The fix is to size <code>scaleDownDelaySeconds</code> by the <strong>detection time</strong>, not by the switch time. If the store only notices in 8 min, blue has to live 8 min (3 extra pods for that interval), or the canary from lesson 6 cuts the exposure from the start.</p>
+
+<WhyItMatters>
+  <li><strong>Two pieces and a pointer.</strong> <code>activeService</code>, <code>previewService</code> and the promotion, which is the act of swapping.</li>
+  <li><strong>The test before the switch catches infrastructure errors.</strong> <code>500</code>s and slowness show up without customers.</li>
+  <li><strong>The limit is what you measure.</strong> <code>201</code> with zero shipping is success for the lab's analysis.</li>
+  <li><strong>The delay is a cost decision.</strong> Every second of blue staying up is a paid pod; it should cover the detection time.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Two cautions about the lab</h4>
+  <ul>
+    <li><strong>It only runs in the author's homelab.</strong> The files point to his domain, an internal ChartMuseum and a local Prometheus. They were read, <strong>not run</strong> here (no cluster).</li>
+    <li><strong><code>irate</code> in an analysis rule.</strong> The Prometheus documentation says to use <code>rate</code> for rules and alerts and <code>irate</code> only for graphs of volatile counters (lesson 7 comes back to this).</li>
+  </ul>
+  <Sources items={[
+    { label: "Author's public repository: exemplos/deployment-methods (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/deployment-methods" },
+    { label: "Argo Rollouts: BlueGreen strategy", href: "https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/" },
+    { label: "Argo Rollouts: Analysis", href: "https://argo-rollouts.readthedocs.io/en/stable/features/analysis/" },
+    { label: "Prometheus: query functions (irate and rate)", href: "https://prometheus.io/docs/prometheus/latest/querying/functions/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Blue/green switches everything at once, and the lab's analysis cannot see the shipping. What is left is what changes if we <strong>do not switch everything</strong> and send only a <strong>slice</strong> of the traffic to the new version.</p>
+
+<Flashcards cards={[
+  { q: "What are activeService and previewService for in Argo Rollouts?",
+    a: "The active one gets the customer (blue); the preview one gets the new version for testing (green). The promotion swaps the pointer." },
+  { q: "What does autoPromotionEnabled: false do?",
+    a: "It makes the promotion manual: someone approves green before the switch." },
+  { q: "What does the lab's prePromotionAnalysis do?",
+    a: "It runs a cassowary Job (-c 3 -n 1000) against green and checks a success rate in Prometheus (result[0] >= 0.95), all before the promotion." },
+  { q: "What does the lab's analysis not catch?",
+    a: "The zero shipping (201 counts as success) and errors below 5%, which >= 0.95 accepts." },
+  { q: "Why does scaleDownDelaySeconds matter?",
+    a: "It keeps blue up after the switch. With 60 s and a defect found at 8 min, going back means starting 3 pods and waiting 30 s. It should cover the detection time." },
+]} />

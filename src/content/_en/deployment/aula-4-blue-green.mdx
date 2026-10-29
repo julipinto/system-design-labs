@@ -1,0 +1,80 @@
+---
+title: "Blue/Green"
+order: 4
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson rolling put 2.5.0 on 100% of the traffic without anyone testing it with a customer. If a second environment exists, you can <strong>test the new version first</strong>, before it serves, and only then switch. That is <em>blue/green</em>.</p>
+
+<OneLiner>In <strong>blue/green</strong> there are two identical environments: <strong>blue</strong> (2.4.0, serving) and <strong>green</strong> (2.5.0, no customers). You test green, and the <strong>switch</strong> is changing a pointer. Going back is switching back, as long as blue is still up.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Blue/Green</strong> scenario, switch to the <strong>cold green</strong> (the one that was just born) and read the queue: the first request takes 200 ms instead of 20 ms, and 128 in-flight requests do not fit in the 100 workers.</p>
+</DoIt>
+
+<Figure3D path="en/labs/deployment/rollout-3d/?mode=bluegreen&step=4" poster="labs/deployment/rollout-3d-previa.webp" title="Interactive figure: Blue/Green" alt="Preview of the 3D figure: Blue/Green" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The doubled environment.</strong> <em>Green</em> has the <strong>same size</strong> as blue: 3 + 3 = 6 pods of <code>pedidos</code>. For <code>catalogo</code> on Black Friday it would be 10 + 10 = 20 pods, or <strong>10 extra replica-hours per hour</strong> of window.</li>
+  <li><strong>The pointer.</strong> A Service (or a route) points to one of the two. Switching is changing the pointer, in about <strong>1 s</strong>.</li>
+  <li><strong>Testing without customers.</strong> Green gets smoke tests (module 24), <em>warm-up</em> and manual or automatic checks, all before the switch happens.</li>
+  <li><strong>There is one database.</strong> Blue and green talk to the same <code>pg-pedidos-*</code>. The <code>frete</code> column, and both versions writing to the same table, are the subject of lesson 8: "going back to blue" does not undo what green wrote.</li>
+  <li><strong>Blue stays up for a while.</strong> In Argo Rollouts <code>scaleDownDelaySeconds</code> is <strong>30 s</strong> by default (<strong>60 s</strong> in the lesson 5 lab). In that interval going back is flipping the pointer.</li>
+</ol>
+</HowItWorks>
+
+<p>"Instant" describes the <strong>pointer</strong>, not the flow. Connections that are already open (HTTP keep-alive, HTTP/2, long-lived gRPC, module 12) stay on the old pods until they close, and if the switch is by DNS, the TTL matters (module 1). The switch is fast; the last client leaving blue takes longer.</p>
+
+<p>There is also the test that green allows and that decides the outcome: if the smoke test includes an order <strong>to Recife</strong>, the zero shipping shows up with 0 customers exposed. If the test does not include Recife, nobody notices, and the defect goes out with 3,600 orders in 60 minutes (R$ 54,000), as in rolling. Blue/green does not decide what you measure.</p>
+
+<h3 class="sec">What if it goes wrong: the cold green</h3>
+
+<p>Green is born with an <strong>empty</strong> local cache. The first request takes <strong>200 ms</strong> instead of 20 ms (example). By Little's Law (module 14), at 640 req/s: 640 × 0.2 s = <strong>128</strong> requests in flight, against 640 × 0.02 = 12.8. If each pod has <strong>10 workers</strong> (the <em>thread pool</em> from module 11), 10 pods support <strong>100</strong> in flight. Green <strong>forms a queue</strong>, with CPU at 64%, at the moment it receives 100% of the traffic.</p>
+
+<p>The fix is <em>warm-up</em> before the switch: synthetic or mirrored traffic (lesson 9) until the cache warms up.</p>
+
+<WhyItMatters>
+  <li><strong>Testing without customers.</strong> That is the advantage of blue/green: green is validated before it receives a real order.</li>
+  <li><strong>Going back in ~1 s</strong>, while blue lives. The cost is <strong>twice the pods</strong> during the window.</li>
+  <li><strong>The pointer is fast; the flow is not.</strong> Open connections and the DNS TTL delay the real switch.</li>
+  <li><strong>The database is shared.</strong> The environment is identical in code, not in data.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Redirects instantly."</strong> The pointer switches fast; open connections and the DNS TTL delay the flow.</li>
+    <li><strong>"Two identical environments."</strong> In code, yes; in the <strong>database</strong>, there is only one. The article says, at the end, that the schema is the hardest part; lesson 8 shows why.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on deployment strategies (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/deployment-strategies/" },
+    { label: "Fowler: BlueGreenDeployment", href: "https://martinfowler.com/bliki/BlueGreenDeployment.html" },
+    { label: "Argo Rollouts: BlueGreen strategy", href: "https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/" },
+    { label: "CNCF glossary: Blue/Green deployment", href: "https://glossary.cncf.io/pt-br/blue-green-deployment/" },
+    { label: "Red Hat: what is blue/green (the article's reference)", href: "https://www.redhat.com/en/topics/devops/what-is-blue-green-deployment" },
+  ]} />
+</Deep>
+
+<p class="gancho">Blue/green tests first and goes back in 1 s, but only while blue is up and only if the test looks at what matters. What is left is what the author's lab really does with this, line by line.</p>
+
+<Flashcards cards={[
+  { q: "What is blue/green?",
+    a: "Two identical environments: blue (2.4.0) serves, green (2.5.0) is tested without customers, and the switch is changing the pointer." },
+  { q: "What does the doubled environment cost?",
+    a: "pedidos uses 3 + 3 = 6 pods. catalogo on Black Friday, 10 + 10 = 20 pods: 10 extra replica-hours per hour of window." },
+  { q: "What is instant about the switch?",
+    a: "The pointer. Open connections (keep-alive, HTTP/2, gRPC) and the DNS TTL delay the flow." },
+  { q: "What is the cold green?",
+    a: "Green is born with an empty cache: the first request takes 200 ms instead of 20 ms, and 128 in flight against 100 workers form a queue. The fix is warm-up." },
+  { q: "Does blue/green bring the data back?",
+    a: "No. Blue and green use the same database, and going back to blue does not undo what green wrote." },
+]} />
