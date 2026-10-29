@@ -35,6 +35,13 @@
 .sdl-content .lesson-done-tag{display:none;color:var(--ok)}
 .sdl-content .lesson.is-done .lesson-done-tag{display:inline}
 .sdl-content .lesson-done-tag .ico-check{margin-left:.4em}
+/* ficha da aula, como a de um espécime: número grande e leve, o que ele conta embaixo em cor de apoio; réguas finas entre os itens */
+.sdl-content .lesson-spec{display:flex;flex-wrap:wrap;margin:var(--s-4) 0 0;padding:0}
+.sdl-content .lesson-spec>div{display:flex;flex-direction:column-reverse;gap:4px;padding:0 var(--s-5) 0 0;margin:0 var(--s-5) var(--s-2) 0;border-right:var(--hair) solid var(--line)}
+.sdl-content .lesson-spec>div:last-child{border-right:0;margin-right:0;padding-right:0}
+.sdl-content .lesson-spec dd{margin:0;font:300 30px/1 var(--sans);letter-spacing:-.02em;color:var(--ink-hi);font-variant-numeric:tabular-nums}
+.sdl-content .lesson-spec dt{font:600 13px/1.3 var(--sans);color:var(--muted)}
+@media (max-width:560px){.sdl-content .lesson-spec>div{padding-right:var(--s-3);margin-right:var(--s-3)}.sdl-content .lesson-spec dd{font-size:24px}.sdl-content .lesson-spec dt{font-size:12.5px}}
 
 /* ponte e gancho: a primeira e a última frase que costuram as aulas */
 .sdl-content .ponte{font-size:var(--fs-lead);line-height:1.6;color:var(--ink-hi)}

@@ -1,7 +1,11 @@
 ---
-// Uma aula: <section class="lesson"> com número, título e tempo de leitura; o conteúdo MDX entra no slot
+// Uma aula: <section class="lesson"> com número, título e a ficha da aula; o conteúdo MDX entra no slot
 // e o fim da aula (DoneButton com anterior/próxima) é posto aqui.
-import { t as tr } from '../lib/i18n.js';
+// Ficha (como a de um espécime de atlas): minutos de leitura, termos novos do glossário, figuras 3D e laboratórios,
+// contados do próprio conteúdo no build; item com zero não aparece.
+import { t as tr, langOf } from '../lib/i18n.js';
+import { glossaries } from '../data/glossary.js';
+import { glossariesEn } from '../data/glossary.en.js';
 const T = tr(Astro.url);
 import DoneButton from './DoneButton.astro';
 interface NavLink { href: string; label?: string; primary?: boolean }
@@ -12,12 +16,23 @@ interface Props {
   final?: NavLink;        // link no lugar de "Próxima aula" na última aula (ex.: quiz)
 }
 const { id, n, total, title, min, prev, next, final } = Astro.props;
+const html = await Astro.slots.render('default');
+const count = (re: RegExp) => (html.match(re) || []).length;
+const slug = (String(Astro.url.pathname).match(/\/labs\/([^/]+)\//) || [])[1] || '';
+const gl = (langOf(Astro.url) === 'en' ? glossariesEn : glossaries)[slug] || [];
+const spec = [
+  { n: min, label: T.specMin },
+  { n: gl.filter((t: { lesson: string }) => t.lesson === id).length, label: T.specTerms },
+  { n: count(/class="f3d-wrap"/g), label: T.specFigs },
+  { n: count(/class="widget"/g), label: T.specLabs },
+].filter((x) => x.n > 0);
 ---
 <section class="lesson" id={id} data-min={min}>
   <header>
     <h2>{title}</h2>
-    <p class="lesson-meta"><span class="lesson-n">{T.lessonOf(n, total)}</span><span><span class="lm-word">{T.reading}</span>~{min} min</span><span class="lesson-done-tag">{T.understood}<i class="ico ico-check" aria-hidden="true"></i></span></p>
+    <p class="lesson-meta"><span class="lesson-n">{T.lessonOf(n, total)}</span><span class="lesson-done-tag">{T.understood}<i class="ico ico-check" aria-hidden="true"></i></span></p>
+    <dl class="lesson-spec">{spec.map((x) => <div><dt>{x.label(x.n)}</dt><dd>{x.n}</dd></div>)}</dl>
   </header>
-  <slot />
+  <Fragment set:html={html} />
   <DoneButton prev={prev} next={next} final={final} />
 </section>

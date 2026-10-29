@@ -32,6 +32,8 @@ const UI = {
     toc: 'Aulas do módulo', quizFinal: 'Teste o que aprendeu: quiz',
     credit: 'Notas pessoais de estudo, escritas com minhas palavras. Fonte: artigos públicos de Matheus Fidelis em <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Sem vínculo com o autor ou com qualquer curso.',
     switchTo: 'English', switchAria: 'Read this page in English',
+    specMin: () => 'min de leitura', specTerms: (n) => n === 1 ? 'termo novo' : 'termos novos',
+    specFigs: (n) => n === 1 ? 'figura 3D' : 'figuras 3D', specLabs: (n) => n === 1 ? 'laboratório' : 'laboratórios',
   },
   en: {
     deep: 'Go deeper', doit: 'Try it now', oneliner: 'In one sentence:', how: 'How it works',
@@ -49,6 +51,8 @@ const UI = {
     toc: 'Module lessons', quizFinal: 'Test what you learned: quiz',
     credit: 'Personal study notes, written in my own words. Source: public articles by Matheus Fidelis at <a href="https://fidelissauro.dev">fidelissauro.dev</a>. Not affiliated with the author or with any course.',
     switchTo: 'Português', switchAria: 'Ler esta página em português',
+    specMin: () => 'min read', specTerms: (n) => n === 1 ? 'new term' : 'new terms',
+    specFigs: (n) => n === 1 ? '3D figure' : '3D figures', specLabs: (n) => n === 1 ? 'hands-on lab' : 'hands-on labs',
   },
 };
 
