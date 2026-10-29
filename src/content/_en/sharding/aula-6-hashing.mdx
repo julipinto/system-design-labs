@@ -1,0 +1,125 @@
+---
+title: "Hashing"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import hashingGo from '../../../lab-code/sharding/hashing.go?raw';
+
+<p class="ponte">In the last lesson the ranges left some shards empty and others overloaded: the date range and the id range sent all the writes to the last one. A <strong>hash function</strong> fixes that spreading: it scrambles the <code>cliente_id</code> into a number, and the remainder of dividing that number by the total number of shards picks the shard. But this math hides a trap, which shows up on the day the total number of shards changes.</p>
+
+<OneLiner><code>hash(key) mod N</code> spreads the rows evenly and costs almost nothing, and <strong>breaks when N changes</strong>: going from 3 to 4 shards, 75% of the rows move.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Hash</strong> scenario, let the 14 orders fall onto 3 shards and note the count of each. Then press the button that goes from 3 to 4 shards and count the rows that light up. Check that Lena (<code>lena-77</code>) goes from 1 to 0.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=hash&step=3" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: murmur3 mod 3, then mod 4" alt="Preview of the 3D figure: murmur3 mod 3, then mod 4" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>This module's canonical function is the <strong>32-bit murmur3</strong> (the one from the <code>murmur/</code> lab, <code>spaolacci/murmur3 Sum32</code>, seed 0) over the UTF-8 bytes of the <code>cliente_id</code>, <strong>without lowercasing</strong>. For Lena: <code>murmur3("lena-77") = 0x8fd9d9d8</code>, which is 2,413,418,968 in decimal. Divided by 3, the remainder is <strong>1</strong>. The router writes order <strong>1054</strong>, the black T-shirt at 49.00 plus the shipping to Recife (15.00), total <strong>64.00</strong>, to <code>shard-1</code>.</li>
+  <li>With the 5 customers and <code>mod 3</code>: <code>davi-12</code> (0x06de0db0) gives 0; <code>lena-77</code> and <code>bia-31</code> (0x12bd9b3b) give 1; <code>caio-58</code> (0x8c6d56ed) and <code>mkt-01</code> (0x9ebaf255) give 2. On the 14-row sample, the counts are <strong>3 / 9 / 2</strong>: <code>shard-0</code> has Davi (3), <code>shard-1</code> has Lena (6) and Bia (3), <code>shard-2</code> has Caio (2).</li>
+  <li>That 3 / 9 / 2 looks uneven, and it is the <strong>law of small numbers</strong>: with 5 customers, chance weighs a lot. On the 50-million table, the 1.5 million regular customers spread evenly, and the only big deviation is <code>mkt-01</code>, which lesson 3 already measured.</li>
+  <li>The author compares 5 functions in a loop (lab <code>hashing-distrib/</code>): SHA-256, SHA-512, MD5, FNV-1a and a "sum of the characters". With <strong>41 inputs on 5 shards</strong>, the ideal is 8.2 per shard and the expected deviation is √(41 × 0.2 × 0.8) = <strong>2.56</strong>. FNV-1a's 14 is 2.3 deviations away, and with 25 counts a value like that is expected by luck. <strong>You cannot conclude that FNV is worse.</strong></li>
+  <li>With <strong>100,000 keys</strong> (<code>c-0</code> to <code>c-99999</code>, 5 shards), the max ÷ mean ratio is: SHA-256 <strong>1.009</strong>, MD5 <strong>1.018</strong>, FNV-1a <strong>1.003</strong>, murmur3 <strong>1.007</strong> and sum of characters <strong>1.000</strong>. All stay within 2% of the ideal. Balance <strong>does not decide</strong> the function; what decides is speed, compatibility with whoever else uses the same key (Kafka uses murmur2 and <code>sarama</code> uses FNV-1a, module 13) and the <em>avalanche</em> property, where a 1-bit change in the input scrambles the whole output.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="qualshard" title="Which shard? Hash, modulo and what changes with N" hint="Type a cliente_id, pick the function and the number of shards (1 to 8). The widget shows the hash, the mod and the shard of the 5 customers. The '+1 shard', 'double' and '−1 shard' buttons count how many customers move and the fraction of the 100,000 keys." />
+
+<h3 class="sec">The author's code, hashing with SHA-256</h3>
+
+<p>The <code>hashing/main.go</code> lab does the same with 10 <em>tenants</em> (customers) and 3 shards. The part that matters (original code from the repository; the comments are in Portuguese):</p>
+
+<CodeLab code={hashingGo} from={10} to={32} />
+
+<p>First, the name is lowercased (line 12). The first 8 bytes of the SHA-256 become an integer (line 16). If the integer is negative, the sign is flipped (lines 18 to 21), and the remainder of the division by <code>numShards</code>, fixed at 3 on line 27, picks the shard (line 30). The output for the 10 tenants is <strong>2 / 4 / 4</strong> (Petshops-Souza 1, Pizzarias-Carvalho 2, Mecanica-Dois-Irmaos 1, and so on; the full list is in lesson 10). With 4 shards and the same function, <strong>7 of 10</strong> move.</p>
+
+<h3 class="sec">The sum of characters looks perfect and is not</h3>
+
+<p>The "sum of characters" has the best number in the test (1.000), and it is the worst function on the list. It adds up the letter codes, so any <strong>anagram</strong> lands on the same shard: <code>lena-77</code> and <code>77-anel</code> always share a shard. And neighboring ids (<code>c-100</code>, <code>c-101</code>) land on neighboring shards, which is the opposite of scrambling.</p>
+
+<h3 class="sec">What changes when N changes</h3>
+
+<p>This is the math that lessons 7 and 8 try to improve. With the 100,000 synthetic keys and murmur3:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Change</th><th>Keys that move (mod N)</th><th>On the 50-million table</th></tr></thead>
+  <tbody>
+    <tr><th>3 → 4 shards</th><td><strong>75.2%</strong> (theory 75%)</td><td>37.5 million rows, 75 GB, <strong>25 min</strong> at 50 MB/s</td></tr>
+    <tr><th>3 → 6 (double)</th><td><strong>49.9%</strong> (theory 50%)</td><td>25 million, 50 GB, 16 min 40 s</td></tr>
+    <tr><th>3 → 2</th><td><strong>66.7%</strong></td><td>the 2/3 from module 7</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The rule: from N to N + 1, the fraction that <strong>moves</strong> is N ÷ (N + 1) (3 → 4: 75%; 9 → 10: 90%), while the ideal would be 1 ÷ (N + 1). Doubling is the favorable case: only 50% move. And what moves often goes <em>between old shards</em>, not only to the new one: with <code>mod 4</code>, 4 of the 5 customers move (<code>lena-77</code> from 1 to 0, <code>bia-31</code> from 1 to 3, <code>caio-58</code> from 2 to 1, <code>mkt-01</code> from 2 to 1) and only <code>davi-12</code> stays.</p>
+
+<h3 class="sec">What if it goes wrong: the two-version deploy</h3>
+
+<p>The store moves to 4 shards and rolls out the router gradually. Version v1 still uses <code>mod 3</code>; v2 already uses <code>mod 4</code>. Lena places an order through v2: <code>mod 4</code> gives 0, and <strong>1054</strong> goes to <code>shard-0</code>. When she opens "my orders", v1 looks on <code>shard-1</code> (<code>mod 3</code> gave 1) and <strong>does not find the order</strong>. There is no error, just an order that vanished from the screen. Two routers with a different N see different databases, and that is one reason module 22 (deployment) treats this kind of change with care.</p>
+
+<WhyItMatters>
+  <li><strong>The hash spreads evenly.</strong> With 100,000 keys, the 5 functions stay within 2% of the ideal.</li>
+  <li><strong>With few keys, chance dominates.</strong> The 3 / 9 / 2 in the sample and the lab's 41 inputs are noise.</li>
+  <li><strong><code>mod N</code> breaks when N changes.</strong> 3 → 4 moves 75.2% of the rows (25 min of copying); only doubling is "cheap" (49.9%).</li>
+  <li><strong>Two routers with a different N disagree.</strong> Lena's 1054 vanishes from "my orders".</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The 41 inputs of the comparison lab</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Function</th><th>Shard 0 to 4 (41 inputs)</th></tr></thead>
+    <tbody>
+      <tr><th>SHA-256</th><td>9, 7, 6, 8, 11</td></tr>
+      <tr><th>SHA-512</th><td>8, 9, 12, 7, 5</td></tr>
+      <tr><th>MD5</th><td>13, 9, 4, 5, 10</td></tr>
+      <tr><th>FNV-1a</th><td>6, 6, 6, 14, 9</td></tr>
+      <tr><th>Simple hash</th><td>5, 7, 9, 10, 10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The list has <strong>38 unique tenants</strong>: <code>Padaria-Estrela-Filial-1</code>, <code>-2</code> and <code>-3</code> appear twice, and the 41 are <em>inputs</em>. Values from 4 to 14 are what you would expect for 41 items on 5 shards.</p>
+  <h4 class="deep-h">Corrections to the source article and the labs</h4>
+  <ul>
+    <li><strong>Comparing on "a sample".</strong> The article recommends comparing algorithms on a sample and shows 41 inputs on 5 shards: the differences (6 to 14) are noise. With 100,000 keys all of them stay within 2% of the ideal.</li>
+    <li><strong>The code of the first example.</strong> <code>if int(hashInt) &lt; 0 {'{'} return -int(hashInt) {'}'}</code> still leaves the smallest <code>int64</code> value negative (probability 2<sup>−64</sup>, just noted for the record). And the program fixes <code>numShards := 3</code> inside the function.</li>
+    <li><strong>The MurmurHash excerpt.</strong> The printed code lists 12 names and does not count (the map is never incremented). The 39-input output comes from the repository. Another difference: murmur does not lowercase, the others do.</li>
+    <li><strong>In the comparison lab,</strong> <code>hashSimple</code> iterates over runes (<code>range tenant</code>) and the 64-bit hashes become <code>int</code> and can be negative.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Author's public repository: exemplos/sharding (hashing, hashing-distrib, murmur)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Go: hash/fnv package", href: "https://pkg.go.dev/hash/fnv" },
+    { label: "spaolacci/murmur3 (Go)", href: "https://github.com/spaolacci/murmur3" },
+    { label: "MongoDB: Hashed Sharding", href: "https://www.mongodb.com/docs/manual/core/hashed-sharding/" },
+    { label: "Apache Kafka documentation (the murmur2 partitioner)", href: "https://kafka.apache.org/documentation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Moving 75% of the table to gain 1 server is too expensive, and the same goes for removing one. What is left is how to move only about <strong>1 ÷ N</strong>, which is the job of consistent hashing.</p>
+
+<Flashcards cards={[
+  { q: "Where does Lena's order 1054 go?",
+    a: "murmur3(\"lena-77\") = 0x8fd9d9d8, mod 3 = 1: shard-1." },
+  { q: "Why does the 14-row sample give 3 / 9 / 2?",
+    a: "Law of small numbers: with 5 customers chance weighs a lot. On the whole table the regular customers spread evenly." },
+  { q: "Which hash function is best, by balance?",
+    a: "None: with 100,000 keys all of them stay within 2% of the ideal. Speed, compatibility and avalanche decide." },
+  { q: "How many rows move when going from 3 to 4 shards with mod?",
+    a: "75.2% (N ÷ (N + 1)): about 37.5 million rows, 75 GB, 25 minutes at 50 MB/s." },
+  { q: "What happens in a deploy with mod 3 and mod 4 routers at the same time?",
+    a: "Lena writes 1054 to shard-0 through v2 and v1 looks on shard-1: the order vanishes from 'my orders'." },
+]} />

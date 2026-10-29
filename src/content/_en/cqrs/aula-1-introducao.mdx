@@ -1,0 +1,87 @@
+---
+title: "Introduction to CQRS"
+order: 1
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">At the end of module 17 the store copied data every way it could: between databases, between services, by reading the log, by merging concurrent writes. And Lena's <strong>"my orders"</strong> screen still read from the <strong>same table</strong> the checkout writes to (order 1055 vanished for 800 ms on the Recife replica). That screen costs two things. The <code>bff-app</code> joins <strong>four services</strong> to build it, and the 23:00 report fights for database, CPU and connections with the people who are paying. We need to separate whoever <strong>writes</strong> from whoever <strong>reads</strong>.</p>
+
+<OneLiner><strong>CQRS</strong> separates whoever <strong>changes</strong> the state (the <strong>commands</strong>) from whoever <strong>reads</strong> it (the <strong>queries</strong>) into <strong>different models</strong>, each sized for its own job. The price is <strong>two things to keep in sync</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Two models</strong> scenario, step forward: Lena's order <strong>1056</strong> enters through the <strong>command</strong> side and then the "my orders" screen is read through the <strong>query</strong> side. Notice there are two paths, each with its own storage, and read the warning at the end: "for most systems one model is enough".</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=dois-modelos" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: Command and query" alt="Preview of the 3D figure: Command and query" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Command.</strong> An order in the imperative that <strong>changes state</strong> and can fail on a rule. Order 1056 is born from <code>CriarPedido</code>: plush cat (79.90) + blue mug (19.90) + Recife shipping (15.00) = <strong>114.80</strong>, at 20:12:00.000. If the product is out of stock, the command is refused.</li>
+  <li><strong>Query.</strong> It only <strong>returns data</strong> and changes nothing. The screen's question is "the last 10 orders of <code>lena-77</code>, with items, payment and tracking". Whoever answers does not need to know how the order was validated, only what to show.</li>
+  <li><strong>Two models.</strong> The <strong>write</strong> model (or command model) belongs to the <code>pedidos</code> service: normalized tables <code>pedidos</code> and <code>itens_pedido</code> in the PostgreSQL <code>loja</code>, with rules and a transaction. The <strong>read</strong> model (or query model) belongs to the new <code>meus-pedidos</code> service, in the exact shape of the screen. On the <code>bff-app</code> side, the screen calls <strong>one</strong> route instead of four.</li>
+  <li><strong>The levels.</strong> (a) <strong>Separate classes</strong> in the same program and the same database; (b) a precomputed <em>view</em> <strong>in the same database</strong> (lesson 3); (c) a <strong>separate database</strong> fed by events (lessons 5 to 10). The store starts at (a) or (b) and only moves up when reads demand it.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Fowler's warning and what CQRS is not</h3>
+
+<p>Martin Fowler warns that "for most systems CQRS adds risky complexity". The store only adopts it because reads and writes have <strong>different shapes and scales</strong>: it writes 30 orders/s on Black Friday (database ceiling of 150/s), while the screen and the report read far more, in another format. Two confusions are common. CQRS is <strong>not <em>event sourcing</em></strong> (storing the events as the source of truth; that is module 20), and it <strong>does not require two databases</strong>: it can be two models in the same database.</p>
+
+<h3 class="sec">If it goes wrong: CQRS where a SELECT is enough</h3>
+
+<p>This is the most expensive failure, because it is a design failure. In this store the screen's query, on a normalized model of 5 tables, costs <strong>0.23 to 0.31 ms</strong> (measured on PostgreSQL 14, with an index, 8 of Lena's orders, ~100 pages read from memory). The <code>JOIN</code> by customer <strong>is not the problem</strong>. Separating the models just because of it trades 0.3 ms for two pieces to keep in sync, with no gain. What hurts is two other things, which the next lessons tackle: the separate services (lesson 7) and whatever scans a lot (the report, lesson 3).</p>
+
+<WhyItMatters>
+  <li><strong>Command and query have different jobs.</strong> One needs rules and a transaction; the other needs shape and speed.</li>
+  <li><strong>Separating is a cost decision.</strong> Each model is sized for its own job and scales on its own, but now there are two to keep equal.</li>
+  <li><strong>CQRS is not event sourcing or two databases.</strong> It is the separation of the models; the rest are levels of how much you separate.</li>
+  <li><strong>Measure first.</strong> At 0.3 ms per query, the store does not need CQRS for the screen, only for the report and for joining services.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The three levels, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Level</th><th>Where the read model lives</th><th>What it costs</th></tr></thead>
+    <tbody>
+      <tr><th>(a) separate classes</th><td>same program, same tables</td><td>almost nothing; does not isolate load yet</td></tr>
+      <tr><th>(b) view in the same database</th><td>precomputed table (lesson 3)</td><td>delay until the <code>REFRESH</code></td></tr>
+      <tr><th>(c) separate database</th><td>another storage, fed by events</td><td>eventual consistency and more pieces</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: two models, not necessarily two databases</h4>
+  <ul>
+    <li><strong>"CQRS involves using two or more databases".</strong> The article mentions the same instance in the middle of the text, but the summary says the opposite. The pattern asks for two <strong>models</strong>; how many databases they use depends on how much you want to isolate. The article also lacks Fowler's warning (risky complexity) and the distinction from <em>event sourcing</em>: the READMEs of the author's lab use "event sourcing" for what is CQRS with events.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Martin Fowler: CQRS", href: "https://martinfowler.com/bliki/CQRS.html" },
+    { label: "Microsoft Azure Architecture Center: CQRS pattern", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "microservices.io: CQRS pattern", href: "https://microservices.io/patterns/data/cqrs.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows what a command is and what a query is, and that separating them costs a second thing to maintain. What is left is how each of the two models looks <strong>on the inside</strong>: what the command validates before writing, and what the query keeps just to answer.</p>
+
+<Flashcards cards={[
+  { q: "What is CQRS?",
+    a: "Separating commands (which change state and can fail on a rule) from queries (which only return data) into different models. The price is keeping the two in sync." },
+  { q: "What are the command and the query of order 1056?",
+    a: "The command is CriarPedido (plush cat 79.90 + mug 19.90 + shipping 15.00 = 114.80). The query is 'the last 10 orders of lena-77, with items, payment and tracking'." },
+  { q: "Does CQRS require two databases?",
+    a: "No. It requires two models. They can be separate classes, a view in the same database or a separate database fed by events." },
+  { q: "Is CQRS the same thing as event sourcing?",
+    a: "No. Event sourcing stores the events as the source of truth (module 20). CQRS only separates the write and read models." },
+  { q: "Why not separate just for the screen's query?",
+    a: "Because it costs 0.23 to 0.31 ms on the normalized model, with an index. Separating just for that is complexity with no gain: the real problems are joining services and the heavy report." },
+]} />

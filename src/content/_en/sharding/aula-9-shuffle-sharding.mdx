@@ -1,0 +1,85 @@
+---
+title: "Shuffle sharding"
+order: 9
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the map let the store move <code>mkt-01</code> to a shard of its own. But there is a kind of problem where moving the data does not help: the customer that <strong>disturbs the others</strong> with a bad request. The partner sends a call that hangs the replica receiving it, and the 500-per-second robot from module 8 repeats it nonstop. <strong>Shuffle sharding</strong> swaps "one hung replica takes down a group" for "takes down, in the worst case, whoever has the same pair".</p>
+
+<OneLiner>In shuffle sharding, each customer gets a <strong>shuffled subset</strong> of replicas, and the noisy customer only takes down whoever has the <em>same</em> subset: the blast radius drops from a whole group (20%) to about 2.2%.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Shuffle</strong> scenario, turn on <code>mkt-01</code> and see which replicas hang. Note who is left without service with <strong>fixed groups</strong> and who with <strong>shuffle sharding</strong>. Then turn off the client's retry and watch Lena and Davi lose half their calls.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/anel-3d/?mode=shuffle" poster="labs/sharding/anel-3d-previa.webp" title="Interactive figure: Shuffle sharding of 2 in 10" alt="Preview of the 3D figure: Shuffle sharding of 2 in 10" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>catalogo</code> service has <strong>10 replicas</strong> (<code>catalogo-1</code> to <code>catalogo-10</code>, modules 6, 7 and 14), and each one handles 100 req/s. When <code>mkt-01</code> sends the bad request, the replica that receives it hangs. If every customer used all 10, the bad request would go through all of them and take the service down.</li>
+  <li>The first defense is <strong>fixed groups of 2</strong>: 5 groups, (1, 2), (3, 4), (5, 6), (7, 8) and (9, 10), and the customer's group is <code>murmur3(cliente_id) mod 5</code>. But <code>mkt-01</code> and <code>bia-31</code> land in the <strong>same group</strong>, (3, 4). Both replicas hang, and <strong>20%</strong> of the customers (1 group of 5) are left without service, <strong>Bia included</strong>.</li>
+  <li>In <strong>shuffle sharding of 2 in 10</strong>, each customer gets 2 replicas chosen by <em>rendezvous</em>: the 2 with the lowest <code>murmur3(cliente_id + ":catalogo-" + r)</code>. There are <strong>C(10, 2) = 45</strong> possible pairs. <code>mkt-01</code> gets replicas <code>{"{8, 9}"}</code>, <code>lena-77</code> gets <code>{"{6, 8}"}</code>, <code>bia-31</code> gets <code>{"{4, 6}"}</code>, <code>caio-58</code> gets <code>{"{1, 4}"}</code> and <code>davi-12</code> gets <code>{"{1, 9}"}</code>.</li>
+  <li>When <code>catalogo-8</code> and <code>catalogo-9</code> hang, <strong>Bia and Caio do not even notice</strong>. <strong>Lena</strong> (has 8) and <strong>Davi</strong> (has 9) lose <em>one</em> of their two replicas. They only keep being served if the client <strong>tries the other</strong> replica: that is the retry AWS requires from the client.</li>
+  <li>At scale, with 10,000 simulated customers (<code>c-0</code> to <code>c-9999</code>): <strong>240 (2.4%)</strong> have the same pair as <code>mkt-01</code> (expected 1 ÷ 45 = 2.2%), and <strong>3,868 (38.7%)</strong> share at least one replica (expected 1 − 28/45 = 37.8%). Fixed groups take down <strong>20%</strong> (2,007 of 10,000). With <strong>4 replicas</strong> per customer (C(10, 4) = 210 sets; <code>mkt-01</code> gets <code>{"{2, 4, 8, 9}"}</code>), only <strong>50 (0.5%)</strong> have the same set (expected 0.48%), but <strong>93.2%</strong> share at least one replica.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="shuffle" title="Shuffle sharding: how many customers go down with the noisy one" hint="Pick the replicas (4 to 20), the subset size (1 to 4), the noisy customer and whether the client tries the other replicas. The widget computes C(n, k), the fully affected fraction (1 ÷ C) and the partial one, and compares with fixed groups." />
+
+<h3 class="sec">The math and the AWS case</h3>
+
+<p>With n replicas and subsets of k, there are C(n, k) subsets. The chance that a customer has <strong>exactly</strong> the same subset as the noisy one is 1 ÷ C(n, k). The chance of sharing <strong>at least one</strong> replica is 1 − C(n − k, k) ÷ C(n, k). Route 53 uses <strong>2,048</strong> virtual servers and gives <strong>4</strong> to each domain: C(2048, 4) = <strong>730,862,190,080</strong> combinations (AWS says "730 billion"). Two domains with the same set are rare, and an attack on one almost never touches another.</p>
+
+<p>Shuffle sharding can be <strong>stateless</strong> (the customer's hash picks the subset, as above) or <strong>stateful</strong> (draws and checks the overlap). In either case, it requires the <strong>client to try all the endpoints</strong> in its subset.</p>
+
+<h3 class="sec">What if it goes wrong: the client does not try the other replica</h3>
+
+<p><code>lena-77</code> has replicas 6 and 8, and <code>catalogo-8</code> is hung. Her app picks one replica per call and does not repeat if the first fails. Half the calls land on replica 8 and <strong>fail</strong>. The same goes for Davi with replica 9. The isolation exists only on paper: without a retry on the client, the subset of 2 turns into half the requests lost, and the advantage of shuffling disappears.</p>
+
+<WhyItMatters>
+  <li><strong>The blast radius drops from 20% to 2.2%.</strong> Fixed groups take down 1 group of 5; shuffle takes down only the same pair (1 in 45).</li>
+  <li><strong>More replicas per customer, less coincidence.</strong> With 4 in 10, only 0.5% repeat the set; but 93.2% share at least one replica, which is why the retry matters.</li>
+  <li><strong>It does not move data.</strong> It is request and compute isolation, the opposite of the rest of the module.</li>
+  <li><strong>It requires the client's retry.</strong> Without trying the other replica, the neighbors of a hung replica lose half their calls.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The numbers from the original post</h4>
+  <p>The AWS post (2014) uses 8 instances and counts <strong>56</strong> subsets of 2 (and a 1-in-56 chance). That 56 counts the pairs <em>with order</em> (8 × 7). Without order, which is what matters here, there are <strong>28</strong> pairs of 2 in 8 and <strong>70</strong> sets of 4 in 8. The post also says 1 in 1,680 for 4 in 8, which are the arrangements with order (8 × 7 × 6 × 5). The idea does not change; this module uses <strong>sets</strong>: 28, 45 and 210.</p>
+  <h4 class="deep-h">Where else this shows up</h4>
+  <p>AWS applies the same idea to web servers, queues, rate limiters and locks. Cortex uses it to give each tenant a subset of the ingesters and queriers.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>Shuffle sharding is not distributed replication.</strong> The article describes "sharding + distributed replication", with a write to a primary shard and to "secondary shards chosen by the shuffle". AWS describes something else: giving <strong>each customer a small random subset</strong> of instances (which can overlap) and requiring the <strong>client to try all</strong> of those in its subset, so that a problematic request takes down only that subset. It is <strong>request and compute</strong> isolation. Replicating the data is another decision, from module 17.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "AWS: Shuffle Sharding: Massive and Magical Fault Isolation", href: "https://aws.amazon.com/blogs/architecture/shuffle-sharding-massive-and-magical-fault-isolation/" },
+    { label: "AWS Builders' Library: Workload isolation using shuffle-sharding", href: "https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" },
+    { label: "Cortex: Shuffle sharding", href: "https://cortexmetrics.io/docs/guides/shuffle-sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now has the pieces: the key, the ranges, the hash, the ring, the map and the isolation. What is left is putting it all into a runnable example, running the author's four programs and seeing the outputs side by side.</p>
+
+<Flashcards cards={[
+  { q: "How many customers do fixed groups of 2 in 10 replicas take down with mkt-01?",
+    a: "20% (1 group of 5), including bia-31, who lands in the same group (3, 4)." },
+  { q: "How many pairs are there in 2 of 10, and what fraction of customers has the same pair?",
+    a: "C(10, 2) = 45 pairs; 1 ÷ 45 = 2.2% on average (240 of 10,000 in the simulation)." },
+  { q: "What does shuffle sharding require from the client?",
+    a: "Trying all the replicas in its subset. Without a retry, Lena and Davi lose half their calls." },
+  { q: "What is the Route 53 number and where does it come from?",
+    a: "2,048 virtual servers, 4 per domain: C(2048, 4) = 730,862,190,080 combinations." },
+  { q: "Is shuffle sharding data replication?",
+    a: "No. It is request and compute isolation: each customer uses a subset of replicas. Replicating data is module 17." },
+]} />

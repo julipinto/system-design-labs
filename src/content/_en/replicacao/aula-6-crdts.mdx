@@ -1,0 +1,95 @@
+---
+title: "CRDTs"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store copied data by reading the log, and all of that assumed <strong>one</strong> owner per piece of data. But in lesson 2 two primaries wrote the same address, and <em>last write wins</em> threw away the right write because of a clock 120 ms behind. What is missing is a way for two sites to write at the same time and for the copies to <strong>merge without conflict</strong>, with nobody deciding who wins.</p>
+
+<OneLiner>A <strong>CRDT</strong> is a data structure whose copies <strong>can always be merged</strong> without conflict, because the merge is <strong>commutative, associative and idempotent</strong>: order and repetitions do not change the result. It guarantees that the copies <strong>converge</strong>, not that the result <strong>makes sense for the business</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Counter</strong> scenario, step forward: the views of cat 42 are counted on the three sites, the network between SP and Recife splits and then comes back: <strong>135 + 80 + 58 = 273</strong>, while <em>last write wins</em> on the total would lose 8 or 15. Then press <strong>Limit</strong>: both sites sell the last mug, and the merge gives <strong>−1</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/fluxo-3d/?mode=crdt-contador" poster="labs/replicacao/fluxo-3d-previa.webp" title="Interactive figure: CRDT: the G-Counter" alt="Preview of the 3D figure: CRDT: the G-Counter" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>G-Counter</strong> (only grows). The <code>visualizacoes</code> of cat 42 keep <strong>one counter per site</strong>: <code>{"{SP: 120, Rio: 80, Recife: 50}"}</code>, total <strong>250</strong>. In the partition between SP and Recife, SP counts +15 (<code>SP: 135</code>, total 265) and Recife counts +8 (<code>Recife: 58</code>, total 258). The <strong>merge is the maximum per site</strong>: <code>{"{SP: 135, Rio: 80, Recife: 58}"}</code>, total <strong>273</strong>, the same in both directions and the same if applied twice. With <em>last write wins</em> on the total, it would be 265 or 258, and the store would lose 8 or 15 views.</li>
+  <li><strong>OR-Set</strong> (set, <em>observed-remove</em>). Lena's cart starts with <code>{"{caneca}"}</code>. In the partition, the <strong>phone</strong> (Recife) adds the <code>gato</code> and the <strong>laptop</strong> (SP) removes the <code>caneca</code>. The merge gives <code>{"{gato}"}</code>: both intentions count. If one side <strong>removes</strong> the mug and the other <strong>adds it again</strong> at the same time, the mug <strong>stays</strong>: "add wins", because each addition has its own tag and the removal only deletes the tags it saw.</li>
+  <li><strong>LWW-Register</strong> (the latest timestamp wins). It is the address case from lesson 2: SP's write (timestamp 20:20:00.100) beats Recife's (timestamp .030, clock 120 ms behind) even though Recife's is the most recent in reality. LWW is a simple CRDT and <strong>depends on a clock</strong>. The <strong>version vector</strong> (<code>{"{SP:2, Rec:0}"}</code> against <code>{"{SP:1, Rec:1}"}</code>) does not choose: it <strong>detects</strong> that the writes are concurrent and hands the decision back to the application.</li>
+  <li><strong>PN-Counter</strong> (goes up and down): two G-Counters, one for increments and one for decrements, and the value is the difference. The mug's <strong>stock</strong> has 1 unit. In the partition, SP sells 1 and Recife sells 1, and each sees <strong>0</strong>. The merge gives <strong>−1</strong>: the CRDT <strong>converged</strong> (the two sites agree) and <strong>violated</strong> the rule "stock ≥ 0".</li>
+  <li><strong>Convergence.</strong> Merging the same set of states in any order, with duplicate messages, gives the same result: the test with 5 messages in <strong>120 permutations</strong> (5!) gave a single final state. It is the commutativity, associativity and idempotence from the article, and in Shapiro's paper the merge is the <em>join</em> of a semilattice.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="crdt" title="CRDT playground" hint='Three sites (SP, Rio and Recife). Add +1 to the G-Counter of each site, split the network, merge (273) and test the cart OR-Set (add on one site and remove on another) and the stock PN-Counter (−1). The "Random order, with duplicates" button merges the messages another way and always converges.' />
+
+<h3 class="sec">State or operations, where they live and the cost</h3>
+
+<p>There are two families (Shapiro): <strong>CvRDTs</strong>, which exchange the <strong>state</strong> and merge it, as in the examples above, and <strong>CmRDTs</strong>, which exchange the <strong>operations</strong> and require causal delivery. CRDTs live in collaborative editors (the article's example; <a href="https://github.com/automerge/automerge">Automerge</a> and <a href="https://yjs.dev/">Yjs</a>), in Redis Active-Active and in Riak. The cost is <strong>metadata that grows</strong>: tags and <em>tombstones</em> (removal marks) cannot be discarded at will, the subject of "CRDTs: The Hard Parts" by Kleppmann.</p>
+
+<h3 class="sec">If it goes wrong: the last item sold twice</h3>
+
+<p>The stock PN-Counter <strong>sells the last item twice</strong>. Both sites accepted the sale because each saw 1 in stock, and the merge, correct and equal on both sides, shows <strong>−1</strong>. Convergence does not protect an invariant. For the last item, module 11 still applies (the decrement with <code>UPDATE … AND quantidade &gt; 0</code> and a <strong>single owner</strong> of the stock) or module 19 (compensating the extra sale with a refund).</p>
+
+<WhyItMatters>
+  <li><strong>The merge is a calculation, not a choice.</strong> 135 + 80 + 58 = 273, with nobody deciding, and without losing Recife's 8 views.</li>
+  <li><strong>Each type solves one case.</strong> Counter for views, set for the cart, register with a version for the address.</li>
+  <li><strong>LWW depends on a clock.</strong> The version vector at least warns that there was concurrency.</li>
+  <li><strong>Converging is not being right.</strong> The stock at −1 is the proof: a business rule needs an owner or a compensation.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The CRDT numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Structure</th><th>Scenario</th><th>Merge</th></tr></thead>
+    <tbody>
+      <tr><th>G-Counter</th><td>SP 135, Rio 80, Recife 58</td><td>maximum per site: 273</td></tr>
+      <tr><th>G-Counter with LWW on the total</th><td>265 or 258</td><td>loses 8 or 15</td></tr>
+      <tr><th>OR-Set</th><td>{"{caneca}"}: phone +gato, laptop −caneca</td><td>{"{gato}"}</td></tr>
+      <tr><th>OR-Set</th><td>one side removes and the other adds the mug</td><td>the mug stays (add wins)</td></tr>
+      <tr><th>PN-Counter</th><td>stock 1, each site sells 1</td><td>−1</td></tr>
+      <tr><th>Convergence</th><td>5 messages, 120 permutations, with duplicates</td><td>1 final state</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: what CRDTs guarantee</h4>
+  <ul>
+    <li><strong>"Guarantee that conflicts are resolved automatically".</strong> They guarantee <strong>convergence</strong>, not that the result makes sense for the business (the stock at −1). The example of <strong>editing the same line of a text</strong> only works with CRDTs designed for text (sequences), not with an LWW. The right properties: the merge is commutative, associative and idempotent. The article says "associative, commutative and idempotent operations", which holds for state; CmRDT operations have other requirements, such as causal delivery.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Shapiro et al.: Conflict-free Replicated Data Types (CRDTs), arXiv 2018", href: "https://arxiv.org/abs/1805.06358" },
+    { label: "crdt.tech: what CRDTs are and where they are used", href: "https://crdt.tech/" },
+    { label: "Martin Kleppmann: CRDTs, The Hard Parts", href: "https://martin.kleppmann.com/2020/07/06/crdt-hard-parts-hydra.html" },
+    { label: "Riak: CRDT data types", href: "https://docs.riak.com/riak/kv/latest/learn/concepts/crdts/index.html" },
+    { label: "Redis: Active-Active databases", href: "https://redis.io/docs/latest/operate/rs/databases/active-active/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now copies data in every way: between databases, between services, by reading the log and by merging concurrent writes. And Lena's "my orders" screen still reads from the <strong>same table</strong> the checkout writes to. What is left is what changes if she reads from a <strong>copy built only for reading</strong>, fed by CDC: how to separate the write model from the read model. That is module 18, CQRS.</p>
+
+<Flashcards cards={[
+  { q: "What is a CRDT and why does it converge?",
+    a: "A structure whose copies can always be merged: the merge is commutative, associative and idempotent. In any order, with duplicates, the result is the same (120 permutations of 5 messages)." },
+  { q: "How does the G-Counter reach 273?",
+    a: "Merge = maximum per site: {SP: 135, Rio: 80, Recife: 58} = 273. With LWW on the total it would be 265 or 258 and lose 8 or 15 views." },
+  { q: "What does the OR-Set for Lena's cart give?",
+    a: "{gato}: the phone added the cat and the laptop removed the mug, and both intentions count. If one removes and the other adds the mug at the same time, it stays (add wins)." },
+  { q: "Why does LWW lose to the version vector on Lena's address?",
+    a: "LWW depends on a clock: Recife's was 120 ms behind and the right write lost. The vector {SP:2, Rec:0} × {SP:1, Rec:1} detects that the writes are concurrent and lets the application decide." },
+  { q: "Why does the stock PN-Counter give −1, and what to do?",
+    a: "SP and Recife sell the last mug in the partition and each sees 0; the merge gives −1: it converges and violates stock ≥ 0. A CRDT does not guarantee an invariant: a single owner (module 11) or compensation (module 19)." },
+]} />

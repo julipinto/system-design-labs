@@ -1,0 +1,36 @@
+---
+// CQRS module (English): the 10 lessons in src/content/_en/cqrs/, in the order of the `order` field.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/cqrs.css';
+
+const entries = (await getCollection('en-cqrs')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/cqrs/quiz/');
+---
+<ModuleLayout
+  title="CQRS · SDLabs"
+  description="One model to write and another to read: commands and queries, materialized view, read replicas, eventual consistency, SQL and NoSQL, distributed models, dual write, CDC and outbox, with the store's Black Friday numbers, widgets and a quiz."
+  module="cqrs"
+  heading="CQRS"
+  lead={'Lena\'s "my orders" screen reads from the same table the checkout writes to and joins four services to show up. How to have one model for writing and another for reading, and keep them in sync without losing orders or showing ghosts.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/cqrs/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

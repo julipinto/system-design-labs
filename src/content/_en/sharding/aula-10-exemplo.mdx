@@ -1,0 +1,110 @@
+---
+title: "Example"
+order: 10
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import murmurGo from '../../../lab-code/sharding/murmur.go?raw';
+import murmurMod from '../../../lab-code/sharding/murmur-go.mod?raw';
+
+<p class="ponte">In the last lesson the store ended up with all the pieces: the key, the ranges, the hash, the ring, the map and shuffle sharding. The author's public repository has four small Go programs that show the hash and the ring with real data, plus the <code>partitioning/</code> table that lesson 4 read. This lesson runs each one, checks the output against the article's, and says where the code does not do what the lesson promised.</p>
+
+<OneLiner>The author's four programs, <code>hashing</code>, <code>hashing-distrib</code>, <code>murmur</code> and <code>consistent-hashing-remove</code>, prove the hash and the ring with a few keys: <strong>they prove the idea, not the distribution</strong>, and the <code>partitioning/</code> table does not run.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Lab</strong> scenario, see the four programs side by side with the checked outputs. Note the <code>hashing/</code> count (2 / 4 / 4) and what changes on the ring when you remove <code>Shard-02</code> (3 of 10) and when you add <code>Shard-04</code> (1 of 10).</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/anel-3d/?mode=lab" poster="labs/sharding/anel-3d-previa.webp" title="Interactive figure: The author's 4 programs" alt="Preview of the 3D figure: The author's 4 programs" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The three programs <code>hashing/</code>, <code>hashing-distrib/</code> and <code>consistent-hashing-remove/</code> use only the Go standard library and run <strong>without a <code>go.mod</code></strong>: <code>go run main.go</code> in each folder. <code>murmur/</code> has a <code>go.mod</code> (<code>go 1.22.4</code>) and downloads <code>spaolacci/murmur3 v1.1.0</code>; its repository is not archived, and the last push is from 02/2023.</li>
+  <li><code>hashing/</code> spreads 10 tenants across 3 shards with a lowercase SHA-256: Petshops-Souza <strong>1</strong>, Pizzarias-Carvalho <strong>2</strong>, Mecanica-Dois-Irmaos <strong>1</strong>, Padaria-Estrela-Filial-1 <strong>0</strong>, Filial-2 <strong>2</strong>, Filial-3 <strong>1</strong>, Hortifruti-Oba <strong>2</strong>, Acougue-Zona-Leste <strong>2</strong>, Zona-Oeste <strong>0</strong> and Zona-Norte <strong>1</strong>. Count: <strong>2 / 4 / 4</strong>. With 4 shards, <strong>7 of 10</strong> change.</li>
+  <li><code>hashing-distrib/</code> compares 5 functions on 41 inputs and 5 shards: SHA-256 <strong>9, 7, 6, 8, 11</strong>; SHA-512 <strong>8, 9, 12, 7, 5</strong>; MD5 <strong>13, 9, 4, 5, 10</strong>; FNV-1a <strong>6, 6, 6, 14, 9</strong>; simple hash <strong>5, 7, 9, 10, 10</strong>. As lesson 6 showed, the expected deviation is 2.56, so the difference is noise.</li>
+  <li><code>murmur/</code> does the same with murmur3 on 39 inputs (38 unique) and 5 shards: <strong>7, 8, 9, 8, 7</strong>. The full code, with the loop that counts, is below.</li>
+  <li><code>consistent-hashing-remove/</code> builds the ring with 3 points per shard (lesson 7): initial <code>Shard-00</code> <strong>0</strong>, <code>Shard-01</code> <strong>4</strong>, <code>Shard-02</code> <strong>3</strong>, <code>Shard-03</code> <strong>3</strong>. Removing <code>Shard-02</code> changes <strong>3 of 10</strong>, all to <code>Shard-00</code>. Adding <code>Shard-04</code> changes <strong>1 of 10</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">murmur, line by line</h3>
+
+<p>The <code>go.mod</code>, which pins the library version:</p>
+
+<CodeLab code={murmurMod} />
+
+<p>And the end of <code>main.go</code> (original code from the repository; the comments are in Portuguese): the <code>shardDistribution</code> map is created on line 69, incremented on 75 and printed on lines 80 to 82. It is the loop missing from the excerpt printed in the article, which lists 12 names and does not count.</p>
+
+<CodeLab code={murmurGo} from={63} to={83} />
+
+<h3 class="sec">Where the code does not do what it seems</h3>
+
+<ol class="flow steps">
+  <li><strong><code>partitioning/table.sql</code>:</strong> <code>PRIMARY KEY (id)</code> does not create the table (the error from lesson 4) and, even when fixed, the file creates no partition at all: the first <code>INSERT</code> fails. The line <code>\c ecommerce;</code> is a <code>psql</code> command, and only runs with <code>psql -f</code>.</li>
+  <li><strong><code>hashing-distrib/</code>:</strong> there are 41 inputs and 38 unique tenants (Padaria-Estrela-Filial-1, 2 and 3 appear twice). <code>hashSimple</code> iterates over runes, and the 64-bit hashes become <code>int</code> and can be negative (<code>getShardByTenant</code> fixes the negative remainder with <code>-shard</code>, which gives the same value as <code>abs(h) % n</code>).</li>
+  <li><strong><code>murmur/</code>:</strong> it does not lowercase (the others do), has 39 inputs and 38 unique (<code>Padaria-Estrela-Filial-3</code> repeats). The excerpt in the article is not the one in the repository.</li>
+  <li><strong><code>hashing/</code>:</strong> <code>numShards := 3</code> is inside the function, not a parameter. <code>hashTenant</code> flips the sign of a negative <code>int</code>, and the smallest <code>int64</code> value stays negative (probability 2<sup>−64</sup>, just noted for the record).</li>
+  <li><strong><code>consistent-hashing-remove/</code>:</strong> <code>NumReplicas = 3</code> is low (<code>Shard-00</code> is born empty). <code>RemoveNode</code> and <code>AddNode</code> only change the ring, with no data migration, and the <code>// Nova movimentação</code> in the article's output is a manual annotation.</li>
+</ol>
+
+<p>And none of the labs has a distribution test with many keys. Lesson 6 and lesson 7 redid the math with 100,000 keys (<code>c-0</code> to <code>c-99999</code>), and that is what shows the 5 functions stay within 2% of the ideal.</p>
+
+<h3 class="sec">What if it goes wrong: the empty ring</h3>
+
+<p><code>GetTenantNode</code> looks for the first point with a hash greater than or equal to the key's, and, if it runs past the end, goes back to index 0. On an <strong>empty</strong> ring (all shards removed, or none added yet), <code>len(ring.Nodes)</code> is 0, the index becomes 0 and <code>ring.Nodes[idx]</code> reads a slice with no elements: <code>panic: index out of range</code>. The real store needs a check first: with no shards, the answer is a clear error (and an alarm), not a panic in the router.</p>
+
+<h3 class="sec">What I checked, and what I did not</h3>
+
+<p>There is no Go on this machine, so I <strong>did not run</strong> the programs. I reproduced SHA-256, MD5, FNV-1a, murmur3 and the ring in Python, and the outputs match, line by line, the ones printed in the article. murmur3 was checked against the vectors <code>""</code> → 0, <code>"hello"</code> → 0x248bfa47 and <code>"The quick brown fox jumps over the lazy dog"</code> → 0x2e4ff723. When you run <code>go run</code>, the result should be the same.</p>
+
+<WhyItMatters>
+  <li><strong>The labs prove the idea.</strong> Hash and ring work, and the output matches the article's.</li>
+  <li><strong>They do not prove the distribution.</strong> 10 to 41 inputs decide nothing; 100,000 keys do.</li>
+  <li><strong>They do not move data.</strong> The ring only changes the list of points, and the partition table does not even create partitions.</li>
+  <li><strong>An empty ring is a panic.</strong> Check before searching.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The outputs in one table</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Program</th><th>Inputs</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><th>hashing/</th><td>10 tenants, 3 shards</td><td>2 / 4 / 4; with 4 shards, 7 of 10 change</td></tr>
+      <tr><th>hashing-distrib/</th><td>41 inputs, 5 shards</td><td>five distributions (SHA-256: 9, 7, 6, 8, 11)</td></tr>
+      <tr><th>murmur/</th><td>39 inputs, 5 shards</td><td>7, 8, 9, 8, 7</td></tr>
+      <tr><th>consistent-hashing-remove/</th><td>10 tenants, 3 points</td><td>0 / 4 / 3 / 3; remove: 3 of 10; add: 1 of 10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The programs' inputs are the author's 10 tenants (pet shops, bakeries, butchers), not the store's customers; lesson 6 and lesson 7 redo the math with <code>lena-77</code> and the 100,000 keys.</p>
+  <Sources items={[
+    { label: "Author's public repository: exemplos/sharding", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "Author's public repository: exemplos/partitioning", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+    { label: "spaolacci/murmur3 (pkg.go.dev)", href: "https://pkg.go.dev/github.com/spaolacci/murmur3" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now splits <code>pedidos</code> into 3 shards, and Lena's order 1054 lands on <code>shard-1</code>. But each shard is <strong>a single server</strong>: if <code>shard-1</code> goes down, Lena and Bia are left without orders, and sharding copies nothing. What is left is how to <strong>copy each shard</strong>: primary in SP, replicas in Rio and Recife. That is module 17, Data Replication.</p>
+
+<Flashcards cards={[
+  { q: "Which of the author's programs run without a go.mod?",
+    a: "hashing/, hashing-distrib/ and consistent-hashing-remove/ (standard library only). murmur/ has a go.mod and downloads spaolacci/murmur3 v1.1.0." },
+  { q: "What is the hashing/ count, and how many tenants change with 4 shards?",
+    a: "2 / 4 / 4 with 3 shards; with 4 shards, 7 of 10 change." },
+  { q: "What does the lab's ring do when you remove Shard-02 and when you add Shard-04?",
+    a: "Removing changes 3 of 10 tenants (all to Shard-00); adding changes 1 of 10 (Hortifruti-Oba to Shard-04)." },
+  { q: "What happens to GetTenantNode on an empty ring?",
+    a: "Panic: the index becomes 0 on a slice with no elements (index out of range)." },
+  { q: "Why do the labs not prove the distribution?",
+    a: "They use 10 to 41 inputs, where chance dominates. With 100,000 keys every function stays within 2% of the ideal." },
+]} />

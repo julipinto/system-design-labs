@@ -1,0 +1,95 @@
+---
+title: "Domain models in the context of CQRS"
+order: 2
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the store separated the <code>CriarPedido</code> command from the "my orders" query, and one question was left: how is each side built? The command touches money and stock, so it must be <strong>rich in rules</strong>. The query only shows a screen, so it needs no rules at all. The author's article shows this with a hospital (doctor, patient, prescription); here it is the same drawing with the store.</p>
+
+<OneLiner>The <strong>command</strong> model is <strong>rich in rules and normalized</strong>; the <strong>query</strong> model is "dumb", <strong>denormalized</strong> and shaped like the answer. Since the rules were already applied before the data got in, the read model <strong>does not need</strong> them, and the rule lives <strong>only</strong> in the command.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Two models</strong> scenario, open the <strong>command</strong> side and count the validations that <code>CriarPedido</code> makes <strong>before</strong> the <code>INSERT</code>. Then look at the query side and see that there are none.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=dois-modelos" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: Command and query" alt="Preview of the 3D figure: Command and query" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The command's validations.</strong> The <code>CriarPedido</code> for 1056 checks the customer (<code>lena-77</code> exists), product 42 (active), the <strong>current price</strong> (79.90, the value from module 5), the stock (20 cats and 36 mugs) and Recife shipping (15.00). Only then does it write <code>pedidos</code> and <code>itens_pedido</code> in one transaction, and the stock drops to 19 and 35.</li>
+  <li><strong>The aggregate.</strong> The one who decides is <code>Pedido</code> (module 6, lesson 5): it <strong>refuses</strong> <code>cancelar()</code> if the order has already shipped. The command model is a <em>rich domain</em>: the rule sits inside the entity, and the transaction (ACID) guarantees that the two tables go in together or not at all.</li>
+  <li><strong>The query.</strong> <code>MeusPedidos(cliente)</code> validates nothing: it returns Lena's document, 1,787 bytes, with the orders, the items and the status. The shape is the screen's, with no <code>JOIN</code>.</li>
+  <li><strong>Side by side.</strong> Normalized, the data lives <strong>once</strong> in each table and keys link everything. Denormalized, the data is <strong>repeated</strong> where the screen needs it (the cat's name in every order that contains it). Repeating is cheap for reading and dangerous for writing, which is why only the read model repeats.</li>
+</ol>
+</HowItWorks>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Model</th><th>Shape</th><th>Rules</th><th>This is how 1056 looks</th></tr></thead>
+  <tbody>
+    <tr><th>write</th><td>normalized</td><td>all (customer, product, price, stock, shipping)</td><td>1 row in <code>pedidos</code> + 2 in <code>itens_pedido</code></td></tr>
+    <tr><th>read</th><td>denormalized</td><td>none</td><td>1 order of 253 B inside the 1,787 B document</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">Why the read side does not need rules</h3>
+
+<p>When the data reaches the read model, the command <strong>has already approved it</strong>. Repeating the rule there makes nothing safer, it only creates a second copy of the rule to maintain. The table that the article calls a "view" shows up in the next lesson, under its proper name.</p>
+
+<h3 class="sec">If it goes wrong: the duplicated rule</h3>
+
+<p>Someone puts "cancelled order does not appear" in the read model too, to keep the screen clean. Months later the command changes the rule (an order refused for lack of stock becomes "awaiting restock", say) and nobody remembers the other side. The two diverge, and Lena sees an order the checkout already refused. The rule lives <strong>only</strong> in the command; the query shows what reached it.</p>
+
+<WhyItMatters>
+  <li><strong>The command protects the money.</strong> Validation, current price, stock and transaction live in one place.</li>
+  <li><strong>The query is the size of the screen.</strong> With no <code>JOIN</code> and no rules, it only reads and answers.</li>
+  <li><strong>Repeating data is a read-side decision.</strong> That is where repeating pays off, because nobody writes to it.</li>
+  <li><strong>A duplicated rule is a bug waiting to happen.</strong> If it lives on both sides, one day the two diverge.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The article's hospital and the store, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>In the article (hospital)</th><th>In the store</th></tr></thead>
+    <tbody>
+      <tr><th>command <code>CriarPrescricao</code></th><td><code>CriarPedido</code></td></tr>
+      <tr><th>doctor, patient, medications</th><td>customer, product, shipping</td></tr>
+      <tr><th><code>Prescricoes</code> + <code>Prescricao_Medicamentos</code></th><td><code>pedidos</code> + <code>itens_pedido</code></td></tr>
+      <tr><th>denormalized model of the prescriptions</th><td>document <code>meus_pedidos:lena-77</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">What stays out of the read model</h4>
+  <ul>
+    <li>Stock, today's price and cancellation rules are <strong>command</strong> data. The document keeps what was paid (name and price <strong>at the time</strong>), which is why it does not need to listen to the <code>catalogo</code>.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Microsoft Azure Architecture Center: CQRS pattern", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "Martin Fowler: Domain Event", href: "https://martinfowler.com/eaaDev/DomainEvent.html" },
+    { label: "microservices.io: Database per Service", href: "https://microservices.io/patterns/data/database-per-service.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The command validates and writes; the query only returns. But the read model has to exist somewhere, and changing databases is a big step. What is left is how to build it <strong>without changing databases yet</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What does CriarPedido validate before writing 1056?",
+    a: "Customer, active product 42, current price (79.90), stock (20 cats, 36 mugs) and Recife shipping (15.00). Only then does it write pedidos and itens_pedido in one transaction." },
+  { q: "Why does the read model not need rules?",
+    a: "Because the command already applied them before the data got in. Repeating the rule there only creates a second copy to maintain." },
+  { q: "Normalized or denormalized: which is the command model and which is the query model?",
+    a: "The command model is normalized (the data lives once). The query model is denormalized (the data is repeated where the screen needs it)." },
+  { q: "What is the duplicated rule and why does it go wrong?",
+    a: "It is the same rule in both models. When the command changes, the other side goes stale, and Lena sees an order the checkout already refused. The rule lives only in the command." },
+]} />

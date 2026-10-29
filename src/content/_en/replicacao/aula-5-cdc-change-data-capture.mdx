@@ -1,0 +1,114 @@
+---
+title: "CDC: Change Data Capture"
+order: 5
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import debeziumConnector from '../../../lab-code/replicacao/postgres-connector.json?raw';
+
+<p class="ponte">Last lesson <code>clientes</code> published <code>ClienteAtualizado</code> by hand, and the event could never go out if the service crashed halfway. But the database already keeps, in its log, <strong>everything that changed, in order</strong>. What is left is to use that log: read what the database already wrote and turn each change into an event, without touching the application.</p>
+
+<OneLiner><strong>CDC</strong> (<em>Change Data Capture</em>) reads the <strong>database log</strong>, which is already the list of everything that changed, and turns it into events, <strong>without touching the application</strong>. <strong>Debezium</strong> does this with PostgreSQL, and the <strong>outbox</strong> pattern takes the dual-write risk out of the application.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>CDC</strong> scenario, step through the <code>INSERT</code> and the <code>UPDATE</code> of order 1055, 3 s apart, and compare the two columns: <strong>polling</strong> every 5 s sees <strong>one</strong> event, <code>pago</code>, and the log reader sees <strong>two</strong>. Then press <strong>Outbox</strong> and <strong>Slot</strong> to see the two "if it goes wrong" cases in this lesson.</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/fluxo-3d/?mode=cdc" poster="labs/replicacao/fluxo-3d-previa.webp" title="Interactive figure: CDC: the log becomes an event" alt="Preview of the 3D figure: CDC: the log becomes an event" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Three ways to capture.</strong> The <strong>trigger</strong> runs inside the database on every write and makes the write more expensive. <strong>Periodic polling</strong> asks from time to time "what changed?": every 5 s, the <code>INSERT</code> <code>criado</code> and the <code>UPDATE</code> <code>pago</code> of 1055, done 3 s apart, become <strong>a single</strong> <code>pago</code> record, and a <code>DELETE</code> simply <strong>disappears</strong>. <strong>Log reading</strong> loses nothing, because the log has all the changes, in order.</li>
+  <li><strong>The log, as the database decodes it.</strong> With <code>wal_level = logical</code> PostgreSQL can translate the WAL into logical rows. The real output of the <code>test_decoding</code> plugin, which ships with PostgreSQL, on a <code>pedidos_cdc</code> table, is in the block right below the list. With the default <strong>replica identity</strong> (<code>REPLICA IDENTITY DEFAULT</code>), the <code>UPDATE</code> carries only the <strong>new</strong> value and the <code>DELETE</code> carries <strong>only the key</strong>. With <code>ALTER TABLE pedidos_cdc REPLICA IDENTITY FULL</code>, the <code>UPDATE</code> carries <code>old-key:</code> (the whole <strong>old</strong> row) and <code>new-tuple:</code>, and the <code>DELETE</code> carries the whole row. On a <strong>partitioned</strong> table, the record shows up with the name of the <strong>partition</strong> (<code>public.pedidos_2026</code>).</li>
+  <li><strong>Debezium.</strong> Doing that reading by hand is work, so Debezium runs inside Kafka Connect and publishes each change to a topic. The connector below is from the author's public repository (the CQRS lab, module 18) and reads a hospital database; the idea is the same for the store.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`BEGIN 759
+table public.pedidos_cdc: INSERT: id[bigint]:1055 cliente_id[text]:'lena-77' cidade[text]:'Recife' total[numeric]:34.90 status[text]:'criado' criado_em[timestamp with time zone]:'2026-11-27 20:10:00-03'
+table public.pedidos_cdc: UPDATE: id[bigint]:1055 cliente_id[text]:'lena-77' cidade[text]:'Recife' total[numeric]:34.90 status[text]:'pago' criado_em[...]:'2026-11-27 20:10:00-03'
+COMMIT 759
+BEGIN 760
+table public.pedidos_cdc: DELETE: id[bigint]:1055
+COMMIT 760`}</code></pre>
+
+<CodeLab code={debeziumConnector} />
+
+<ol class="flow steps">
+  <li>Line 5 chooses the <code>pgoutput</code> plugin, PostgreSQL's native format, and line 20 names the <strong>replication slot</strong> (<code>hospital_cdc_slot</code>): it is how Postgres keeps the log until Debezium reads it. The <code>database.server.name</code> on line 11 is a leftover from older versions; today the topic name comes from <code>topic.prefix</code> (line 13).</li>
+  <li><code>snapshot.mode: initial</code> (line 18) does an initial read of the whole table before following the log, and each row from that read goes out with <code>op</code> equal to <code>r</code>. <code>publication.autocreate.mode: filtered</code> (line 19) creates the publication only with the tables in the <code>table.include.list</code> (line 12).</li>
+  <li>Lines 23 to 27 turn on the <code>ExtractNewRecordState</code> <em>transform</em> (the "unwrap"): instead of the full envelope, only the new state of the row goes out, and <code>delete.handling.mode: rewrite</code> turns the deletion into a marked record. The <code>add.fields: op,source.ts_ms</code> keeps the operation type and the timestamp. Without the unwrap, the event goes out whole, with the envelope.</li>
+</ol>
+
+<ol class="flow steps">
+  <li><strong>The envelope</strong> has <code>before</code> (the row before), <code>after</code> (after), <code>source</code> (where it came from), <code>op</code> (<code>c</code> create, <code>u</code> update, <code>d</code> delete, <code>r</code> <em>snapshot</em> read), <code>ts_ms</code> and <code>transaction</code>. With the default identity, the <code>before</code> of an <code>UPDATE</code> carries only the <strong>key</strong> (the Debezium documentation). The topic is named <code>topic.prefix.schema.table</code>: in the store, <code>loja.public.pedidos</code>.</li>
+  <li><strong>The outbox.</strong> For <code>pedidos</code> to tell the world without a dual write, it writes the <code>pedidos</code> table and an <code>outbox</code> table in the <strong>same transaction</strong>, and CDC publishes what goes into the <code>outbox</code>. Either both rows exist, or neither does.</li>
+</ol>
+
+<h3 class="sec">If it goes wrong (a): the dual write</h3>
+
+<p><code>pedidos</code> writes 1055 at 20:10:00.000, and at 20:10:00.004 the service crashes <strong>before publishing</strong> <code>PedidoCriado</code>. The order exists in the database, nobody decrements the stock, and the mug's <code>estoque</code> stays at <strong>37</strong>, when it should be <strong>36</strong>. Writing to the database and publishing to Kafka are two writes in two places, and the failure can land between them. With outbox and CDC, the write of 1055 and the <code>outbox</code> row are in the same transaction, and the event comes out of the log: if the database confirmed, the event exists.</p>
+
+<h3 class="sec">If it goes wrong (b): the forgotten slot</h3>
+
+<p>The replication slot holds the log until someone reads it. If Debezium stops and nobody drops the slot, PostgreSQL <strong>keeps everything</strong>. Measured with 20,000 orders (each with 1 <code>INSERT</code>, 1 <code>UPDATE</code> and 1 <code>COMMIT</code> on a simple table with a primary key): <strong>6,709,592 bytes of WAL, 335 per order</strong>. At 30 orders per second, that is <strong>10 KB/s</strong>, or <strong>36 MB/h</strong>. With 1 KB per order (items and indexes, an example), <strong>108 MB/h</strong>. In <code>pg_replication_slots</code> the slot with no consumer showed <code>wal_status = reserved</code> and <strong>6,552 kB retained</strong> after that load.</p>
+
+<p>With 60 GB free (module 16) and 108 MB/h, the disk runs out in 60,000 ÷ 108 = <strong>555 h, about 23 days</strong>. The forgotten slot is a <strong>slow</strong> problem, not a fire, and that is why it goes unnoticed. The defense is to monitor <code>pg_replication_slots</code> (<code>wal_status</code> and the retained bytes) and limit the damage with <code>max_slot_wal_keep_size</code>, which by default is <code>-1</code>, unlimited. The Debezium documentation has a "WAL disk space consumption" section about this.</p>
+
+<WhyItMatters>
+  <li><strong>The log already has everything.</strong> Log-based CDC does not lose the intermediate <code>UPDATE</code> or the <code>DELETE</code>, which polling loses.</li>
+  <li><strong>The application does not change.</strong> Debezium reads the database log and publishes to <code>loja.public.pedidos</code>.</li>
+  <li><strong>The outbox closes the dual write.</strong> The order and the notice are born in the same transaction, and the mug's stock goes to 36.</li>
+  <li><strong>The slot has a hidden cost.</strong> 108 MB/h fills 60 GB in 23 days if nobody consumes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The WAL numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Math</th><th>Values</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>WAL per order (measured)</th><td>6,709,592 B ÷ 20,000</td><td>335 B</td></tr>
+      <tr><th>WAL rate</th><td>335 B × 30 orders/s</td><td>~10 KB/s, 36 MB/h</td></tr>
+      <tr><th>With 1 KB per order (example)</th><td>1 KB × 30 × 3,600 s</td><td>108 MB/h</td></tr>
+      <tr><th>Time to fill 60 GB</th><td>60,000 MB ÷ 108 MB/h</td><td>555 h ≈ 23 days</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: "real-time" CDC</h4>
+  <ul>
+    <li><strong>Different techniques treated as one.</strong> <strong>Log</strong> CDC has latency from milliseconds to seconds, but <strong>periodic polling</strong> CDC loses intermediate changes and <strong>deletions</strong>. The article treats them as one. What is missing is <code>REPLICA IDENTITY</code>, the <strong>slot</strong> (and the risk of filling the disk) and the <strong>outbox</strong>.</li>
+    <li><strong>Note on the author's lab.</strong> The <code>exemplos/cqrs/hospital-cqrs-cdc</code> folder is the lab for module 18; only the connector comes in here. The lab with the <code>pedidos_cdc</code> table and <code>test_decoding</code> is SDLabs's own, run on PostgreSQL 14.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: test_decoding", href: "https://www.postgresql.org/docs/current/test-decoding.html" },
+    { label: "PostgreSQL: Replication (max_slot_wal_keep_size, synchronous_standby_names)", href: "https://www.postgresql.org/docs/current/runtime-config-replication.html" },
+    { label: "Debezium: PostgreSQL connector", href: "https://debezium.io/documentation/reference/stable/connectors/postgresql.html" },
+    { label: "Author's public repository: exemplos/cqrs/hospital-cqrs-cdc", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-cdc" },
+    { label: "microservices.io: Transactional Outbox", href: "https://microservices.io/patterns/data/transactional-outbox.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now copies data between services by reading the log, without touching the application, and closes the dual write with the outbox. All of that assumes <strong>one</strong> owner per piece of data. What is left is what to do when <strong>two primaries</strong> accept writes and the copies <strong>must</strong> converge with nobody deciding: that is the job of CRDTs.</p>
+
+<Flashcards cards={[
+  { q: "What are the three ways to do CDC?",
+    a: "Trigger, periodic polling and log reading. Polling every 5 s merges the INSERT criado and the UPDATE pago of 1055 into a single pago, and the DELETE disappears; the log sees everything." },
+  { q: "What does REPLICA IDENTITY change in the log record?",
+    a: "With DEFAULT, the UPDATE carries only the new value and the DELETE only the key. With FULL, the UPDATE carries old-key (the whole old row) and the DELETE carries the whole row." },
+  { q: "What does the author's Debezium connector configure?",
+    a: "pgoutput, the hospital_cdc_slot slot, snapshot.mode initial, publication.autocreate.mode filtered, the topic.prefix and the ExtractNewRecordState transform (unwrap) with delete.handling.mode rewrite." },
+  { q: "How does the outbox avoid the dual write?",
+    a: "pedidos writes pedidos and outbox in the same transaction and CDC publishes the outbox. If the service crashes at 20:10:00.004, either both rows exist or neither does: the stock does not stay at 37." },
+  { q: "Why is the forgotten slot dangerous and how do you defend against it?",
+    a: "It retains WAL with no consumer: 335 B per order, 108 MB/h at 1 KB, 60 GB in ~23 days. Monitor pg_replication_slots (wal_status) and limit with max_slot_wal_keep_size (default -1, unlimited)." },
+]} />

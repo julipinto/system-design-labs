@@ -1,0 +1,126 @@
+---
+title: "Sharding tables"
+order: 4
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import tableSql from '../../../lab-code/sharding/table.sql?raw';
+
+<p class="ponte">In the last lesson the key was chosen and <code>mkt-01</code> kept heating up one shard. Before buying more servers, the store can tidy the table from the inside: PostgreSQL splits a table into <strong>partitions</strong> on the same instance, and that is the step of the ladder that lesson 1 left before sharding. The author's repository has a file for this, <code>partitioning/table.sql</code>, and it has a defect worth a lesson.</p>
+
+<OneLiner><strong>Partitioning</strong> means dividing a table into pieces <em>inside</em> the same server: it gives query pruning, cheap retention and per-piece maintenance, but <strong>no new capacity</strong>, because the server is still just one.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Partitions</strong> scenario, query the <code>pedidos</code> table by <strong>id</strong> only and count how many partitions the plan visits. Then query by <strong>id and criado_em</strong> and count again. Note both numbers.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=particoes&step=3" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: Partitions inside 1 server" alt="Preview of the 3D figure: Partitions inside 1 server" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The author's file creates an <code>analytics.sales</code> table with <code>PARTITION BY RANGE (sale_date)</code>. The map to the store is direct: <code>sales</code> is <code>pedidos</code>, <code>customer_id</code> is <code>cliente_id</code>, <code>sale_date</code> is <code>criado_em</code> and <code>region</code> is <code>cidade</code>. The code is below, with the file's line numbers.</li>
+  <li>It <strong>does not run</strong>, for two real reasons. On a real PostgreSQL, <code>PRIMARY KEY (id)</code> gives <code>ERROR: unique constraint on partitioned table must include all partitioning columns</code>: the partition key has to be in the primary key. With <code>PRIMARY KEY (id, sale_date)</code> the table is created, but <strong>no partition</strong> was created, and the first <code>INSERT</code> fails with <code>no partition of relation "sales" found for row</code>.</li>
+  <li>The store's version, checked on PostgreSQL 14, partitions <code>pedidos</code> by year of <code>criado_em</code> (SQL below). The partition key goes into the primary key, <code>(id, criado_em)</code>, and each year is a child table with its range.</li>
+  <li>With that comes <strong>pruning</strong> (partition pruning). A query with <code>criado_em</code> between November 1 and 30, 2026 reads only <code>pedidos_2026</code> and ignores the other two. A query with just <code>id = 1042</code> does not know which year the order is in and does an <code>Append</code> with an <code>Index Scan</code> on <strong>each</strong> of the 3 partitions. With <code>id</code> <em>and</em> <code>criado_em</code>, it is back to one.</li>
+  <li>PostgreSQL also partitions by <strong>hash</strong> (<code>PARTITION BY HASH (cliente_id)</code>, <code>MODULUS 3</code>). On the 14-row sample, <code>pedidos_h0</code> gets <code>lena-77</code>, <code>bia-31</code> and <code>caio-58</code> (<strong>11</strong> rows), <code>pedidos_h1</code> gets <code>davi-12</code> (3) and <code>pedidos_h2</code> stays <strong>empty</strong>. It uses its own hash function, which you cannot redo by hand with <code>hash % 3</code>, and that is why the module's figure uses murmur3.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The author's lab, line by line</h3>
+
+<CodeLab code={tableSql} />
+
+<p>Line 2 is <code>\c ecommerce;</code>, a <code>psql</code> command (connect to the database), not SQL. The file only runs with <code>psql -f</code>. Lines 7 and 13: the primary key on <code>id</code> alone and the <code>PARTITION BY</code> clause. It is the combination of the two that fails to create the table.</p>
+
+<h3 class="sec">The store's table, partitioned by year</h3>
+
+<pre><code>{String.raw`CREATE TABLE pedidos (
+  id bigint NOT NULL, cliente_id text NOT NULL, cidade text NOT NULL,
+  total numeric(10,2) NOT NULL, status text NOT NULL DEFAULT 'criado',
+  criado_em timestamptz NOT NULL,
+  PRIMARY KEY (id, criado_em)            -- the partition key MUST be in the PK
+) PARTITION BY RANGE (criado_em);
+CREATE TABLE pedidos_2024 PARTITION OF pedidos FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+CREATE TABLE pedidos_2025 PARTITION OF pedidos FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+CREATE TABLE pedidos_2026 PARTITION OF pedidos FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');`}</code></pre>
+
+<p>And the two plans, summarized. With the partition key in the query, only one partition is read:</p>
+
+<pre><code>{String.raw`-- WHERE criado_em >= '2026-11-01' AND criado_em < '2026-12-01'
+Seq Scan on pedidos_2026          (the 2024 and 2025 partitions were pruned)
+
+-- WHERE id = 1042   (without the partition key)
+Append
+  -> Index Scan using pedidos_2024_pkey on pedidos_2024
+  -> Index Scan using pedidos_2025_pkey on pedidos_2025
+  -> Index Scan using pedidos_2026_pkey on pedidos_2026`}</code></pre>
+
+<Widget name="particao" title="Partition by date: pruning and a missing partition" hint="Pick an order's criado_em, the query type and whether the 2027 partition exists. The widget shows the partition that receives the row, the plan with and without pruning and the real error when a partition is missing." />
+
+<h3 class="sec">What if it goes wrong: three ways to trip</h3>
+
+<ol class="flow steps">
+  <li><strong>The primary key without the partition key.</strong> The table is not even created, with the error from step 2. The fix is to include <code>criado_em</code> in the primary key. The price is that uniqueness of <code>id</code> alone is no longer guaranteed by the database.</li>
+  <li><strong>The query without the key.</strong> <code>WHERE id = 1042</code> works, but visits every partition. With 3 it is cheap; with 3,000 partitions, the planner spends time just deciding.</li>
+  <li><strong>The partition that does not exist.</strong> An <code>INSERT</code> with <code>criado_em = '2027-01-05'</code> gives <code>ERROR: no partition of relation "pedidos" found for row</code>, with <code>DETAIL: Partition key of the failing row contains (criado_em) = (2027-01-05 00:00:00-03)</code>. A job creates next year's partition, and lesson 5 comes back to this.</li>
+</ol>
+
+<WhyItMatters>
+  <li><strong>Pruning:</strong> with the key in the query, 1 partition out of 3. Without it, all 3.</li>
+  <li><strong>Cheap retention:</strong> <code>DETACH</code> 1.1 ms, <code>DROP</code> 7.5 ms and <code>DELETE</code> 62.9 ms for the 105,407 rows of 2024 (PostgreSQL 14, this machine).</li>
+  <li><strong>No capacity gain.</strong> All partitions live on the same server, and the 150 orders/s ceiling stays.</li>
+  <li><strong>The door to sharding.</strong> Each partition can become a shard later.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Retiring data: DELETE, DROP and DETACH</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Command</th><th>Time (105,407 rows)</th><th>Leaves dead rows?</th></tr></thead>
+    <tbody>
+      <tr><th>DELETE FROM pedidos WHERE criado_em &lt; '2025-01-01'</th><td>62.9 ms</td><td>yes: leaves work for VACUUM</td></tr>
+      <tr><th>DROP TABLE pedidos_2024</th><td>7.5 ms</td><td>no</td></tr>
+      <tr><th>ALTER TABLE pedidos DETACH PARTITION pedidos_2024</th><td>1.1 ms</td><td>no; the detached table is kept</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The PostgreSQL documentation says <code>DROP</code> and <code>DETACH</code> are "far faster" than a bulk operation and do not pay the <code>VACUUM</code> cost. The times are from this machine, with 105,407 rows. <strong>Linear scaling to 8 million rows is not guaranteed</strong>: the order of magnitude holds, and what changes is that <code>DELETE</code> scans rows and the other two do not.</p>
+  <h4 class="deep-h">From partition to shard</h4>
+  <p>Each partition can live on another server. In PostgreSQL this is done with a foreign table (<code>postgres_fdw</code>) as a partition, or with a tool that automates the work, like Citus or, in the MySQL world, Vitess. In the next modules the partition gets another name: shard.</p>
+  <h4 class="deep-h">Correction to the source article and the lab</h4>
+  <ul>
+    <li><strong>Partitioning is not sharding.</strong> The article uses the terms as synonyms. Partitioning gives pruning and retention; only a shard gives capacity.</li>
+    <li><strong>The author's <code>table.sql</code> does not run as is.</strong> The primary key and the partition key have to match, and the file creates no partition. Here it is read, not executed.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Author's public repository: exemplos/partitioning", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/partitioning" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "PostgreSQL: CREATE TABLE (range, list and hash partitions)", href: "https://www.postgresql.org/docs/current/sql-createtable.html" },
+    { label: "PostgreSQL: postgres_fdw", href: "https://www.postgresql.org/docs/current/postgres-fdw.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The table is partitioned by year, and the current year's partition takes all the writes. What is left is which <strong>ranges</strong> to use and where each kind of range tends to get too heavy: name initials, ids, dates and tiers.</p>
+
+<Flashcards cards={[
+  { q: "What does partitioning give and what does it not give?",
+    a: "It gives query pruning, cheap retention and per-piece maintenance. It does not give capacity, because the server is still just one." },
+  { q: "Why does the PRIMARY KEY (id) in the author's table.sql not create the table?",
+    a: "The partition key (sale_date) must be in the primary key: PRIMARY KEY (id, sale_date)." },
+  { q: "What does the plan do with id = 1042 without criado_em?",
+    a: "Append with an Index Scan on each of the 3 partitions. With id and criado_em, it reads only one." },
+  { q: "What is the error when inserting a 2027 criado_em with no partition?",
+    a: "ERROR: no partition of relation \"pedidos\" found for row, with the row's key in the DETAIL." },
+  { q: "How do DETACH, DROP and DELETE compare on the 105,407 rows of 2024?",
+    a: "1.1 ms, 7.5 ms and 62.9 ms. DELETE also leaves dead rows for VACUUM." },
+]} />

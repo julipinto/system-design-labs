@@ -1,0 +1,101 @@
+---
+title: "Change Data Capture (CDC)"
+order: 9
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import cdcHandler from '../../../lab-code/cqrs/cdc-handler.go?raw';
+
+<p class="ponte">In the last lesson the dual write failed because the event was born in the application, <strong>outside</strong> the transaction. But the database already has a list of everything it <strong>confirmed</strong>, in order: the log. It is the CDC from module 17, lesson 5 (<code>wal_level=logical</code>, replication slot, <code>pgoutput</code>, Debezium). Here the focus is different: using that log to <strong>feed the read model</strong>, with the application publishing nothing.</p>
+
+<OneLiner><strong>CDC</strong> reads the database log, which only contains what was <strong>confirmed</strong>, and turns it into events <strong>without the application publishing anything</strong>. But the event comes out <strong>technical</strong> (a row changed), not a business one ("the order was created").</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>CDC</strong> scenario, place 1056 and watch the <strong>two rows</strong> (<code>pedidos</code> and <code>itens_pedido</code>) go out on <strong>different topics</strong>, with the <code>op</code> of each. Then advance to "If it goes wrong" and see what the lab's <code>handler</code> does with a <code>u</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/escrita-3d/?mode=cdc" poster="labs/cqrs/escrita-3d-previa.webp" title="Interactive figure: Change Data Capture" alt="Preview of the 3D figure: Change Data Capture" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>1056 becomes rows in the log.</strong> The <code>CriarPedido</code> transaction writes 1 row in <code>pedidos</code> and 2 in <code>itens_pedido</code>. Debezium reads the log and publishes to the topics <code>loja.public.pedidos</code> and <code>loja.public.itens_pedido</code>: each table goes to its own topic.</li>
+  <li><strong>The format.</strong> The <code>ExtractNewRecordState</code> <em>transform</em> keeps only the <strong>new value</strong> of the row, and the <code>op</code> field says what happened: <code>c</code> (created), <code>u</code> (updated), <code>d</code> (deleted) or <code>r</code> (read from the initial <em>snapshot</em>).</li>
+  <li><strong>The command stays simple.</strong> The lab's <code>command-service</code> (<code>hospital-cqrs-cdc</code>) <strong>has no Kafka producer</strong>: it only writes. The lab's README says (in Portuguese): "Se Kafka cair, aplicação continua funcionando. Debezium replica quando volta." ("If Kafka goes down, the application keeps working. Debezium replicates when it comes back.") And, since the event comes from the log, <strong>only what was confirmed exists</strong>: no more orders without an event or events without an order.</li>
+  <li><strong>What CDC costs, according to the README itself.</strong> The event is <strong>technical</strong> (the row changed, not "the order was created"); it <strong>couples to the schema</strong> of the database (changing a column changes the event); it requires <strong>more pieces</strong> (Debezium, slot, WAL); and it has a latency of milliseconds to seconds.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">How the lab consumes this log</h3>
+
+<p>The excerpt below is from the <code>cdc_handler.go</code> of <code>hospital-cqrs-cdc</code>, unchanged, with the original line numbers (the comments and log messages are in Portuguese). It consumes the topics <code>hospital_db.public.prescricoes</code> and <code>hospital_db.public.prescricao_medicamentos</code>; read "prescrição" as "order".</p>
+
+<CodeLab code={cdcHandler} from={59} to={123} />
+
+<ol class="flow steps">
+  <li>Lines 66 to 72 read the <code>op</code> and <strong>only continue</strong> for <code>c</code> and <code>r</code>; for anything else, the code just logs "Ignorando operação" (ignoring operation) and returns.</li>
+  <li>Next, lines 109 to 123 complete the row by calling <code>getMedico</code>, <code>getPaciente</code> and <code>getMedicamentosPrescricao</code>: three <strong>queries to the write database</strong>.</li>
+</ol>
+
+<h3 class="sec">If it goes wrong: what the lab's handler gets wrong</h3>
+
+<p>Read in the code; the whole lab requires Docker and Kafka and was not run. <strong>(a) The handler ignores <code>u</code> and <code>d</code>.</strong> In the store, 1056 enters as <code>criado</code> and becomes <code>pago</code> at 20:12:01.100 with an <code>UPDATE</code>: the event has <code>op = u</code>, is discarded, and the screen keeps showing <code>criado</code> <strong>forever</strong>. <strong>(b) It queries the write database</strong> to complete the row: the read side goes back to <strong>depending on the write side</strong>, exactly what CQRS wanted to separate, and each event costs three more queries.</p>
+
+<p><strong>(c)</strong> The connector uses <code>decimal.handling.mode: double</code>, which stores money as a <strong>floating point</strong>; that is why the store keeps whole cents. <strong>(d)</strong> The <strong>forgotten slot</strong> fills the disk: with no consumer, PostgreSQL retains the entire WAL, the ~23 days at 108 MB/h math from module 17.</p>
+
+<WhyItMatters>
+  <li><strong>The log only has what was confirmed.</strong> The dual write disappears: no order without an event, no ghost.</li>
+  <li><strong>The command does not know Kafka.</strong> If the broker goes down, the checkout keeps working.</li>
+  <li><strong>The event is technical.</strong> "A <code>pedidos</code> row with <code>status = pago</code>" is not "<code>PedidoPago</code>", and it changes if the schema changes.</li>
+  <li><strong>The handler has to deal with <code>u</code> and <code>d</code> and not go back to the database.</strong> Otherwise the screen goes stale or reads depend on writes again.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Technical event × business event</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>technical event (CDC)</th><th>business event</th></tr></thead>
+    <tbody>
+      <tr><th>example</th><td><code>pedidos</code> row with <code>op = c</code></td><td><code>PedidoCriado</code> (e-1801, 336 B)</td></tr>
+      <tr><th>who defines the format</th><td>the database schema</td><td>the domain, in a contract</td></tr>
+      <tr><th>if the column changes</th><td>the event changes</td><td>the event does not change</td></tr>
+      <tr><th>order items</th><td>another message, another topic</td><td>inside the same event</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>CDC reads the <strong>log</strong>; what goes inside the event, and whether it is technical or business, depends on <strong>who wrote what the log records</strong>. In lesson 10, the <code>outbox</code> writes the business event as a row, and CDC then carries a business event.</p>
+  <h4 class="deep-h">Correction to the source article and to the lab</h4>
+  <ul>
+    <li><strong>CDC as "done".</strong> The article does not show the two limits the lab has: the <code>handler</code> processes only <code>c</code> and <code>r</code>, and queries the write database. The lab's READMEs call "event sourcing" what is CQRS with events: <em>event sourcing</em> is module 20.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "PostgreSQL: Logical Decoding", href: "https://www.postgresql.org/docs/current/logicaldecoding-explanation.html" },
+    { label: "PostgreSQL: test_decoding", href: "https://www.postgresql.org/docs/current/test-decoding.html" },
+    { label: "Debezium: PostgreSQL connector", href: "https://debezium.io/documentation/reference/stable/connectors/postgresql.html" },
+    { label: "microservices.io: Transaction log tailing", href: "https://microservices.io/patterns/data/transaction-log-tailing.html" },
+    { label: "The author's public repository: hospital-cqrs-cdc", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-cdc" },
+  ]} />
+</Deep>
+
+<p class="gancho">CDC solves the dual write, but the event that comes out is that of a <strong>row</strong>, and the store wants the whole <code>PedidoCriado</code>, with items and price at the time. What is left is what happens if the event has to be a <strong>business fact</strong>, written together with the order, in the same transaction.</p>
+
+<Flashcards cards={[
+  { q: "How does CDC solve the dual write?",
+    a: "The event comes from the database log, which only has what was confirmed. The application publishes nothing: no order without an event, no event without an order." },
+  { q: "What does the op field say?",
+    a: "c = created, u = updated, d = deleted, r = read from the initial snapshot. The ExtractNewRecordState transform keeps only the new value of the row." },
+  { q: "What are the costs of CDC according to the lab's README?",
+    a: "Technical event (a row changed), coupling to the database schema, more pieces (Debezium, slot, WAL) and a latency of ms to seconds." },
+  { q: "What does the lab's handler get wrong?",
+    a: "It processes only c and r (it ignores u and d, so paid never updates the screen) and queries the write database to complete the row, going back to depending on the write side." },
+  { q: "Why does the store keep money in cents, not in decimal?",
+    a: "The lab's connector uses decimal.handling.mode: double, which stores money as floating point. Whole cents avoid rounding." },
+]} />

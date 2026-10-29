@@ -1,0 +1,93 @@
+---
+title: "Event-Carried State Transfer"
+order: 4
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the commit gained three moments, and all of them copy the <strong>whole</strong> database. But <code>entregas</code> does not want the <code>clientes</code> database: it wants <strong>Lena's address</strong>, and today it fetches it with a call on every order. If <code>clientes</code> goes down, <code>entregas</code> stops with it. What is missing is a way for <code>entregas</code> to have the address without asking every time.</p>
+
+<OneLiner>In <em>Event-Carried State Transfer</em> (ECST) the event carries the customer's <strong>entire state</strong>, and each service keeps <strong>its own copy</strong> instead of calling the owner. <code>clientes</code> publishes <code>ClienteAtualizado</code> (202 bytes), and <code>entregas</code>, <code>pedidos</code> and <code>notificacoes</code> keep working if <code>clientes</code> goes down.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>ECST</strong> scenario, step forward: Lena's address changes, the 202-byte event leaves <code>clientes</code> and the <strong>3 copies</strong> update. Keep going to the step where <code>clientes</code> goes down: the other three keep delivering. In the last step, the event arrives out of order.</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/fluxo-3d/?mode=ecst" poster="labs/replicacao/fluxo-3d-previa.webp" title="Interactive figure: Event-Carried State Transfer" alt="Preview of the 3D figure: Event-Carried State Transfer" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Without events.</strong> <code>clientes</code> (module 6) owns the customer records, and the gateway from module 8 already has the <code>/api/v1/clientes</code> route. Every order makes a <code>GET /clientes/lena-77</code>: a hop of about <strong>5 ms</strong> plus the <strong>2 ms</strong> query, around <strong>7 ms</strong>. And if <code>clientes</code> goes down, <code>entregas</code> <strong>stops</strong>.</li>
+  <li><strong>With events.</strong> Every time the record changes, <code>clientes</code> publishes a <code>ClienteAtualizado</code> event with the <strong>entire state</strong> to a Kafka topic (module 13). The topic is <strong>compacted</strong> (<code>cleanup.policy=compact</code>): Kafka keeps the <strong>last value of each key</strong>, and the key is the <code>cliente_id</code>. Each service that needs the customer consumes the topic and keeps <strong>its own copy</strong> in a local table.</li>
+  <li><strong>The real event</strong> is <strong>202 bytes</strong>. The <code>versao</code> field will matter further on (the JSON is right below the list). The <em>notification</em> version (<code>{String.raw`{"evento_id":"e-1701","cliente_id":"lena-77","versao":8}`}</code>) is <strong>56 bytes</strong> and forces <strong>one more call</strong> back to <code>clientes</code>. It is the distinction from module 13: full state is 202 B with no call, and notification is 56 B <strong>plus</strong> a <code>GET</code>.</li>
+  <li><strong>The cost.</strong> The article calls the pattern "costly, but powerful", and the math shows where: 1.5 million customers × 500 B = <strong>750 MB</strong> per copy. With 3 consumers that is <strong>4 copies, 3.0 GB</strong>, instead of 750 MB. The compacted topic holds 1.5 million keys (about 300 B each, some <strong>450 MB</strong>). A <strong>new consumer</strong> reads the topic from the start to build its copy: at 20,000 events per second (example), that is <strong>75 s</strong>.</li>
+  <li><strong>Eventual consistency.</strong> Between <code>clientes</code> publishing version 8 and <code>entregas</code> applying it, <code>entregas</code> has the <strong>old</strong> address: seconds. It is the BASE from module 3, chosen on purpose: the address can be a few seconds behind, and in return <code>entregas</code> depends on nobody to read.</li>
+</ol>
+
+<pre><code>{String.raw`{"evento_id":"e-1701","cliente_id":"lena-77","versao":8,"nome":"Lena","endereco":{"rua":"Rua da Aurora","numero":100,"cidade":"Recife","cep":"50050-000"},"atualizado_em":"2026-11-27T20:20:00.150-03:00"}`}</code></pre>
+
+</HowItWorks>
+
+<Widget name="ecst" title="ECST: order and version" hint='A queue of ClienteAtualizado events with v8 (Rua da Aurora, 100) and v9 (Rua do Sol, 200). Swap the order, repeat an event and turn on the rule "apply only if the version is greater". The widget shows the final address with and without the rule.' />
+
+<h3 class="sec">If it goes wrong: swapped order</h3>
+
+<p>Later Lena changes her address twice: "Rua da Aurora, 100" (<strong>v8</strong>) and right after "Rua do Sol, 200" (<strong>v9</strong>). Because of a topic repartitioning (from 3 to 6 partitions, module 13), <code>entregas</code> receives <strong>v9 and then v8</strong>. If it blindly applies whatever arrived last, it ends up with <strong>v8</strong>, the <strong>old</strong> address, and the mug goes to the wrong house. If it applies only when the event's <code>versao</code> is <strong>greater</strong> than the copy's, it discards v8 and keeps v9. The same goes for the event that arrives <strong>duplicated</strong>: the rule ignores it.</p>
+
+<p>There is one more hole on the other side: what if <code>clientes</code> writes the new address and <strong>goes down before publishing</strong> the event? The <code>entregas</code> copy never finds out. That is the <strong>dual write</strong> problem, which lesson 5 solves.</p>
+
+<WhyItMatters>
+  <li><strong>The delivery service stops depending on customers.</strong> The owner goes down, and the local copy keeps answering.</li>
+  <li><strong>Full state avoids the call back.</strong> 202 bytes with no call against 56 bytes plus a <code>GET</code>.</li>
+  <li><strong>The price is space and lag.</strong> 4 copies cost 3.0 GB, and the copy runs seconds behind.</li>
+  <li><strong>The version is the defense against swapped order.</strong> Without it, v8 beats v9 and the address goes back to the old one.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The ECST numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Math</th><th>Values</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>Event with the full state</th><td>compact JSON</td><td>202 B</td></tr>
+      <tr><th>Notification event</th><td>evento_id, cliente_id, versao</td><td>56 B + a GET</td></tr>
+      <tr><th>One copy</th><td>1.5 million × 500 B</td><td>750 MB</td></tr>
+      <tr><th>Four copies</th><td>1 owner + 3 consumers</td><td>3.0 GB</td></tr>
+      <tr><th>Compacted topic</th><td>1.5 million keys × ~300 B</td><td>~450 MB</td></tr>
+      <tr><th>New consumer</th><td>1,500,000 ÷ 20,000 events/s</td><td>75 s</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: what ECST is</h4>
+  <ul>
+    <li><strong>"Combines cache, events and replication".</strong> In Fowler, <em>event-carried state transfer</em> is <strong>one</strong> of the four "event-driven" patterns (the others: <em>event notification</em>, <em>event sourcing</em> and CQRS). The article says it is "costly": the cost is <strong>storage</strong> (N copies), <strong>eventual consistency</strong> and <strong>ordering</strong>. What is missing is the <code>versao</code> field in the event and the <strong>compacted</strong> topic.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "Martin Fowler: What do you mean by \"Event-Driven\"?", href: "https://martinfowler.com/articles/201701-event-driven.html" },
+    { label: "Kafka: topic configuration (cleanup.policy=compact)", href: "https://kafka.apache.org/40/generated/topic_config.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now copies the customer records between services with events, as long as someone publishes them. But the one who publishes is the service itself, by hand, and that work can fail halfway. What is left is what to do when the data owner <strong>does not want to, or cannot</strong>, publish events: read the <strong>database log</strong> and turn it into events without touching the application.</p>
+
+<Flashcards cards={[
+  { q: "What is Event-Carried State Transfer?",
+    a: "Publishing the entire state in the event, so each service keeps its own copy and stops calling the owner. clientes publishes ClienteAtualizado (202 B) and entregas, pedidos and notificacoes keep a copy." },
+  { q: "Why is the topic compacted and why does the event have versao?",
+    a: "cleanup.policy=compact keeps the last value of each key (cliente_id); a new consumer builds the copy by reading from the start. The versao lets you discard old or repeated events." },
+  { q: "How much does ECST cost?",
+    a: "1.5 million × 500 B = 750 MB per copy; 4 copies = 3.0 GB. A new consumer reads the topic in 75 s at 20,000 events/s. And there is eventual consistency: seconds with the old address." },
+  { q: "Full-state event or notification?",
+    a: "Full state: 202 B and no call. Notification: 56 B plus a GET back to clientes (the choice from module 13)." },
+  { q: "What happens if entregas receives v9 and then v8?",
+    a: "Applying blindly it ends with v8 (Rua da Aurora, 100), the old address. Applying only if the versao is greater, it discards v8 and keeps v9 (Rua do Sol, 200)." },
+]} />

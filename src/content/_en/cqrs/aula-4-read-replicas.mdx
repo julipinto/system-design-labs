@@ -1,0 +1,93 @@
+---
+title: "Read replicas"
+order: 4
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the <em>view</em> took the report out of the way, but it lives on the same server the checkout writes to, and every <code>REFRESH</code> keeps it busy again. What is missing is more <strong>read capacity</strong>, and module 17 already built that: the primary in SP and the replicas in Rio and Recife. The replica is the <strong>cheapest</strong> read model, because it is the same schema on another server, with no projector and no event.</p>
+
+<OneLiner>The <strong>read replica</strong> is a <strong>physical copy of the same schema</strong> on another server: it gives read <strong>capacity</strong> and <strong>proximity</strong>, but it <strong>does not change the model</strong>: the <code>JOIN</code> stays, and a long query can be <strong>cancelled</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Replica</strong> scenario, send the <strong>report</strong> to the Recife replica and watch the cancellation with <code>conflict with recovery</code>. Then advance to "If it goes wrong" and see 1056 vanish for 800 ms.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=replica" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: The read replica" alt="Preview of the 3D figure: The read replica" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The drawing from module 17.</strong> The primary (<code>pg-sp</code>) sits in SP and the replicas in Rio and Recife. Lena reads from Recife: <strong>~2 ms</strong> instead of the <strong>80 ms</strong> RTT to SP. All three machines serve reads, so read capacity is <strong>3 servers</strong>.</li>
+  <li><strong>What the replica gives.</strong> Capacity (more servers reading), proximity (close to whoever reads) and one more copy, useful if the primary goes down. All of that without touching the model and without changing a line of the read code, only the connection.</li>
+  <li><strong>What it does not give.</strong> <strong>Screen shape</strong>: the "my orders" query is still a 5-table <code>JOIN</code>, just on another machine. And <strong>isolation of heavy queries</strong>: the ~40 s report, running on the replica, competes with the replication coming from the primary (next step).</li>
+  <li><strong>The conflict.</strong> The replica applies the WAL that comes from the primary. If the primary deletes old rows (<code>VACUUM</code>) that a long query on the replica still needs to see, PostgreSQL waits up to <code>max_standby_streaming_delay</code> and, if the query does not finish, <strong>cancels</strong> it. The default is <strong>30 s</strong>. The store's report (~40 s estimated on the 50 million) would be cancelled.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`-- replica in hot standby, max_standby_streaming_delay = 1s
+-- t = 0 s    on the replica: 6 s query
+-- t = 2 s    on the primary: DELETE + VACUUM
+-- t = 3.16 s the query dies:
+ERROR:  canceling statement due to conflict with recovery
+DETAIL:  User query might have needed to see row versions that must be removed.`}</code></pre>
+
+<h3 class="sec">If it goes wrong (a): the long query is cancelled</h3>
+
+<p>This is the measured result: with <code>max_standby_streaming_delay = 1s</code>, the 6 s query suffered a <code>DELETE</code> plus <code>VACUUM</code> on the primary 2 s later and died at <strong>3.16 s</strong>, with the error above. Both fixes have a cost. <code>hot_standby_feedback</code> makes the replica tell the primary what it is still reading, and the primary <strong>does not clean</strong> those rows: the table <strong>bloats</strong>. Raising <code>max_standby_streaming_delay</code> lets the query live longer, but the replica falls <strong>further behind</strong> the primary while it waits.</p>
+
+<h3 class="sec">If it goes wrong (b): the delay from module 17 is back</h3>
+
+<p>The Recife replica was 800 ms behind the primary. Lena places 1056 at the checkout and, right after, opens "my orders" reading from Recife: the order is <strong>not there</strong>, like 1055. The replica does not solve reading what you just wrote; it only brings it closer.</p>
+
+<WhyItMatters>
+  <li><strong>It is the cheapest read model.</strong> The same schema, another server, and more read capacity with no new code.</li>
+  <li><strong>"Moving the problem elsewhere" is true when the problem is the shape.</strong> If the query is expensive because of the <code>JOIN</code>, it stays expensive on the replica.</li>
+  <li><strong>Long queries and replicas fight.</strong> The ~40 s report goes past the 30 s default and is cancelled.</li>
+  <li><strong>The delay is back.</strong> The replica still shows the past for hundreds of milliseconds.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">What each read model delivers so far</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Read model</th><th>New shape</th><th>Capacity</th><th>Isolates heavy queries</th><th>Delay</th></tr></thead>
+    <tbody>
+      <tr><th>same table</th><td>no</td><td>1 server</td><td>no</td><td>none</td></tr>
+      <tr><th>materialized <em>view</em></th><td>yes</td><td>1 server</td><td>partly</td><td>until the <code>REFRESH</code></td></tr>
+      <tr><th>read replica</th><td>no</td><td>3 servers</td><td>no (cancellation)</td><td>800 ms (Black Friday)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: the replica is not another model</h4>
+  <ul>
+    <li><strong>"Main database for the query model" and synchronization "by writing to both databases".</strong> A <strong>physical</strong> replica copies the <strong>same schema</strong>; it is not another model, and what feeds it is the database log, not a second write from the application. It gives capacity and proximity, not shape. And the long query is cancelled by a recovery conflict (<code>max_standby_streaming_delay</code>, 30 s by default), which was reproduced here with 1 s. Measured on PostgreSQL 14.24, on 10/20/2026.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "PostgreSQL: Hot Standby (conflicting queries and hot_standby_feedback)", href: "https://www.postgresql.org/docs/current/hot-standby.html" },
+    { label: "PostgreSQL: replication settings (max_standby_streaming_delay)", href: "https://www.postgresql.org/docs/current/runtime-config-replication.html" },
+    { label: "SDLabs module 17: Data Replication (primary in SP, replicas in Rio and Recife)" },
+  ]} />
+</Deep>
+
+<p class="gancho">The replica gives capacity and proximity, but not the screen's shape, and it still shows the past. The solution is a read model that updates <strong>through events</strong>, and so accepts the delay from the design stage. What is left is how to <strong>accept that delay on purpose</strong>, and how Lena still sees her own order.</p>
+
+<Flashcards cards={[
+  { q: "What does the read replica give and what does it not give?",
+    a: "It gives capacity (3 servers), proximity (~2 ms instead of 80 ms) and one more copy. It does not give screen shape (the JOIN stays) or isolation of heavy queries." },
+  { q: "Why is the long query cancelled on the replica?",
+    a: "The primary does DELETE and VACUUM on rows the query still needs to see; after max_standby_streaming_delay (30 s by default) the replica cancels it with 'conflict with recovery'. Measured with 1 s: it died at 3.16 s." },
+  { q: "Would the ~40 s report survive on the replica?",
+    a: "Not with the 30 s default: it would be cancelled." },
+  { q: "What are the fixes for the cancellation and what does each cost?",
+    a: "hot_standby_feedback: the primary does not clean old rows and the table bloats. Raising max_standby_streaming_delay: the replica falls further behind the primary." },
+  { q: "Why does Lena not see 1056 on the Recife replica?",
+    a: "The delay from module 17 (800 ms) is back: the replica has not applied the order yet." },
+]} />

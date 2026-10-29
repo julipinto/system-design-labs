@@ -1,0 +1,113 @@
+---
+title: "Combining SQL and NoSQL"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the read model started living on events and fell ~74 ms behind, and it was still an SQL table. But the "my orders" screen does no transaction and no <code>JOIN</code>: it fetches <strong>one document per customer</strong>. What is left is to see what happens when the read model lives in a storage <strong>of another kind</strong>, shaped exactly like the answer.</p>
+
+<OneLiner>Reads can live in a storage <strong>of another kind</strong> because they need neither a transaction nor a <code>JOIN</code>: one <strong>document</strong> per customer, shaped like the screen, is <strong>one read by key</strong>. The topology is the same as SQL to SQL, except that the projector <strong>speaks two dialects</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Document</strong> scenario, build Lena's document and check the bytes: <strong>1,787 B</strong> for the 8 orders, and <strong>253 B</strong> for 1056 alone. Then advance to "If it goes wrong" and see <code>PedidoEnviado</code> arrive before <code>PedidoCriado</code>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=documento" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: Lena's document" alt="Preview of the 3D figure: Lena's document" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The document.</strong> One per customer, <code>meus_pedidos:lena-77</code>, with the last 10 orders, newest first. Lena's <strong>8 orders</strong> (1042, 1044, 1047, 1048, 1051, 1054, 1055 and 1056) take <strong>1,787 bytes</strong>, on average <strong>223 B</strong> per order; 1056 alone, with status <code>criado</code> and <code>pagamento</code> and <code>rastreio</code> still null, takes <strong>253 B</strong>.</li>
+  <li><strong>The lookup by key.</strong> The screen asks for the document of <code>lena-77</code> and gets everything in <strong>one read</strong>: no <code>JOIN</code>, no waiting for four services. The <code>bff-app</code> passes the document along as it is.</li>
+  <li><strong>The size.</strong> 1.5 million customers × 10 orders × 223 B = <strong>3.35 GB</strong> in the read storage. The 50-million-row <code>pedidos</code> table from module 16 weighs 100 GB plus 40% for indexes. The read model is <strong>much smaller</strong>, because it keeps only what the screen shows.</li>
+  <li><strong>The article's Elasticsearch.</strong> The article stores the document in an index with a <em>mapping</em>, and the items as <code>nested</code> (so that each item is its own object, not flattened fields). On <code>GET</code>, Elasticsearch returns <code>_version</code>, <code>_seq_no</code> and <code>_primary_term</code>, which serve as concurrency control. A JSON column, a <em>document store</em> or Redis would also work; the choice depends on what the reads need.</li>
+  <li><strong>Search.</strong> The Storefront search (module 6: free text, "plush") is the read that SQL does badly and the <strong>inverted index</strong> (module 4) does well. That is why search-oriented NoSQL shows up so often as a read model.</li>
+</ol>
+</HowItWorks>
+
+<pre><code>{String.raw`// EXAMPLE (the shape; not in the author's repository): read model mapping
+{ "mappings": { "properties": {
+    "cliente_id": { "type": "keyword" },
+    "versao":     { "type": "long" },
+    "pedidos": { "type": "nested", "properties": {
+        "pedido_id":       { "type": "long" },
+        "criado_em":       { "type": "date" },
+        "status":          { "type": "keyword" },
+        "itens": { "type": "nested", "properties": {
+            "nome": { "type": "text" }, "qtd": { "type": "integer" },
+            "preco_centavos": { "type": "integer" } } },
+        "total_centavos":  { "type": "integer" },
+        "pagamento":       { "type": "keyword" },
+        "rastreio":        { "type": "keyword" } } } } } }`}</code></pre>
+
+<Widget name="documento" title="The read model document" hint="Build Lena's JSON: from 1 to 10 orders and from 1 to 3 items per order, or use the 8 real orders from the story (1,787 B). The widget counts the JSON bytes and the size for N customers (3.35 GB for 1.5 million)." />
+
+<h3 class="sec">If it goes wrong (a): the event arrives out of order</h3>
+
+<p>The tracking for 1056 only exists the next day (<code>e-1805</code> <code>PedidoEnviado</code>, 09:10, <code>LA123456791BR</code>), but imagine the message arrives <strong>before</strong> <code>PedidoCriado</code>, because of a delay between partitions. The projector tries to update a document <strong>that does not exist</strong>. The defense is the <strong>partial upsert</strong>: create the document with only what the event knows and fill in the rest later, plus concurrency control (<code>if_seq_no</code> and <code>if_primary_term</code>) so two simultaneous updates do not trample each other.</p>
+
+<h3 class="sec">If it goes wrong (b): changing the mapping</h3>
+
+<p>A field of an already created <em>mapping</em> <strong>cannot change type</strong>. If the store decides that <code>pagamento</code> goes from <code>keyword</code> to an object, you have to create a <strong>new index</strong> and <strong>reindex everything</strong> from the source (the <code>pedidos</code> table or a complete log). It is the same math as rebuilding the model in lesson 5: hours, and only possible if the source still exists.</p>
+
+<h3 class="sec">If it goes wrong (c): the article's mapping does not apply to the other index</h3>
+
+<p>The article creates the <em>mapping</em> at <code>PUT /prontuarios</code> and writes the document at <code>POST /prescricoes/_doc/1</code>. Those are <strong>two different indexes</strong>: the mapping created does not apply to the other. It is a naming inconsistency in the article, and in practice the document ends up without the <code>nested</code>.</p>
+
+<WhyItMatters>
+  <li><strong>Reads do not need a transaction.</strong> That is why they can live in a simpler or faster storage.</li>
+  <li><strong>A document is one read by key.</strong> 1,787 B answer the whole screen, instead of 5 tables and 4 services.</li>
+  <li><strong>Small by design.</strong> 3.35 GB for 1.5 million customers, against 140 GB for the write table.</li>
+  <li><strong>The projector gains a dialect.</strong> It needs to do partial upserts and control concurrency in the new storage.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The document numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Item</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><th>Lena's document (8 orders)</th><td>1,787 B</td></tr>
+      <tr><th>average per order</th><td>223 B</td></tr>
+      <tr><th>order 1056 (2 items, status <code>criado</code>)</th><td>253 B</td></tr>
+      <tr><th>1.5 M customers × 10 orders × 223 B</th><td>3.35 GB</td></tr>
+      <tr><th><code>pedidos</code> table (50 M rows)</th><td>100 GB + 40% indexes = 140 GB</td></tr>
+      <tr><th><code>PedidoCriado</code> event (e-1801)</th><td>336 B (the <em>notification</em> version: 72 B)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The JSON sizes were counted in Python, on 10/20/2026, with compact JSON and UTF-8 (the "ú" in "pelúcia" takes 2 bytes). The event carries the items' name and price <strong>at the time</strong>: the order keeps what was paid, which is why the read model does not need to listen to the <code>catalogo</code>. Money in <strong>whole cents</strong>, as in module 12.</p>
+  <h4 class="deep-h">Correction to the source article: Elasticsearch</h4>
+  <ul>
+    <li><strong><code>PUT /prontuarios</code> and <code>POST /prescricoes/_doc/1</code>.</strong> The <code>mapping</code> is created in one index and the document written to another; the mapping does not apply to the second. In addition, the <code>_type</code> that shows up in the article's <code>GET</code> was removed in current versions. The article also writes <code>crm_medico VARCHAR(8)</code>, which does not fit the <code>CRM123123</code> (9 characters) from the Elasticsearch example.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Elasticsearch: nested field", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/nested.html" },
+    { label: "Elasticsearch: optimistic concurrency control (_seq_no and _primary_term)", href: "https://www.elastic.co/guide/en/elasticsearch/reference/current/optimistic-concurrency-control.html" },
+    { label: "AWS Prescriptive Guidance: CQRS pattern", href: "https://docs.aws.amazon.com/pt_br/prescriptive-guidance/latest/modernization-data-persistence/cqrs-pattern.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">With one document per customer, the screen reads a single place, but in this lesson all the data came from <code>pedidos</code>. In the real store, payment and tracking live in other <strong>services</strong>, each with its own database. What is left is how to build the read model when the data is spread across <strong>several services</strong>.</p>
+
+<Flashcards cards={[
+  { q: "Why can reads use a storage of another kind?",
+    a: "Because they need neither a transaction nor a JOIN: one document per customer, shaped like the screen, is one read by key." },
+  { q: "How much do Lena's document and order 1056 weigh?",
+    a: "1,787 B for the 8 orders (average of 223 B per order); 1056, with payment and tracking null, weighs 253 B." },
+  { q: "How much space does the read model take for 1.5 million customers?",
+    a: "1.5 M × 10 orders × 223 B = 3.35 GB, against 100 GB + 40% indexes for the 50-million-row pedidos table." },
+  { q: "What to do when PedidoEnviado arrives before PedidoCriado?",
+    a: "Partial upsert (create the document with only what the event knows) and concurrency control with if_seq_no and if_primary_term." },
+  { q: "What happens if you need to change the mapping of an already created field?",
+    a: "You have to create a new index and reindex everything from the source (the pedidos table or a complete log)." },
+]} />

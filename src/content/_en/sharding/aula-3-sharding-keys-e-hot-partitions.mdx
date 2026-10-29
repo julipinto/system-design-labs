@@ -1,0 +1,99 @@
+---
+title: "Sharding keys and hot partitions"
+order: 3
+min: 10
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson, 3 shards promised 450 orders per second, and the promise only holds if the load spreads evenly. What decides how it spreads is the <strong>sharding key</strong>: the column that says which shard each row lives on. The <code>pedidos</code> table has several candidates, and each one has a number.</p>
+
+<OneLiner>The key decides <strong>what stays together</strong> and <strong>where it heats up</strong>: a good key has many different values (high cardinality), shows up in queries and does not concentrate traffic on a single shard.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Key</strong> scenario, pick <code>cliente_id</code> and turn on <code>mkt-01</code>. Watch <code>shard-2</code> receive 60% of the rows and the cluster efficiency drop to <strong>55.6%</strong>. Then go through the other two keys, <code>cidade</code> and <code>criado_em</code>, and note the efficiency of each.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=chave&step=2" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: The key and the hot customer" alt="Preview of the 3D figure: The key and the hot customer" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The table has <strong>5 customers of interest</strong> in the story. Four are people (Lena with 6 orders, Bia with 3, Caio with 2 and Davi with 3, the 14 sample rows) and one is the partner <code>mkt-01</code>, the marketplace from module 8, with <strong>20 million rows, 40% of the table</strong>. The other 30 million come from about 1.5 million customers spread evenly (a stated assumption).</li>
+  <li>With 3 shards and the <code>cliente_id</code> key (the function and the <code>mod</code> are from lesson 6), <code>mkt-01</code> lands on <code>shard-2</code>. That shard ends up with 20 million from the partner plus about 10 million from the rest: <strong>30 million rows, 60%</strong>. The other two get about 10 million (20%) each.</li>
+  <li>If traffic follows the rows, <code>shard-2</code> receives 60% of the orders. The <strong>cluster efficiency</strong> is 1 ÷ (number of shards × fraction of the hottest) = 1 ÷ (3 × 0.60) = <strong>55.6%</strong>. <code>shard-2</code> saturates when 0.60 × T = 150, that is, at <strong>T = 250 orders/s</strong>, not at 450. The store pays for 3 servers and uses <strong>1.67</strong>.</li>
+  <li>The other keys, same math with 3 shards: <code>cidade</code> (3 values: SP 55%, Rio 25%, Recife 20%, an example) gives 1 ÷ (3 × 0.55) = <strong>60.6%</strong> and never goes past 3 shards. <code>criado_em</code> by range and a sequential <code>id</code> send <strong>100% of the writes</strong> to the shard of the newest range: <strong>33.3%</strong>. <code>hash(cliente_id)</code> without the partner gets close to <strong>100%</strong>.</li>
+  <li>The article has a similar example: 300 customers in 10 partitions, and 3 of them account for 50% of the usage and land together. The hot partition receives 50% plus 5% of the rest, <strong>55%</strong>, and the efficiency is 1 ÷ (10 × 0.55) = <strong>18.2%</strong>. Ten servers work like less than two.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="chavequente" title="Hot key: cluster efficiency" hint="Pick mkt-01's share of the rows (0 to 60%), the shards (2 to 8), the capacity per shard and the key. The widget computes the efficiency and the useful capacity (250/s with the lesson's values) and turns on the mitigations: a dedicated 2× shard and salt in 8 sub-keys." />
+
+<h3 class="sec">The four mitigations</h3>
+
+<ol class="flow steps">
+  <li><strong>Dedicated shard.</strong> <code>mkt-01</code> gets a <strong>2×</strong> machine (capacity of 300/s) all to itself, and the other customers stay on the 3 normal shards. The 4 shards saturate together at T = 750 (0.4 × 750 = 300 and 0.2 × 750 = 150): the store goes from 250 to <strong>750 orders/s</strong>.</li>
+  <li><strong>Composite key, the "salt".</strong> <code>mkt-01</code> becomes 8 sub-keys, <code>mkt-01#0</code> to <code>mkt-01#7</code>, which the hash spreads over the 3 shards: efficiency goes back to about <strong>100%</strong>. The cost is that "all orders from <code>mkt-01</code>" become scatter-gather.</li>
+  <li><strong>Pre-partition</strong> using the usage pattern you already know: if the partner is always big, give it its place before it grows.</li>
+  <li><strong>Cache</strong> (module 5) to relieve reads on the hot shard. It does not help with writes.</li>
+</ol>
+
+<h3 class="sec">What if it goes wrong: the low-cardinality key</h3>
+
+<p>Using <code>cidade</code> looks natural: the store's queries already filter by it. But it has 3 values, and that fixes the ceiling at <strong>3 shards</strong>: a fourth server would stay empty. SP carries 55% of the rows (27.5 million), so the SP shard saturates first. And changing the key later means migrating the 50 million rows. Choosing the key is the most expensive decision to undo in the whole module.</p>
+
+<WhyItMatters>
+  <li><strong>The key decides the efficiency.</strong> <code>cliente_id</code> with the partner: 55.6%. <code>cidade</code>: 60.6%. <code>criado_em</code>: 33.3%.</li>
+  <li><strong>The hash spreads keys, not load.</strong> <code>mkt-01</code> lands whole on one shard, and T drops from 450 to 250.</li>
+  <li><strong>Each mitigation has a cost.</strong> The dedicated shard costs a 2× machine. The salt costs the partner's scatter-gather.</li>
+  <li><strong>Low cardinality limits the cluster.</strong> With 3 values, that is 3 shards at most.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The four mitigations, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Mitigation</th><th>Useful capacity</th><th>What it costs</th></tr></thead>
+    <tbody>
+      <tr><th>none</th><td>250/s</td><td>3 servers, 1.67 used</td></tr>
+      <tr><th>dedicated 2× shard</th><td>750/s</td><td>a bigger machine and an exception in the map</td></tr>
+      <tr><th>salt in 8 sub-keys</th><td>close to 450/s</td><td>the partner's query hits every shard</td></tr>
+      <tr><th>cache</th><td>reads only</td><td>invalidation (module 5)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The efficiencies assume traffic follows the rows. In real life, the measure is traffic per shard, and module 28 is where you measure it.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"The hash avoids hot partitions."</strong> The hash spreads different keys, not load. A hot key lands <em>whole</em> on one shard. The article's own example (3 customers with 50%) proves it, and the article already points to the fix (isolating the key).</li>
+    <li><strong>"Random partition keys."</strong> They spread the data, but lose locality: a customer's rows stop living together, and every query by customer becomes scatter-gather. The salt is the controlled version of this idea.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Discord: How Discord Stores Trillions of Messages (hot partitions)", href: "https://discord.com/blog/how-discord-stores-trillions-of-messages" },
+    { label: "DynamoDB: Partitions and data distribution", href: "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.Partitions.html" },
+    { label: "Citus: Choosing a distribution column", href: "https://docs.citusdata.com/en/stable/sharding/data_modeling.html" },
+    { label: "AWS: Shuffle Sharding (the idea of isolating the customer who disturbs the others)", href: "https://aws.amazon.com/blogs/architecture/shuffle-sharding-massive-and-magical-fault-isolation/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The key is chosen, and <code>mkt-01</code> still heats up one shard. Before separating servers, you can split the table <strong>inside</strong> a single server, and PostgreSQL already knows how to do that. What is left is what that partitioning gives the store, and what it does not.</p>
+
+<Flashcards cards={[
+  { q: "What is a good sharding key?",
+    a: "High cardinality, present in queries and not concentrating traffic on one shard." },
+  { q: "How do you compute cluster efficiency?",
+    a: "1 ÷ (number of shards × fraction of the hottest shard). With mkt-01 on 3 shards: 1 ÷ (3 × 0.60) = 55.6%." },
+  { q: "How much does the store handle with mkt-01 on a regular shard?",
+    a: "T = 250 orders/s, because 0.60 × T = 150 saturates shard-2. The nominal capacity was 450." },
+  { q: "Why is cidade a bad key here?",
+    a: "It has only 3 values (ceiling of 3 shards) and SP carries 55% of the rows: 60.6% efficiency." },
+  { q: "What are the four mitigations for the hot key?",
+    a: "Dedicated shard (2×, 750/s), salt in 8 sub-keys, pre-partitioning and cache." },
+]} />

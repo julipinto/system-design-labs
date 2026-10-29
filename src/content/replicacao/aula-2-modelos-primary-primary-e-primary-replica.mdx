@@ -20,7 +20,7 @@ import replicacaoLab from '../../lab-code/replicacao/replicacao-lab.sh?raw';
 <OneLiner>Com <strong>um escritor</strong> (Primary/Replica) tudo é simples e o primário é o ponto de falha até alguém ser eleito. Com <strong>vários escritores</strong> (Primary/Primary) não há ponto único, e os escritores <strong>brigam</strong>: ids repetidos, o mesmo registro escrito por dois e o estoque que desce abaixo de zero.</OneLiner>
 
 <DoIt>
-  <p>Na figura, no cenário <strong>Queda</strong>, avance: o primário de SP cai o primário de SP com 30 pedidos por segundo chegando na Black Friday e conte os pedidos perdidos: <strong>9</strong> se o Rio for promovido, <strong>24</strong> se fosse Recife. Avance até o fim e veja a linha do tempo passar de 1 para 2. Depois aperte <strong>Primary/Primary</strong> e veja SP e Recife escreverem o endereço da Lena ao mesmo tempo.</p>
+  <p>Na figura, no cenário <strong>Queda</strong>, avance: o primário de SP cai com 30 pedidos por segundo chegando na Black Friday e conte os pedidos perdidos: <strong>9</strong> se o Rio for promovido, <strong>24</strong> se fosse Recife. Avance até o fim e veja a linha do tempo passar de 1 para 2. Depois aperte <strong>Primary/Primary</strong> e veja SP e Recife escreverem o endereço da Lena ao mesmo tempo.</p>
 </DoIt>
 
 <Figure3D path="labs/replicacao/replicas-3d/?mode=queda" poster="labs/replicacao/replicas-3d-previa.webp" title="Figura interativa: A queda do primário" alt="Prévia da figura 3D: A queda do primário" hint="Arraste para girar · use ← → ou Próximo passo · troque o cenário no painel" />

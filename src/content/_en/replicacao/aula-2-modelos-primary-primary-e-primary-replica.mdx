@@ -1,0 +1,137 @@
+---
+title: "Models: Primary/Replica and Primary/Primary"
+order: 2
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import replicacaoLab from '../../../lab-code/replicacao/replicacao-lab.sh?raw';
+
+<p class="ponte">Last lesson the store decided to keep the <code>pedidos</code> database in SP, Rio and Recife. Now it has to decide <strong>who receives the writes</strong>. If only one site writes, the design is simple and that site is a single point of failure. If every site writes, none is a single point, but two sites can change the same data at the same time.</p>
+
+<OneLiner>With <strong>one writer</strong> (Primary/Replica) everything is simple and the primary is the point of failure until someone is elected. With <strong>several writers</strong> (Primary/Primary) there is no single point, and the writers <strong>fight</strong>: repeated ids, the same record written by two, and stock that drops below zero.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Outage</strong> scenario, step forward: the SP primary goes down with 30 orders per second arriving on Black Friday. Count the lost orders: <strong>9</strong> if Rio is promoted, <strong>24</strong> if it were Recife. Keep going to the end and watch the timeline go from 1 to 2. Then press <strong>Primary/Primary</strong> and watch SP and Recife write Lena's address at the same time.</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/replicas-3d/?mode=queda" poster="labs/replicacao/replicas-3d-previa.webp" title="Interactive figure: The primary goes down" alt="Preview of the 3D figure: The primary goes down" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Primary/Replica.</strong> One node, the <strong>primary</strong>, receives all the writes and passes them on to the <strong>replicas</strong>, which only read. Since reads spread across the replicas, the store gains read capacity without changing anything about writes. The cost is that the primary is the <strong>single point of failure</strong> until a replica is promoted.</li>
+  <li><strong>The lab.</strong> SDLabs starts three PostgreSQL 14 instances on the same machine, on three ports: <code>55432</code> is the "SP" primary, <code>55433</code> is "Rio" and <code>55434</code> is "Recife". The commands below were run on 10/20/2026. The <code>trust</code> setting is for the lab only: production uses a password and TLS. The comments in the script are in Portuguese.</li>
+</ol>
+</HowItWorks>
+
+<CodeLab code={replicacaoLab} />
+
+<ol class="flow steps">
+  <li><code>pg_basebackup</code> (line 9) copies the whole primary into the <code>rio</code> directory. The <code>-R</code> creates the <code>standby.signal</code> file and the <code>primary_conninfo</code> setting, which says where to fetch the log from. The <code>-C -S slot_rio</code> creates a replication slot, so the primary does not throw away the log that Rio has not read yet.</li>
+  <li>With <code>wal_level = replica</code>, the default, streaming replication already works. The <code>wal_level = logical</code> on line 4 serves the logical decoding in lesson 5 and requires restarting the primary.</li>
+  <li>The replica only reads. An <code>INSERT INTO pedidos …</code> on port 55433 returns <code>ERROR: cannot execute INSERT in a read-only transaction</code>; <code>SHOW transaction_read_only</code> answers <code>on</code> and <code>pg_is_in_recovery()</code> answers <code>t</code>.</li>
+  <li>On the primary, <code>pg_stat_replication</code> (line 15) shows one row per replica. Real output, where only the LSNs change on each run:</li>
+</ol>
+
+<pre><code>{String.raw`application_name | recife              application_name | rio
+state            | streaming           state            | streaming
+sync_state       | async               sync_state       | async
+sent_lsn         | 0/8000000           sent_lsn         | 0/8000000
+write_lsn        | 0/8000000           write_lsn        | 0/8000000
+flush_lsn        | 0/8000000           flush_lsn        | 0/8000000
+replay_lsn       | 0/8000000           replay_lsn       | 0/8000000
+write_lag        | 00:00:00.100378     write_lag        | 00:00:00.024312`}</code></pre>
+
+<p><code>write_lag</code>, <code>flush_lag</code> and <code>replay_lag</code> are the delay until the replica <strong>writes</strong>, <strong>flushes to disk</strong> and <strong>applies</strong> the log. These 100 ms and 24 ms come from the lab, with no network; the 15 and 60 ms of the store on a normal day are the lesson's example.</p>
+
+<h3 class="sec">When the primary goes down</h3>
+
+<ol class="flow steps">
+  <li><strong>Promote.</strong> Stop the primary with <code>pg_ctl -m immediate stop</code> and run <code>pg_ctl -D rio promote</code> on the Rio replica. <code>pg_is_in_recovery()</code> becomes <code>f</code> and the <strong>timeline</strong> goes from 1 to <strong>2</strong>: <code>pg_controldata</code> shows <code>Latest checkpoint's TimeLineID: 2</code>. The old primary only comes back as a replica after a <code>pg_rewind</code>.</li>
+  <li><strong>Who becomes leader.</strong> The replica <strong>furthest ahead in the log</strong>. On Black Friday Rio is 300 ms behind and Recife 800 ms, so Rio wins. In Raft the rule is the same: the vote only goes to whoever has an equal or more up-to-date log, and the election timeout is drawn between <strong>150 and 300 ms</strong> so candidates do not tie. The choice needs a <strong>quorum</strong>: 2 of 3 nodes.</li>
+  <li><strong>How long without a primary (RTO).</strong> Patroni, which automates promotion, uses <code>ttl: 30</code> seconds by default (the leader has to renew a key; it is the time until failover starts). Adding about 5 s to promote and reconnect, that is <strong>35 s</strong>. At 30 orders per second, <strong>30 × 35 = 1,050</strong> purchase attempts without a primary.</li>
+  <li><strong>How much data is lost (RPO).</strong> With asynchronous replication you lose what the promoted replica did not have yet: rate × lag. On Black Friday, 30 × 0.3 = <strong>9 orders</strong> if Rio is promoted and 30 × 0.8 = <strong>24</strong> if it were Recife. On a normal day, 5 orders per second × 0.06 s = about <strong>0.3</strong>: practically zero.</li>
+</ol>
+
+<Widget name="failover" title="Failover: RTO, attempts and leader" hint="Change the ttl (10 to 60 s), the promotion time (1 to 30 s) and the order rate. The widget shows the RTO (35 s), the attempts without a primary (1,050), who becomes leader (the one with the smallest lag) and the quorum of 2 out of 3." />
+
+<h3 class="sec">Primary/Primary: two owners</h3>
+
+<ol class="flow steps">
+  <li><strong>What changes.</strong> SP and Recife accept writes, and each passes them on to the other. There is no single point of failure, but there is <strong>conflict</strong>, and it can show up in the store in three ways.</li>
+  <li><strong>Colliding ids.</strong> Both sites create a "new" order without talking to each other and give it the same number, <strong>1056</strong> (the collision is hypothetical: the number 1056 is not an order in the story). The primary key clashes. Ways out: interleaved ranges (SP uses the odd numbers, Recife the even ones) or ids that need no coordination, such as UUID and ULID.</li>
+  <li><strong>The same record.</strong> Lena's address is written at the same time in SP, by the support agent ("Rua do Sol, 200", timestamp <strong>20:20:00.100</strong>), and in Recife, by her in the app ("Rua da Aurora, 100", actually written at 20:20:00.150). Recife's clock is <strong>120 ms behind</strong> and stamps 20:20:00.<strong>030</strong>. The <em>last write wins</em> rule (LWW, the latest timestamp wins) picks SP, even though the most recent one in reality is Recife's: LWW <strong>depends on a clock</strong> and loses a write. A <strong>version vector</strong> (<code>{"{SP:2, Rec:0}"}</code> against <code>{"{SP:1, Rec:1}"}</code>) sees that neither vector dominates the other: the writes are <strong>concurrent</strong>, and the application decides.</li>
+  <li><strong>The stock.</strong> If the mug has 1 unit in stock and SP sells 1 while Recife sells 1, each site sees 0, and when they merge the result is <strong>−1</strong>. It is the race from module 11 with an ocean in the middle, and lesson 6 comes back to it.</li>
+</ol>
+
+<Widget name="conflito" title="Conflict: clock and version" hint="Two writes to Lena's address. Change Recife's clock skew (−500 to +500 ms) and pick the policy (LWW or version vector). The widget shows who wins and whether the vector detects that the writes were concurrent." />
+
+<p>With the network between SP and Recife cut, the two models choose different sides of CAP (module 3). Primary/Replica <strong>refuses</strong> the write in Recife (consistent: CP for writes), and the Recife replica keeps reading, with stale data. Primary/Primary <strong>accepts</strong> writes on both sides (AP) and reconciles later. Without a partition, PACELC from module 3 shows the other price: asynchronous has a 2 ms commit and a read that can fall behind, synchronous has 82 ms and an up-to-date read.</p>
+
+<h3 class="sec">If it goes wrong: split brain</h3>
+
+<p>The SP cable fails, but the primary <strong>is still alive</strong> and keeps accepting writes from the clients that can still reach it. On the other side, Rio was promoted. Now there are <strong>two truths</strong>: two primaries, two different 1056s, the same mug sold twice. That is <em>split brain</em>.</p>
+
+<p>There are two ways to contain it. The first is <strong>fencing</strong>: Patroni takes down the leader that does not renew the key within 30 s, so the isolated primary shuts itself down. The second is <strong>synchronous replication</strong>: with no confirmation from any replica, the isolated primary <strong>blocks</strong> at commit, on <code>wait_event = SyncRep</code>, as in lesson 3, and stops accepting orders that would never reach anyone.</p>
+
+<WhyItMatters>
+  <li><strong>One writer is simple.</strong> The cost is the primary as a single point of failure, and an outage costs 35 s and 1,050 purchase attempts.</li>
+  <li><strong>Promotion picks the replica furthest ahead.</strong> On Black Friday, Rio with 300 ms of lag, not Recife with 800 ms.</li>
+  <li><strong>Several writers trade the point of failure for conflict.</strong> A clock 120 ms behind makes LWW lose the right address.</li>
+  <li><strong>Two live primaries are the worst case.</strong> Fencing and synchronous replication exist so this does not happen.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Scenario</th><th>Math</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>Loss, Rio promoted (Black Friday)</th><td>30 orders/s × 0.3 s</td><td>9 orders</td></tr>
+      <tr><th>Loss, Recife promoted</th><td>30 orders/s × 0.8 s</td><td>24 orders</td></tr>
+      <tr><th>Loss, normal day</th><td>5 orders/s × 0.06 s</td><td>~0.3</td></tr>
+      <tr><th>RTO</th><td>30 s (ttl) + 5 s</td><td>35 s</td></tr>
+      <tr><th>Without a primary</th><td>30 orders/s × 35 s</td><td>1,050 attempts</td></tr>
+      <tr><th>Quorum</th><td>3 nodes, majority</td><td>2</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article: models</h4>
+  <ul>
+    <li><strong>Primary/Replica "guarantees consistency across all replicas".</strong> The article says the primary is responsible for guaranteeing data consistency on all replicas. With asynchronous replication the replica <strong>falls behind</strong>: consistency is eventual. And the primary is a single point of failure only until there is an <strong>election</strong> (automatic promotion with a quorum, as in Patroni and Raft). The article says it may require "manual engineering" and mentions neither fencing nor split brain.</li>
+    <li><strong>Primary/Primary "eliminates the single point of failure".</strong> It swaps that problem for <strong>write conflict</strong>. The article mentions timestamps to resolve it, but <em>last write wins</em> loses writes and depends on a clock (the 120 ms in this lesson). The alternatives are the version vector (detects the concurrency), the CRDTs in lesson 6 or <strong>avoiding</strong> the conflict by giving each record a single owner, which is sharding.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: Log-Shipping Standby Servers (streaming, promotion, pg_basebackup)", href: "https://www.postgresql.org/docs/current/warm-standby.html" },
+    { label: "PostgreSQL: Hot Standby (the replica only reads)", href: "https://www.postgresql.org/docs/current/hot-standby.html" },
+    { label: "PostgreSQL: pg_rewind", href: "https://www.postgresql.org/docs/current/app-pgrewind.html" },
+    { label: "Patroni: dynamic configuration (ttl, loop_wait, retry_timeout)", href: "https://patroni.readthedocs.io/en/latest/dynamic_configuration.html" },
+    { label: "Ongaro and Ousterhout: In Search of an Understandable Consensus Algorithm (Raft)", href: "https://raft.github.io/raft.pdf" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows who writes and what to do when the primary goes down. What is left is <strong>exactly when the primary says "done" to Lena</strong>: before the replica has the data, or after? The answer decides how much the store loses and how long Lena waits.</p>
+
+<Flashcards cards={[
+  { q: "What does the replica do with an INSERT?",
+    a: "It refuses: ERROR: cannot execute INSERT in a read-only transaction. SHOW transaction_read_only gives on and pg_is_in_recovery() gives t." },
+  { q: "What happens to the timeline when Rio is promoted?",
+    a: "It goes from 1 to 2 (Latest checkpoint's TimeLineID: 2 in pg_controldata). The old primary only comes back as a replica after a pg_rewind." },
+  { q: "Who becomes leader, and why?",
+    a: "The replica furthest ahead in the log: Rio (300 ms of lag) beats Recife (800 ms). In Raft the vote only goes to whoever has an equal or more up-to-date log, with a timeout drawn between 150 and 300 ms, and the quorum is 2 of 3." },
+  { q: "What does a primary outage cost on Black Friday?",
+    a: "An RTO of 35 s (ttl 30 s + 5 s): 30 × 35 = 1,050 attempts without a primary. A loss of 9 orders (Rio) or 24 (Recife) with asynchronous replication." },
+  { q: "Why did LWW pick the SP address?",
+    a: "Recife's clock was 120 ms behind: Recife's timestamp (20:20:00.030) lost to SP's (.100), even though Recife's write was the last one (.150). The version vector detects the concurrency." },
+  { q: "What is split brain and how is it contained?",
+    a: "Two live primaries accepting writes. Containment: fencing (Patroni takes down the leader that does not renew the key within 30 s) and synchronous replication (the isolated primary blocks on SyncRep)." },
+]} />

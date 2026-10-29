@@ -1,0 +1,88 @@
+---
+title: "Scalability and performance"
+order: 2
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the <code>pedidos</code> table became 3 servers on paper, and the price showed up right away: reports in 3 parts and transactions that cross shards. Is it worth paying? The answer has a good side and a bad side, both with numbers. The good side is <strong>capacity, space and isolation</strong>. The bad side is <strong>queries without the key, tail latency and more incidents</strong>.</p>
+
+<OneLiner>Sharding buys capacity, space and isolation because each server handles one piece; it charges queries without the key, tail latency and more chances that some shard is down.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Query</strong> scenario, advance to the query with the <code>cliente_id</code> key and count how many shards it reads. Then switch to a query by <code>id</code> only and count again. Note both numbers and the tail probability the figure shows for 3 shards.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=consulta&step=2" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: With the key, without the key and the tail" alt="Preview of the 3D figure: With the key, without the key and the tail" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The first gain is <strong>capacity</strong>. Each shard has the ceiling of 150 orders per second from module 14, so 3 shards add up to <strong>3 × 150 = 450 orders/s</strong>, on paper. The math only works if traffic spreads evenly, and lesson 3 shows when it does not.</li>
+  <li>The second is <strong>space</strong> and maintenance time. The 140 GB become <strong>46.7 GB per shard</strong>. The backup of the three runs in parallel and takes <strong>15 min 33 s</strong>, against 47 min on the single server. Each shard's index is also smaller, so the search reads less disk.</li>
+  <li>Then comes the query. With the key, the router computes the shard and asks <strong>just one</strong>. Without the key, it asks <strong>all of them</strong> and merges the answers (<strong>scatter-gather</strong>), and the answer takes as long as the slowest of the N.</li>
+  <li>That is why the tail matters. In <em>The Tail at Scale</em>, Dean and Barroso show that, for a query that waits on N shards, the chance that at least one answers above its p99 is 1 − 0.99<sup>N</sup>: <strong>2.97%</strong> with 3 shards, <strong>9.56%</strong> with 10, <strong>39.5%</strong> with 50 and <strong>63.4%</strong> with 100. Each shard's p99 becomes the query's <strong>p97</strong> with 3.</li>
+  <li>And availability drops. With each shard at 99.9%, the chance that <strong>some</strong> shard is down is 1 − 0.999<sup>N</sup>: <strong>0.10%</strong> with 1, <strong>0.2997%</strong> with 3, <strong>0.9955%</strong> with 10 and <strong>4.88%</strong> with 50. For <em>one customer</em> the chance stays at 0.1%. For the <em>team</em>, incidents multiply.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What if it goes wrong: the report on 50 shards</h3>
+
+<p>Imagine the store a few years from now, with 50 shards, and a report that sums the month's orders without the customer key. The query goes to all 50. <strong>39.5% of the time</strong> at least one of them answers above its p99, and the whole report waits for it. The report gets slow without any shard having a problem that an alarm would catch.</p>
+
+<p>What to do: give the query the key whenever possible, send reports to a read copy or to a data warehouse, and use <em>hedged requests</em> (ask a second replica when the first one is slow), a technique from the same Dean and Barroso article.</p>
+
+<WhyItMatters>
+  <li><strong>Capacity:</strong> 3 × 150 = 450 orders/s on paper, if the load spreads out.</li>
+  <li><strong>Space:</strong> 46.7 GB per shard and a 15 min 33 s backup in parallel.</li>
+  <li><strong>A query with the key reads 1 shard.</strong> Without the key it reads all of them and waits for the slowest.</li>
+  <li><strong>The tail grows with N:</strong> 2.97% with 3 shards and 39.5% with 50.</li>
+  <li><strong>Some shard down:</strong> 0.30% with 3 and 4.88% with 50 (each customer stays at 0.1%).</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The math, step by step</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Shards (N)</th><th>Some shard down (99.9% each)</th><th>Query above p99</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>0.10%</td><td>1.00%</td></tr>
+      <tr><th>3</th><td>0.2997%</td><td>2.97%</td></tr>
+      <tr><th>10</th><td>0.9955%</td><td>9.56%</td></tr>
+      <tr><th>50</th><td>4.88%</td><td>39.5%</td></tr>
+      <tr><th>100</th><td></td><td>63.4%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Both columns use the same formula, 1 − p<sup>N</sup>, with p = 0.999 and p = 0.99. They assume the shards fail and slow down independently, which is a simplification: a bad deploy or a network problem takes several down at once.</p>
+  <h4 class="deep-h">Correction to the source article</h4>
+  <ul>
+    <li><strong>"If a node fails, the other shards stay available."</strong> The article states this as an advantage. It is true only for the keys that live in the other shards, and only if the failure stays isolated. The chance that <em>some</em> shard goes down grows with N. And, without replicas (module 17), the data of the shard that went down becomes unavailable.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Dean and Barroso: The Tail at Scale (Google Research)", href: "https://research.google/pubs/the-tail-at-scale/" },
+    { label: "Azure Architecture Center: Sharding pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding" },
+  ]} />
+</Deep>
+
+<p class="gancho">All of this gain depends on the query carrying the key and on traffic spreading evenly, and both depend on the same choice. What is left is <strong>what to split by</strong>: which column of the <code>pedidos</code> table works as the sharding key.</p>
+
+<Flashcards cards={[
+  { q: "How much do 3 shards of 150 orders/s offer?",
+    a: "3 × 150 = 450 orders/s, on paper, if the load spreads evenly." },
+  { q: "How long does the backup take with 3 shards in parallel?",
+    a: "140 GB ÷ 3 = 46.7 GB per shard, 15 min 33 s at 50 MB/s, against 47 min on the single server." },
+  { q: "What is scatter-gather and why does it cost?",
+    a: "Asking all the shards and merging the answers. The query takes as long as the slowest one." },
+  { q: "What is the chance a query lands above a shard's p99, with 3 and with 50 shards?",
+    a: "1 − 0.99^N: 2.97% with 3 and 39.5% with 50." },
+  { q: "Does the chance that some shard is down grow or shrink with N?",
+    a: "It grows: 0.10% with 1 shard, 0.30% with 3 and 4.88% with 50. For one customer, it stays at 0.1%." },
+]} />

@@ -1,0 +1,125 @@
+---
+title: "Synchronous, asynchronous, semi-synchronous and log-based"
+order: 3
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the store chose a primary in SP and saw what losing it costs: 35 s and, if replication is asynchronous, 9 or 24 orders. What is left is <strong>exactly when the primary says "done"</strong> to Lena. If it is before the replica has the data, the commit is fast and a loss is possible. If it is after, the loss goes away and the commit gets slow.</p>
+
+<OneLiner>The moment the primary confirms the commit decides <strong>what is lost and how long you wait</strong>: <strong>asynchronous</strong> confirms in 2 ms and can lose orders, <strong>semi-synchronous</strong> waits for one replica (12 ms), <strong>synchronous</strong> waits for all of them (82 ms). In all of them, the replica receives the <strong>log</strong>, not the row.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Lag</strong> scenario, press <strong>Pause replay in Recife</strong> (the <code>pg_wal_replay_pause</code>) and step forward: Lena taps "my orders" at 20:10:00.300 and <strong>1055 does not show up</strong>. Then press <strong>Async</strong>, <strong>Semi</strong> and <strong>Sync</strong> and compare the commit time: <strong>2 ms</strong>, <strong>12 ms</strong> and <strong>82 ms</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/replicas-3d/?mode=lag" poster="labs/replicacao/replicas-3d-previa.webp" title="Interactive figure: Lena and the lag" alt="Preview of the 3D figure: Lena and the lag" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Asynchronous.</strong> The primary writes to its own disk (<strong>2 ms</strong>), answers "done" and only then sends the log to the replicas. A connection that only does commits gets <strong>500 per second</strong>. The price is the lag window: if the primary goes down before the log arrives, the order vanishes. And Lena may not see her own order (see the fixes below).</li>
+  <li><strong>Synchronous.</strong> The primary waits for the <strong>ack</strong> from Rio and from Recife. The time is the local commit plus the slowest replica: 2 + max(10, 80) = <strong>82 ms</strong>, or 12 commits per second per connection. In return, the RPO is <strong>zero</strong>: the confirmed order is already on all three copies. (Real measurement on PostgreSQL 14, <strong>with no network</strong>: a commit with one synchronous replica on the same computer took <strong>8.1 ms</strong>; the store's network adds to that.)</li>
+  <li><strong>Semi-synchronous.</strong> The primary waits for <strong>one</strong> replica, the closest (Rio): 2 + 10 = <strong>12 ms</strong>, 83 commits per second. The RPO is zero as long as Rio answers, and Recife receives asynchronously. In PostgreSQL that is <code>synchronous_standby_names = 'FIRST 1 (rio, recife)'</code>; with <code>ANY 1 (…)</code> either of the two will do.</li>
+  <li><strong>Log-based.</strong> In all three, the replica does not receive the <strong>row</strong>, it receives the <strong>log</strong> of changes and applies it <strong>in order</strong>. It is the <strong>WAL</strong> (write-ahead log) in PostgreSQL, the binlog in MySQL, the log of each partition in Kafka (with ISR, module 13) and the log of Raft, Paxos and Viewstamped Replication. The position in the log is the <strong>LSN</strong>. The main gain is order: applying the same log in the same order gives the same state, and the smaller size comes for free.</li>
+  <li><strong>The PostgreSQL levels.</strong> <code>synchronous_commit</code> accepts <code>off</code>, <code>local</code>, <code>remote_write</code>, <code>on</code> (the default: the replica <strong>flushed to disk</strong>) and <code>remote_apply</code> (the replica <strong>applied</strong>: the data is already visible there). Only <code>remote_apply</code> gives an up-to-date read, with "much larger commit delays", says the documentation.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="commit" title="Commit latency and lost orders" hint="Pick the mode (asynchronous, semi with Rio, semi with Recife, synchronous) and change the RTT of Rio (1 to 50 ms) and Recife (10 to 200 ms), the local commit (1 to 10 ms), the order rate (1 to 60 per second) and the lag (0 to 2,000 ms). The widget shows the commit latency, the commits per second per connection and the lost orders (rate × lag)." />
+
+<h3 class="sec">Lena does not see her own order</h3>
+
+<p>At 20:10:00.000 on Black Friday Lena closes <strong>order 1055</strong>. The primary in SP confirms at 20:10:00.002. The Recife replica is <strong>800 ms</strong> behind. At 20:10:00.300 she taps "my orders", the screen reads from the Recife replica and shows <strong>1054</strong> (the one from 20:08, from module 16) as the latest: <strong>1055 does not show up</strong>. Only at 20:10:00.802 does it arrive. The technical name is <em>read-your-writes</em> (Vogels): whoever writes should read what they wrote. There are three fixes.</p>
+
+<ol class="flow steps">
+  <li><strong>Read from the primary for a while.</strong> After writing, that Lena's reads go to the primary for N seconds. It works, and it costs the <strong>80 ms</strong> round trip to SP on every read.</li>
+  <li><strong>Carry a token.</strong> On commit, the primary reports the LSN, and the application only reads from the replica once it has passed that LSN. The real proof, with replay paused in Recife after the <code>INSERT</code> of 1055, is in the block right below the list.</li>
+  <li><strong><code>remote_apply</code> just for this commit.</strong> The commit waits for the replica to apply, and the read that comes afterwards already sees the order: it costs about <strong>82 ms</strong> per commit. On a normal day that is the math; with Recife 800 ms behind, the commit waits for that lag too, and that is the "much larger commit delays" from the documentation.</li>
+</ol>
+
+<pre><code>{String.raw`-- on the primary, when confirming 1055: the commit token
+SELECT pg_current_wal_lsn();                              -- 0/8004430
+
+-- on the Recife replica, with pg_wal_replay_pause()
+SELECT id, total, status FROM pedidos
+ WHERE cliente_id = 'lena-77' AND id >= 1051;             -- only 1051
+SELECT pg_last_wal_receive_lsn();                         -- 0/8004430  (received)
+SELECT pg_last_wal_replay_lsn();                          -- 0/8000060  (applied, behind)
+SELECT pg_last_wal_replay_lsn() >= '0/8004430'::pg_lsn;   -- f`}</code></pre>
+
+<p>The lab loads only orders 1041 to 1052, so the query returns only 1051. What matters are the two LSNs: the log of 1055 has already been <strong>received</strong> (<code>0/8004430</code>) and has not been <strong>applied</strong> yet (<code>0/8000060</code>). The <code>f</code> on the last line tells the application that the replica has not caught up with the commit, and it sends the read to the primary. On the other replica, without a pause, 1055 already shows up, and after <code>pg_wal_replay_resume()</code> it shows up in Recife too.</p>
+
+
+<Widget name="lena" title='Lena and "my orders"' hint="Change the replica lag (0 to 2,000 ms), the moment Lena opens the screen (0 to 2,000 ms after the commit) and the strategy (replica, primary for N seconds, LSN token, remote_apply). The widget says whether 1055 shows up and how much the read costs in ms." />
+
+<h3 class="sec">Real synchronous, in the lab</h3>
+
+<p>After <code>ALTER SYSTEM SET synchronous_standby_names = 'FIRST 1 (rio, recife)'</code> and <code>SELECT pg_reload_conf()</code>, <code>pg_stat_replication</code> shows <code>rio | sync | 1</code> and <code>recife | potential | 2</code>: Rio is the one that confirms, and Recife is the backup. If <strong>Rio goes down</strong>, <strong>Recife becomes <code>sync</code></strong> and the commit carries on. To wait for both replicas it would be <code>FIRST 2 (rio, recife)</code>.</p>
+
+<h3 class="sec">If it goes wrong (a): synchronous with the replica down</h3>
+
+<p>If both replicas go down, the <code>INSERT</code> of the order <strong>sits waiting</strong>. <code>pg_stat_activity</code> shows <code>wait_event_type = IPC</code> and <code>wait_event = SyncRep</code>, and the order <strong>is not visible</strong> to other sessions until there is a confirmation: in the lab, a <code>SELECT count(*)</code> over the two pending orders returned only what was already confirmed. With replication required for both, <strong>the store stops selling</strong> when a site is down. Once the requirement is removed (<code>synchronous_standby_names = ''</code>), the order shows up.</p>
+
+<h3 class="sec">If it goes wrong (b): semi-synchronous that turns asynchronous</h3>
+
+<p>In MariaDB and MySQL, semi-synchronous has a deadline: after <code>rpl_semi_sync_master_timeout</code> (default <strong>10,000 ms</strong>) without the replica's confirmation, the primary "reverts to asynchronous replication" and <strong>the guarantee disappears without an error</strong>. The store thinks it has an RPO of zero and has the loss window again. PostgreSQL does the opposite: it waits forever, and the store stops.</p>
+
+<WhyItMatters>
+  <li><strong>Each mode is a calculation.</strong> 2, 12 and 82 ms of commit, against losses of 9 to 24 orders in asynchronous and zero loss in semi (with Rio alive) and in synchronous.</li>
+  <li><strong>An up-to-date read is another decision.</strong> Synchronous replication guarantees the write on the copies; for Lena to see the order you need to read from a node that has already applied the log.</li>
+  <li><strong>The LSN gives the proof.</strong> The application can tell, with one comparison, whether the replica has already caught up with the commit.</li>
+  <li><strong>Waiting has two endings.</strong> PostgreSQL blocks, and MariaDB goes back to asynchronous after 10 s.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The numbers and the levels, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Mode</th><th>Waits for</th><th>Commit</th><th>Commits/s per connection</th></tr></thead>
+    <tbody>
+      <tr><th>Asynchronous</th><td>local disk only</td><td>2 ms</td><td>500</td></tr>
+      <tr><th>Semi (Rio)</th><td>2 + 10</td><td>12 ms</td><td>83</td></tr>
+      <tr><th>Synchronous (Rio and Recife)</th><td>2 + max(10, 80)</td><td>82 ms</td><td>12</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>On Black Friday, with 30 orders per second, the asynchronous losses are 30 × 0.3 = <strong>9</strong> (Rio) and 30 × 0.8 = <strong>24</strong> (Recife); on a normal day, about 0.3.</p>
+  <h4 class="deep-h">Corrections to the source article: synchronous, asynchronous, semi-synchronous and logs</h4>
+  <ul>
+    <li><strong>Synchronous and two-phase commit.</strong> The article says synchronous confirms only after <strong>all</strong> the nodes and that a common technique is <a href="https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html"><em>two-phase commit</em></a>. Real databases do synchronous replication <strong>without</strong> 2PC: PostgreSQL waits for the ack of chosen replicas (<code>FIRST n</code> or <code>ANY n</code>) and the level is configurable (<code>remote_write</code>, <code>on</code>, <code>remote_apply</code>). 2PC is something else: coordinating a <strong>transaction</strong> across several participants, and it blocks if the coordinator goes down. And "strong consistency" requires the <strong>read</strong> to also be done on an up-to-date node (<code>remote_apply</code>), not just the write.</li>
+    <li><strong>Asynchronous.</strong> The article associates eventual consistency with CDN, cache and social networks, and that holds. What is missing is the case that hurts in a store, Lena without her own order (<em>read-your-writes</em>), and <strong>how</strong> to fix it: LSN token, reading from the primary for a while, <code>remote_apply</code>.</li>
+    <li><strong>Semi-synchronous.</strong> The article says MySQL and MariaDB confirm when one replica writes. What is missing is the detail that matters: after the <code>rpl_semi_sync_master_timeout</code> (10,000 ms), the primary <strong>goes back to asynchronous</strong> (MariaDB documentation). PostgreSQL with <code>synchronous_standby_names</code> does not: the commit waits.</li>
+    <li><strong>Log-based.</strong> The article says the log reduces the amount of data transferred. The main gain is <strong>order</strong> and <strong>determinism</strong>. Paxos, Raft and Viewstamped Replication replicate a log to reach <strong>consensus</strong> (choose a leader and agree on the order), Kafka replicates each partition by ISR and the PostgreSQL WAL is the same mechanism in another role. The article lumps everything into "logs".</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: Write Ahead Log (synchronous_commit)", href: "https://www.postgresql.org/docs/current/runtime-config-wal.html" },
+    { label: "PostgreSQL: administration functions (recovery, pg_wal_replay_pause, LSN)", href: "https://www.postgresql.org/docs/current/functions-admin.html" },
+    { label: "MariaDB: Semisynchronous Replication", href: "https://mariadb.com/kb/en/semisynchronous-replication/" },
+    { label: "Werner Vogels: Eventually Consistent (read-your-writes)", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+    { label: "Martin Fowler: Write-Ahead Log", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/write-ahead-log.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now chooses when to confirm, and can prove with the LSN whether the replica already has the commit. But everything seen so far is copying between <strong>databases</strong>, and it copies <strong>everything</strong>. What is left is what to do when only <strong>one service</strong> needs a piece of <strong>another</strong> service's data: <code>entregas</code> wants Lena's address, and it lives in <code>clientes</code>.</p>
+
+<Flashcards cards={[
+  { q: "How long does the commit take in the three modes, and how many commits per second does one connection get?",
+    a: "Asynchronous 2 ms (500/s); semi-synchronous waiting for Rio 2 + 10 = 12 ms (83/s); synchronous 2 + max(10, 80) = 82 ms (12/s)." },
+  { q: "Why does Lena not see order 1055 at 20:10:00.300?",
+    a: "The Recife replica is 800 ms behind: the primary confirmed at .002 and the order only shows up in Recife at 20:10:00.802. It is read-your-writes." },
+  { q: "What are the three fixes?",
+    a: "Read from the primary for N seconds (+80 ms of RTT); carry the token (the commit's LSN) and only read from the replica with replay_lsn >= token; remote_apply (82 ms per commit)." },
+  { q: "What does replay_lsn >= token return with replay paused in Recife?",
+    a: "f: the log of 1055 was received (0/8004430) but not applied yet (0/8000060). The application sends the read to the primary." },
+  { q: "What happens when MariaDB's semi-synchronous replication does not receive the ack?",
+    a: "After rpl_semi_sync_master_timeout (10,000 ms) the primary goes back to asynchronous, with no error. PostgreSQL waits forever (SyncRep)." },
+]} />

@@ -1,0 +1,104 @@
+---
+title: "Dual-write pattern"
+order: 8
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import commandHandler from '../../../lab-code/cqrs/sql-commands-handler.go?raw';
+
+<p class="ponte">In the last lesson the read model depended on every <code>PedidoCriado</code> <strong>going out</strong> when the order <strong>came in</strong>, and the question was left open. The most obvious way is for the command to do both things in sequence: write to the database and publish to the broker. That is the <strong>dual write</strong>, and it is the wrong way, because these are <strong>two writes in two places</strong> and nothing makes them atomic.</p>
+
+<OneLiner>Writing to the database <strong>and</strong> publishing to the broker are <strong>two writes</strong> that are not atomic: either one can fail, and the read model ends up with an <strong>order without an event</strong> or an <strong>event without an order</strong>. The database transaction <strong>does not cover</strong> the broker.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Dual-write</strong> scenario, take the <strong>broker down after the commit</strong> and count the orders without an event. For the lab's "If it goes wrong" (the <code>log AVISO</code> that swallows the error and the <code>COMMIT</code> that fails after the publish), switch to the <strong>Dual-write failure</strong> scenario.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/escrita-3d/?mode=dual-write" poster="labs/cqrs/escrita-3d-previa.webp" title="Interactive figure: Dual write" alt="Preview of the 3D figure: Dual write" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The command for 1056.</strong> <code>pedidos</code> does the <code>INSERT</code> at <strong>20:12:00.004</strong> (the commit) and, right after, the <code>publish PedidoCriado</code> to Kafka. Two steps, in two systems, with nothing tying them together.</li>
+  <li><strong>Failure 1: database ok, broker down.</strong> The order exists, but the event never goes out. 1056 <strong>does not show up</strong> in "my orders", and <code>estoque</code> does not reserve (module 17 already showed the same with the mug of 1055: the stock stayed at 37 instead of 36).</li>
+  <li><strong>Failure 2: event published, database fails.</strong> The <code>COMMIT</code> is refused after the <code>publish</code>. The screen shows a <strong>1056 that does not exist</strong>, and <code>pagamentos</code> may charge for an order the database does not have.</li>
+  <li><strong>The math.</strong> If publishing fails <strong>0.1%</strong> of the time (a broker hiccup), 30 orders/s × 3,600 × 0.001 = <strong>108 orders per hour</strong> exist in the database without an event, and <strong>never</strong> reach the read model.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="dualwrite" title="Dual write: orders without an event" hint="Failure rate of the publish to the broker (0 to 5%), orders per second and the order of the two writes. See how many orders per hour are left without an event or as a ghost, and how the outbox zeroes both (lesson 10 explains the cost)." />
+
+<h3 class="sec">What the author's lab does</h3>
+
+<p>The excerpt below is from the <code>commands/handler.go</code> of <code>hospital-cqrs-sql</code>, unchanged, with the original line numbers (the comments and log messages are in Portuguese). Read "prescrição" as "order".</p>
+
+<CodeLab code={commandHandler} from={50} to={86} />
+
+<ol class="flow steps">
+  <li>Line 51 <strong>writes</strong> to the database. If it fails, the command returns an error (lines 52 and 53) and nothing is published: no problem here.</li>
+  <li>Line 78 <strong>publishes to Kafka after</strong> writing. If it fails, the code only does <code>log.Printf("AVISO: Erro ao publicar evento, mas prescrição foi criada")</code> (line 79) and <strong>carries on</strong>.</li>
+  <li>Line 85 <strong>returns success</strong> anyway. Nothing republishes: the comment on line 81 says "the event can be republished later", but there is no code that does it. This is Failure 1, written by hand. This was read in the code; the whole lab requires Docker and Kafka and was not run.</li>
+</ol>
+
+<p>The CDC lab's own <code>ARCHITECTURE_COMPARISON.md</code> marks "Publica evento no Kafka (fora da transação!)" (publishes the event to Kafka, outside the transaction) as the problem of this version.</p>
+
+<h3 class="sec">If it goes wrong: the article's "Dual-Write pattern" with rollback</h3>
+
+<p>The article presents the "Dual-Write pattern" as a <code>BEGIN</code>, the publish and a <code>COMMIT</code>, with a <em>rollback</em> if anything fails, and says that this way "one does not happen without the other". <strong>That is not atomic.</strong> The database transaction does not cover the broker: if the event goes out and the <code>COMMIT</code> fails, the event <strong>is already gone</strong> and the <em>rollback</em> does not take it back; if the <code>COMMIT</code> passes and the process dies before publishing, the event <strong>never</strong> goes out. And holding the transaction open while talking to the network <strong>holds locks</strong>: a slow broker blocks the whole database.</p>
+
+<p>A truly atomic write across PostgreSQL and Kafka would require <em>two-phase commit</em>, which blocks if the coordinator goes down (Fowler) and which Kafka does not offer. That is why the solution is not "do the two writes more carefully": it is to have <strong>one</strong> write, and derive the other from what the database already wrote. Lessons 9 and 10 show the two ways: CDC and outbox.</p>
+
+<WhyItMatters>
+  <li><strong>They are two writes, in two places.</strong> No transaction covers both.</li>
+  <li><strong>Both failures exist.</strong> An order without an event (the read model never knows) and an event without an order (the screen shows a ghost).</li>
+  <li><strong>The number is big.</strong> A 0.1% failure at 30 orders/s is 108 orders per hour.</li>
+  <li><strong>Swallowing the error makes it worse.</strong> The lab logs a warning, returns success and nobody republishes.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The two orders, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Order</th><th>If the second write fails</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><th>commit and then publish</th><td>broker down</td><td>order without an event: 108/h at 0.1%</td></tr>
+      <tr><th>publish and then commit</th><td><code>COMMIT</code> refused</td><td>event without an order: ghost on the screen and an undue charge</td></tr>
+      <tr><th>publish inside the transaction</th><td>slow broker</td><td>locks held; still not atomic</td></tr>
+      <tr><th>outbox (lesson 10)</th><td>relay down</td><td>event waits in the table; nothing is lost</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: dual write with rollback is the problem, not the solution</h4>
+  <ul>
+    <li><strong>"One does not happen without the other".</strong> The article's <em>dual write</em> with <em>rollback</em> uses the database transaction to try to protect the broker, and it does not cover it. It is the <strong>problem</strong> described by Confluent in "The Dual-Write Problem", and the lab's <code>ARCHITECTURE_COMPARISON</code> marks it as such. The solution is the outbox (lesson 10) or CDC (lesson 9).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Confluent: The Dual-Write Problem", href: "https://www.confluent.io/blog/dual-write-problem/" },
+    { label: "Martin Fowler: Two-Phase Commit", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/two-phase-commit.html" },
+    { label: "The author's public repository: hospital-cqrs-sql", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-sql" },
+  ]} />
+</Deep>
+
+<p class="gancho">The dual write fails because the event is born in the application, <strong>outside</strong> the transaction. But the database already keeps, in its log, <strong>everything it confirmed</strong> and only that. What is left is how to read what the database already wrote and turn <strong>only that</strong> into events.</p>
+
+<Flashcards cards={[
+  { q: "Why is writing to the database and publishing to the broker not atomic?",
+    a: "They are two writes in two systems: the database transaction does not cover Kafka. Either one can fail without the other." },
+  { q: "What are the two failures of the dual write?",
+    a: "(1) Database ok and broker down: the order exists and the event never goes out. (2) Event published and COMMIT refused: the screen shows a 1056 that does not exist and pagamentos may charge." },
+  { q: "How many orders per hour are left without an event with a 0.1% failure at 30 orders/s?",
+    a: "30 × 3,600 × 0.001 = 108 per hour, and they never reach the read model." },
+  { q: "What does the lab's handler.go do if the publish fails?",
+    a: "It only logs 'AVISO: Erro ao publicar evento, mas prescrição foi criada' (a warning that the event failed but the prescription was created) and returns success. Nothing republishes it (read in the code)." },
+  { q: "Why does the article's 'Dual-Write pattern' with rollback not work?",
+    a: "The database rollback does not take back an event already published, and if the commit passes and the process dies the event never goes out. And the open transaction holds locks." },
+]} />

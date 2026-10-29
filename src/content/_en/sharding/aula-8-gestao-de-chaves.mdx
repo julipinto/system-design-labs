@@ -1,0 +1,99 @@
+---
+title: "Key management"
+order: 8
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The ring moves little when a shard joins, but it does not know that <code>mkt-01</code> is different: to it, that is a key like any other. Lesson 3 asked for a dedicated shard for the partner, and no hash function does that. When a customer needs special treatment, <strong>the decision leaves the hash and goes to a map</strong>. There are three ways to keep the answer.</p>
+
+<OneLiner>The key can be <strong>computed</strong> (hash or ring, no state), <strong>mapped to fixed slots</strong> (a small map) or <strong>registered in a directory</strong> (one address per customer): the more explicit the map, the easier it is to move a single customer.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Slots</strong> scenario, move the 256 slots to <code>shard-3</code> and see who changes: only <code>bia-31</code>. Then advance to "What if it goes wrong" and note what the old shard answers when it receives a key that is no longer its own.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/anel-3d/?mode=slots" poster="labs/sharding/anel-3d-previa.webp" title="Interactive figure: 1,024 slots and the directory" alt="Preview of the 3D figure: 1,024 slots and the directory" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The first mode is to <strong>compute</strong>: <code>hash mod N</code> or the ring. There is no table, no lookup, and any router reaches the same answer. It is what the store has used so far, and it does not let you take a customer out of the place the hash chose.</li>
+  <li>The second mode is <strong>fixed slots</strong>. The hash lands on one of <strong>1,024 slots</strong> (<code>murmur3 mod 1,024</code>) and a table says which shard each slot belongs to. With 3 shards, that is <strong>342 / 341 / 341</strong> slots, with <code>slot mod 3</code> as the initial map. <code>lena-77</code> lands on slot 472 (shard-1), <code>bia-31</code> on 827 (shard-2), <code>caio-58</code> on 749 (shard-2), <code>davi-12</code> on 432 (shard-0) and <code>mkt-01</code> on 597 (shard-0). Redis Cluster uses the same model, with <strong>16,384</strong> slots and <code>CRC16(key) mod 16384</code>.</li>
+  <li>Going to 4 shards becomes moving slots. <code>shard-3</code> receives the last <strong>86 + 85 + 85 = 256</strong> slots of shards 0, 1 and 2 (slots 768 onward from 0, 769 from 1 and 770 from 2): exactly <strong>25%</strong>. Only <code>bia-31</code> changes (slot 827, from shard-2 to shard-3). The map, with 3 or 4 columns, fits in <strong>1 KB</strong>, and the customer's hash never changes.</li>
+  <li>The third mode is the <strong>directory</strong>: a <code>cliente_id → shard</code> table, written when the customer is born (the "registry" mode in the article). It lets you move <strong>a single customer</strong>. That is 1.5 million customers × about 100 B per entry (an example), <strong>150 MB</strong>: it fits in a Redis (module 5). Each request pays 1 ms for the lookup (module 11), or 0 ms with a short-TTL local cache.</li>
+  <li>Moving <code>mkt-01</code> to the dedicated <code>shard-3</code> is 20 million rows × 2 KB = <strong>40 GB</strong>, and at 50 MB/s, <strong>800 s = 13 min 20 s</strong>. Four steps: (1) copy what exists, (2) apply the changes that arrive <em>during</em> the copy (that is CDC, which module 17 covers), (3) switch the directory entry, (4) delete the source. Without step 2, the copy is born stale.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="slots" title="Slots and directory: what it costs to move" hint="Drag the number of slots moved to shard-3 (0 to 256) and adjust the MB/s and the KB per row. The widget shows the slots per shard, the GB and the minutes of copying, and the 5 keys with the shard before and after (only bia-31 changes with 256 slots)." />
+
+<h3 class="sec">The id that carries the shard</h3>
+
+<p>There is a problem the map alone does not solve. <code>WHERE id = 1042</code>, without the <code>cliente_id</code>, does not say which shard the order is on, and the query goes to <strong>all of them</strong> (the real <code>Append</code> from lesson 4). There are two ways out. One is an <strong>id with the shard embedded</strong>, like <code>1-1054</code> or a 64-bit number where some bits say the shard. The other is a <strong>global index</strong> <code>pedido_id → cliente_id</code>, which is one more table to store and keep up to date.</p>
+
+<h3 class="sec">Kafka and the database with the same key</h3>
+
+<p>The <code>pedidos</code> topic from module 13 is already sharding: 3 partitions, a key, <code>murmur2 mod 3</code>. If the event key is the <code>cliente_id</code> and the consumer of partition <em>p</em> writes to shard <em>p</em>, the consumer never crosses shards. That only works if <strong>the function and the key are the same</strong>. Kafka uses <code>murmur2 mod 3</code> and the database router uses <code>murmur3 mod 3</code>, and they coincide on only <strong>2 of 5</strong> customers: <code>lena-77</code> (1 and 1) and <code>caio-58</code> (2 and 2). <code>bia-31</code>, <code>davi-12</code> and <code>mkt-01</code> land in different places.</p>
+
+<h3 class="sec">What if it goes wrong: the stale map and the directory down</h3>
+
+<p>First case: the store cuts <code>mkt-01</code> over to <code>shard-3</code>, but a router kept the old route in cache. It sends the order to the old shard, which no longer has the customer. If the shard accepts and writes, the data ends up in the wrong place. The defense is for the shard to <strong>refuse</strong> keys that are no longer its own, like Redis Cluster's <code>-MOVED</code>, which says where to go. And the map needs an <strong>epoch</strong> (a version number): a router with an old epoch fetches the new map before trying again.</p>
+
+<p>Second case: the directory goes down. With a local cache with a <strong>60 s TTL</strong>, the customers it already knows keep working. <strong>New customers</strong> cannot sign up, because there is nowhere to write their address. The directory is one more service, and the store treats its availability like a database's.</p>
+
+<WhyItMatters>
+  <li><strong>Slots separate the hash from the shard.</strong> Moving slots changes the 1 KB map, and the customer's hash stays the same.</li>
+  <li><strong>The directory moves a single customer.</strong> 150 MB, 1 ms per lookup, and <code>mkt-01</code> costs 40 GB and 13 min 20 s.</li>
+  <li><strong>Moving needs CDC.</strong> Copying without applying what arrives during the copy delivers stale data.</li>
+  <li><strong>The map needs an epoch and a refusal.</strong> A cached route may point to the old shard.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The three modes side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Mode</th><th>State</th><th>Moving one customer</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><th>compute</th><td>none</td><td>not possible</td><td>hash mod N, ring</td></tr>
+      <tr><th>fixed slots</th><td>1 KB map</td><td>one slot at a time</td><td>Redis Cluster (16,384)</td></tr>
+      <tr><th>directory</th><td>150 MB</td><td>one customer</td><td>the article's "registry"</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>DynamoDB and MongoDB (with chunks) also hide a map like this behind the "hash". The difference between them is who does the moving: the database or the application.</p>
+  <h4 class="deep-h">Missing from the source article</h4>
+  <ul>
+    <li><strong>Online resharding.</strong> Copy, CDC and cutover do not appear in the article, and they are what makes sharding operable.</li>
+    <li><strong>Global ids and secondary indexes.</strong> Also missing: without the key, the query goes to every shard.</li>
+    <li><strong>Transactions across shards.</strong> There is no free ACID across servers.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Redis Cluster: specification (16,384 slots, CRC16, -MOVED and -ASK)", href: "https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/" },
+    { label: "DynamoDB: Partitions and data distribution", href: "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.Partitions.html" },
+    { label: "MongoDB: Sharding", href: "https://www.mongodb.com/docs/manual/sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the map, the store can take <code>mkt-01</code> out of everyone else's way. But what if, instead of moving the noisy customer, we <strong>limit the damage</strong> it does? What is left is how to give each customer only a few replicas, without moving any data.</p>
+
+<Flashcards cards={[
+  { q: "What are the three modes of keeping a key's address?",
+    a: "Compute (hash or ring), fixed slots (hash mod 1,024 and a map) and directory (cliente_id → shard)." },
+  { q: "What happens to the 5 customers when 256 slots move to shard-3?",
+    a: "Only bia-31 changes (slot 827, shard-2 → shard-3). The 256 slots are exactly 25%." },
+  { q: "How much does it cost to move mkt-01 to a dedicated shard?",
+    a: "20 million rows × 2 KB = 40 GB; at 50 MB/s, 800 s = 13 min 20 s, with copy, CDC, directory switch and deleting the source." },
+  { q: "Why should the shard refuse keys that are no longer its own?",
+    a: "A router with an old cached route sends the key to the old shard: the refusal (like Redis's -MOVED) and the map epoch avoid writing to the wrong place." },
+  { q: "On how many of the 5 customers do murmur2 mod 3 (Kafka) and murmur3 mod 3 (database) coincide?",
+    a: "2 of 5: lena-77 and caio-58. For the consumer not to cross shards, the function and the key have to be the same." },
+]} />

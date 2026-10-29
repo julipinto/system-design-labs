@@ -1,0 +1,97 @@
+---
+title: "Distributed models"
+order: 7
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson Lena's document became one read by key, but with data from <code>pedidos</code> only. The real "my orders" screen also shows the payment, the tracking and the product names, which belong to <code>pagamentos</code>, <code>entregas</code> and <code>catalogo</code>, each with its own database (module 6). Today the <code>bff-app</code> (module 9) calls all <strong>four</strong> and joins them. What is left is to compare that way with building the document <strong>from events</strong>.</p>
+
+<OneLiner>When the data sits in different services, the read model is <strong>built from the events</strong> of several owners, instead of the screen calling the four. The screen depends on <strong>one</strong> place (99.9%) and not on <strong>four at the same time</strong> (99.60%), at the cost of a multiplied eventual consistency.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Distributed</strong> scenario, take the <code>pagamentos</code> service down and compare the <strong>composed</strong> screen (which fails) with the <strong>read model</strong> screen (which keeps working, with the last status). Then advance to "If it goes wrong" and see the ghost order with no items.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=distribuido" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: Several services, one document" alt="Preview of the 3D figure: Several services, one document" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>(a) Composition.</strong> This is the <em>API Composition</em> from module 9: the <code>bff-app</code> calls <code>pedidos</code>, <code>pagamentos</code>, <code>entregas</code> and <code>catalogo</code> and builds the screen. The screen only works if <strong>all four</strong> answer: at 99.9% each, 0.999⁴ = <strong>99.6006%</strong>, or <strong>172.5 min/month</strong> offline (the serial math from module 12). The slowest one decides the latency, and every service enters the screen's blast radius.</li>
+  <li><strong>(b) Read model from events.</strong> This is the "CQRS" pattern from microservices.io: <code>PedidoCriado</code> (from <code>pedidos</code>), <code>PedidoPago</code> (from <code>pagamentos</code>) and <code>PedidoEnviado</code> (from <code>entregas</code>) feed <strong>one</strong> document. The <code>catalogo</code> does not need to join in: the event already carries the name and price at the time.</li>
+  <li><strong>What the screen gains.</strong> It reads one place: <strong>99.9%</strong>, or <strong>43.2 min/month</strong> offline. And it <strong>keeps working</strong> if <code>pagamentos</code> goes down: it shows the <strong>last</strong> status it knows, instead of "unavailable".</li>
+  <li><strong>What it pays.</strong> Three topics, one projector and one storage, plus the <strong>multiplied</strong> eventual consistency: each source has its own delay, and the 1056 document can be complete in one part and stale in another.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="composicao" title="Composition × read model" hint="Choose how many services the screen calls (1 to 8) and the availability of each one (99 to 99.99%). See the serial availability, the minutes offline per month (172.5 against 43.2) and the effect of taking one of the sources down." />
+
+<h3 class="sec">What the article calls controversial</h3>
+
+<p>The article says "purists" restrict CQRS to a single domain. The version that <strong>joins domains</strong> is exactly the <em>CQRS</em> pattern from microservices.io (a <em>view</em> with data from several services, fed by events) and the alternative to <em>API Composition</em>. It is worth this lesson's cost when the screen has to survive the failure of a source.</p>
+
+<h3 class="sec">If it goes wrong (a): PedidoCriado gets lost</h3>
+
+<p>Lesson 8 shows how this happens. Suppose the <code>PedidoCriado</code> of 1056 never reaches the read model, but <code>PedidoPago</code> and <code>PedidoEnviado</code> do. The 1056 document ends up with payment and tracking and <strong>no items</strong>: a <strong>ghost order</strong> that never completes. The defense is a <strong>checker</strong> (reconciliation): for documents without <code>itens</code> for more than 5 minutes, it calls <code>GET /pedidos/1056</code> and fills in what is missing.</p>
+
+<h3 class="sec">If it goes wrong (b): events from different topics have no order between them</h3>
+
+<p>Kafka guarantees order <strong>within a partition</strong>, and each source publishes to its own topic. So <code>PedidoPago</code> (from <code>pagamentos</code>) can arrive <strong>before</strong> <code>PedidoCriado</code> (from <code>pedidos</code>). The projector does a <strong>partial upsert</strong> by <code>pedido_id</code> and stores the <code>versao</code> <strong>per source</strong>, to know, for each part of the document, which event it already applied.</p>
+
+<WhyItMatters>
+  <li><strong>Composition adds up the risk.</strong> Four services at 99.9% give 99.60%: 172.5 min/month offline.</li>
+  <li><strong>The event-based model isolates the screen.</strong> One storage at 99.9% gives 43.2 min/month, and the screen stays up when a service goes down.</li>
+  <li><strong>The price is more pieces and more delay.</strong> Three topics, one projector, and each source with its own lag.</li>
+  <li><strong>An incomplete document is a real state.</strong> Reconciliation and the <code>versao</code> per source exist for that.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Composition × read model, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th></th><th>(a) composition in the <code>bff-app</code></th><th>(b) read model from events</th></tr></thead>
+    <tbody>
+      <tr><th>availability</th><td>0.999⁴ = 99.6006%</td><td>99.9%</td></tr>
+      <tr><th>offline per month</th><td>172.5 min</td><td>43.2 min</td></tr>
+      <tr><th>latency</th><td>that of the slowest of the 4</td><td>one read by key</td></tr>
+      <tr><th><code>pagamentos</code> goes down</th><td>the screen fails (or "status unavailable")</td><td>shows the last status</td></tr>
+      <tr><th>consistency</th><td>strong, at the moment of the call</td><td>eventual, and per source</td></tr>
+      <tr><th>pieces</th><td>no new ones</td><td>3 topics, 1 projector, 1 storage</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: CQRS "in distributed systems"</h4>
+  <ul>
+    <li><strong>"Controversial".</strong> The design that joins data from several services is the <strong>CQRS pattern from microservices.io</strong>, the alternative to <em>API Composition</em>. It is not a deviation from CQRS: it is the case where it pays off the most, and the cost (multiplied eventual consistency and more pieces) has to fit the lesson, as it does here.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "microservices.io: CQRS pattern", href: "https://microservices.io/patterns/data/cqrs.html" },
+    { label: "microservices.io: API Composition", href: "https://microservices.io/patterns/data/api-composition.html" },
+    { label: "Microsoft Azure Architecture Center: CQRS pattern", href: "https://learn.microsoft.com/pt-br/azure/architecture/patterns/cqrs" },
+    { label: "The author's public repository: exemplos/cqrs", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs" },
+  ]} />
+</Deep>
+
+<p class="gancho">The event-based read model is only worth it if every <code>PedidoCriado</code> <strong>goes out</strong> when the order <strong>comes in</strong>, and this lesson's checker exists because sometimes it does not. What is left is how <code>pedidos</code> guarantees that the event <strong>goes out</strong> when the order comes in.</p>
+
+<Flashcards cards={[
+  { q: "What is the availability of a screen composed from 4 services at 99.9% each?",
+    a: "0.999⁴ = 99.6006%, or 172.5 min/month offline. A single storage at 99.9% gives 43.2 min/month." },
+  { q: "What does the read model screen do when pagamentos goes down?",
+    a: "It keeps working and shows the last status it knows. The composed screen fails or shows 'status unavailable'." },
+  { q: "Which events feed the document of order 1056?",
+    a: "PedidoCriado (from pedidos), PedidoPago (from pagamentos) and PedidoEnviado (from entregas), into a single document." },
+  { q: "What is the ghost order and what is the defense?",
+    a: "The document has payment and tracking but no items, because PedidoCriado got lost. Defense: a checker that, for documents without items for more than 5 min, calls GET /pedidos/1056 and completes it." },
+  { q: "How does the projector handle out-of-order events from different topics?",
+    a: "It does a partial upsert by pedido_id and stores the versao per source, to know what it already applied from each one." },
+]} />

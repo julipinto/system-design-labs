@@ -1,0 +1,87 @@
+---
+title: "Introduction to data replication"
+order: 1
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In module 16 the store split <code>pedidos</code> into 3 shards, and Lena's order 1054 landed on <code>shard-1</code>. But each shard is <strong>a single server</strong>: if <code>shard-1</code> goes down, Lena and Bia have no orders, and if the disk burns the data goes with it (the RAID from module 2 protected the disk, not the server). The missing piece is to <strong>copy</strong> each shard somewhere else, and that copy has a name: replication.</p>
+
+<OneLiner>To replicate is to keep the <strong>same data in more than one place</strong> so the store stays up, reads close to the customer and survives a loss. The price is <strong>lag</strong> (the copy falls behind) and <strong>conflict</strong> (two copies change at the same time).</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Replicas</strong> scenario, press <strong>Write 1055 in SP</strong> and step forward with the → arrow. Follow the tape of the write log (the WAL) leave SP and reach Rio and Recife, and notice that the Recife cable (80 ms) takes longer than the Rio one (10 ms).</p>
+</DoIt>
+
+<Figure3D path="en/labs/replicacao/replicas-3d/?mode=primary-replica" poster="labs/replicacao/replicas-3d-previa.webp" title="Interactive figure: Primary and replicas" alt="Preview of the 3D figure: Primary and replicas" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The spare keys.</strong> Someone with a single house key who loses it at the movies is locked out. Someone who left copies with the family, or under the garage mat, gets in anyway. That is the idea in the article, and it is a bank's idea too: the data exists in more than one place, and losing one place is not losing the data.</li>
+  <li><strong>Four reasons to copy.</strong> <em>Availability</em>: the server goes down and another one answers. <em>Reads close by</em>: Lena, in Recife, reads from a copy in Recife in about <strong>2 ms</strong> instead of paying an <strong>80 ms</strong> round trip to SP. <em>More reads</em>: several copies share the queries. <em>Recovery</em>: a live copy is the starting point when the first one is lost.</li>
+  <li><strong>The store's topology.</strong> Each shard will have a <strong>primary</strong> in SP (<code>pg-sp</code>) and replicas in Rio (<code>pg-rio</code>) and Recife (<code>pg-recife</code>). The text talks about "the <code>pedidos</code> database", which holds for all three shards. The primary reads and writes; the replicas <strong>only read</strong>. The distances are examples: a round trip of <strong>10 ms</strong> between SP and Rio, <strong>80 ms</strong> between SP and Recife (the same 80 ms from module 3). The star order of this module is <strong>1055</strong>: Lena buys 1 blue mug (19.90) plus 15.00 of shipping to Recife, <strong>34.90</strong>, at <strong>20:10:00.000</strong> on Black Friday, and the mug stock goes from 37 to 36.</li>
+  <li><strong>Full or partial.</strong> Each site can keep <strong>everything</strong> (full replication) or <strong>part</strong> of it (partial). With 140 GB of orders, full puts 140 GB on each of the 3 sites: <strong>3 × 140 = 420 GB</strong>. Partial puts 2 of the 3 shards on each site: 93.3 GB × 3 = <strong>280 GB</strong>, two thirds. Partial only works if someone knows <strong>where each piece of data is</strong>, and that someone is the sharding from module 16. Full also <strong>multiplies the writes</strong>: every write goes to every site.</li>
+  <li><strong>The map of the axes.</strong> In the Scale Cube from module 15, replicating the data is the <strong>X axis</strong> applied to the database; splitting by customer is the <strong>Z axis</strong> from module 16. Together they give 3 shards × 3 copies = <strong>9 database servers</strong>. And the conversation from module 3, with SP, Rio and Recife, a network partition and the quorum of 2 out of 3, is back now with real databases.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="quorum" title="Quorum: W + R > N" hint="N = 3 (SP, Rio and Recife). Change W (how many copies confirm the write) and R (how many answer the read). The widget says whether the read always overlaps with the latest write and what you give up with each choice." />
+
+<h3 class="sec">If it goes wrong: a replica is not a backup</h3>
+
+<p>At 20:15 someone runs <code>DELETE FROM pedidos WHERE status = 'criado'</code> without looking at the <code>WHERE</code>. The primary deletes, the log carries the delete to Rio and Recife, and within <strong>60 ms</strong> (Recife's normal lag) all three copies are empty. Replication copies the data <strong>and copies the mistake</strong>. To go back to a point in time, the store needs backup and point-in-time recovery, the subject of module 27.</p>
+
+<WhyItMatters>
+  <li><strong>The shard stops being a single server.</strong> With a primary in SP and replicas in Rio and Recife, losing one server does not take the data with it.</li>
+  <li><strong>Reading close by costs 2 ms.</strong> Lena reads from Recife instead of crossing 80 ms to SP.</li>
+  <li><strong>Copying has two prices.</strong> The copy lags behind (lag) and two copies can change at once (conflict); the next lessons measure both.</li>
+  <li><strong>A replica is not a backup.</strong> The mistake travels the same path as the good data.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The math of the 9 servers and the GB</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Choice</th><th>Math</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>Full</th><td>3 sites × 140 GB</td><td>420 GB</td></tr>
+      <tr><th>Partial (2 of 3 shards)</th><td>(140 ÷ 3) × 2 × 3 sites</td><td>280 GB (2/3)</td></tr>
+      <tr><th>The store's database</th><td>3 shards × 3 copies</td><td>9 servers</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Corrections to the source article: full and partial, and the references</h4>
+  <ul>
+    <li><strong>Full replication.</strong> The article says that replicating on every node "adds several levels of availability" and calls full replication <em>Full-Table Replication</em>. It also <strong>multiplies the writes</strong>: every write is done on all sites. Partial depends on sharding (module 16) to know where each piece of data is.</li>
+    <li><strong>The references.</strong> ManageEngine, Triggo, Rivery, Estuary, dev.to and Medium are left out. The PostgreSQL, MariaDB and Debezium documentation, the texts by Fowler and Vogels and the CRDT and Raft papers come in.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on data replication (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/replicacao/" },
+    { label: "PostgreSQL: High Availability, Load Balancing, and Replication", href: "https://www.postgresql.org/docs/current/high-availability.html" },
+    { label: "PostgreSQL: Comparison of Different Solutions", href: "https://www.postgresql.org/docs/current/different-replication-solutions.html" },
+    { label: "Werner Vogels: Eventually Consistent", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store now knows why to copy, where the copies live (SP, Rio and Recife) and that a copy does not replace a backup. But three copies open a question that has no answer yet: when Lena buys and the primary writes, <strong>who receives the writes</strong>? We still need to know whether only the primary writes or any site can, and what happens when the primary goes down.</p>
+
+<Flashcards cards={[
+  { q: "What does it mean to replicate data?",
+    a: "To keep the same data in more than one place so you stay up, read close by and survive a loss. The price is lag and conflict." },
+  { q: "What are the four reasons to copy?",
+    a: "Availability, reads close by (Recife reads in ~2 ms instead of 80 ms to SP), more reads (the copies share the queries) and recovery." },
+  { q: "How much space do 140 GB take with full and partial replication (2 of 3 shards) on the 3 sites?",
+    a: "Full: 3 × 140 = 420 GB. Partial: 93.3 GB × 3 = 280 GB, two thirds. Partial needs sharding to know where each piece of data is." },
+  { q: "How many database servers does the store have with 3 shards replicated on 3 sites?",
+    a: "9: the Z axis from module 16 (3 shards) times the X axis for data (3 copies)." },
+  { q: "Why is a replica not a backup?",
+    a: "A careless DELETE reaches both replicas in 60 ms (Recife's normal lag): three copies of the mistake. Backup and point-in-time recovery (module 27) are still needed." },
+]} />

@@ -1,0 +1,84 @@
+---
+title: "Introduction and sharding topology"
+order: 1
+min: 8
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Module 15 ended with the scale cube and one axis the store never used: <strong>Z</strong>, splitting by customer. The reason is in module 14. The <code>pedidos</code> database handles <strong>150 orders per second</strong>, and more service replicas do not move that ceiling. The database also got big: the <code>pedidos</code> table, which had 6 rows in module 4 (1041 to 1046), now has <strong>50 million</strong>. The problem in this module is <strong>splitting the table across servers</strong>: by which key, where each row lands, and what happens when things change.</p>
+
+<OneLiner>Sharding means splitting a table's data across several <strong>servers</strong>, each holding one piece (a <strong>shard</strong>), and giving each row an address computed from a <strong>key</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Topology</strong> scenario, advance the steps with the → key and watch the single 140 GB server turn into 3 shards. Note which shard Lena's order <strong>1054</strong>, at 20:08, lands on, and how many rows each shard receives. Then look at the second topology: the partner <code>mkt-01</code> in a compute pool of its own.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=topologia" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: From 1 server to 3 shards" alt="Preview of the 3D figure: From 1 server to 3 shards" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The <code>pedidos</code> table has <strong>50,000,000 rows</strong> of about <strong>2 KB</strong> each (an order stores the address and the items in a JSON, as an example). That is <strong>100 GB</strong>. Indexes add another 40%, so the database weighs <strong>140 GB</strong>, on a <strong>200 GB</strong> volume that is already 70% full.</li>
+  <li>And the table keeps growing. On a normal day the store makes 5 orders per second: 5 × 86,400 = <strong>432,000 orders per day</strong>, which gives 432,000 × 2 KB × 1.4 = <strong>1.21 GB per day</strong>. The 60 GB of free space runs out in about <strong>50 days</strong>. That is without Black Friday.</li>
+  <li>A full backup at 50 MB/s (an example) copies 140,000 MB in 2,800 s: <strong>47 minutes</strong>. A filling disk, a backup of almost an hour and a ceiling of 150 orders per second are the store's three triggers. All three ask for the same thing: smaller pieces, on different machines.</li>
+  <li>Before splitting, there is a <strong>ladder of remedies</strong>: index (module 4), cache (module 5), read replicas (module 17), <strong>partitioning</strong> inside the same server (lesson 4) and only then sharding. <strong>50 million rows still fit in one PostgreSQL.</strong> The store reaches the sharding step because the problem is writes, disk and backup, not just reads.</li>
+  <li>The name needs care. <strong>Partitioning</strong> means dividing a table <em>inside</em> one server. A <strong>shard</strong> is each piece on a <em>different</em> server. From here on, "partition" is the first thing and "shard" is the second.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The two topologies</h3>
+
+<p>There are two ways to use the idea. In the <strong>data topology</strong>, what gets split is the data: <code>shard-0</code>, <code>shard-1</code> and <code>shard-2</code> (servers <code>pg-pedidos-0</code> to <code>pg-pedidos-2</code>) each hold a third of the table, and a <strong>router</strong> computes where each row goes. This is what the whole module studies.</p>
+
+<p>In the <strong>compute topology</strong>, what gets separated is the processing. <code>mkt-01</code>, the partner from module 8, gets a pool of servers of its own, and the rest of the customers use another one. The data can stay in a single database. The article calls this sharding too; it is <strong>load isolation</strong>, the bulkhead idea from module 25. It is very useful, but it is a different technique.</p>
+
+<p>And the idea does not stay only in the database. The distributed cache from module 5 already splits keys across nodes, and the partitions of the <code>pedidos</code> topic in Kafka (module 13) are message sharding, with the key and <code>murmur2 mod 3</code>.</p>
+
+<h3 class="sec">What if it goes wrong: sharding too early</h3>
+
+<p>Suppose the store splits the table today, without having reached the triggers. The "revenue of the day" report, which now sums everything in a single query, becomes <strong>3 queries, 3 connections and 3 results to add up</strong>. A transaction that touches orders from two customers may hit two shards, and the single transaction is gone: there is no free ACID across servers. Sharding charges a lot, so it only comes after the cheaper steps of the ladder.</p>
+
+<WhyItMatters>
+  <li><strong>The trigger is measured.</strong> 140 GB on 200 GB, 1.21 GB per day, 50 days of slack, a 47 min backup and 150 orders/s.</li>
+  <li><strong>Service replicas do not solve it.</strong> The ceiling is the database, and it is a single server.</li>
+  <li><strong>Partition and shard are different things.</strong> One stays inside the server and the other crosses servers.</li>
+  <li><strong>It has a cost.</strong> Queries without the key, reports in 3 parts and transactions across shards.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">The ladder of remedies, step by step</h4>
+  <p>Each step fixes one symptom and costs more than the one before. The index (module 4) speeds up the search. The cache (module 5) takes reads off the database. Read replicas (module 17) split the reads across servers. Partitioning (lesson 4) tidies the table from the inside. Sharding is the only one that also multiplies <strong>writes</strong> and <strong>space</strong>, and that is why it comes last.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Sharding is not a synonym for partitioning.</strong> The article treats both as the same thing. Here, partitioning means dividing a table inside one instance (it gives pruning and retention, not capacity), and a shard is each piece on a different server.</li>
+    <li><strong>Computational segregation.</strong> The article calls it sharding. It is load isolation (bulkhead, module 25): useful, but it does not split the data.</li>
+    <li><strong>"If a node fails, the other shards stay available."</strong> Only for the keys that live in the other shards. Without replicas (module 17), the data of the shard that went down becomes unavailable. Lesson 2 does the math.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Azure Architecture Center: Sharding pattern", href: "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding" },
+    { label: "PostgreSQL: Table Partitioning", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "Redis Cluster: specification (16,384 slots)", href: "https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Splitting costs more complicated queries and more things that can break. What is left to find out is what the store gets in return: how much capacity, how much space, and what happens to the queries that do not carry the key.</p>
+
+<Flashcards cards={[
+  { q: "What are the three triggers that take the store to sharding?",
+    a: "Disk (140 GB on a 200 GB volume, 50 days of slack), backup (47 min) and the database's write ceiling (150 orders/s)." },
+  { q: "What is the difference between partitioning and sharding?",
+    a: "Partitioning divides the table inside one instance. A shard is each piece on a different server." },
+  { q: "What are the steps of the ladder of remedies?",
+    a: "Index, cache, read replicas, partitioning on the same instance and, last, sharding." },
+  { q: "What separates the data topology from the compute one?",
+    a: "In the data topology, each server holds a piece of the table. In the compute one, only the processing is isolated (mkt-01 in a pool of its own): that is a bulkhead." },
+  { q: "What is the cost of splitting too early?",
+    a: "Reports become N queries, the single transaction is gone and queries without the key go through every shard." },
+]} />

@@ -54,11 +54,11 @@ const css = `
 .embedded #ctl-anel button:nth-child(n+3),.embedded #ctl-anel .sep{display:none!important}
 `;
 const reps = [
-  ["<title>Iso 3D</title>", "<title>Anel de hashing em 3D · SDLabs</title>"],
-  ["<i></i>Iso 3D</div>", "<i></i>Anel · 3D</div>"],
+  ["<title>Iso 3D</title>", EN ? "<title>Hashing ring in 3D · SDLabs</title>" : "<title>Anel de hashing em 3D · SDLabs</title>"],
+  ["<i></i>Iso 3D</div>", EN ? "<i></i>Ring · 3D</div>" : "<i></i>Anel · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-7-hashing-consistente">Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-7-hashing-consistente">' + (EN ? "Back to module" : "Voltar ao módulo") + '</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read(EN ? "fig3d.en.js" : "fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

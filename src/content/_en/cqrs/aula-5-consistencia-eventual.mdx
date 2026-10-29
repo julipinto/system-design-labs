@@ -1,0 +1,103 @@
+---
+title: "Eventual consistency"
+order: 5
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import eventsHandler from '../../../lab-code/cqrs/sql-events-handler.go?raw';
+
+<p class="ponte">In the last lesson the Recife replica showed the problem: the read model <strong>is behind</strong> the write model, and Lena did not see 1056 (the same as 1055 in module 17). With events feeding the model, that delay is the <strong>design</strong>, not a defect: it is the <em>eventual consistency</em> from module 3 (BASE). The job now is to <strong>predict</strong> the gap, give Lena a way to see her own order and know how to measure it.</p>
+
+<OneLiner>Separating the models trades "I read what I just wrote" for "I read <strong>soon</strong>". <strong>Eventual consistency</strong> is acceptable if the design plans for the gap: Lena sees her own order in one of the three ways below, and the projector's <strong>lag</strong> is the metric you watch.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Eventual</strong> scenario, open "my orders" <strong>50 ms</strong> after 1056 and see that it does not appear. Then use the <strong>version token</strong> and watch the screen wait for the projector. For "If it goes wrong" (the projector applying the event twice), advance to the last step.</p>
+</DoIt>
+
+<Figure3D path="en/labs/cqrs/cqrs-3d/?mode=eventual" poster="labs/cqrs/cqrs-3d-previa.webp" title="Interactive figure: Eventual consistency" alt="Preview of the 3D figure: Eventual consistency" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The timeline of 1056.</strong> The <code>COMMIT</code> happens at <strong>20:12:00.004</strong>. CDC reads the WAL (+30 ms), Kafka with <code>acks=all</code> confirms (+10 ms), the consumer picks it up (+20 ms) and the upsert into the read store takes +10 ms: the read model knows about 1056 at around <strong>20:12:00.074</strong>, <strong>~74 ms</strong> after the commit. Those times are an example from a normal day.</li>
+  <li><strong>The gap.</strong> Lena opens "my orders" at <strong>20:12:00.050</strong>, 24 ms before the model knows, and <strong>does not see</strong> 1056. This is the <em>read-your-writes</em> problem (whoever writes must read what they wrote) from module 17.</li>
+  <li><strong>Way (a): the command's response carries the order.</strong> <code>CriarPedido</code> answers <code>201</code> with the 1056 document, and the app puts it in the list right away, without asking the read model.</li>
+  <li><strong>Way (b): version token.</strong> The document's <code>versao</code> is the analog of the LSN from module 17. The app asks <code>GET /meus-pedidos?min_versao=8</code>: <code>meus-pedidos</code> waits (up to <strong>1 s</strong>) for the projector to reach version 8 and, if it does not, reads from the command side.</li>
+  <li><strong>Way (c): "processing".</strong> The screen shows 1056 as "processing" until the model catches up. It does not lie and does not ask anyone, but Lena sees the order without tracking and without payment for a few moments.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="lena" title="Does Lena see 1056?" hint="Projector delay (0 to 3,000 ms), the moment she opens the screen (0 to 3,000 ms after the commit) and the strategy. The widget says whether the order shows up and what the strategy costs." />
+
+<h3 class="sec">The delay on Black Friday: the math that works and the math that does not</h3>
+
+<p>On Black Friday the store does 30 orders/s and each one generates 4 events (for 1056: <code>e-1801</code> <code>PedidoCriado</code>, <code>e-1802</code> <code>PedidoPago</code> at 20:12:01.100, and <code>e-1803</code> and <code>e-1804</code>, both <code>EstoqueReservado</code>, cat 20 → 19 and mug 36 → 35): <strong>120 events/s</strong>. The projector does 1 upsert of 10 ms per event, that is, <strong>100 events/s per instance</strong>. With <strong>1 instance</strong>, the deficit is <strong>20/s</strong>: in 10 minutes the accumulated delay is 20 × 600 = <strong>12,000 events</strong> (<strong>120 s</strong>) and it only grows. With <strong>3 instances</strong> (the 3 partitions of the <code>pedidos</code> topic, module 13) the capacity is <strong>300/s</strong> and each one receives 40/s: <strong>40% usage</strong>. And the math that does not work: one of the 3 goes down for 10 min and accumulates 40 × 600 = <strong>24,000 events</strong>; when it returns, it drains at 100 − 40 = <strong>60/s</strong>, and takes <strong>400 s (6 min 40 s)</strong>. In that time only the customers <strong>of that partition</strong> see a delayed screen.</p>
+
+<Widget name="atraso" title="Read model delay" hint="Orders per second, events per order, ms per event, projector instances and minutes one instance is down. See the capacity, the usage, the delay at 10 minutes and the time to drain (120 s and 400 s in the Black Friday scenario)." />
+
+<p>The metric that watches all this is the <strong>consumer lag</strong> (module 13) and the <strong>age of the last applied event</strong>: if the age goes past a few seconds, the screen is showing the past.</p>
+
+<h3 class="sec">If it goes wrong: the projector applies the same event twice</h3>
+
+<p>The projector in the author's lab (<code>hospital-cqrs-sql/internal/events/handler.go</code>) does a plain <code>INSERT</code> into the <em>view</em>, with no <code>ON CONFLICT</code>. The excerpt below is from that file, unchanged, with the original line numbers (the comments are in Portuguese); read <code>View_Farmacia</code> as the store's "document".</p>
+
+<CodeLab code={eventsHandler} from={84} to={98} />
+
+<p>Read in the code (the lab was not run): if the consumer rereads the message, the <code>INSERT</code> runs again and <strong>duplicates the row</strong>. In the store, 1056 would show up twice in "my orders". The fix is to apply the event <strong>only if the <code>versao</code> is greater</strong> than the stored one, or to store the <code>evento_id</code> of those already applied: <strong>idempotency</strong>, the subject of modules 20 and 21.</p>
+
+<WhyItMatters>
+  <li><strong>The delay is the price of the design.</strong> ~74 ms on a normal day; it only becomes a problem if nobody planned for it.</li>
+  <li><strong>Lena needs to see her own order.</strong> Command response, version token or "processing": each one costs something different.</li>
+  <li><strong>The projector's capacity decides the delay.</strong> 120 events/s against 100/s per instance gives 120 s and growing; three instances give 40% usage.</li>
+  <li><strong>Redelivery happens.</strong> A projector that is not idempotent duplicates the order.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">The lesson's numbers, side by side</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Scenario</th><th>Math</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><th>delay on a normal day</th><td>4 + 30 + 10 + 20 + 10 ms</td><td>~74 ms</td></tr>
+      <tr><th>1 instance, Black Friday</th><td>120/s in, 100/s out</td><td>12,000 events in 10 min = 120 s, growing</td></tr>
+      <tr><th>3 instances</th><td>300/s of capacity, 40/s each</td><td>40% usage</td></tr>
+      <tr><th>1 of 3 down for 10 min</th><td>40 × 600 accumulated, drains at 60/s</td><td>24,000 events, 400 s to drain</td></tr>
+      <tr><th>the lab's relay</th><td>2 s poll</td><td>1 s on average, 2 s in the worst case</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h4 class="deep-h">Correction to the source article: how Lena sees her own order</h4>
+  <ul>
+    <li><strong>Eventual consistency "accepted in the design".</strong> The article accepts the delay, but does not say <strong>how Lena sees her own order</strong> (command response, version token, "processing"), nor how to <strong>measure</strong> the delay (consumer lag and age of the last event), nor how to <strong>rebuild</strong> the model: 50 million orders × 4 events = 200 million events, at 20,000 events/s (the pace of the "new consumer" in module 17) take <strong>10,000 s = 2 h 47 min</strong>. And the <code>pedidos</code> topic keeps only <strong>7 days</strong> (module 13): rebuilding requires rereading the <code>pedidos</code> table or a complete log (module 20).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on CQRS (fidelissauro.dev, unaffiliated; in Portuguese)", href: "https://fidelissauro.dev/cqrs/" },
+    { label: "Werner Vogels: Eventually Consistent", href: "https://www.allthingsdistributed.com/2008/12/eventually_consistent.html" },
+    { label: "Martin Fowler: CQRS", href: "https://martinfowler.com/bliki/CQRS.html" },
+    { label: "Confluent: CQRS", href: "https://developer.confluent.io/courses/event-sourcing/cqrs/" },
+    { label: "The author's public repository: hospital-cqrs-sql", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/cqrs/hospital-cqrs-sql" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store knows how far behind the read model falls and how Lena sees her own order. Until now the read model was another SQL table, but reading needs neither a transaction nor a <code>JOIN</code>. What is left is what changes if the read model is <strong>another database, of another kind</strong>.</p>
+
+<Flashcards cards={[
+  { q: "How long does it take from the commit of 1056 to the read model?",
+    a: "~74 ms on a normal day: commit at 20:12:00.004, CDC +30 ms, Kafka +10 ms, consumer +20 ms, upsert +10 ms. Lena opened at 20:12:00.050 and did not see it." },
+  { q: "What are the three ways for Lena to see her own order?",
+    a: "(a) The command's response carries the order (201 with the document). (b) Version token: GET /meus-pedidos?min_versao=8 waits up to 1 s and, if it does not arrive, reads from the command side. (c) The screen shows 'processing'." },
+  { q: "Why can't 1 projector instance handle Black Friday?",
+    a: "30 orders/s × 4 events = 120/s against 100/s per instance: a deficit of 20/s, 12,000 events (120 s) in 10 min, and it only grows. With 3 instances it is 300/s and 40% usage." },
+  { q: "What if one of the 3 instances goes down for 10 minutes?",
+    a: "It accumulates 40 × 600 = 24,000 events; when it returns it drains at 100 − 40 = 60/s, in 400 s (6 min 40 s). Only the customers of that partition see the delayed screen." },
+  { q: "What is the defect of the lab's projector and the fix?",
+    a: "The INSERT into the view has no ON CONFLICT: redelivery duplicates the row. Fix: apply only if the versao is greater, or store the evento_id (idempotency)." },
+]} />

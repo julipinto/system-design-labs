@@ -1,0 +1,100 @@
+---
+title: "Common ranges, dates and tiers"
+order: 5
+min: 9
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the table was split into 3 years, and the choice of year was a <strong>range</strong>: each partition takes care of an interval of the key. It is the easiest form to understand, because the rule fits on one line. It is also the one that <strong>concentrates the most</strong>. This lesson goes through the four most common ranges in the article and measures where each one gets heavy.</p>
+
+<OneLiner>Ranges are easy to read and to explain, but the range that receives new data, like the current year, is <strong>hot by construction</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Partitions</strong> scenario, advance to the step where the year rolls over and the first 2027 row arrives. See the error and note the exact message. Then read how the <code>DROP</code> of the 2024 partition retires data without scanning a single row.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/shards-3d/?mode=particoes&step=7" poster="labs/sharding/shards-3d-previa.webp" title="Interactive figure: Partitions inside 1 server" alt="Preview of the 3D figure: Partitions inside 1 server" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The range by <strong>initial</strong>. The article divides the alphabet into 6 ranges: A–E, F–J, K–N, O–R, S–V and W–Z. With the store's sample, by the initial of the name, the <strong>A–E</strong> range gets Bia, Caio and Davi (<strong>8</strong> rows) and <strong>K–N</strong> gets Lena (<strong>6</strong>). The other 4 ranges stay <strong>empty</strong>: 2 shards out of 6 do the work.</li>
+  <li>The range by <strong>identifier</strong>. The 50 million ids become 3 ranges of 16.67 million. But the <code>id</code> is sequential, and <strong>100% of the new writes</strong> go to the last range. The first two stay full and idle (the "overflow"), and the last one does all the work: efficiency of 33.3%, the same math as lesson 3.</li>
+  <li>The range by <strong>date</strong>. By year: 2024 has <strong>8 million</strong> rows (16 GB), 2025 has <strong>17 million</strong> (34 GB) and 2026 has <strong>25 million</strong> (50 GB), 50 million and 100 GB in total (a stated example). The current year's partition receives all the writes, so it is hot by construction, and the 2024 one is only read now and then.</li>
+  <li>From there come the <strong>tiers</strong>. The 2026 partition is <strong>hot</strong>, on a fast SSD; 2025 is <strong>warm</strong>; 2024 is <strong>cold</strong>, on cheap and slow storage. The PostgreSQL documentation says rarely used data can go to cheaper media. What was a problem (the current year is hot) becomes a cost rule: old data does not need expensive disk.</li>
+  <li>And <strong>retention</strong> comes free. To retire 2024, <code>DETACH</code> takes 1.1 ms and <code>DROP</code> 7.5 ms, against the 62.9 ms of <code>DELETE</code> (105,407 rows, PostgreSQL 14; lesson 4 has the table). The first two do not scan rows and leave no work for <code>VACUUM</code>.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="particao" title="Roll over the year: the 2027 row and the missing partition" hint="Use the shortcut 'new year: 1/1/2027' and see the INSERT error. Then turn on 'create the pedidos_2027 partition' and repeat. The widget also compares DELETE, DROP and DETACH." />
+
+<h3 class="sec">Which range for which problem</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Range</th><th>Works well when</th><th>Concentrates on</th></tr></thead>
+  <tbody>
+    <tr><th>initials</th><td>the alphabet is the access pattern</td><td>common names (2 of 6 ranges work in the sample)</td></tr>
+    <tr><th>identifiers</th><td>queries ask for a range of ids</td><td>the last range (100% of the writes)</td></tr>
+    <tr><th>dates</th><td>there is retention and the query has the date</td><td>the current period</td></tr>
+    <tr><th>tiers</th><td>old data is almost never read</td><td>only the hot tier</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">What if it goes wrong: 1/1/2027 with no partition created</h3>
+
+<p>Midnight of New Year's Eve has passed. The first order of 2027 tries to write and PostgreSQL answers <code>ERROR: no partition of relation "pedidos" found for row</code>. No child table covers the date. The store loses every order of the new year until someone creates the partition, and whoever wakes up to the alert finds out the error was <strong>predictable</strong>.</p>
+
+<p>The fix is a scheduled job that creates the next period's partition <strong>before</strong> it is needed, with weeks of margin. A <code>DEFAULT</code> partition also holds the rows outside every range, but it hides the problem: it grows with nobody looking.</p>
+
+<WhyItMatters>
+  <li><strong>A range is simple and concentrates.</strong> Initials leave 4 of 6 ranges empty; ids and dates send 100% of the writes to the last one.</li>
+  <li><strong>Dates give retention.</strong> Retiring the old year is a 7.5 ms <code>DROP</code>.</li>
+  <li><strong>Tiers use the imbalance.</strong> 2026 on SSD, 2025 in the middle, 2024 on cheap disk.</li>
+  <li><strong>The next period's partition has to exist beforehand.</strong> Otherwise the <code>INSERT</code> fails.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The store's ranges in numbers</h4>
+  <div class="sr-tablewrap">
+  <table class="sr-table">
+    <thead><tr><th>Partition</th><th>Rows</th><th>Size (2 KB/row)</th><th>Tier</th></tr></thead>
+    <tbody>
+      <tr><th>pedidos_2024</th><td>8 million</td><td>16 GB</td><td>cold</td></tr>
+      <tr><th>pedidos_2025</th><td>17 million</td><td>34 GB</td><td>warm</td></tr>
+      <tr><th>pedidos_2026</th><td>25 million</td><td>50 GB</td><td>hot (SSD)</td></tr>
+      <tr><th>total</th><td>50 million</td><td>100 GB</td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The per-year numbers are a stated example, chosen to add up to the 50 million rows. What matters is the shape: few old rows, many recent ones.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "PostgreSQL: Table Partitioning (pruning, DROP and DETACH, cheaper media)", href: "https://www.postgresql.org/docs/current/ddl-partitioning.html" },
+    { label: "MongoDB: Ranged Sharding", href: "https://www.mongodb.com/docs/manual/core/ranged-sharding/" },
+    { label: "MongoDB: Hashed Sharding (the contrast with ranges)", href: "https://www.mongodb.com/docs/manual/core/hashed-sharding/" },
+  ]} />
+</Deep>
+
+<p class="gancho">A hash function spreads rows better than any range, without heating up the last one. What is left is the price: what happens to the table when the number of shards <strong>changes</strong>.</p>
+
+<Flashcards cards={[
+  { q: "How many of the 6 initial ranges work with the store's sample?",
+    a: "2: A–E (Bia, Caio and Davi, 8 rows) and K–N (Lena, 6 rows). The other 4 stay empty." },
+  { q: "Why does a sequential id concentrate the writes?",
+    a: "Every new id lands in the last range: 100% of the writes on one shard, with the first two ranges full and idle." },
+  { q: "What are the store's hot, warm and cold tiers?",
+    a: "2026 (25 million, 50 GB, SSD), 2025 (17 million, 34 GB) and 2024 (8 million, 16 GB, cheap storage)." },
+  { q: "What error shows up on the first 2027 row with no partition?",
+    a: "no partition of relation \"pedidos\" found for row. The fix is a job that creates the next partition beforehand." },
+  { q: "Why is the DROP of a partition the best retention?",
+    a: "It does not scan rows and leaves no work for VACUUM: 7.5 ms against 62.9 ms for DELETE." },
+]} />

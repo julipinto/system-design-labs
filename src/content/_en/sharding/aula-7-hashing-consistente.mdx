@@ -1,0 +1,117 @@
+---
+title: "Consistent hashing"
+order: 7
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import CodeLab from '../../../components/CodeLab.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+import ringGo from '../../../lab-code/sharding/consistent-hashing-remove.go?raw';
+
+<p class="ponte">In the last lesson, going from 3 shards to 4 with <code>mod</code> moved <strong>75.2%</strong> of the rows: 75 GB to copy, 25 minutes, and most of it going between old shards. The ideal would be to move only the part the new shard will hold, 1 row in 4. The <strong>ring</strong> (hash ring) gets close to that, because it swaps the division for a search in a sorted list.</p>
+
+<OneLiner>In consistent hashing, shards and keys live on the <strong>same circle</strong> of hashes, and each key belongs to the first shard it finds going clockwise: when a new shard joins, <strong>only its data moves</strong>, about 1 ÷ N of the total.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Reshard</strong> scenario, add <code>shard-3</code> and see which customers move: only <code>caio-58</code> and <code>davi-12</code>, both <em>to the new shard</em>. Note the ring's 25.7% against the 75.2% of <code>mod</code>. Then switch to the <strong>Virtual nodes</strong> button and compare 1, 3, 10 and 200 points per shard.</p>
+</DoIt>
+
+<Figure3D path="en/labs/sharding/anel-3d/?mode=reshard" poster="labs/sharding/anel-3d-previa.webp" title="Interactive figure: Shard-3 joins" alt="Preview of the 3D figure: Shard-3 joins" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li>The 32-bit hash goes from 0 to 4,294,967,295. Bend that interval into a circle, with the end glued to the start. Each <strong>shard</strong> gets positions on that circle (the hash of its name) and so does each <strong>key</strong> (the hash of the <code>cliente_id</code>). To find a key's owner, walk <strong>clockwise</strong> from it to the first shard.</li>
+  <li>One point per shard leaves the slices of the circle very uneven. The fix is <strong>virtual nodes</strong> (vnodes): each shard appears at many points, the hash of <code>shard-S#0</code>, <code>shard-S#1</code> and so on. With <strong>200 points</strong> per shard (this module's value), 3 shards get <strong>35.5% / 32.2% / 32.3%</strong> of the keys, and the max ÷ mean ratio is <strong>1.07</strong>.</li>
+  <li><code>shard-3</code> joins. Its 200 points fall between the neighbors' points and steal a little from each. Of the 100,000 keys, <strong>25.7%</strong> move (the ideal is 25%), and <strong>all of them to the new shard</strong>. On the 50-million-row table, that is 12.5 million, <strong>25 GB, 8 min 20 s</strong> at 50 MB/s, against the 75 GB and 25 min of <code>mod</code>.</li>
+  <li>With the store's 5 customers, only <code>caio-58</code> (shard-0 → shard-3) and <code>davi-12</code> (shard-2 → shard-3) move. <code>lena-77</code> stays on shard-0, <code>bia-31</code> and <code>mkt-01</code> on shard-2. The ring's shard numbers are not the <code>mod 3</code> ones from lesson 6: it is another spreading function, with another map.</li>
+  <li>Virtual nodes do more than balance: they spread the <strong>impact of a departure</strong>. If the biggest shard leaves a ring with 1 point per shard, all of its keys (70.2%) go to <em>one</em> neighbor, which now has <strong>91.2%</strong>: the domino effect. With 200 points, the keys split between the two neighbors.</li>
+</ol>
+</HowItWorks>
+
+<Widget name="anel" title="The ring: shards, virtual nodes and what changes" hint="Pick the shards (2 to 8) and the points per shard (1 to 200). Then add a shard or remove the biggest one and see, over the 100,000 keys, each shard's share, the max ÷ mean ratio and the fraction that moves, side by side with hash mod N." />
+
+<h3 class="sec">The effect of the number of points</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Points per shard</th><th>3 shards (% per shard)</th><th>Max ÷ mean</th><th>3 → 4: keys that move</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>70.2 / 8.8 / 21.0</td><td>2.11</td><td>23.2%</td></tr>
+    <tr><th>3 (the lab's)</th><td>59.0 / 17.7 / 23.3</td><td>1.77</td><td>32.1%</td></tr>
+    <tr><th>10</th><td>37.1 / 30.8 / 32.1</td><td>1.11</td><td>15.2%</td></tr>
+    <tr><th>100</th><td>28.3 / 39.2 / 32.5</td><td>1.18</td><td>24.2%</td></tr>
+    <tr><th>200 (the canonical one)</th><td>35.5 / 32.2 / 32.3</td><td>1.07</td><td>25.7%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>With few points the distribution is lopsided and the fraction that moves drifts from the ideal (from 15.2% to 32.1%). With 200, it is close to 1/4. With 100 points the max ÷ mean ratio goes up a little (1.18) by chance: the luck of the points matters less the more points there are, but it does not disappear. On every row, the keys that move go only to the new shard.</p>
+
+<h3 class="sec">The author's lab: 3 points and an empty shard</h3>
+
+<p>The repository has <code>consistent-hashing-remove/main.go</code>, a ring with <strong>3 points per shard</strong> and SHA-256. Adding a node creates the points and reorders the ring (original code from the repository; the comments are in Portuguese):</p>
+
+<CodeLab code={ringGo} from={32} to={42} />
+
+<p>And finding a key's owner is a binary search: the first point with a hash greater than or equal to the key's, and, if it runs past the end, back to the first (the "closes the circle" on line 66).</p>
+
+<CodeLab code={ringGo} from={58} to={71} />
+
+<p>With 4 shards and 10 tenants, the initial result is <code>Shard-00</code> with <strong>0</strong> tenants, <code>Shard-01</code> with 4, <code>Shard-02</code> with 3 and <code>Shard-03</code> with 3. <code>Shard-00</code> is born <strong>empty</strong>: 3 points are too few. Removing <code>Shard-02</code> moves <strong>3 of 10</strong> tenants, all of <code>Shard-02</code>'s, to <code>Shard-00</code>. Adding <code>Shard-04</code> moves <strong>1 of 10</strong> (Hortifruti-Oba, from <code>Shard-01</code> to <code>Shard-04</code>).</p>
+
+<h3 class="sec">Links to modules 7 and 13</h3>
+
+<p>Module 7 already used this idea: when <code>catalogo-3</code> leaves, the balancer with <code>% 2</code> moves 2/3 of the customers to another replica, and consistent hashing only 1/3. The Kafka from module 13 does <strong>not</strong> use a ring: it uses <code>murmur2 mod N</code>. That is why, going from 3 to 6 partitions, orders <code>1049</code> and <code>1051</code> move from p0 to p3, exactly the "doubling" math: about 50%.</p>
+
+<h3 class="sec">What if it goes wrong: few points and the domino</h3>
+
+<p>The store builds the ring with 1 point per shard, to save memory. The distribution comes out <strong>70.2 / 8.8 / 21.0</strong>: the first shard holds 7 of every 10 rows and the second almost nothing. With the lab's 3 points, <code>Shard-00</code> ended up with no tenant at all. Then the biggest shard goes down and leaves the ring. With 1 point, the 70.2% go <em>all</em> to one neighbor, which now has <strong>91.2%</strong> and saturates: the domino. With 3 points, 56.7 thousand of the 59.0 thousand keys go to <code>shard-1</code>, which ends up with 74.4%. With 200 points, <code>shard-1</code> gets 53.1% and <code>shard-2</code> 46.9%: they share it.</p>
+
+<WhyItMatters>
+  <li><strong>Only the new shard's data moves.</strong> 25.7% of the keys (8 min 20 s) instead of 75.2% (25 min).</li>
+  <li><strong>The keys all go to the new shard.</strong> None swaps places between old shards.</li>
+  <li><strong>Virtual nodes balance and protect.</strong> 1 point: ratio 2.11; 200 points: 1.07. And they spread the impact of a departure.</li>
+  <li><strong>The ring has no state,</strong> but it needs all the points in memory, and the router code has to be the same everywhere.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Other ways to get to the same place</h4>
+  <p><strong>Jump Consistent Hash</strong> (Google, 2014) uses no ring and no memory: it computes the shard with a short loop and only works if the shards are numbered 0 to N − 1 (you can grow N, but not remove one from the middle). <strong>Rendezvous hashing</strong> (HRW) gives each key a score for every shard and picks the one with the highest score; lesson 9 uses that idea to choose replicas. Amazon's Dynamo popularized the ring with virtual nodes.</p>
+  <h4 class="deep-h">Corrections to the source article and the lab</h4>
+  <ul>
+    <li><strong>"The module's values change very little."</strong> The ring does not use a modulo: it uses sorted positions on a circle.</li>
+    <li><strong>3 virtual nodes.</strong> The code has 3 per shard (59 / 18 / 23% in a simulation, and <code>Shard-00</code> is born empty). In practice it is tens to hundreds (200 here: 35 / 32 / 32%).</li>
+    <li><strong>"Only the data between the new node and the next one changes."</strong> That holds <em>per virtual node</em>: with several points, the new shard receives a little from each neighbor (and only it receives).</li>
+    <li><strong>The lab does not move data.</strong> <code>RemoveNode</code> and <code>AddNode</code> only change the ring; the <code>// Nova movimentação</code> in the article's output is a manual annotation. With an empty ring, <code>GetTenantNode</code> panics.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on sharding (fidelissauro.dev, no affiliation; in Portuguese)", href: "https://fidelissauro.dev/sharding/" },
+    { label: "Wikipedia: Consistent hashing", href: "https://en.wikipedia.org/wiki/Consistent_hashing" },
+    { label: "Dynamo: Amazon's Highly Available Key-value Store (SOSP 2007)", href: "https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf" },
+    { label: "Author's public repository: exemplos/sharding (consistent-hashing-remove)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/sharding" },
+    { label: "A Fast, Minimal Memory, Consistent Hash Algorithm (Jump Consistent Hash)", href: "https://arxiv.org/abs/1406.2294" },
+    { label: "Wikipedia: Rendezvous hashing", href: "https://en.wikipedia.org/wiki/Rendezvous_hashing" },
+  ]} />
+</Deep>
+
+<p class="gancho">The ring says where each customer lands and moves little when a shard joins, but the decision is still tied to the function. What is left is <strong>who keeps the map</strong> and how to move a single customer, like <code>mkt-01</code>, without touching anyone else.</p>
+
+<Flashcards cards={[
+  { q: "How does the ring pick a key's shard?",
+    a: "Hash the key onto the circle; the owner is the first shard going clockwise." },
+  { q: "How many keys move going from 3 to 4 shards on the 200-point ring?",
+    a: "25.7% (ideal 25%), all to the new shard: 25 GB and 8 min 20 s. mod moves 75.2%." },
+  { q: "Which customers move on the ring when shard-3 joins?",
+    a: "Only caio-58 and davi-12, both to shard-3." },
+  { q: "What do virtual nodes do besides balancing?",
+    a: "They spread the impact of a departure: with 1 point, the biggest shard's neighbor ends up with 91.2%; with 200, two neighbors share it." },
+  { q: "Why is the lab's shard-00 born empty?",
+    a: "3 points per shard are too few: its slice of the circle may contain no tenant." },
+]} />
