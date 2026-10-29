@@ -341,7 +341,7 @@ FIGS3D.push({ id: 'dns', name: 'DNS', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
     view: NARROW() ? { target: W(330, 130, -150), dist: innerWidth < 640 ? 10.6 : 15 } : { target: W(180, 130, 70), dist: 19 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1 2 3 · arraste para girar' };

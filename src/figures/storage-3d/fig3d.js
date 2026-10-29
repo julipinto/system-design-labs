@@ -674,7 +674,7 @@ FIGS3D.push({ id: 'storage', name: 'Storage', mod: (() => {
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   const VIEW = NARROW() ? { target: W(370, 140, 120 + ZOFF()), dist: innerWidth < 640 ? 11.2 : 14 } : { target: W(185, 180, -70), dist: 18 };
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
     view: VIEW,
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · tipo: C ou 1 a 5 · arraste para girar' };

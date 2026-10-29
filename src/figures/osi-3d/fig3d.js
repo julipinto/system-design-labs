@@ -313,7 +313,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   if (document.documentElement.classList.contains('embedded')) { controls.enableZoom = false; }
   drawTile('photo', true); render();
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Foto ⇄ Ligação', 'U', toggleMode]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Foto ⇄ Ligação', 'U', toggleMode]],
     view: NARROW() ? { target: W(SXS.sp + SW / 2 + 30, 150 + PULL * 0.6, 30), dist: innerWidth < 640 ? 7 : 9 } : { target: W(250, 200, 110), dist: 14 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · clique numa camada · arraste para girar' };

@@ -764,7 +764,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   const VIEW = NARROW() ? { target: W(370, 150, 110 + ZOFF()), dist: innerWidth < 640 ? 11.2 : 14 } : { target: W(165, 195, -80), dist: 15.5 };
   applyVis(); render();
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
     view: VIEW,
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1 a 5 · arraste para girar' };

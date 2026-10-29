@@ -3009,7 +3009,9 @@ if (load('ortho') === '1') setOrtho(true, view().dist());
 // ── glow colour: same names and order as the 2D galleries (Ember is the 3D orange); shared choice with them via 'iso-accent' ──
 const ACCENTS3 = [['Ember', '#ff9d3c'], ['Cyan', '#22d3ee'], ['Lime', '#a3e635'], ['Violet', '#a78bfa'], ['Rose', '#fb7185'], ['Ice', '#dfe9ef']];
 const swEl = document.getElementById('swatches');
-swEl.innerHTML = ACCENTS3.map(([n, c]) => `<button role="radio" data-accent="${n.toLowerCase()}" aria-label="${n}" title="${n}" style="--sw:${c}"><i></i></button>`).join('');
+// SDLabs: o nome em inglês segue como chave (salvo e compartilhado com as galerias 2D); a pessoa lê o nome em português
+const ACCENT_PT = { Ember: 'Laranja', Cyan: 'Ciano', Lime: 'Verde-limão', Violet: 'Violeta', Rose: 'Rosa', Ice: 'Gelo' };
+swEl.innerHTML = ACCENTS3.map(([n, c]) => `<button role="radio" data-accent="${n.toLowerCase()}" aria-label="Brilho ${ACCENT_PT[n] || n}" title="${ACCENT_PT[n] || n}" style="--sw:${c}"><i></i></button>`).join('');
 function pickAccent(k) {
   const a = ACCENTS3.find(x => x[0].toLowerCase() === k) || ACCENTS3[0]; k = a[0].toLowerCase();
   const old = accent.clone(); setAccent(a[1]);

@@ -669,7 +669,7 @@ FIGS3D.push({ id: 'monolito', name: 'Monolito', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
     view: NARROW() ? { target: W(360, 230, -150), dist: innerWidth < 640 ? 12 : 15 } : { target: W(95, 230, 60), dist: 14 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1–6 · arraste para girar' };

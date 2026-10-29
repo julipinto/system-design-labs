@@ -520,7 +520,7 @@ FIGS3D.push({ id: 'cap', name: 'CAP', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar modo', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar modo', 'C', cycleSc]],
     view: NARROW() ? { target: W(320, 150, -230), dist: innerWidth < 640 ? 10.5 : 13 } : { target: W(60, 150, -20), dist: 16.5 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · modo: C ou 1 2 3 4 5 · arraste para girar' };

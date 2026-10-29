@@ -689,7 +689,7 @@ FIGS3D.push({ id: 'modelos', name: 'Modelos', mod: (() => {
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   const VIEW = NARROW() ? { target: W(490, 150, 60 + ZOFF()), dist: innerWidth < 640 ? 10.8 : 13 } : { target: W(296, 284, 40), dist: 18.5 };
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar modelo', 'C', cycleSc]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar modelo', 'C', cycleSc]],
     view: VIEW,
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · modelo: C ou 1 a 7 · arraste para girar' };

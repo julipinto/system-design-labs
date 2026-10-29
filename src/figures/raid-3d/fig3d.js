@@ -592,7 +592,7 @@ FIGS3D.push({ id: 'raid', name: 'RAID', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'space', auto], ['Trocar nível', 'C', cycleSc], ['Trocar par (RAID 10)', 'P', () => sc === 'raid10' && setPair(pair === 'same' ? 'other' : 'same')]],
+    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar nível', 'C', cycleSc], ['Trocar par (RAID 10)', 'P', () => sc === 'raid10' && setPair(pair === 'same' ? 'other' : 'same')]],
     view: NARROW() ? { target: W(330, 150, -150), dist: innerWidth < 640 ? 11.5 : 14.5 } : { target: W(105, 150, 60), dist: 14.5 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · nível: C ou 1 2 3 4 5 · arraste para girar' };
