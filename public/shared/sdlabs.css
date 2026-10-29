@@ -101,7 +101,7 @@
 
 /* base */
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scrollbar-color:var(--line-strong) var(--bg);accent-color:var(--accent-fill)}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scrollbar-color:var(--line-strong) var(--bg);accent-color:var(--accent-fill);scrollbar-gutter:stable both-edges}
 body{margin:0;background:var(--bg);color:var(--ink);font:var(--fs-body)/var(--lh-body) var(--sans);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;caret-color:var(--accent-fill)}
 /* controles de formulário herdam a fonte do site (o padrão do navegador é Arial 13,3px) */
 button,input,select,textarea{font:inherit}
