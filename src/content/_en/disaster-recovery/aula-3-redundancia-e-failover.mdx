@@ -1,0 +1,125 @@
+---
+title: "Redundancy and failover"
+order: 3
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson the audit found five SPoFs, and the fix for all of them is to have a copy. But a copy can work alongside or sit waiting, and the switch between them <strong>also takes time</strong>. This lesson tells the clock of that switch and what goes wrong when it decides badly.</p>
+
+<OneLiner><strong>Active</strong> redundancy shares the damage and requires syncing data; <strong>passive</strong> is simpler, but <strong>comes to depend on detection and promotion</strong>. Automatic <em>failover</em> is <strong>detect → decide → switch</strong>, and each step has a clock.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Failover</strong> scenario, follow the three steps (detect, decide, switch) and read the clock. Then <strong>split the network</strong> between SP and Rio and look at the <strong>two primaries</strong>. To see active × passive and the state leaving the pod, press the <strong>Redundancy</strong> button.</p>
+</DoIt>
+
+<Figure3D path="en/labs/disaster-recovery/spof-3d/?mode=failover" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Interactive figure: Detect, decide, switch" alt="Preview of the 3D figure: Detect, decide, switch" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Stateless.</strong> The client's state leaves the pod's memory and goes to the data layer; any pod serves any request.</li>
+  <li><strong>Active.</strong> All copies serve at the same time (the load balancer, the topic consumers); losing one only takes away capacity.</li>
+  <li><strong>Passive.</strong> One serves and the other waits; losing the primary depends on <strong>detecting</strong> and <strong>promoting</strong> the second.</li>
+  <li><strong>The clock.</strong> Probes detect, a quorum decides, the database leader and the router map switch.</li>
+  <li><strong>The limit.</strong> If the decision is wrong, the switch takes down what was fine (<em>split brain</em>).</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Stateless: the state leaves, and the risk goes with it</h3>
+
+<p>If Lena's cart session lived in the memory of <code>pedidos-2</code>, the pod falling would take the cart with it. That is why the <code>carrinho</code> went to Redis (module 5): <strong>any</strong> pod serves any request, and removing a pod loses no context.</p>
+
+<p>The price is that the risk moves. PostgreSQL and Redis now concentrate what used to be <strong>spread</strong> across the pods. That is why the next lessons are about replicas and promotion in the data layer, not about pods.</p>
+
+<h3 class="sec">Active and passive</h3>
+
+<p>In <strong>active redundancy</strong>, all copies work. The load balancer spreads requests across the 3 pods, and the consumers of a topic split the partitions. Losing one copy removes 1/3 of the capacity, not the service. The cost shows up when there are <strong>writes</strong> on both sides: the data has to be synced.</p>
+
+<p>In <strong>passive redundancy</strong>, only one serves. That is what the database does: the primary receives, the replica waits. The gain is simplicity (only one writes). The price is that the time to recover now depends on the <strong>detection and promotion mechanism</strong>: if the failure takes long to notice, or if promotion is manual and slow, the outage is long.</p>
+
+<h3 class="sec">The <em>failover</em> clock</h3>
+
+<p>Every switch has a measured or configured time. The table adds up what the store uses:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Step</th><th>How it is counted</th><th>Time</th></tr></thead>
+  <tbody>
+    <tr><th>Remove a pod from the load balancer</th><td>health check every 5 s × 3 failures (module 7)</td><td><strong>15 s</strong></td></tr>
+    <tr><th>Detect a region going down</th><td>synthetic probe every 10 s × 3 failures</td><td><strong>30 s</strong></td></tr>
+    <tr><th>Promote the database</th><td>Patroni <code>ttl</code> of 30 s + 5 s (module 17)</td><td><strong>35 s</strong></td></tr>
+    <tr><th>Switch the router map</th><td><code>edge-loja</code> propagation</td><td><strong>5 s</strong></td></tr>
+    <tr><th>Anyone using DNS with a 60 s TTL</th><td>clients with the old address cached</td><td>up to <strong>60 s</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The steps <strong>overlap</strong>: the database <code>ttl</code> runs from the failure, so promotion (35 s) ends before detection (30 s) plus the 30 s of the pods (60 s) is over. In the SP outage, what sets the time is detection and the pods, and the map closes at 65 s (lesson 4). The last number in the table is the reason the <strong>router</strong>, and not only the DNS, decides where the order goes: DNS leaves up to 60 s of clients on the old address, and the map flips in 5 s. Region probes come from <strong>two points of view</strong> (Rio and Recife) so that a single faulty probe does not take anything down.</p>
+
+<Widget name="relogio" title="Failover clock" hint="Probe interval (1 to 30 s), consecutive failures (1 to 5), database promotion (35 s), pods (30 s), map propagation and DNS TTL. It shows the RTO (65 s with 10 s × 3, 30 s pods and a 5 s map) and the trade-off between false positives (short probe) and delay (long probe)." />
+
+<h3 class="sec">Switches: <em>circuit breaker</em> and <em>feature flag</em></h3>
+
+<p>The article mentions the <em>circuit breaker</em> and the <em>feature flag</em> as ways to do the switching. They handle <strong>calls</strong> and <strong>paths</strong>: the <em>breaker</em> (module 21) opens when PSP-A fails and sends <code>pagamentos</code> to PSP-B; the <em>flag</em> (module 22) turns off a new path. Both decide <strong>per call, on the client</strong>.</p>
+
+<p>Region <em>failover</em> is something else. What decides is a <strong>probe</strong>, after a <strong>quorum</strong> of observers, and what executes is the <strong>router</strong>. Mixing the two gives the impression that a <em>breaker</em> alone solves a region outage, and it does not.</p>
+
+<h3 class="sec">If it goes wrong: <em>split brain</em></h3>
+
+<p>Now the worst switch: the network between SP and Rio <strong>splits</strong>, but SP <strong>did not fall</strong>. Rio does not see the primary, waits the 35 s and <strong>promotes</strong> the replica. The old primary, isolated and alive, keeps <strong>accepting</strong> orders from whoever can still reach it. There are <strong>two primaries</strong> writing, and each thinks it is the only one.</p>
+
+<p>The math of the damage, with <code>celula-sp</code> at 9.9 orders/s and a <strong>30 s</strong> window until someone demotes the old one: 9.9 × 30 = <strong>297 orders</strong> confirmed in SP that Rio never saw. When the old primary comes back, <code>pg_rewind</code> (module 17) <strong>discards</strong> them. If the <em>fencing</em> fails and the window grows to <strong>5 min</strong> (300 s): 9.9 × 300 = <strong>2,970</strong>.</p>
+
+<Widget name="splitbrain" title="Split brain" hint="Cell order rate (9.9/s) and window until fencing (0 to 300 s). It shows the confirmed orders that pg_rewind will discard: 297 with 30 s, 2,970 with 5 min." />
+
+<p>The fix is <em>fencing</em>: the leader has to <strong>renew the key</strong> every cycle, and whoever does not renew demotes itself (Patroni takes down a leader that does not renew within the <code>ttl</code>). The decision to promote comes from the <strong>quorum</strong> (2 observers out of 3, module 3), so the minority side of the partition <strong>does not promote</strong>. Even so, the risk of automatic <em>failover</em> exists: it can <strong>take down what was fine</strong>.</p>
+
+<WhyItMatters>
+  <li><strong>Stateless moves the risk.</strong> Taking state out of the pod is good, but the database and Redis now concentrate what used to belong to the pods.</li>
+  <li><strong>Passive depends on detecting and switching.</strong> The 10 s × 3 probe takes 30 s; the pods take another 30 s and the map 5 s: 65 s, with the database promotion (35 s) running alongside.</li>
+  <li><strong>A short probe takes down what is fine.</strong> A long probe is slow to see what fell; the widget shows the trade-off.</li>
+  <li><strong>Split brain costs confirmed orders.</strong> 297 in 30 s and 2,970 in 5 min, which <code>pg_rewind</code> discards.</li>
+</WhyItMatters>
+
+<Deep min={5}>
+  <h4 class="deep-h">Why <em>fencing</em> needs the time</h4>
+  <p>PostgreSQL promotes a replica with <code>pg_ctl promote</code>, and the old primary only comes back as a replica after <code>pg_rewind</code> rebuilds the data directory from the new primary. That step <strong>discards</strong> what the old one wrote after the timeline forked. The <em>split brain</em> window is, therefore, the window of orders that vanish.</p>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>Circuit breaker and feature flag are not regional <em>failover</em>.</strong> The article puts both in the same figure. The <em>breaker</em> decides per call, on the client; regional <em>failover</em> decides by probe, by quorum and through the router.</li>
+    <li><strong>Automatic <em>failover</em> can take down what was fine.</strong> The article talks about reliable monitoring and clear criteria, but not about <em>split brain</em> or <em>fencing</em>.</li>
+    <li><strong>Passive "reduces complexity".</strong> Only in replication and latency: the article itself says it comes to depend on detection and promotion, and the 65 s math shows the size.</li>
+    <li><strong>What was not run.</strong> No Patroni <em>fencing</em> with a network partition was done. <code>pg_ctl promote</code> and <code>pg_rewind</code> were seen in module 17, with PostgreSQL 14; the 297 and 2,970 are math, not a measurement.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on SPoF and Disaster Recovery (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "Martin Fowler: Leader and Followers", href: "https://martinfowler.com/articles/patterns-of-distributed-systems/leader-follower.html" },
+    { label: "Patroni: dynamic configuration (ttl, loop_wait, retry_timeout)", href: "https://patroni.readthedocs.io/en/latest/dynamic_configuration.html" },
+    { label: "PostgreSQL: warm standby servers", href: "https://www.postgresql.org/docs/current/warm-standby.html" },
+    { label: "PostgreSQL: pg_rewind", href: "https://www.postgresql.org/docs/current/app-pgrewind.html" },
+    { label: "Wikipedia: Split-brain (computing)", href: "https://en.wikipedia.org/wiki/Split-brain_(computing)" },
+  ]} />
+</Deep>
+
+<p class="gancho">Switching one component has a clock, a quorum and <em>fencing</em>. What is left is what happens when it is not a component but the <strong>whole São Paulo region</strong>: how long does the store take to come back, and how many orders are left on the road?</p>
+
+<Flashcards cards={[
+  { q: "What does stateless change about the risk?",
+    a: "The state leaves the pod and goes to the data layer: any pod serves, but PostgreSQL and Redis now concentrate the risk." },
+  { q: "What is the difference between active and passive redundancy?",
+    a: "Active: all serve (load balancer, consumers). Passive: one serves and the other waits, and the time to recover depends on detecting and promoting." },
+  { q: "What is the math of the failover clock?",
+    a: "5 s × 3 = 15 s (pod); 10 s × 3 = 30 s (region); ttl 30 + 5 = 35 s (database); 5 s (map). DNS with a 60 s TTL leaves up to 60 s on the old address." },
+  { q: "What is split brain and what does it cost?",
+    a: "SP isolated and alive, Rio promoted: two primaries. 9.9 × 30 s = 297 orders discarded by pg_rewind; with 5 min, 2,970." },
+  { q: "How do you avoid split brain?",
+    a: "Fencing (a leader that does not renew the key demotes itself) and quorum (2 of 3 decide; the minority side does not promote)." },
+]} />

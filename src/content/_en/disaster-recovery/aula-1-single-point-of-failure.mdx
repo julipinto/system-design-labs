@@ -1,0 +1,114 @@
+---
+title: "Single Point of Failure"
+order: 1
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In module 26 the store became four cells, each with the full stack and a <strong>passive cell</strong> in another region. The poison from <code>mkt-01</code> took down <strong>one</strong> cell and Lena still bought order <strong>1060</strong>. But a bigger question stayed open: what if it is not one cell that falls, but <strong>the whole São Paulo region</strong>? Before answering, we need to know what exactly takes everything down when it fails.</p>
+
+<OneLiner>A <strong>single point of failure</strong> (SPoF) is any component whose failure takes down <strong>all or part</strong> of the system <strong>with no alternative path</strong>. Removing every one is impossible and duplicating everything is waste: the goal is to shrink the <strong>blast radius</strong>, the <strong>surprise</strong> and the <strong>time to recover</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Bridge</strong> scenario, bring the bridge down and see what is left of the city. Then bring down <strong>PSP-A</strong>, first <strong>without</strong> PSP-B and then with it <strong>on</strong>, and compare the checkout in the two cases.</p>
+</DoIt>
+
+<Figure3D path="en/labs/disaster-recovery/spof-3d/?mode=ponte" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Interactive figure: The bridge and the checkout" alt="Preview of the 3D figure: The bridge and the checkout" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The bridge.</strong> A city with a single bridge: if the bridge falls, you can still arrive by boat, but <strong>not everyone</strong>, and what goes in and out of the city is badly hurt.</li>
+  <li><strong>The damage has a size.</strong> When a SPoF fails, the system goes into <strong>degraded mode</strong> (at best) or <strong>total outage</strong> (at worst).</li>
+  <li><strong>The heavier it is, the more it breaks.</strong> The bigger the component's responsibility, the bigger the damage of losing it without a <em>fallback</em> flow.</li>
+  <li><strong>Component × product.</strong> A SPoF takes down <strong>one service</strong>. A disaster (lesson 4) takes down the product, a region or a provider.</li>
+  <li><strong>Fixing takes time.</strong> Recovering by hand or rebuilding a component is slow and can lose data, so the good fix happens <strong>before</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The bridge and PSP-A</h3>
+
+<p>The city with one bridge is the article's image, and it serves once. In the store, the bridge has a name: it is <code>pagamentos</code> talking to <strong>PSP-A</strong>, the payment provider. If PSP-A disappears and there is no other, Lena's order gets to the end of the road and <strong>cannot close</strong>. The catalog still opens, the cart still saves, but nobody buys: it is <strong>degraded mode</strong>, with the store as a shop window.</p>
+
+<p>With <strong>PSP-B</strong> from module 21 turned on, <code>pagamentos</code> switches provider and Lena does not even notice. PSP-A stopped being a SPoF <strong>without</strong> anyone duplicating the whole system: it was enough to duplicate <strong>the point</strong> where the failure hurt.</p>
+
+<h3 class="sec">Total × partial: the blast radius</h3>
+
+<p>The article talks about <strong>total or partial</strong> unavailability, and the difference changes what the store does next. In the table, each failure with what it leaves standing:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>What fails</th><th>What stops</th><th>What keeps working</th><th>Type</th></tr></thead>
+  <tbody>
+    <tr><th>PSP-A, without PSP-B</th><td>closing the order</td><td>catalog, cart, status</td><td><strong>degraded mode</strong></td></tr>
+    <tr><th>PSP-A, with PSP-B</th><td>nothing (provider switch)</td><td>everything</td><td>no visible damage</td></tr>
+    <tr><th>one <code>pedidos</code> pod (3 pods)</th><td>nothing</td><td>the other 2 take over</td><td>no visible damage</td></tr>
+    <tr><th>the whole <code>edge-loja</code></th><td>getting into the store</td><td>nothing reaches the cells</td><td><strong>total outage</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>What separates the rows is <strong>responsibility</strong>: <code>edge-loja</code> is on the path of <strong>every</strong> order, and one <code>pedidos</code> pod is on the path of a third. That is why the same kind of failure costs much more in one place than in the other.</p>
+
+<h3 class="sec">What the store already removed, and what it does not know it has</h3>
+
+<p>After 26 modules the store has removed several SPoFs without calling them by name:</p>
+
+<ol class="flow steps">
+  <li><code>pagamentos</code> has <strong>PSP-B</strong> (module 21).</li>
+  <li>The services run on <strong>3 pods</strong>, behind a load balancer that drops whoever fails.</li>
+  <li>The database was split into <strong>shards</strong> (module 16) and then into <strong>cells</strong>, and the blast radius of a failure got small.</li>
+  <li>Each cell has a <strong>passive</strong> (module 26) holding a copy of the data.</li>
+  <li>The router, <code>edge-loja</code>, runs on <strong>3 instances</strong>: SP, Rio and Recife.</li>
+</ol>
+
+<p>All of these are solved <strong>where someone already looked</strong>. The problem is the rest: a DNS that depends on a single provider, a certificate someone renews by hand once a year. None of them shows up in the architecture diagram, and that is why they cause surprises. Finding them is the subject of the next lesson.</p>
+
+<h3 class="sec">If it goes wrong: redundancy that is not independent</h3>
+
+<p><code>edge-loja</code> has three instances, so it looks protected. But all three run the <strong>same code</strong> and read the <strong>same map</strong> of cells. When a bad map publication arrives, <strong>all three</strong> apply the error and all three fail together. It is a <strong>common-mode</strong> failure: one cause, three outages.</p>
+
+<p>The math shows how big the illusion is. Three independent instances at 99.9% would give 1 − 0.001³ = <strong>99.9999999%</strong>. With a shared cause, the real availability of the set is that of <strong>one</strong> instance: <strong>99.9%</strong>. Duplicating something with the same defect does not help.</p>
+
+<WhyItMatters>
+  <li><strong>SPoF is a question, not a type of part.</strong> Database, load balancer, gateway, broker, another service, a vendor: anything with no alternative path.</li>
+  <li><strong>The damage depends on the weight.</strong> PSP-A without PSP-B leaves the store as a shop window; the whole <code>edge-loja</code> down is a total outage.</li>
+  <li><strong>Duplicating the point is enough.</strong> PSP-B solved PSP-A without duplicating the store.</li>
+  <li><strong>Redundancy has to be independent.</strong> Three instances with the same map are one failure: 99.9999999% on paper, 99.9% in practice.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the source article</h4>
+  <ul>
+    <li><strong>"Duplicate" assumes independent failures.</strong> Two parts at 99.9% in parallel give 99.9999% <strong>only</strong> if they share no cause. The same code, the same map, the same region or the same DNS vendor <strong>add</strong> the failure instead of multiplying it. The article talks about simultaneous failures without using the idea of <strong>common mode</strong>.</li>
+    <li><strong>Not everything is a component.</strong> The article treats SPoF at the component level and disaster at the product level. The split is useful, but the border is <strong>scope of damage</strong>, and lesson 4 shows a SPoF (the <strong>hub</strong>) that only appears when you look at the region.</li>
+    <li><strong>What was not run.</strong> No SPoF was actually brought down in this module: the times and the math come from the brief's model, flagged as an example.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on SPoF and Disaster Recovery (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "Wikipedia: Single point of failure", href: "https://en.wikipedia.org/wiki/Single_point_of_failure" },
+    { label: "Google SRE book: Embracing Risk", href: "https://sre.google/sre-book/embracing-risk/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+  ]} />
+</Deep>
+
+<p class="gancho">With PSP-B the store killed one SPoF, and with the pods and the passives it killed others. What is left is how to <strong>find</strong> the ones nobody drew: the DNS, the certificate, the map. How do you hunt a single point that is not in the diagram?</p>
+
+<Flashcards cards={[
+  { q: "What is a SPoF?",
+    a: "A component whose failure takes down all or part of the system with no alternative path: database, load balancer, gateway, broker, another service or a vendor." },
+  { q: "What is the difference between degraded mode and total outage?",
+    a: "Degraded: the store keeps running as a shop window (PSP-A down, no PSP-B: the catalog opens, the order does not close). Total outage: nothing reaches the cells (the whole edge-loja down)." },
+  { q: "How did PSP-B solve PSP-A?",
+    a: "By duplicating only the point where the failure hurt: pagamentos switches provider and Lena does not even notice." },
+  { q: "Why can three edge-loja instances still be a SPoF?",
+    a: "They run the same code and the same map: one bad publication takes down all three (common-mode failure). The math gives 99.9999999%; reality gives 99.9%." },
+  { q: "What is the goal when dealing with SPoFs?",
+    a: "Shrink the blast radius, the surprise and the time to recover. Removing all of them is impossible and duplicating everything is waste." },
+]} />

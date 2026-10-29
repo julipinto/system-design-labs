@@ -1,0 +1,134 @@
+---
+title: "Finding SPoFs"
+order: 2
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson PSP-B took one SPoF off the path, but the DNS and the certificate did not even show up in the diagram. The problem with a hidden SPoF is that <strong>nobody looks at it</strong>. So the first task is to look at the whole path, link by link, and ask each one who takes over if it disappears.</p>
+
+<OneLiner>Finding a SPoF means <strong>drawing the happy path</strong> of each critical function, <strong>listing every actor</strong> (vendors, certificates and people included) and asking each one: <strong>who takes over if you disappear, and how fast?</strong></OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Map</strong> scenario, duplicate one SPoF at a time and read how many minutes per month are left. Start with <code>edge-loja</code> and finish with the DNS.</p>
+</DoIt>
+
+<Figure3D path="en/labs/disaster-recovery/spof-3d/?mode=mapa" poster="labs/disaster-recovery/spof-3d-previa.webp" title="Interactive figure: The 12 links of order 1060" alt="Preview of the 3D figure: The 12 links of order 1060" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Pick a critical function.</strong> Here it is Lena's <code>POST /pedidos</code>, order 1060 in <code>celula-recife</code>.</li>
+  <li><strong>Draw the happy path.</strong> Every link, in order, from the DNS to the database, without skipping the ones that "have always worked".</li>
+  <li><strong>List the actors.</strong> Service, database, queue, network, vendor, certificate and the <strong>people</strong> who trigger each one.</li>
+  <li><strong>Ask each link:</strong> how many copies there are, who takes over and how fast.</li>
+  <li><strong>Mark the ones with no answer.</strong> Those are the SPoF candidates, and the fixing order comes from the minutes math and the blast radius.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The 12 links of Lena's path</h3>
+
+<p>The <code>POST /pedidos</code> of order 1060 goes through twelve links. Each one is worth <strong>99.9%</strong> (module 21: 99.9% is 43.2 min of failure per month). The table says how many copies each link has today and who takes over:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>#</th><th>Link</th><th>Copies today</th><th>Who takes over</th><th>SPoF?</th></tr></thead>
+  <tbody>
+    <tr><th>1</th><td>DNS <code>loja.com.br</code></td><td><strong>1 provider</strong></td><td>nobody</td><td><strong>yes</strong> (vendor)</td></tr>
+    <tr><th>2</th><td>TLS certificate</td><td><strong>1</strong>, renewed by hand 1×/year</td><td>nobody</td><td><strong>yes</strong> (organizational)</td></tr>
+    <tr><th>3</th><td><code>edge-loja</code> (the router)</td><td>3 instances</td><td>the other two</td><td><strong>yes, logical</strong> (same code, same map)</td></tr>
+    <tr><th>4</th><td>identity (JWT keys, module 8)</td><td><strong>1 region</strong></td><td>nobody</td><td><strong>yes</strong></td></tr>
+    <tr><th>5</th><td><code>lb</code> and <code>gw-loja</code></td><td>2 + 2</td><td>the pair</td><td>no</td></tr>
+    <tr><th>6</th><td><code>bff-app</code></td><td>≥ 2</td><td>the pair</td><td>no</td></tr>
+    <tr><th>7</th><td><code>pedidos</code></td><td>≥ 2</td><td>the pair</td><td>no</td></tr>
+    <tr><th>8</th><td><code>pagamentos</code> → PSP</td><td>2 pods; PSP-A with PSP-B</td><td>PSP-B</td><td>no</td></tr>
+    <tr><th>9</th><td><code>estoque</code></td><td>2</td><td>the pair</td><td>no</td></tr>
+    <tr><th>10</th><td>cell PostgreSQL</td><td>primary + passive in another region</td><td>the passive (35 s, 0.3 s)</td><td><strong>partial</strong></td></tr>
+    <tr><th>11</th><td>cell Kafka</td><td>3 brokers</td><td>the others</td><td>no</td></tr>
+    <tr><th>12</th><td>map and control plane</td><td><strong>1 region</strong></td><td>nobody</td><td><strong>yes</strong>, but off the path</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Five links count as SPoF in the math: <strong>1, 2, 3, 4 and 12</strong>. Link 10 is <strong>partial</strong>: the passive takes over, but in 35 s and with 0.3 s of data missing (lessons 4 and 5 tell what that costs). Link 12 is <strong>off the path</strong> of the order, and that is why it weighs less than it seems.</p>
+
+<h3 class="sec">The math in series and in parallel</h3>
+
+<p>Links in series multiply their availabilities (module 21). Duplicated links form a parallel, which only fails if <strong>both</strong> copies fail: 1 − 0.001² = 99.9999%. The table compares three worlds:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Scenario</th><th>Math</th><th>Availability</th><th>Minutes of failure per month</th></tr></thead>
+  <tbody>
+    <tr><th>12 links in series, nothing duplicated</th><td>0.999<sup>12</sup></td><td><strong>98.8066%</strong></td><td><strong>515.6</strong></td></tr>
+    <tr><th>5 SPoFs, the other 7 duplicated</th><td>0.999<sup>5</sup> × 0.999999<sup>7</sup></td><td><strong>99.5003%</strong></td><td><strong>215.9</strong></td></tr>
+    <tr><th>all 12 duplicated</th><td>0.999999<sup>12</sup></td><td><strong>99.9988%</strong></td><td><strong>0.52</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Of the <strong>215.9</strong> minutes left in the second scenario, <strong>215.6</strong> come from the five SPoFs. The seven duplicated links are worth <strong>0.3</strong> minute. Each SPoF fixed gives back about <strong>43.2 min per month</strong> when all of them are worth 99.9%. In practice, what separates one from another is the <strong>cost</strong> of the fix and the <strong>blast radius</strong>.</p>
+
+<Widget name="auditoria" title="SPoF audit" hint="The 12 links: change the availability (99 to 99.999%) and the copies (1 to 3) of each one. It shows the SPoFs, the series availability and the minutes per month (98.8066% · 515.6 × 99.5003% · 215.9 × 99.9988% · 0.52), and the gain from duplicating one link (~43.2 min)." />
+
+<h3 class="sec">What is not a SPoF, and the ones that are not technical</h3>
+
+<p>Not every "only one" is a SPoF. The mesh control plane (module 10) sits in one region, but the sidecars <strong>keep running on the last configuration</strong> if it disappears. The same goes for the <code>edge-loja</code> map (link 12): the edges keep the <strong>last map</strong> and keep routing. That is <strong>static stability</strong>: what sits on the order's path does not depend on something that only exists to change the configuration.</p>
+
+<p>And there are SPoFs that no technical diagram shows. The <strong>certificate</strong> renewed by hand once a year is one (link 2): on the day the deadline passes and nobody remembers, HTTPS goes down for everyone. The fix is <strong>automatic renewal</strong> and an alert 30 days ahead. Another is the person: "only Davi knows how to promote the database". An organizational SPoF fails when Davi is on vacation.</p>
+
+<h3 class="sec">Where to start: radius × probability × cost</h3>
+
+<p>With five SPoFs in hand you cannot fix everything at once. Each one gets a score on three questions: how much damage it does (<strong>radius</strong>), how likely it is to fail (<strong>probability</strong>) and how much it costs to fix. The certificate has total radius, known probability (the expiry date) and a <strong>cheap</strong> fix: automate it. It goes first. Identity in two regions has high radius and an expensive fix: it goes into a plan, with the gateway caching the keys for 24 h until then.</p>
+
+<h3 class="sec">If it goes wrong: the audit ages</h3>
+
+<p>Yesterday's SPoF list does not hold for today's store. When module 26 created the cells, <code>edge-loja</code> and the map were born, two links that were not in the previous list. An audit done <strong>before</strong> module 26 and filed away would not have them on the list, and the store would keep believing the routing was the usual one.</p>
+
+<p>The flow changes whenever the architecture changes. That is why the audit is a <strong>continuous review</strong>, redone at every change to the order path, and not a project with an end date.</p>
+
+<WhyItMatters>
+  <li><strong>Draw the whole happy path.</strong> The store's five SPoFs were at the edges: DNS, certificate, identity, the map and <code>edge-loja</code>.</li>
+  <li><strong>Series kills.</strong> Twelve links at 99.9% give 98.8066%, or 515.6 min per month.</li>
+  <li><strong>Five links are worth almost everything.</strong> Of the 215.9 min left, 215.6 belong to the SPoFs; duplicating them takes it to 0.52.</li>
+  <li><strong>Not every "only one" is a SPoF, and not every SPoF is technical.</strong> A control plane off the path is static stability; the hand-renewed certificate and the single person are SPoFs.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Prioritization and corrections to the source article</h4>
+  <ul>
+    <li><strong>Independence.</strong> The 99.5003% and 99.9988% math only holds with <strong>independent failures</strong>. <code>edge-loja</code> with the same code in all three instances has <strong>one</strong> common failure; the fix is not a fourth instance, it is publishing in <strong>rings</strong> and keeping a "last good" map.</li>
+    <li><strong>The equal 99.9% values are an example.</strong> In practice each link has its own availability (use the widget). What the math shows is the <strong>shape</strong>: series drops fast, parallel rises fast.</li>
+    <li><strong>The article talks about mapping, but gives no math.</strong> Series and parallel come from module 21. The article also leaves out <strong>static stability</strong> and organizational SPoFs (certificate, person).</li>
+    <li><strong>What was not run.</strong> The copies and times of each link are the brief's example; the math was computed in Python on 10/21/2026.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on SPoF and Disaster Recovery (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/single-point-of-failure/" },
+    { label: "AWS Builders' Library: Static stability using Availability Zones", href: "https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" },
+    { label: "AWS Well-Architected, Reliability Pillar: planning for disaster recovery", href: "https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_planning_for_recovery_disaster_recovery.html" },
+    { label: "Anomali: Why a Single Point of Failure (SPOF) is Scary (go deeper)", href: "https://www.anomali.com/blog/why-single-point-of-failure-is-scary" },
+    { label: "Bryghtpath: Understanding Single Point Failures (go deeper)", href: "https://bryghtpath.com/single-point-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The audit found five SPoFs, and the fix for each is to duplicate it. What is left is <strong>how</strong> to duplicate without paying for what you do not need: what stays on, what waits, and what happens in the middle of the switch?</p>
+
+<Flashcards cards={[
+  { q: "How do you find a SPoF?",
+    a: "Draw the happy path of the critical function, list every actor (vendor, certificate, person) and ask each one who takes over if it disappears and how fast." },
+  { q: "What are the store's five SPoFs?",
+    a: "DNS (1 provider), certificate (renewed by hand), edge-loja (same code and map), identity (1 region) and the map/control plane (1 region, off the path)." },
+  { q: "What is the availability of the 12 links in series, and with everything duplicated?",
+    a: "0.999^12 = 98.8066% (515.6 min/month) and 99.9988% (0.52 min/month). With only the 5 SPoFs left: 99.5003% (215.9 min)." },
+  { q: "Why is the mesh control plane not a SPoF?",
+    a: "It is off the order path: the sidecars keep running on the last configuration. That is static stability." },
+  { q: "Why does the audit age?",
+    a: "The flow changes: the cells from module 26 created edge-loja and the map. Yesterday's list does not hold; it is a continuous review." },
+]} />
