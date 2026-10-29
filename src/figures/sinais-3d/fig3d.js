@@ -455,17 +455,17 @@ FIGS3D.push({ id: 'sinais', name: 'Sinais', mod: (() => {
           o.cnt = [['GUARDA UM DOS 8', tl ? '100%' : '7,7%', tl ? 'acc' : 'bad'], ['100% DOS TRACES', '12,4 GB/dia', 'dim'], ['1% DOS TRACES', '124 MB/dia', 'dim']];
           o.res = tl ? [['tail: o 1063 fica', 'acc']] : [['head: o 1063 quase some', 'bad']]; } },
       { id: 'kafka', dur: 9, title: 'E se der errado: o contexto se perde no Kafka', yk: 'PROPAGAÇÃO QUEBRADA', act: ['Perder o contexto', 'no Kafka'],
-        code: ['pedidos publica PedidoCriado', '  com o traceparent no cabeçalho', 'o consumidor (entregas) não repassa', 'o consumo vira um trace novo, órfão', 'o caminho do 1063 parte ao meio'],
-        story: 'O <code>pedidos</code> publica <code>PedidoCriado</code> no Kafka com o <code>traceparent</code> no cabeçalho da mensagem. Do outro lado, o consumidor (<code>entregas</code>) não lê o cabeçalho e começa um trace com um <code>trace_id</code> novo. O caminho do 1063 <b>parte ao meio</b>: a busca pelo 9c1e5a7b mostra a compra e não mostra a entrega, e o trace da entrega fica <b>órfão</b>.',
+        code: ['pedidos publica PedidoCriado', '  com o traceparent no cabeçalho', 'o consumidor (estoque) não repassa', 'o consumo vira um trace novo, órfão', 'o caminho do 1063 parte ao meio'],
+        story: 'O <code>pedidos</code> publica <code>PedidoCriado</code> no Kafka com o <code>traceparent</code> no cabeçalho da mensagem. Do outro lado, o consumidor (<code>estoque</code>) não lê o cabeçalho e começa um trace com um <code>trace_id</code> novo. O caminho do 1063 <b>parte ao meio</b>: a busca pelo 9c1e5a7b mostra a compra e não mostra a baixa do estoque, e o trace da baixa fica <b>órfão</b>.',
         look: 'A última barra (Kafka) fica vermelha e a linha de baixo mostra o trace órfão, sem pai.',
         key: 'Um serviço que não repassa o contexto corta o trace em dois.',
         f(o, t) { esteira(o, k => [k === 2 ? 'publica no Kafka' : 'trace 9c1e5a7b', k === 2 && t > 1.6 ? 'bad' : 'acc']); show(o, 'cas', 'tp', 'smp'); lit(o, 'cas'); o.on.smp = 2;
           const lost = t > 1.6; if (lost) bad(o, 'tp'); else o.on.tp = 2;
           o.rows.cas = act('trace 9c1e5a7b…', lost ? 'PARTIDO' : '1063'); o.rows.cas.cas = { slow: 1, n: 8, orphan: lost };
-          o.rows.tp = act('entregas', 'CONSUMIDOR', [lost ? 'sem traceparent' : 'lê o cabeçalho', lost ? 'bad' : 'acc'], [lost ? 'trace_id novo' : '9c1e5a7b…', lost ? 'bad' : 'dim']);
+          o.rows.tp = act('estoque', 'CONSUMIDOR', [lost ? 'sem traceparent' : 'lê o cabeçalho', lost ? 'bad' : 'acc'], [lost ? 'trace_id novo' : '9c1e5a7b…', lost ? 'bad' : 'dim']);
           o.rows.smp = act('amostragem', 'TAIL', ['lentos: 8 de 8', 'acc'], ['5xx + > 800 ms', 'dim']);
           if (lost) T(o, [SVC(2), SVY + SVD + 14, ZT + 10], 'Kafka: sem traceparent', 'bad');
-          o.cnt = [['TRACES DO 1063', lost ? '2 (1 órfão)' : '1', lost ? 'bad' : 'acc'], ['ELO PERDIDO', lost ? 'entregas' : '—', lost ? 'bad' : 'dim'], ['SPANS LIGADOS', '8', 'dim']];
+          o.cnt = [['TRACES DO 1063', lost ? '2 (1 órfão)' : '1', lost ? 'bad' : 'acc'], ['ELO PERDIDO', lost ? 'estoque' : '—', lost ? 'bad' : 'dim'], ['SPANS LIGADOS', '8', 'dim']];
           o.res = lost ? [['o caminho partiu ao meio', 'bad']] : []; } },
     ],
     correlacao: [
@@ -653,7 +653,7 @@ FIGS3D.push({ id: 'sinais', name: 'Sinais', mod: (() => {
     x.globalAlpha = 1;
     // eixo e total
     const ay = H_ - 18; x.strokeStyle = C.line; x.lineWidth = u(0.5); x.beginPath(); x.moveTo(u(bx0), u(ay - 8)); x.lineTo(u(bx1), u(ay - 8)); x.stroke();
-    if (c.orphan) { x.fillStyle = BAD(); x.textAlign = 'left'; const s = 'entregas ← PedidoCriado: trace órfão, trace_id novo'; fitFont(x, u, s, 13, W_ - 12); x.fillText(s, u(6), u(ay + 2)); }
+    if (c.orphan) { x.fillStyle = BAD(); x.textAlign = 'left'; const s = 'estoque ← PedidoCriado: trace órfão, trace_id novo'; fitFont(x, u, s, 13, W_ - 12); x.fillText(s, u(6), u(ay + 2)); }
     else { x.fillStyle = INK(); x.textAlign = 'left'; fitFont(x, u, '0 ms', 11, 60); x.fillText('0 ms', u(bx0), u(ay + 2));
       const s = `${thou(total)} ms` + (g >= 1 ? ' · estoque 86,5%' : ''); x.textAlign = 'right'; x.fillStyle = g > 0.3 ? BAD() : toneC('hi'); fitFont(x, u, s, 13, 300); x.fillText(s, u(bx1 + 64), u(ay + 2)); }
     if (c.ghost) { x.textAlign = 'center'; x.fillStyle = BAD(); fitFont(x, u, 'head 1%: 7,7% de chance de existir', 13, W_ - 40); x.fillText('head 1%: 7,7% de chance de existir', u(W_ / 2), u(top + rh * 3.5)); }

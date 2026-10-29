@@ -455,17 +455,17 @@ FIGS3D.push({ id: 'sinais', name: 'Signals', mod: (() => {
           o.cnt = [['KEEPS ONE OF THE 8', tl ? '100%' : '7.7%', tl ? 'acc' : 'bad'], ['100% OF TRACES', '12.4 GB/day', 'dim'], ['1% OF TRACES', '124 MB/day', 'dim']];
           o.res = tl ? [['tail: the 1063 stays', 'acc']] : [['head: the 1063 almost vanishes', 'bad']]; } },
       { id: 'kafka', dur: 9, title: 'And if it goes wrong: the context is lost at Kafka', yk: 'BROKEN PROPAGATION', act: ['Lose the context', 'at Kafka'],
-        code: ['pedidos publishes PedidoCriado', '  with the traceparent in the header', 'the consumer (entregas) does not pass it on', 'the consumption becomes a new, orphan trace', 'the 1063 path breaks in half'],
-        story: '<code>pedidos</code> publishes <code>PedidoCriado</code> to Kafka with the <code>traceparent</code> in the message header. On the other side, the consumer (<code>entregas</code>) does not read the header and starts a trace with a new <code>trace_id</code>. The 1063 path <b>breaks in half</b>: a search for 9c1e5a7b shows the purchase and does not show the delivery, and the delivery trace becomes <b>orphan</b>.',
+        code: ['pedidos publishes PedidoCriado', '  with the traceparent in the header', 'the consumer (estoque) does not pass it on', 'the consumption becomes a new, orphan trace', 'the 1063 path breaks in half'],
+        story: '<code>pedidos</code> publishes <code>PedidoCriado</code> to Kafka with the <code>traceparent</code> in the message header. On the other side, the consumer (<code>estoque</code>) does not read the header and starts a trace with a new <code>trace_id</code>. The 1063 path <b>breaks in half</b>: a search for 9c1e5a7b shows the purchase and does not show the stock deduction, and the deduction trace becomes <b>orphan</b>.',
         look: 'The last bar (Kafka) turns red and the bottom line shows the orphan trace, with no parent.',
         key: 'A service that does not pass on the context cuts the trace in two.',
         f(o, t) { esteira(o, k => [k === 2 ? 'publishes to Kafka' : 'trace 9c1e5a7b', k === 2 && t > 1.6 ? 'bad' : 'acc']); show(o, 'cas', 'tp', 'smp'); lit(o, 'cas'); o.on.smp = 2;
           const lost = t > 1.6; if (lost) bad(o, 'tp'); else o.on.tp = 2;
           o.rows.cas = act('trace 9c1e5a7b…', lost ? 'BROKEN' : '1063'); o.rows.cas.cas = { slow: 1, n: 8, orphan: lost };
-          o.rows.tp = act('entregas', 'CONSUMER', [lost ? 'no traceparent' : 'reads the header', lost ? 'bad' : 'acc'], [lost ? 'new trace_id' : '9c1e5a7b…', lost ? 'bad' : 'dim']);
+          o.rows.tp = act('estoque', 'CONSUMER', [lost ? 'no traceparent' : 'reads the header', lost ? 'bad' : 'acc'], [lost ? 'new trace_id' : '9c1e5a7b…', lost ? 'bad' : 'dim']);
           o.rows.smp = act('sampling', 'TAIL', ['slow: 8 of 8', 'acc'], ['5xx + > 800 ms', 'dim']);
           if (lost) T(o, [SVC(2), SVY + SVD + 14, ZT + 10], 'Kafka: no traceparent', 'bad');
-          o.cnt = [['TRACES OF 1063', lost ? '2 (1 orphan)' : '1', lost ? 'bad' : 'acc'], ['LOST LINK', lost ? 'entregas' : '—', lost ? 'bad' : 'dim'], ['LINKED SPANS', '8', 'dim']];
+          o.cnt = [['TRACES OF 1063', lost ? '2 (1 orphan)' : '1', lost ? 'bad' : 'acc'], ['LOST LINK', lost ? 'estoque' : '—', lost ? 'bad' : 'dim'], ['LINKED SPANS', '8', 'dim']];
           o.res = lost ? [['the path broke in half', 'bad']] : []; } },
     ],
     correlacao: [
@@ -653,7 +653,7 @@ FIGS3D.push({ id: 'sinais', name: 'Signals', mod: (() => {
     x.globalAlpha = 1;
     // eixo e total
     const ay = H_ - 18; x.strokeStyle = C.line; x.lineWidth = u(0.5); x.beginPath(); x.moveTo(u(bx0), u(ay - 8)); x.lineTo(u(bx1), u(ay - 8)); x.stroke();
-    if (c.orphan) { x.fillStyle = BAD(); x.textAlign = 'left'; const s = 'entregas ← PedidoCriado: orphan trace, new trace_id'; fitFont(x, u, s, 13, W_ - 12); x.fillText(s, u(6), u(ay + 2)); }
+    if (c.orphan) { x.fillStyle = BAD(); x.textAlign = 'left'; const s = 'estoque ← PedidoCriado: orphan trace, new trace_id'; fitFont(x, u, s, 13, W_ - 12); x.fillText(s, u(6), u(ay + 2)); }
     else { x.fillStyle = INK(); x.textAlign = 'left'; fitFont(x, u, '0 ms', 11, 60); x.fillText('0 ms', u(bx0), u(ay + 2));
       const s = `${thou(total)} ms` + (g >= 1 ? ' · estoque 86.5%' : ''); x.textAlign = 'right'; x.fillStyle = g > 0.3 ? BAD() : toneC('hi'); fitFont(x, u, s, 13, 300); x.fillText(s, u(bx1 + 64), u(ay + 2)); }
     if (c.ghost) { x.textAlign = 'center'; x.fillStyle = BAD(); fitFont(x, u, 'head 1%: 7.7% chance of existing', 13, W_ - 40); x.fillText('head 1%: 7.7% chance of existing', u(W_ / 2), u(top + rh * 3.5)); }
