@@ -42,7 +42,7 @@
     count.textContent = dc + '/' + N;
     track.setAttribute('aria-valuenow', String(dc));
     track.setAttribute('aria-valuetext', dc + ' de ' + N + ' aulas entendidas');
-    segs.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-seg' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : '') + ((i + 1) % 5 === 0 ? ' major' : ''); });
+    segs.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-seg' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : ''); });
     rendered = true;
     prevBtn.disabled = cur === 0; nextBtn.disabled = cur === N - 1;
     tocLinks.forEach(function (a, i) {

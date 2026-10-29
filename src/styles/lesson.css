@@ -191,8 +191,6 @@
 :root[data-theme="light"] .sdl-content .pg-seg.cur:not(.done){background:var(--accent-ink)}
 .sdl-content .pg-seg.cur.done{background:var(--ok);box-shadow:0 0 0 1.5px var(--bg),0 0 0 3px var(--accent-fill)}
 /* marco a cada 5 aulas: um risco de escala no vão, não um traço mais alto (que parecia a aula atual) */
-.sdl-content .pg-seg.major::after{content:"";position:absolute;right:-2px;bottom:0;width:1px;height:10px;background:var(--line-strong)}
-.sdl-content .pg-seg.major:last-child::after{display:none}
 /* o momento da aula: o traço cresce e assenta de sódio para verde */
 .sdl-content .pg-seg.just{animation:sdl-settle 900ms var(--ease-out)}
 @keyframes sdl-settle{0%{background:var(--accent-fill);transform:scaleY(2.2)}100%{transform:none}}
