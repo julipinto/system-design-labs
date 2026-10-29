@@ -95,6 +95,7 @@
   html .o3-back { display:inline-flex; align-items:center; gap:8px; }
   html .o3-back::before { content:""; width:6px; height:6px; border-left:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); }
 </style>
+<script src="../../../shared/ui.pt.js"></script>
 <script>
   // SDLabs: desfaz o rótulo "técnico" (mono + caixa alta + entreletra larga) e a borda grossa colorida à esquerda.
   // Atua nas regras de CSS da página, então vale para o CSS que cada figura injeta.
@@ -125,7 +126,7 @@
 <body>
 <div class="ui" id="top">
   <div class="tops"><div class="brand"><i></i>Iso 3D</div><div class="seg" role="tablist" aria-label="Figure"><button data-fig="tw" role="tab">Typewriter</button><button data-fig="dr" role="tab">Drum machine</button><button data-fig="cs" role="tab">Cassette</button><button data-fig="tm" role="tab">Timer</button><button data-fig="vm" role="tab">Vending</button></div></div>
-  <div class="tops"><div class="swatches" id="swatches" role="radiogroup" aria-label="Cor do brilho"></div><button id="spin" title="Girar a câmera devagar em volta do objeto" aria-label="Girar a câmera em volta do objeto" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.8-4.1"/><path d="M12.2 1.6v2.6H9.6"/></svg><span>Girar</span></button><button id="theme" title="Tema claro ou escuro (T)" aria-label="Alternar tema claro ou escuro"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="5.75"/><path d="M8 2.25v11.5A5.75 5.75 0 0 0 8 2.25Z" fill="currentColor" stroke="none"/></svg></button></div>
+  <div class="tops"><div class="swatches" id="swatches" role="radiogroup" data-ui-aria="swatches" aria-label="Cor do brilho"></div><button id="spin" data-ui-title="spinTitle" data-ui-aria="spinAria" title="Girar a câmera devagar em volta do objeto" aria-label="Girar a câmera em volta do objeto" aria-pressed="false"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.8-4.1"/><path d="M12.2 1.6v2.6H9.6"/></svg><span data-ui="spin">Girar</span></button><button id="theme" data-ui-title="themeTitle" data-ui-aria="themeAria" title="Tema claro ou escuro (T)" aria-label="Alternar tema claro ou escuro"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="5.75"/><path d="M8 2.25v11.5A5.75 5.75 0 0 0 8 2.25Z" fill="currentColor" stroke="none"/></svg></button></div>
 </div>
 <div class="ui ctl" id="ctl">
   <button data-act="lights">Lights<kbd>L</kbd></button>
@@ -176,6 +177,11 @@
 
 <script type="module">
 import * as THREE from 'three';
+// SDLabs: a moldura lê os textos de public/shared/ui.pt.js (window.UI); o HTML estático traz o português como reserva
+const UI = window.UI || {};
+document.querySelectorAll('[data-ui]').forEach(el => { const t = UI[el.dataset.ui]; if (t) el.textContent = t; });
+document.querySelectorAll('[data-ui-title]').forEach(el => { const t = UI[el.dataset.uiTitle]; if (t) el.title = t; });
+document.querySelectorAll('[data-ui-aria]').forEach(el => { const t = UI[el.dataset.uiAria]; if (t) el.setAttribute('aria-label', t); });
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -2905,7 +2911,7 @@ for (const [id, F] of Object.entries(EXTRA)) {
   VIEWS[id] = { target: F.view.target, dir: new THREE.Vector3(1, 1, 1).normalize(), dist: () => F.view.dist * Math.max(1, 1.45 / persp.aspect), min: 1, cam: null, info: F.info, hint: F.hint };
   const panel = document.createElement('div'); panel.className = 'ui ctl hide'; panel.id = 'ctl-' + id;
   panel.style.cssText = 'top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;';
-  [...F.panel, null, ['Vista isométrica', '', () => act.iso(), 'iso']].forEach(b => {
+  [...F.panel, null, [UI.iso, '', () => act.iso(), 'iso']].forEach(b => {
     if (!b) { const sp = document.createElement('div'); sp.className = 'sep'; panel.appendChild(sp); return; }
     const el = document.createElement('button'); el.innerHTML = `${b[0]}<kbd>${b[1]}</kbd>`; if (b[3]) el.dataset.x = b[3];
     el.addEventListener('click', () => { b[2](); el.blur(); }); panel.appendChild(el);
@@ -3009,9 +3015,9 @@ if (load('ortho') === '1') setOrtho(true, view().dist());
 // ── glow colour: same names and order as the 2D galleries (Ember is the 3D orange); shared choice with them via 'iso-accent' ──
 const ACCENTS3 = [['Ember', '#ff9d3c'], ['Cyan', '#22d3ee'], ['Lime', '#a3e635'], ['Violet', '#a78bfa'], ['Rose', '#fb7185'], ['Ice', '#dfe9ef']];
 const swEl = document.getElementById('swatches');
-// SDLabs: o nome em inglês segue como chave (salvo e compartilhado com as galerias 2D); a pessoa lê o nome em português
-const ACCENT_PT = { Ember: 'Laranja', Cyan: 'Ciano', Lime: 'Verde-limão', Violet: 'Violeta', Rose: 'Rosa', Ice: 'Gelo' };
-swEl.innerHTML = ACCENTS3.map(([n, c]) => `<button role="radio" data-accent="${n.toLowerCase()}" aria-label="Brilho ${ACCENT_PT[n] || n}" title="${ACCENT_PT[n] || n}" style="--sw:${c}"><i></i></button>`).join('');
+// SDLabs: o nome em inglês segue como chave (salvo e compartilhado com as galerias 2D); a pessoa lê o nome de UI.accents
+const accentName = n => (UI.accents && UI.accents[n]) || n;
+swEl.innerHTML = ACCENTS3.map(([n, c]) => `<button role="radio" data-accent="${n.toLowerCase()}" aria-label="${UI.glow || 'Brilho'} ${accentName(n)}" title="${accentName(n)}" style="--sw:${c}"><i></i></button>`).join('');
 function pickAccent(k) {
   const a = ACCENTS3.find(x => x[0].toLowerCase() === k) || ACCENTS3[0]; k = a[0].toLowerCase();
   const old = accent.clone(); setAccent(a[1]);

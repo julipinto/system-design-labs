@@ -474,7 +474,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar TCP/UDP', 'C', cycleMode]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar TCP/UDP', 'C', cycleMode]],
     view: NARROW() ? { target: W(360, 150, -140), dist: innerWidth < 640 ? 9 : 14 } : { target: W(140, 160, 40), dist: 17 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · TCP/UDP: C · arraste para girar' };

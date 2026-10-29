@@ -861,7 +861,7 @@ FIGS3D.push({ id: 'carga', name: 'Testes de carga', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar cenário', 'C', cycleSc]],
     view: NARROW() ? { target: W(475, 240, -150), dist: innerWidth < 640 ? 15.5 : 18.5 } : { target: W(190, 240, 60), dist: 17 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1–9, 0 · arraste para girar' };

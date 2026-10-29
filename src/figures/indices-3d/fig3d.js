@@ -642,7 +642,7 @@ FIGS3D.push({ id: 'indices', name: 'Índices', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar índice', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar índice', 'C', cycleSc]],
     view: NARROW() ? { target: W(330, 165, -150), dist: innerWidth < 640 ? 12 : 15 } : { target: W(85, 165, 60), dist: 13.5 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · índice: C ou 1 2 3 4 5 · arraste para girar' };

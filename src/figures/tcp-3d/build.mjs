@@ -56,7 +56,7 @@ const reps = [
   ["<i></i>Iso 3D</div>", "<i></i>TCP · UDP · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-4-tcp-e-udp">Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-4-tcp-e-udp">Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read("fig3d.js")],
 ];
 for (const [a, b] of reps) { if (!s.includes(a)) throw new Error("não achei: " + a); s = s.replace(a, b); }

@@ -660,7 +660,7 @@ FIGS3D.push({ id: 'latencia', name: 'Latência', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar cenário', 'C', cycleSc]],
     view: NARROW() ? { target: W(450, 230, -150), dist: innerWidth < 640 ? 15 : 18 } : { target: W(180, 230, 60), dist: 16.5 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1–4 · X tira a catalogo-3 · arraste para girar' };

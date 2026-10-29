@@ -775,7 +775,7 @@ FIGS3D.push({ id: 'cubo', name: 'Scale Cube', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar cenário', 'C', cycleSc]],
     view: { target: W(OX + 160, 120, 140), dist: NARROW() ? 15 : 14, dir: new THREE.Vector3(-0.32, 0.58, 1) },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1–7 · arraste para girar' };

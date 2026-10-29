@@ -403,7 +403,7 @@ FIGS3D.push({ id: 'http', name: 'HTTP 1.1 · 2 · 3', mod: (() => {
   drawShelf(); render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar versão', 'V', cycleVer]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar versão', 'V', cycleVer]],
     view: NARROW() ? { target: W(330, 120, -190), dist: innerWidth < 640 ? 9.2 : 13 } : { target: W(150, 120, 50), dist: 16 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · versão: V ou 1 2 3 · arraste para girar' };

@@ -967,7 +967,7 @@ FIGS3D.push({ id: 'loja', name: 'Loja', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar modo', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar modo', 'C', cycleSc]],
     view: NARROW() ? { target: W(585, 400, -200), dist: innerWidth < 640 ? 24 : 26 } : { target: W(420, 380, 60), dist: 22 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · modo: C ou 1–9 · no modo Falha, clique numa peça · arraste para girar' };

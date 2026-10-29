@@ -57,7 +57,7 @@ const reps = [
   ["<i></i>Iso 3D</div>", "<i></i>Scale Cube · 3D</div>"],
   ["</style>", css + "</style>"],
   ["</head>", "<script>if (new URLSearchParams(location.search).has(\"embed\")) document.documentElement.classList.add(\"embedded\"); if (new URLSearchParams(location.search).has(\"poster\")) document.documentElement.classList.add(\"poster\");</script></head>"],
-  ['<div class="ui" id="info">', '<a class="o3-back" href="../#aula-1-introducao-ao-modelo-conceitual">Voltar ao módulo</a>\n<div class="ui" id="info">'],
+  ['<div class="ui" id="info">', '<a class="o3-back" data-ui="back" href="../#aula-1-introducao-ao-modelo-conceitual">Voltar ao módulo</a>\n<div class="ui" id="info">'],
   ["/* paste 3D figure modules here */", read("fig3d.js")],
   // a figura escolhe a direção da câmera (X para a direita, Z para o fundo), em vez do (1, 1, 1) do modelo
   ["VIEWS[id] = { target: F.view.target, dir: new THREE.Vector3(1, 1, 1).normalize(),", "VIEWS[id] = { target: F.view.target, dir: (F.view.dir || new THREE.Vector3(1, 1, 1)).clone().normalize(),"],

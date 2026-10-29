@@ -664,7 +664,7 @@ FIGS3D.push({ id: 'saga', name: 'Saga', mod: (() => {
   render();
   if (document.documentElement.classList.contains('embedded')) controls.enableZoom = false;
   return { group: g0, key, click, tick, readout, demo: () => go(1), stop: () => { playing = false; },
-    panel: [['Próximo passo', '→', next], ['Voltar', '←', prev], ['Recomeçar', 'R', reset], ['Tocar sozinho', 'espaço', auto], ['Trocar cenário', 'C', cycleSc]],
+    panel: [[UI.next, '→', next], [UI.prev, '←', prev], [UI.restart, 'R', reset], [UI.auto, UI.space, auto], ['Trocar cenário', 'C', cycleSc]],
     view: NARROW() ? { target: W(490, 230, -150), dist: innerWidth < 640 ? 15 : 18 } : { target: W(220, 230, 60), dist: 17 },
     info: panelHtml(),
     hint: 'próximo: → · voltar: ← · cenário: C ou 1–4 · arraste para girar' };
