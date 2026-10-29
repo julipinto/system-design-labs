@@ -1,0 +1,93 @@
+---
+title: "Growth projection"
+order: 7
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the plan was left with the 2026 peak in hand: <strong>640 req/s</strong> at 20:03. Black Friday 2027 is the same night a year later, and the question is what load it arrives with. The answer has two sources: what the series shows and what the business is going to change.</p>
+
+<OneLiner>The projection combines <strong>the history</strong> (linear <strong>750</strong> and compound <strong>824</strong>) and <strong>the events</strong> (the new screen, +15% = <strong>950</strong>). It is a conversation with the business, and the range the plan covers is <strong>750 – 950 – 1,140</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Projection</strong> scenario, project by the line and then turn on the event, and watch the catalog with 10 replicas go from <strong>75%</strong> to <strong>95%</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/bf-3d/?mode=projecao" poster="labs/capacity-planning/bf-3d-previa.webp" title="Interactive figure: Growth projection" alt="Preview of the 3D figure: Growth projection" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The series.</strong> The catalog peak over the last 4 years (example): <strong>2023: 300 · 2024: 410 · 2025: 520 · 2026: 640</strong>.</li>
+  <li><strong>Linear.</strong> The least-squares line grows <strong>113 per year</strong> and gives <strong>750</strong> in 2027.</li>
+  <li><strong>Nonlinear (compound).</strong> The rate is (640 ÷ 300)^(1/3) = <strong>28.7% per year</strong> and the extrapolation gives <strong>824</strong>. The real jumps (1.37 · 1.27 · 1.23) are <strong>falling</strong>, and even so the compound lands at 824.</li>
+  <li><strong>By business event.</strong> The module 9 new home screen makes <strong>15% more requests</strong> to the catalog per visit (example): 824 × 1.15 = 947.5 ≈ <strong>950</strong>, the module 14 number.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The range and the checkout</h3>
+
+<p>The planning range is <strong>750 – 950 – 1,140</strong>, where 1,140 = 950 × 1.2 is the error margin. For the checkout, the math is different. Today it is <strong>30 orders/s</strong>. The individual-customer trend gives 30 × 1.484 (950 ÷ 640) = <strong>44.5 ≈ 45/s</strong>. The <strong>sales goal is 200/s</strong>, and the difference of <strong>155/s</strong> only exists if <strong>partners through the API</strong> sell without browsing the catalog.</p>
+
+<p>So 200 ÷ 950 = <strong>21%</strong> orders per catalog request, against 30 ÷ 640 = <strong>4.7%</strong> today. The planner <strong>asks the business</strong> where the 155/s come from, and the answer is the partner API. Capacity planning doesn't predict: it calculates what it costs to carry each scenario.</p>
+
+<h3 class="sec">The cost of the error</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Demand</th><th>10 replicas (1,000 req/s)</th><th>14 replicas (1,400 req/s)</th></tr></thead>
+  <tbody>
+    <tr><th>750 · line</th><td>75% (R = 50 ms)</td><td>53.6%</td></tr>
+    <tr><th>824 · compound</th><td>82%</td><td>—</td></tr>
+    <tr><th>950 · event</th><td><strong>95%</strong> (R = 210 ms)</td><td><strong>67.9%</strong></td></tr>
+    <tr><th>1,140 · margin</th><td>—</td><td><strong>81.4%</strong> (the knee)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<Widget name="projecao" title="Projection" hint="Editable 2023–2026 series, line and compound, the event (+%), the range and the catalog utilization with N replicas (the 10 and 14 table). The checkout block shows 45 · 200 · 300 orders/s." />
+
+<h3 class="sec">If it goes wrong: the line and the event</h3>
+
+<p>The plan uses the <strong>line</strong> (750) and the event arrives (950). The 10 replicas sit at <strong>95%</strong> and the p95 goes back to 800 ms (module 14). Worse than that is <strong>unplanned nonlinear</strong> growth, like the 200 orders/s goal: it is the most dangerous kind for a system operating near its maximum.</p>
+
+<WhyItMatters>
+  <li><strong>History is a floor, not the plan.</strong> The line and the compound say what happens if nothing changes.</li>
+  <li><strong>The event has a date and an owner.</strong> The new screen, the partner API and the campaign go into the plan with a date.</li>
+  <li><strong>The range shows the risk.</strong> 750 to 1,140 makes clear how much each choice of replicas covers.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the base article leaves out</h4>
+  <ul>
+    <li><strong>The cost of the goal.</strong> The distance between the trend (45/s) and the goal (200/s) is a business decision, not an extrapolation. The article treats projection as organic growth only.</li>
+    <li><strong>The rates are falling.</strong> The jumps of 1.37 · 1.27 · 1.23 show a curve that is slowing down, and the compound (28.7%) is optimistic for the history alone. That is why the line and the compound both appear.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE Workbook: Non-Abstract Large System Design", href: "https://sre.google/workbook/non-abstract-design/" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The projection gave the 2027 demand, but each checkout service has its own limit. What's left is to find out how much the <strong>whole flow</strong> can take.</p>
+
+<Flashcards cards={[
+  { q: "What are the catalog projections for 2027?",
+    a: "Linear 750, compound 824 (28.7%/year), with the new-screen event (+15%) 950. Range 750 – 950 – 1,140." },
+  { q: "What are the three checkout scenarios?",
+    a: "Trend 45/s, sales goal 200/s and stress 300/s (1.5 × the goal)." },
+  { q: "Where do the extra 155 orders/s come from?",
+    a: "From partners through the API, who sell without browsing the catalog. The conversion rises from 4.7% to 21% orders per request." },
+  { q: "What happens if the plan uses the line (750) and the event (950) arrives?",
+    a: "The 10 replicas go to 95% and the p95 goes back to 800 ms." },
+  { q: "With 14 replicas, how much does each demand take?",
+    a: "750: 53.6%. 950: 67.9%. 1,140: 81.4%, at the knee." },
+]} />

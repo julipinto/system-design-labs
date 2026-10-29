@@ -1,0 +1,100 @@
+---
+title: "End-to-end capacity"
+order: 8
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">The projection delivered the demand: <strong>950 req/s</strong> on the catalog and <strong>200 orders/s</strong> on the checkout. The catalog has a single link. The checkout crosses four services and a database, and the question becomes <strong>how much the whole chain can take</strong>.</p>
+
+<OneLiner>The capacity the customer sees is that of the <strong>weakest link</strong>: <strong>systemic TPS = min (…)</strong>. And the <strong>bottleneck moves</strong>: when one link is fixed, the next one shows up.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Chain</strong> scenario, scale <code>pagamentos</code> from 2 to 15 pods and follow the bottleneck move: from the <strong>40/s</strong> capacity to the <strong>90/s</strong> one, where <code>pedidos</code> becomes the weakest.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/bf-3d/?mode=cadeia" poster="labs/capacity-planning/bf-3d-previa.webp" title="Interactive figure: End-to-end capacity" alt="Preview of the 3D figure: End-to-end capacity" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Individual.</strong> Each link has its own limit: <code>pedidos</code> 90/s, <code>pagamentos</code> 40/s, <code>estoque</code> 1,000/s, DB 250/s effective.</li>
+  <li><strong>Systemic.</strong> The minimum of the chain: <strong>40/s</strong>, <code>pagamentos</code>.</li>
+  <li><strong>Fix one link.</strong> Raising <code>pagamentos</code> makes the minimum move to the next weakest link.</li>
+  <li><strong>Repeat.</strong> The sequence ends when the minimum reaches the demand, or when the next link costs more than it is worth.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The bottleneck moves</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Step</th><th><code>pedidos</code></th><th><code>pagamentos</code></th><th><code>estoque</code></th><th>DB</th><th>Minimum</th><th>Link</th></tr></thead>
+  <tbody>
+    <tr><th>Today (3 / 2 / 2 / 3 shards)</th><td>90</td><td><strong>40</strong></td><td>1,000</td><td>250</td><td><strong>40</strong></td><td><code>pagamentos</code></td></tr>
+    <tr><th><code>pagamentos</code> 2 → 15 pods</th><td>90</td><td>300</td><td>1,000</td><td>250</td><td><strong>90</strong></td><td><code>pedidos</code></td></tr>
+    <tr><th><code>pedidos</code> 3 → 10 pods</th><td>300</td><td>300</td><td>1,000</td><td><strong>250</strong></td><td><strong>250</strong></td><td>DB</td></tr>
+    <tr><th>Dedicated 2× shard for <code>mkt-01</code></th><td>300</td><td>300</td><td>1,000</td><td><strong>750</strong></td><td><strong>300</strong></td><td><code>pedidos</code> and <code>pagamentos</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The numbers are <strong>nominal capacity</strong>. The <strong>sustainable</strong> one is 70% of it: 70% of 300 = <strong>210/s</strong> against the goal of <strong>200/s</strong>. The plan fits with about <strong>5%</strong> of slack. In the stress scenario (300/s) the chain goes to 100%.</p>
+
+<h3 class="sec">The database and the hot shard</h3>
+
+<p>With <code>mkt-01</code> (60% of the traffic on <code>shard-2</code>), 200 × 0.6 = <strong>120/s on a 150 shard</strong>: 80%, at the knee. The other two shards sit at 40/s (26.7%). With the <strong>dedicated 2× shard</strong> (300/s capacity) for <code>mkt-01</code> (40% = 80/s), it sits at <strong>26.7%</strong>, and the three normal ones, with (200 − 80) ÷ 3 = 40/s each, also at <strong>26.7%</strong>. It is the T = 750 math from module 16.</p>
+
+<Widget name="cadeia" title="Checkout chain" hint="Pods of each link, demand (1 to 400/s) and target ρ (50 to 90%). Calculates the minimum, the bottleneck, the pods needed, the hot shard and the entregas lag (3 to 12 partitions)." />
+
+<h3 class="sec">The asynchronous link: <code>entregas</code></h3>
+
+<p>The Kafka <code>pedidos</code> topic (module 13) has 3 partitions and each <code>entregas</code> consumer processes <strong>40 events/s</strong> (example): <strong>120/s</strong> against <strong>200/s</strong> arriving. The lag grows <strong>80/s</strong>. In 4 hours, the event's, that is <strong>1,152,000</strong> delayed events. After the peak (5/s), at 115/s net, it takes <strong>10,017 s ≈ 2.8 h</strong> to drain. It doesn't take down the checkout, but it delays tracking.</p>
+
+<p>The plan takes the topic from <strong>3 to 8 partitions</strong>: 8 × 40 = 320/s, ρ = <strong>62.5%</strong>. Careful with module 16: changing the number of partitions changes <code>murmur2 mod N</code>, and going from 3 to 6 moves about 50% of the keys.</p>
+
+<h3 class="sec">If it goes wrong: scaling the most expensive link</h3>
+
+<p>The team scales <code>estoque</code> (from 2 to 4 pods) because "stock is critical". Its capacity goes to 2,000/s and the <strong>chain's output doesn't change</strong>: 40/s. The bottleneck is the <strong>minimum</strong>, not the most expensive or the most important.</p>
+
+<WhyItMatters>
+  <li><strong>The chain is worth its weakest link.</strong> Scaling another link spends money without moving the output.</li>
+  <li><strong>The bottleneck changes place.</strong> Each step of the plan finds the next one.</li>
+  <li><strong>Sustainable is not nominal.</strong> The 200/s goal has to fit in 70% of the capacity, and it does, with 5% slack.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li><strong>Nominal × operational capacity.</strong> The article calculates capacity from each component's throughput. That is the <strong>nominal</strong> capacity (each pod's CPU, DB per primary). Connection pool, Kafka queue and PSP limit also have a ceiling and stay out of the math; module 24 measures the operational capacity.</li>
+  </ul>
+  <h4 class="deep-h">Percentiles don't add up</h4>
+  <p>To look at the latency of the whole chain, you can't sum or average the links' percentiles: each link's p99 doesn't give the p99 of the whole. The right aggregation is through histograms (Prometheus).</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Prometheus: histograms and summaries (aggregating percentiles)", href: "https://prometheus.io/docs/practices/histograms/" },
+    { label: "Google SRE book: Addressing Cascading Failures", href: "https://sre.google/sre-book/addressing-cascading-failures/" },
+  ]} />
+</Deep>
+
+<p class="gancho">The chain showed that 300/s requires 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. What's left is to put it all into a plan, with a cost.</p>
+
+<Flashcards cards={[
+  { q: "What is the chain's systemic capacity?",
+    a: "The minimum across the links. Today 40/s (pagamentos); after the plan's steps, 300/s." },
+  { q: "In what order does the bottleneck move?",
+    a: "40 (pagamentos) → 90 (pedidos) → 250 (DB) → 300 (pedidos and pagamentos, with the dedicated shard)." },
+  { q: "How much fits sustainably with the 200/s goal?",
+    a: "70% of 300 = 210/s, about 5% slack. At 300/s the chain goes to 100%." },
+  { q: "How hard does mkt-01's hot shard work?",
+    a: "120/s on a 150 shard (80%, at the knee). With the dedicated 2×: 26.7%." },
+  { q: "What does the entregas lag show?",
+    a: "3 partitions × 40/s = 120/s against 200/s: 1,152,000 events in 4 h and 2.8 h to drain. With 8 partitions: ρ = 62.5%." },
+]} />

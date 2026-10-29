@@ -1,0 +1,86 @@
+---
+title: "Little's Law and the healthy point"
+order: 3
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">In the last lesson each <code>pagamentos</code> pod got a queue and a response time. One question stayed open: how much work exists <strong>inside</strong> the system at any given moment. That is what Little's Law counts, and it is the number that says when a service runs out of free workers.</p>
+
+<OneLiner><strong>Little's Law</strong> says the work in flight is <strong>L = λ × W</strong>. Fix the <strong>target L</strong> the service can take and the <strong>healthy point</strong> contract falls out: the rate and the time that fit in it.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Little</strong> scenario, go to the last step and, on the "PSP-A W (s)" selector, stretch the response time from <strong>0.18 s</strong> to <strong>0.5 s</strong> and watch the <code>pagamentos</code> workers run out while the CPU sits at 33%.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/ponto-3d/?mode=little" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Interactive figure: Little's Law" alt="Preview of the 3D figure: Little's Law" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The math.</strong> If λ orders arrive per second and each stays W seconds in the system, there are <strong>L = λ × W</strong> orders inside, on average. It holds for any stable queue, with no assumption about the distribution.</li>
+  <li><strong>The article's example.</strong> <strong>1,500 msg/s × 0.050 s = 75</strong> messages in flight. At <strong>85 ms</strong> it rises to <strong>127.5</strong> (the article writes 127; the increase is 52.5, not 52).</li>
+  <li><strong>Fix the target L.</strong> A REST API handles 150 requests in flight. At <strong>500 req/s</strong> and 0.3 s, L is 150. At <strong>1,000 req/s</strong> L goes to 300. The <strong>target W</strong> that keeps L = 150 at 1,000 req/s is <strong>150 ÷ 1,000 = 150 ms</strong>.</li>
+  <li><strong>See it in the store.</strong> <code>pedidos</code> waits for <code>pagamentos</code> for 200 ms. With <strong>10 orders/s</strong> per pod, L = 10 × 0.2 = <strong>2 workers</strong> busy.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The <code>pagamentos</code> target L</h3>
+
+<p>From the last lesson's queue, L = ρ ÷ (1 − ρ). At <strong>70%</strong> utilization (the healthy point), L is <strong>2.33</strong> per pod. At <strong>80%</strong> it is <strong>4.0</strong>. The plan picks <strong>target L = 4 per pod</strong>: above that, the pod passes the limit the plan accepts.</p>
+
+<p>With Black Friday 2027 (200 orders/s across 10 <code>pedidos</code> pods, 20/s per pod) <code>pagamentos</code> works at 66.7%, with W = 150 ms. Little checks out: L = 20 × 0.15 = <strong>3 per pod</strong>, below the target of 4.</p>
+
+<h3 class="sec">Pool = λ × W × headroom</h3>
+
+<p>The same math sizes the connection pool to the PSP. Module 21 closed the pool at <strong>30 orders/s</strong>: 50 connections, L = 30 × 0.18 = 5.4 normally and a <strong>critical timeout of 50 ÷ 30 = 1.67 s</strong>. That is why the timeout stayed at 1 s.</p>
+
+<p>At <strong>200 orders/s</strong> the same pool won't do. Normally, L = 200 × 0.18 = <strong>36</strong> (72% of the pool). In the worst case the 1 s timeout allows, L = 200 × 1 = <strong>200</strong>. The critical timeout drops to 50 ÷ 200 = <strong>0.25 s</strong>, lower than PSP-A's p99.9 (700 ms). The plan takes the pool from <strong>50 to 150</strong> (36 × headroom of 4 = 144): it tolerates a PSP W of up to 150 ÷ 200 = <strong>0.75 s</strong> before saturating. Above that the circuit breaker takes over (module 21).</p>
+
+<Widget name="little" title="Little and pool" hint="Arrival, response time and target L. Calculates L = λ × W, the target W, the capacity with W halved and the pool (λ × W × headroom). PSP preset: 200 orders/s with W = 0.18 s (36 in flight) and 0.5 s (100 in flight against 50)." />
+
+<h3 class="sec">If it goes wrong: replicas go up, the pool doesn't</h3>
+
+<p>The <code>pagamentos</code> owner learns lesson 8 and takes the replicas from 2 to 15. They forget the pool. With PSP-A at <strong>0.5 s</strong>, L = 200 × 0.5 = <strong>100 in flight</strong> against <strong>50</strong> connections: <code>pagamentos</code> <strong>saturates with the CPU at 33% (100 charges/s × 50 ms ÷ 15 vCPU)</strong>. CPU utilization doesn't see the problem; <strong>concurrency</strong> does. Scaling by CPU doesn't solve it. The HPA needs a concurrency (or queue) metric, and the pool goes into the limits sheet in lesson 9.</p>
+
+<WhyItMatters>
+  <li><strong>L counts the work in flight.</strong> Every busy worker, connection and thread is one unit of L.</li>
+  <li><strong>The target L is a contract.</strong> The service promises to take up to L = 4 per pod; the plan checks whether that fits.</li>
+  <li><strong>Low CPU with high L is a slow dependency.</strong> The symptom is a queue with an idle processor.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"50% more requests."</strong> The article says that cutting W from 300 to 150 ms makes the system process 50% more requests. The same concurrency L with W halved sustains <strong>double</strong>: from 500 to 1,000 req/s, <strong>+100%</strong>.</li>
+    <li><strong>"127".</strong> The product 1,500 × 0.085 is <strong>127.5</strong>, and the increase is <strong>52.5</strong>. The article rounds down.</li>
+    <li><strong>"The smaller the L, the better."</strong> A small L means little work in flight, but a high L with a big pool and low CPU is the sign of a slow dependency. What matters is L compared with the <strong>target L</strong> (the workers available).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipedia: Little's law", href: "https://en.wikipedia.org/wiki/Little%27s_law" },
+    { label: "Marc Brooker: Telling Stories About Little's Law", href: "https://brooker.co.za/blog/2018/06/20/littles-law.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">Little showed that the target L limits the time and the rate. What's left is to find out exactly where the response shoots up as utilization rises.</p>
+
+<Flashcards cards={[
+  { q: "What does Little's Law say?",
+    a: "L = λ × W: the work in flight is the arrival rate times the time in the system. 1,500 msg/s × 50 ms = 75." },
+  { q: "What is the target W of an API with target L 150 at 1,000 req/s?",
+    a: "W = L ÷ λ = 150 ÷ 1,000 = 150 ms. With W halved the capacity doubles (+100%), it doesn't grow 50%." },
+  { q: "What is the target L of pagamentos?",
+    a: "4 per pod (ρ = 80%). The healthy point, at 70%, is L = 2.33." },
+  { q: "What pool does pagamentos need at 200 orders/s?",
+    a: "150 connections: 36 in flight × headroom of 4. The pool of 50 has a critical timeout of 0.25 s, lower than PSP-A's p99.9." },
+  { q: "How does scaling by CPU fail with a slow PSP?",
+    a: "At 0.5 s, L = 100 against 50 connections: pagamentos saturates with the CPU at 33% (100 charges/s × 50 ms ÷ 15 vCPU). A concurrency metric is needed." },
+]} />

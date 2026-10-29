@@ -1,0 +1,99 @@
+---
+title: "Capacity planning"
+order: 9
+min: 14
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson left the bottleneck moving and a list of parts: 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. What's left is to put that into a <strong>plan</strong> sales can read: what gets bought, what it costs and what to do if demand goes past what was forecast.</p>
+
+<OneLiner>The plan is an <strong>8-step route</strong> whose result is a <strong>limits sheet</strong>, not "a number": with cost, margins and <strong>re-evaluation triggers</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Plan</strong> scenario, go through the 2027 parts (14 · 10 · 15 · 2 · 4 shards · 8 partitions) and read the total: <strong>41 vCPU</strong>, against 17 in 2026.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/bf-3d/?mode=plano" poster="labs/capacity-planning/bf-3d-previa.webp" title="Interactive figure: The BF 2027 plan" alt="Preview of the 3D figure: The BF 2027 plan" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>Delimit the flow.</strong> <code>GET /produtos/{'{id}'}</code> (catalog) and the checkout: <code>carrinho → pedidos → pagamentos → estoque → banco</code>, plus <code>entregas</code> by event.</li>
+  <li><strong>Load.</strong> Catalog <strong>950 req/s</strong>; checkout <strong>200 orders/s</strong> (60% on <code>shard-2</code>); 20 KB payload (156 Mbit/s).</li>
+  <li><strong>Individual throughput.</strong> 100 req/s per catalog replica (74 with 5% search), 30/s <code>pedidos</code>, 20/s <code>pagamentos</code>, 500/s <code>estoque</code>, 150/s per shard, 40/s per <code>entregas</code> partition.</li>
+  <li><strong>Systemic.</strong> The minimum of the chain (lesson 8): 300/s nominal, 210/s sustainable.</li>
+  <li><strong>Projection.</strong> Catalog 750 – <strong>950</strong> – 1,140; checkout 45 – <strong>200</strong> – 300.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">Step 6: cost and margins</h3>
+
+<p>A replica is 1 vCPU. Black Friday 2026 used catalog 10 + <code>pedidos</code> 3 + <code>pagamentos</code> 2 + <code>estoque</code> 2 = <strong>17 vCPU</strong>. The 2027 plan asks for catalog <strong>14</strong> (or 19, with search) + <code>pedidos</code> <strong>10</strong> + <code>pagamentos</code> <strong>15</strong> + <code>estoque</code> <strong>2</strong> = <strong>41 vCPU</strong>, that is, <strong>+24</strong>. The ordinary day is 2 + 3 + 2 + 2 = <strong>9</strong>.</p>
+
+<p>In <strong>replica-hours per day</strong>, a fixed fleet of 24 h × 41 gives <strong>984</strong>. An <strong>elastic</strong> fleet, with 41 during the 4 peak hours and 9 the rest of the time, gives 4 × 41 + 20 × 9 = <strong>344</strong>: <strong>35%</strong> of the fixed one, in the same range as module 14's 33%.</p>
+
+<p>The HPA reacts in about 60 s, and the 20:00 newsletter is <strong>known</strong>. So the plan says to <strong>pre-scale at 19:50</strong> (scheduled scaling) instead of waiting for the metric. The module 21 <strong>emergency capacity</strong> also enters the math: the catalog's degradation levels (7.5 ms → 133 req/s per replica; 6 ms → 167) give 14 × 133 = <strong>1,867</strong> and 14 × 167 = <strong>2,333 req/s</strong> without one extra replica. The plan <strong>counts</strong> this slack but <strong>doesn't depend on it</strong>: degrading is the last resort.</p>
+
+<Widget name="custo" title="Plan cost" hint="Pods of each service on an ordinary day and in 2027, peak hours: calculates vCPU, replica-hours of the fixed × elastic fleet (984 × 344) and the difference from Black Friday 2026 (17 vCPU)." />
+
+<h3 class="sec">Step 7: the limits sheet</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Catalog</th><th>Checkout</th></tr></thead>
+  <tbody>
+    <tr><th>Sustainable</th><td><strong>980 req/s</strong> (14 × 100 × 0.7)</td><td><strong>210 orders/s</strong></td></tr>
+    <tr><th>Goals</th><td>p95 ≤ 300 ms · errors ≤ 0.1% · ρ ≤ 70%</td><td>p95 ≤ 800 ms · errors ≤ 0.1% · <code>pagamentos</code> target L = 4 per pod</td></tr>
+    <tr><th>Dependencies</th><td>—</td><td>PSP pool: <strong>150</strong> connections</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The <strong>re-evaluation trigger</strong> is: demand above <strong>210 orders/s</strong> or <strong>980 req/s</strong>, or <code>pagamentos</code> with L &gt; 4. Once it's passed, the math is redone. Step 8: the plan is a model, and the validation is <strong>measuring</strong> (module 24).</p>
+
+<p>And there is a <strong>freeze</strong>: code changes (module 22) stop <strong>3 days</strong> before Black Friday, except for operation flags.</p>
+
+<h3 class="sec">If it goes wrong: the plan is nominal</h3>
+
+<p>The plan says <strong>300/s</strong> and the math is of <strong>nominal capacity</strong>: each pod's CPU, the DB per primary. Nobody measured the connection pool (<code>max_connections</code>), the Kafka queue, the PSP limit or the difference between the ordinary day's mix and Black Friday's. A plan without a test is a <strong>hypothesis</strong>, and the <em>breakpoint</em> test may find the limit <strong>before</strong> 300.</p>
+
+<WhyItMatters>
+  <li><strong>The sheet is the deliverable.</strong> Sustainable, goals, pool and triggers: sales and the on-call read the same paper.</li>
+  <li><strong>Cost is part of the plan.</strong> 41 vCPU at the peak and 344 replica-hours per day with the elastic fleet.</li>
+  <li><strong>The plan needs a test.</strong> Every number was calculated, and module 24 says which of them hold up.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the base article leaves out and the references</h4>
+  <ul>
+    <li><strong>Missing from the article:</strong> the cost of the goal (trend × sales goal), the re-evaluation trigger, the pre-event freeze, the scheduled pre-scale and nominal × operational capacity.</li>
+    <li><strong>References:</strong> the ACM Queue text and the SciELO one return 403 to robots and are not cited; the Medium one too. "Little's law" via <code>translate.goog</code> is Wikipedia (the original source is the one cited).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+    { label: "Author's public repository: load-test example (no affiliation)", href: "https://github.com/msfidelis/linuxtips-curso-descomplicando-o-system-design/tree/main/exemplos/load-test" },
+  ]} />
+</Deep>
+
+<p class="gancho">The plan says 300/s is the nominal limit, and nobody measured it. What's left is to find out how much the store can take <strong>for real</strong>, and how to find the breaking point without taking production down: that is module 24, Load and Stress Testing, with k6 on the checkout.</p>
+
+<Flashcards cards={[
+  { q: "What are the 8 steps of the route?",
+    a: "Flow, load, individual throughput, systemic, projection, cost and margins, operating limits, load tests." },
+  { q: "What is the 2027 plan in pods and vCPU?",
+    a: "Catalog 14 + pedidos 10 + pagamentos 15 + estoque 2 = 41 vCPU (17 in 2026, 9 on an ordinary day), plus 4 shards and 8 partitions." },
+  { q: "How much does the elastic fleet save?",
+    a: "344 replica-hours against the fixed fleet's 984: 35% of the fixed one. Pre-scale at 19:50." },
+  { q: "What is in the limits sheet?",
+    a: "Sustainable 980 req/s and 210 orders/s; p95 ≤ 300 ms (catalog) and ≤ 800 ms (checkout); errors ≤ 0.1%; ρ ≤ 70%; target L 4; pool 150." },
+  { q: "What are the re-evaluation triggers?",
+    a: "Demand above 210 orders/s or 980 req/s, or pagamentos with L > 4." },
+]} />

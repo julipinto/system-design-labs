@@ -1,0 +1,123 @@
+---
+title: "Queueing theory"
+order: 2
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson the plan was left with a question underneath: why is 70% usage healthy and 95% not? The answer lies in something <code>pagamentos</code> has and module 14 already used without naming: a <strong>queue</strong>. Each pod serves one order at a time, and the ones that arrive while it works wait.</p>
+
+<OneLiner>Every queue has an <strong>arrival (λ)</strong>, a <strong>service (μ)</strong> and an <strong>order</strong>. The waiting time depends on the <strong>utilization (ρ = λ ÷ μ)</strong> and on the <strong>variability</strong> of the service, not just on the average.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Queue</strong> scenario, change the variability from <strong>0</strong> to <strong>2</strong>, with the pod at <strong>80%</strong>, and read the response time: from <strong>150 ms</strong> to <strong>550 ms</strong>, with the same capacity and the same utilization.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/ponto-3d/?mode=fila" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Interactive figure: The pagamentos queue" alt="Preview of the 3D figure: The pagamentos queue" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The two numbers.</strong> A <code>pagamentos</code> pod spends <strong>50 ms</strong> per order (S = 50 ms), so it serves <strong>μ = 1 ÷ 0.05 = 20 orders/s</strong>. The arrival rate is λ. The utilization is <strong>ρ = λ ÷ μ</strong>.</li>
+  <li><strong>The wait grows with ρ.</strong> In the simplest model (M/M/1: random arrivals and services, one server), the response time is <strong>W = S ÷ (1 − ρ)</strong>. At 50% it is double S; at 90%, ten times; at 99%, a hundred.</li>
+  <li><strong>Variability pushes the curve.</strong> Two services with the same average rate can have very different curves: the more irregular the service time, the more waiting. The Pollaczek–Khinchine formula measures this with the <strong>CV</strong> (coefficient of variation).</li>
+  <li><strong>Every hop is a queue.</strong> The connection pool, the lock, the database connection and the retry also form queues. <code>pagamentos</code> has a CPU queue and a pool queue.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The <code>pagamentos</code> pod table</h3>
+
+<p>With S = 50 ms and μ = 20/s, each utilization level has a fixed response time. Black Friday 2026 sits on the 75% row: 30 orders/s split across 2 pods gives 15/s each.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>ρ</th><th>λ per pod</th><th>W (ms)</th><th>L</th><th>p95 (ms)</th><th>W ÷ S</th></tr></thead>
+  <tbody>
+    <tr><th>50%</th><td>10/s</td><td>100</td><td>1.0</td><td>300</td><td>2.0</td></tr>
+    <tr><th>60%</th><td>12/s</td><td>125</td><td>1.5</td><td>374</td><td>2.5</td></tr>
+    <tr><th>70%</th><td>14/s</td><td><strong>167</strong></td><td>2.33</td><td>499</td><td>3.3</td></tr>
+    <tr><th>75% · BF 2026</th><td>15/s</td><td><strong>200</strong></td><td>3.0</td><td>599</td><td>4.0</td></tr>
+    <tr><th>80%</th><td>16/s</td><td>250</td><td>4.0</td><td>749</td><td>5.0</td></tr>
+    <tr><th>85%</th><td>17/s</td><td>333</td><td>5.7</td><td>999</td><td>6.7</td></tr>
+    <tr><th>90%</th><td>18/s</td><td>500</td><td>9.0</td><td>1,498</td><td>10</td></tr>
+    <tr><th>95%</th><td>19/s</td><td>1,000</td><td>19</td><td>2,996</td><td>20</td></tr>
+    <tr><th>99%</th><td>19.8/s</td><td>5,000</td><td>99</td><td>14,979</td><td>100</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The p95 uses the exponential distribution: <strong>W × ln 20</strong>. Between 50% and 95% the average goes from 100 ms to 1 s without the pod accepting a single order per second more than it can serve. What grows is the wait.</p>
+
+<Widget name="fila" title="Queue: M/M/1 and variability" hint="Service time, servers, arrival (λ) and CV (0 · 0.5 · 1 · 2). Shows ρ, W, L, the p95 and the table by utilization. Presets for pagamentos (75% → 200 ms) and the catalog (10 ms + 10 ms ÷ (1 − ρ))." />
+
+<h3 class="sec">Variability: same average, another experience</h3>
+
+<p>M/M/1 assumes the service time varies like an exponential (CV = 1). In practice <code>pagamentos</code> mixes light and heavy orders. The <strong>Pollaczek–Khinchine</strong> formula (M/G/1) is <strong>W = S + ρ ÷ (1 − ρ) × (1 + CV²) ÷ 2 × S</strong>. At 80%, with S = 50 ms:</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Service</th><th>CV</th><th>W at 80%</th></tr></thead>
+  <tbody>
+    <tr><th>Constant</th><td>0</td><td><strong>150 ms</strong></td></tr>
+    <tr><th>Slightly irregular</th><td>0.5</td><td><strong>175 ms</strong></td></tr>
+    <tr><th>Exponential (M/M/1)</th><td>1</td><td><strong>250 ms</strong></td></tr>
+    <tr><th>Mix of light and heavy</th><td>2</td><td><strong>550 ms</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Same capacity and same utilization, with an average time <strong>3.7 times longer</strong> (550 ÷ 150). A dashboard that only looks at "CPU at 80%" can't see the difference.</p>
+
+<h3 class="sec">M/M/1 is pessimistic for the store</h3>
+
+<p><code>lb-loja</code> does <strong>round robin</strong> (module 7), which makes each pod's arrivals more regular than a random draw. In module 24's k6, 30 orders/s (2 <code>pagamentos</code> pods at 75%) gave an average of <strong>157 ms across the whole chain</strong>, below the roughly 259 ms M/M/1 suggests. Planning with M/M/1 leaves slack; only measuring says how much.</p>
+
+<p><strong>Autoscaling</strong> doesn't fix variability either. The HPA (module 14) reacts in about 60 s and raises the <strong>number of servers</strong>, not the regularity; the short-term burst is what the queue feels before it.</p>
+
+<h3 class="sec">If it goes wrong: the dashboard says 80% and the queue says 550 ms</h3>
+
+<p><code>pagamentos</code> at 80% with CV = 2 answers in <strong>550 ms</strong>, 3.7 times that of CV = 0. The service owner looks at "CPU 80%" and the utilization seems healthy; nothing there explains why the p95 is so high. The cause is the variability of the orders (light and heavy mixed), and the fix is to separate the two types, not to add replicas.</p>
+
+<WhyItMatters>
+  <li><strong>The waiting time depends on ρ and on CV.</strong> Equal utilization does not mean equal experience.</li>
+  <li><strong>Every hop is a queue.</strong> Pool, lock, connection and retry behave the same way: anything above ~80% makes the wait jump.</li>
+  <li><strong>M/M/1 is a bound, not a forecast.</strong> It serves to plan with slack and to know what to measure in module 24.</li>
+</WhyItMatters>
+
+<Deep min={4}>
+  <h4 class="deep-h">Corrections to the base article</h4>
+  <ul>
+    <li><strong>"Variability instead of percentiles."</strong> The article presents CV and standard deviation as metrics that replace percentiles. In a queue, variability is the <strong>factor</strong> (Pollaczek–Khinchine) and percentiles remain what the customer feels. The two add up: average, CV and p99.</li>
+    <li><strong>M/M/1 is conservative.</strong> The balancer's round robin and services with CV &lt; 1 make the real queue shorter. The article lacks <strong>M/G/1</strong> (Pollaczek–Khinchine) and <strong>M/M/c</strong> (Erlang C): one shared pool is more efficient than several small ones (module 25).</li>
+    <li><strong>Autoscaling does not "raise μ temporarily".</strong> It raises the <strong>capacity</strong> (the number of servers) with a delay of about 60 s (module 14). Short-term variability does not go through it. The article also lacks the option to scale by <strong>concurrency (L)</strong> or by queue, and not only by CPU.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipedia: M/M/1 queue", href: "https://en.wikipedia.org/wiki/M/M/1_queue" },
+    { label: "Wikipedia: Pollaczek–Khinchine formula", href: "https://en.wikipedia.org/wiki/Pollaczek%E2%80%93Khinchine_formula" },
+    { label: "Wikipedia: Kingman's formula", href: "https://en.wikipedia.org/wiki/Kingman%27s_formula" },
+    { label: "Wikipedia (pt): Teoria das filas", href: "https://pt.wikipedia.org/wiki/Teoria_das_filas" },
+  ]} />
+</Deep>
+
+<p class="gancho">With λ, μ and CV we know how long each order waits in the queue. What's left is to find out how much work there is <strong>inside</strong> the system at the same time, and how much of that work each pod can take.</p>
+
+<Flashcards cards={[
+  { q: "What are the three elements of every queue?",
+    a: "Arrival (λ), service (μ) and order. The utilization is ρ = λ ÷ μ." },
+  { q: "What is the M/M/1 response time?",
+    a: "W = S ÷ (1 − ρ). On the pagamentos pod (S = 50 ms): 100 ms at 50%, 200 ms at 75%, 500 ms at 90%, 5,000 ms at 99%." },
+  { q: "What does variability change?",
+    a: "At 80% and S = 50 ms: CV 0 gives 150 ms, CV 1 gives 250 ms and CV 2 gives 550 ms. Same capacity, 3.7× the time." },
+  { q: "Why is M/M/1 pessimistic for the store?",
+    a: "lb-loja does round robin, which regularizes the arrivals. In k6, 30 orders/s gave an average of 157 ms across the whole chain, below the model's ~259 ms." },
+  { q: "What does autoscaling raise?",
+    a: "The capacity (servers), with a delay of ~60 s. It does not reduce short-term variability." },
+]} />

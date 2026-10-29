@@ -1,0 +1,36 @@
+---
+// Capacity Planning module (EN): the 9 lessons of src/content/_en/capacity-planning/, in `order` order.
+import { getCollection, render } from 'astro:content';
+import ModuleLayout from '../../../../layouts/ModuleLayout.astro';
+import Lesson from '../../../../components/Lesson.astro';
+import { withBase } from '../../../../lib/url.js';
+import '../../../../styles/capacity-planning.css';
+
+const entries = (await getCollection('en-capacity-planning')).sort((a, b) => a.data.order - b.data.order);
+const lessons = await Promise.all(entries.map(async (e) => ({ id: e.id, data: e.data, Content: (await render(e)).Content })));
+const quiz = withBase('en/labs/capacity-planning/quiz/');
+---
+<ModuleLayout
+  title="Capacity Planning · SDLabs"
+  description="Will Black Friday 2027 hold up? Queueing theory, Little's Law and the healthy point, knee curve, load modeling, traffic profiles, growth projection, end-to-end capacity and the limits sheet, with the store's checkout numbers, widgets and quiz."
+  module="capacity-planning"
+  heading="Capacity Planning"
+  lead={'Every spring sales asks whether next year\'s Black Friday will hold up. How to turn what was measured in 2026 (640 req/s on the catalog, 40 orders/s of capacity on pagamentos) into a plan for 11/26/2027: how much each service needs, in which order the links break, what it costs and what is still unknown.'}
+  lessons={lessons.map((l) => ({ id: l.id, title: l.data.title }))}
+  quizHref={quiz}
+>
+  <Fragment slot="head">
+    <script>
+      import '../../../../scripts/capacity-planning/widgets.en.js';
+    </script>
+  </Fragment>
+  {lessons.map(({ id, data, Content }, i) => (
+    <Lesson
+      id={id} n={i + 1} total={lessons.length} title={data.title} min={data.min}
+      prev={lessons[i - 1]?.id} next={lessons[i + 1]?.id}
+      final={{ href: quiz, label: 'Test what you learned: quiz →' }}
+    >
+      <Content />
+    </Lesson>
+  ))}
+</ModuleLayout>

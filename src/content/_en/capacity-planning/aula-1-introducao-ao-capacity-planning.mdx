@@ -1,0 +1,124 @@
+---
+title: "Introduction to capacity planning"
+order: 1
+min: 11
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">By the end of module 22 the store knew how to <strong>ship</strong> without taking itself down: rolling, blue/green, canary, shadow, flags and rings. But every spring the sales team asks a question no deploy answers: <strong>"will next year's Black Friday hold up?"</strong> Nobody has done the math. The 2026 one was measured in module 14; the 2027 one (Friday, <strong>11/26/2027</strong>) is still an unknown.</p>
+
+<OneLiner><strong>Capacity planning</strong> does not predict the future. It <strong>turns what was measured into limits and a plan</strong>, before the incident: how much each service needs, in which order the links break, how much it costs and what is still unknown.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Queue</strong> scenario, move the arrival from <strong>8</strong> to <strong>19.8 orders/s</strong> on one <code>pagamentos</code> pod and watch the queue grow. It is the next lesson's question, brought forward: why is 70% healthy and 95% not?</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/ponto-3d/?mode=fila" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Interactive figure: The pagamentos queue" alt="Preview of the 3D figure: The pagamentos queue" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The inherited numbers.</strong> Black Friday 2026 left a table, measured at <strong>20:03</strong> (module 14). It is the starting point and <strong>does not change</strong> in this module.</li>
+  <li><strong>The question becomes scenarios.</strong> Sales does not give a number, it gives an intention. The planner answers with three hypotheses per service, from the most likely to the most ambitious.</li>
+  <li><strong>Each scenario becomes load.</strong> Lessons 2 to 6 teach how to measure the load and spread it over time; lesson 7 projects it to 2027.</li>
+  <li><strong>The load meets the limits.</strong> Lesson 8 measures what the whole flow can take and lesson 9 closes with the <strong>limits sheet</strong>, the cost and the re-evaluation triggers.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the store measured in 2026</h3>
+
+<p>Before projecting, the store has to say what it already knows. Every number below comes from module 14, measured on Black Friday 2026 at 20:03.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>What</th><th>Measured value</th></tr></thead>
+  <tbody>
+    <tr><th>Catalog peak</th><td><strong>640 req/s</strong> (day average 400; ordinary day 40)</td></tr>
+    <tr><th>Response time</th><td>p50 <strong>32 ms</strong> · p95 <strong>800 ms</strong> · p99 <strong>2,000 ms</strong> · errors <strong>1%</strong> (goal: p95 ≤ 300 ms, errors ≤ 0.1%)</td></tr>
+    <tr><th>Catalog</th><td>10 replicas × <strong>100 req/s</strong> = 1,000 req/s; safe up to <strong>700</strong> (70%); replica <code>catalogo-3</code> at 99%, the fleet at 67.5%</td></tr>
+    <tr><th>Checkout today</th><td><strong>30 orders/s</strong>. <code>pedidos</code> 3 pods × 30 = <strong>90/s</strong>; <code>pagamentos</code> 2 pods × 20 = <strong>40/s</strong> (the weakest link); <code>estoque</code> 2 × 500 = <strong>1,000/s</strong>; the <code>pedidos</code> DB <strong>150/s</strong> per primary</td></tr>
+    <tr><th>After module 16</th><td>3 shards × 150 = 450/s nominal, but with <code>mkt-01</code> on <code>shard-2</code> only <strong>250/s usable</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 class="sec">The three answers for 2027</h3>
+
+<p>With that table in hand, the planner does not answer "it holds" or "it doesn't". It answers with one <strong>scenario</strong> per service, and each scenario has an owner: the history, the business event or the worst case.</p>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th></th><th>Catalog (req/s)</th><th>Checkout (orders/s)</th></tr></thead>
+  <tbody>
+    <tr><th>Trend</th><td><strong>750</strong> (the series' straight line)</td><td><strong>45</strong> (30 × 950 ÷ 640)</td></tr>
+    <tr><th>With the event / the goal</th><td><strong>950</strong> (the new home screen, +15%)</td><td><strong>200</strong> (the sales goal)</td></tr>
+    <tr><th>Stress</th><td><strong>1,140</strong> (950 × 1.2)</td><td><strong>300</strong> (1.5 × the goal)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>The difference between <strong>45</strong> and <strong>200</strong> orders per second is <strong>155</strong>, and the customer trend does not explain it. It only exists if <strong>partners through the API</strong> (<code>mkt-01</code> and 3 others, module 8) sell without browsing the catalog; that is why the catalog stays at 950. The planner asks the business this question instead of guessing the answer.</p>
+
+<h3 class="sec">Reactive × preventive</h3>
+
+<p>Without a plan, capacity is discovered during the incident: the fleet fills up, p95 climbs, someone adds replicas in a hurry. With a plan, the same number shows up in October, in a document, with a cost. The work is the same; what changes is <strong>when</strong> you pay for it.</p>
+
+<p>The route the rest of the module follows has <strong>8 steps</strong>, and lesson 9 applies all of them to the store:</p>
+
+<ol class="flow steps">
+  <li><strong>Delimit the flow</strong> to be sized.</li>
+  <li><strong>Estimate the load</strong> (TPS, concurrency, payload).</li>
+  <li><strong>Measure each component's individual throughput</strong>.</li>
+  <li><strong>Derive the systemic one</strong>: the minimum of the chain.</li>
+  <li><strong>Project the growth</strong>.</li>
+  <li><strong>Evaluate the cost</strong> and the margins.</li>
+  <li><strong>Define the operating limits</strong>.</li>
+  <li><strong>Test</strong> with load (module 24).</li>
+</ol>
+
+<h3 class="sec">If it goes wrong: sizing for what already happened</h3>
+
+<p>The most common mistake is planning with the number already seen: <strong>640 req/s</strong> and 10 replicas, "which was enough in 2026". In 2027 the new-screen event arrives and demand goes to <strong>950</strong>. The 10 replicas reach <strong>95%</strong> usage, and the module 14 formula, R = 10 ms + 10 ms ÷ (1 − ρ), gives <strong>210 ms</strong> on average. The p95 goes back to the 800 ms of module 14, and the problem shows up at 20:03, the minute of the newsletter, with sales watching.</p>
+
+<WhyItMatters>
+  <li><strong>The plan is a model.</strong> It is useful because it gives a number to discuss before the incident, not because it gets the future right.</li>
+  <li><strong>Scenarios, not guessing.</strong> Trend, goal and stress make clear who decides what: engineering calculates the cost, the business picks the goal.</li>
+  <li><strong>The question to the business is part of it.</strong> The extra 155 orders per second come from no chart, they come from the partner API.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">What the base article leaves out</h4>
+  <ul>
+    <li><strong>The cost of the goal.</strong> The gap between the trend and the sales goal is a business decision, priced in vCPU. Planning only by the trend hides the bill.</li>
+    <li><strong>The re-evaluation trigger.</strong> A plan without the rule "if demand passes X, redo the math" ages in silence (lesson 9).</li>
+    <li><strong>The freeze and the pre-scale.</strong> The plan includes stopping changes before the event and raising replicas before the newsletter (lesson 9).</li>
+    <li><strong>Nominal × operational capacity.</strong> Module 24 measures the second; this module calculates the first.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE book: Software Engineering in SRE", href: "https://sre.google/sre-book/software-engineering-in-sre/" },
+    { label: "Google SRE Workbook: Non-Abstract Large System Design", href: "https://sre.google/workbook/non-abstract-design/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+  ]} />
+</Deep>
+
+<p class="gancho">The store at 70% answers well and at 95% it doesn't, but the 950 req/s math depends on that difference. What's left is to find out why a system at 70% answers well and at 95% doesn't.</p>
+
+<Flashcards cards={[
+  { q: "What is capacity planning, in one sentence?",
+    a: "Turning what was measured into limits and a plan, before the incident. It is not predicting the future." },
+  { q: "What are the three 2027 scenarios for the catalog and the checkout?",
+    a: "Catalog 750 · 950 · 1,140 req/s (trend, event, stress). Checkout 45 · 200 · 300 orders/s (trend, goal, stress)." },
+  { q: "Where do the extra 155 orders per second come from?",
+    a: "From partners through the API (mkt-01 and 3 others), who sell without browsing the catalog. That is why the catalog stays at 950." },
+  { q: "What happens if the store sizes for 640 req/s?",
+    a: "With demand at 950, the 10 replicas go to 95% and the average response to 210 ms. The plan has to start from the expected demand, not from what has been seen." },
+  { q: "What are the 8 steps of the route?",
+    a: "Flow, load, individual throughput, systemic, projection, cost and margins, operating limits, load tests." },
+]} />

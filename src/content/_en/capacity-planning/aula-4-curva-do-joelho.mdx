@@ -1,0 +1,93 @@
+---
+title: "The knee curve"
+order: 4
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Little gave the target L and left a question: up to what utilization does the <code>pagamentos</code> pod stay within it? The lesson 2 table already showed that response time doesn't grow in a straight line. What's missing is <strong>where</strong> the growth stops being acceptable.</p>
+
+<OneLiner>The response is <strong>nonlinear</strong>: each point of utilization costs more than the last. The <strong>knee</strong> is where the cost of one more point passes a limit the <strong>team chooses</strong>; it is not a corner of the curve.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Knee</strong> scenario, drag the utilization from <strong>70%</strong> to <strong>95%</strong> and read the cost of the point at each stop: from 5.6 ms to 200 ms.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/ponto-3d/?mode=joelho" poster="labs/capacity-planning/ponto-3d-previa.webp" title="Interactive figure: The knee curve" alt="Preview of the 3D figure: The knee curve" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The curve.</strong> In M/M/1, W = S ÷ (1 − ρ). There is no point where the curve "breaks": it just gets steeper and steeper.</li>
+  <li><strong>The cost of the point.</strong> What <strong>one more point</strong> of utilization costs on <code>pagamentos</code> (S = 50 ms): at <strong>50%</strong>, 2 ms; at <strong>70%</strong>, 5.6 ms; at <strong>80%</strong>, 12.5 ms; at <strong>90%</strong>, 50 ms; at <strong>95%</strong>, 200 ms; at <strong>99%</strong>, 5,000 ms.</li>
+  <li><strong>Choose the limit.</strong> The team decides how much it is willing to pay per point. The store chose zones, and the knee is the region where the cost becomes unacceptable.</li>
+  <li><strong>Operate behind the knee.</strong> The operating target sits before it, leaving margin for variability and bursts.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The store's zones</h3>
+
+<div class="sr-tablewrap">
+<table class="sr-table">
+  <thead><tr><th>Zone</th><th>Utilization</th><th><code>pagamentos</code> W</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><th>Healthy</th><td>up to <strong>70%</strong></td><td>up to 167 ms</td><td>The HPA target and the catalog's "safe up to 700" (module 14). Leaves margin for bursts.</td></tr>
+    <tr><th>Caution</th><td>70–80%</td><td>167–250 ms</td><td>It works, but the margin shrinks.</td></tr>
+    <tr><th>Knee</th><td><strong>80–85%</strong></td><td>250–333 ms</td><td>The article's. W = 5 × S or more.</td></tr>
+    <tr><th>Maximum</th><td><strong>95%</strong></td><td>1,000 ms</td><td>The limit where it still serves, with W = 20 × S and errors.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>This reconciles the article (knee at 80–85%) with module 14 (70%): <strong>the knee is where the response leaves the acceptable range; 70% is the operating target that leaves margin for variability</strong>. Both fit on the same curve.</p>
+
+<Widget name="joelho" title="Knee" hint="Utilization slider (0 to 99%). Shows W, L, the cost of one more point and the zone. Compare pagamentos (S = 50 ms) with the catalog (R = 10 ms + 10 ms ÷ (1 − ρ))." />
+
+<h3 class="sec">The knee in other metrics</h3>
+
+<p>CPU is not the only metric with a knee. <strong>Memory</strong>, the <strong>connection pool</strong> (module 11), the <strong>Kafka queue</strong> (the lag) and <strong>concurrency</strong> (L) each have a curve, and each one's knee is <strong>its own</strong>. Whatever falls first rules: a <code>pagamentos</code> at 40% CPU can have its pool at the knee (lesson 3).</p>
+
+<h3 class="sec">If it goes wrong: "no errors yet, let's run at 95%"</h3>
+
+<p>At 95%, <code>pagamentos</code> W is <strong>1 s</strong>, twenty times the service time, and each extra point costs <strong>200 ms</strong>. Any burst, like the 20:00 newsletter from module 13, throws the p95 to about 3 s (the exponential p95 at 95% is 2,996 ms). <code>lb-loja</code>'s 2 s timeout turns into a <strong>504</strong> for the customer. With no errors the day before, the store finds the knee in the worst minute.</p>
+
+<WhyItMatters>
+  <li><strong>Each point costs more than the last.</strong> At 70% it costs 5.6 ms; at 90% it already costs 9 times more.</li>
+  <li><strong>The knee is a choice.</strong> It depends on what the business accepts to pay in milliseconds.</li>
+  <li><strong>Each metric has its own.</strong> The plan has to look at CPU, pool, queue and concurrency together.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correction to the base article and what the curve says</h4>
+  <ul>
+    <li><strong>"Latency grows linearly."</strong> The article writes that, in normal terms, latency grows linearly up to saturation. In a queue the growth is already <strong>convex from the start</strong> (W = S ÷ (1 − ρ)); it only <em>looks</em> linear up to about 50%. The knee is <strong>a choice of limit</strong> on a smooth curve: in M/M/1 there is no corner.</li>
+    <li><strong>The saturation margins.</strong> The article suggests 80–85% as the limit. The store's plan uses 70% as the operating target, and the 80–85% knee as the alert point.</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipedia: Knee of a curve", href: "https://en.wikipedia.org/wiki/Knee_of_a_curve" },
+    { label: "Brendan Gregg: the USE method", href: "https://www.brendangregg.com/usemethod.html" },
+  ]} />
+</Deep>
+
+<p class="gancho">With the knee at 80–85% and the target at 70%, the plan already knows where to stop. What's left is to find out how much load there really is, and why the average hides so much of it.</p>
+
+<Flashcards cards={[
+  { q: "Does latency grow linearly with utilization?",
+    a: "No. W = S ÷ (1 − ρ) is convex from the start; it only looks linear up to about 50%." },
+  { q: "What does one more point of utilization cost on pagamentos?",
+    a: "2 ms at 50%, 5.6 ms at 70%, 12.5 ms at 80%, 50 ms at 90%, 200 ms at 95%, 5,000 ms at 99%." },
+  { q: "What is the knee in M/M/1?",
+    a: "A choice of limit on a smooth curve: where the cost of the point passes what the team accepts." },
+  { q: "Why is the target 70% and the knee 80–85%?",
+    a: "The knee is where the response leaves the acceptable range; 70% is the target that leaves margin for variability and bursts." },
+  { q: "What happens when operating at 95%?",
+    a: "W = 1 s and each point costs 200 ms. A burst takes the p95 to ~3 s and lb-loja's 2 s timeout turns into a 504." },
+]} />

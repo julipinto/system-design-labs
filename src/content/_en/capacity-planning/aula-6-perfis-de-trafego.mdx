@@ -1,0 +1,78 @@
+---
+title: "Traffic profiles"
+order: 6
+min: 12
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">Last lesson showed that "640 req/s" hides the mix and the burst. The third thing the average hides is still missing: <strong>when</strong> the load arrives. The catalog has 40 req/s on average on an ordinary day, and the number that matters for the plan is the one from the <strong>worst minute</strong>.</p>
+
+<OneLiner>The <strong>daily, weekly and seasonal</strong> profile shows when the system gets tight and when it sits idle. What gets planned is the <strong>peak of the window that matters</strong>, not the monthly average.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Profiles</strong> scenario, switch the scale from <strong>day</strong> to <strong>month</strong> and watch Black Friday disappear: from <strong>640</strong> in the 20:03 minute to <strong>58</strong> in the November average.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/bf-3d/?mode=perfis" poster="labs/capacity-planning/bf-3d-previa.webp" title="Interactive figure: Traffic profiles" alt="Preview of the 3D figure: Traffic profiles" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>The day.</strong> The catalog series on an ordinary day (example, average 40 req/s) has a minimum of <strong>4.1</strong> at 2 am, lunch between 12 pm and 1 pm and a <strong>peak of 81.5 at 9 pm</strong>: 2.04 × the average.</li>
+  <li><strong>The week.</strong> Factor over the weekly average: Mon 1.05 · Tue 1.00 · Wed 1.00 · Thu 1.05 · <strong>Fri 1.15</strong> · Sat 0.90 · Sun 0.85.</li>
+  <li><strong>The year.</strong> Month index: Jan 0.85 · Feb 0.80 · Mar 0.90 · Apr 0.90 · May 1.00 · Jun 0.95 · Jul 0.90 · Aug 0.95 · Sep 1.00 · Oct 1.10 · <strong>Nov 1.45</strong> · Dec 1.20. November has 1.45 × 40 = <strong>58 req/s</strong> on average.</li>
+  <li><strong>The window.</strong> The larger the aggregation window, the smaller the peak: 1 to 10 minutes for the day, 1 to 5 hours for the week, days for the year.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">The day that breaks the pattern</h3>
+
+<p>Black Friday doesn't follow the profile. The <strong>day average</strong> was <strong>400 req/s</strong> (10 times the annual average) and the <strong>20:03 peak</strong>, <strong>640</strong>. It is the newsletter minute, which the store <strong>knows</strong> (20:00). The math: 640 ÷ 81.5 = <strong>7.9 times</strong> the peak of an ordinary day.</p>
+
+<p>In module 21 the same night shows up with <strong>1,300 req/s at 20:20</strong>. It isn't another peak: it is a <strong>burst of seconds</strong>. In the 1-minute window the same night shows up as about 650. Aggregation hides the burst, which is why the chosen window is part of the plan.</p>
+
+<Widget name="perfis" title="Traffic profiles" hint="Three series (day, week, month) and Black Friday. The aggregation slider shows the peak vanishing: 640 req/s in the minute, 400 in the day average, 58 in the month average." />
+
+<h3 class="sec">If it goes wrong: planning by the month or by the ordinary peak</h3>
+
+<p>The plan uses the <strong>monthly index</strong> (November, 58 req/s) or the peak of an ordinary day (81.5). Black Friday is <strong>11 times</strong> the month's average and <strong>7.9 times</strong> the ordinary peak. The month's average <strong>hides the day</strong> and the day <strong>hides the minute</strong>. What gets planned is the peak of the window that matters: the 20:03 minute.</p>
+
+<WhyItMatters>
+  <li><strong>The average changes with the window.</strong> A minute, a day and a month give different numbers for the same store.</li>
+  <li><strong>Known events go into the plan.</strong> The 20:00 newsletter has a set time, so it can be pre-scaled (lesson 9).</li>
+  <li><strong>The profile says when capacity is spare.</strong> On an ordinary day the catalog uses 4 req/s at 2 am, and the elastic fleet takes advantage of that.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">The daily series, hour by hour (example)</h4>
+  <p>Catalog req/s, from 00h to 23h, on an ordinary day. The average is <strong>40.0</strong>:</p>
+  <p><code>8.2 · 6.1 · 4.1 · 4.1 · 4.1 · 8.2 · 16.3 · 28.5 · 40.8 · 48.9 · 53.0 · 57.1 · 61.1 · 53.0 · 48.9 · 48.9 · 53.0 · 57.1 · 61.1 · 69.3 · 77.5 · 81.5 · 48.9 · 20.4</code></p>
+  <p>The weekly factors add up to 7.00 and the monthly indexes add up to 12.00, so the weekly and the yearly averages stay at 40.</p>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Google SRE book: Software Engineering in SRE", href: "https://sre.google/sre-book/software-engineering-in-sre/" },
+    { label: "Google Cloud: Capacity Planner", href: "https://docs.cloud.google.com/capacity-planner/docs/overview" },
+  ]} />
+</Deep>
+
+<p class="gancho">The profile shows when the load tightens today. What's left is to find out what it will look like <strong>next year</strong>.</p>
+
+<Flashcards cards={[
+  { q: "What is the catalog's ordinary-day peak?",
+    a: "81.5 req/s at 9 pm, 2.04 × the 40 req/s average (example)." },
+  { q: "What is Friday's factor and November's index?",
+    a: "Friday 1.15 of the weekly average. November 1.45: 58 req/s on average." },
+  { q: "How far did Black Friday 2026 go past the ordinary day?",
+    a: "The day average was 400 req/s (10× the annual one) and the 20:03 peak was 640, 7.9× the ordinary peak of 81.5." },
+  { q: "Why isn't the 1,300 req/s burst in the 640 peak?",
+    a: "It is a burst of seconds; in the 1-minute window the same night shows up as about 650. Aggregation hides the burst." },
+  { q: "What gets planned: the month's average or the peak?",
+    a: "The peak of the window that matters, the 20:03 minute. The month's average hides the day and the day hides the minute." },
+]} />

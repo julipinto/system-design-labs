@@ -1,0 +1,94 @@
+---
+title: "Load modeling"
+order: 5
+min: 13
+---
+import OneLiner from '../../../components/OneLiner.astro';
+import DoIt from '../../../components/DoIt.astro';
+import HowItWorks from '../../../components/HowItWorks.astro';
+import WhyItMatters from '../../../components/WhyItMatters.astro';
+import Widget from '../../../components/Widget.astro';
+import Deep from '../../../components/Deep.astro';
+import Sources from '../../../components/Sources.astro';
+import Figure3D from '../../../components/Figure3D.astro';
+import Flashcards from '../../../components/Flashcards.astro';
+
+<p class="ponte">With the knee at 80–85% and the target at 70%, the plan already knows <strong>where to stop</strong>. To know how much load fits before that, the load has to be measured for real. "640 req/s" is a single number, and many different loads fit inside it.</p>
+
+<OneLiner>Load has <strong>three dimensions</strong>: <strong>TPS</strong>, <strong>concurrency</strong> and <strong>payload</strong>. The <strong>average</strong> hides the request <strong>mix</strong>, the <strong>burst</strong> inside the second and the payload <strong>tail</strong>.</OneLiner>
+
+<DoIt>
+  <p>In the figure, in the <strong>Load</strong> scenario, turn on <strong>5% search</strong> in the catalog load and watch the required replicas go from <strong>14</strong> to <strong>19</strong>.</p>
+</DoIt>
+
+<Figure3D path="en/labs/capacity-planning/bf-3d/?mode=carga" poster="labs/capacity-planning/bf-3d-previa.webp" title="Interactive figure: Load modeling" alt="Preview of the 3D figure: Load modeling" hint="Drag to rotate · use ← → or Next step · switch the scenario in the panel" />
+
+<HowItWorks>
+<ol class="flow steps">
+  <li><strong>TPS.</strong> Work divided by seconds. The 2026 peak was 640 req/s: 38,400 requests in 60 s.</li>
+  <li><strong>Concurrency.</strong> By Little's Law, L = 640 × 0.0378 s = <strong>24.2</strong> in flight on the healthy replicas (in module 14, 86.4 across the fleet with the hot replica).</li>
+  <li><strong>Payload.</strong> <code>GET /produtos/42</code> carries <strong>1 KB</strong> of request and <strong>19 KB</strong> of response (example): <strong>20 KB</strong> per transaction.</li>
+  <li><strong>Bandwidth.</strong> <strong>TPS × payload</strong>: 640 × 20 KB = <strong>13.1 MB/s = 105 Mbit/s</strong>. With 950 req/s it rises to 19.5 MB/s (<strong>156 Mbit/s</strong>) and with 10% retries to <strong>171 Mbit/s</strong>.</li>
+</ol>
+</HowItWorks>
+
+<h3 class="sec">What the average hides (1): the mix</h3>
+
+<p>Not every request costs the same CPU. The page costs <strong>10 ms</strong>; the heavy search (module 7), <strong>80 ms</strong> (example). With <strong>5%</strong> searches, the average CPU is 0.95 × 10 + 0.05 × 80 = <strong>13.5 ms</strong> and each replica serves <strong>74.1 req/s</strong>, not 100. For 950 req/s at 70%, the math is ⌈ 950 ÷ (0.7 × 74.1) ⌉ = <strong>19 replicas</strong>, not 14. With 10% searches, the average CPU goes to 17 ms, to 58.8 req/s per replica and to <strong>24 replicas</strong>. Capacity is measured <strong>per request type</strong> (module 24).</p>
+
+<h3 class="sec">What the average hides (2): the burst inside the second</h3>
+
+<p>The 640 req/s <strong>spread</strong> across the second leave each replica at 64% (R = 37.8 ms). The <strong>same</strong> 640 arriving in a <strong>10 ms</strong> burst, like the 20:00 newsletter, are <strong>64 per replica at once</strong>. The replica serves 1 every 10 ms (100/s), and the last one in line waits 64 × 10 ms = <strong>640 ms</strong> (the average, about 320 ms). The average TPS is the same, and the experience is different.</p>
+
+<Widget name="mix" title="Mix, burst and bandwidth" hint="% of search (0 to 20%), page and search CPU: shows the average CPU, req/s per replica and the replicas needed (14 · 19 · 24). The 10 ms burst and the wait of the last request. Bandwidth: KB × TPS × retries." />
+
+<h3 class="sec">What the average hides (3): the payload spread</h3>
+
+<p>A 19 KB <code>GET</code> and a 2 MB one (the photo without a CDN, module 5) are the "same TPS" with 100 times the bandwidth. The risk is <strong>in the tail</strong>, not in the average.</p>
+
+<p>For the whole system, the math is the article's: <strong>systemic TPS = min (app TPS, DB TPS, cache TPS, …)</strong>. Lesson 8 applies this math to the checkout chain.</p>
+
+<h3 class="sec">If it goes wrong: "100 req/s per replica" with search in the traffic</h3>
+
+<p>The team plans with the page's 100 req/s and ignores that 5% of the traffic is search. For 950 req/s it computes <strong>14 replicas</strong> where <strong>19</strong> were needed. The fleet starts at <strong>91.6%</strong> CPU (950 ÷ (14 × 74.1)), already above the safe range, and passes 95% on the day search is on sale.</p>
+
+<WhyItMatters>
+  <li><strong>TPS alone doesn't size anything.</strong> The mix changes the CPU per request, and with it the number of replicas.</li>
+  <li><strong>The burst lives inside the second.</strong> The per-second average doesn't show the 640 ms queue.</li>
+  <li><strong>The payload decides the bandwidth.</strong> And the payload tail decides when the bandwidth runs out.</li>
+</WhyItMatters>
+
+<Deep min={3}>
+  <h4 class="deep-h">Correction to the base article</h4>
+  <ul>
+    <li><strong>"No metric is more important than TPS."</strong> The article makes TPS the central metric. TPS alone doesn't size anything: the <strong>mix</strong> and the <strong>burst</strong> dominate the math, as the lesson shows.</li>
+  </ul>
+  <h4 class="deep-h">The estimation equations, with the store</h4>
+  <ul>
+    <li><strong>TPS</strong> = work ÷ seconds (38,400 ÷ 60 = 640).</li>
+    <li><strong>Concurrency</strong> = TPS × response time (640 × 0.0378 = 24.2).</li>
+    <li><strong>Bytes per transaction</strong> = request + response (1 + 19 = 20 KB).</li>
+    <li><strong>Bandwidth</strong> = TPS × bytes per transaction (640 × 20 KB = 105 Mbit/s).</li>
+  </ul>
+  <Sources items={[
+    { label: "Public article by Matheus Fidelis on capacity planning (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/capacity-planning/" },
+    { label: "Wikipedia: Erlang (unit)", href: "https://en.wikipedia.org/wiki/Erlang_(unit)" },
+    { label: "Wikipedia: Neil J. Gunther (Universal Scalability Law)", href: "https://en.wikipedia.org/wiki/Neil_J._Gunther" },
+    { label: "Kubernetes: Horizontal Pod Autoscaling", href: "https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/" },
+  ]} />
+</Deep>
+
+<p class="gancho">Now the load has three dimensions, but it is still a single instant. What's left is to find out how it <strong>spreads over time</strong>: across the day, the week and the year.</p>
+
+<Flashcards cards={[
+  { q: "What are the three dimensions of load?",
+    a: "TPS, concurrency (L = λ × W) and payload. Bandwidth is TPS × payload: 640 × 20 KB = 105 Mbit/s." },
+  { q: "How does 5% search change the catalog plan?",
+    a: "Average CPU 13.5 ms, 74.1 req/s per replica and 19 replicas for 950 req/s at 70%, instead of 14." },
+  { q: "What does the 10 ms burst do to the 640 req/s?",
+    a: "64 requests per replica at once: the last waits 64 × 10 ms = 640 ms (average ~320 ms), against 37.8 ms spread out." },
+  { q: "Why does the payload carry risk in the tail?",
+    a: "A 19 KB GET and a 2 MB one are the same TPS with 100× the bandwidth." },
+  { q: "What is the systemic TPS equation?",
+    a: "The minimum of the components' TPS (app, DB, cache…). Lesson 8 applies it." },
+]} />
