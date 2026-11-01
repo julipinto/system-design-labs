@@ -74,7 +74,7 @@
 
   /* ---------- 2. OSI model ---------- */
   order("t2", 1, 1, "Put the OSI layers in order, from top (closest to the program) to bottom (closest to the cable).", [
-    "7 · Application", "6 · Presentation", "5 · Session", "4 · Transport", "3 · Network", "2 · Data Link", "1 · Physical"
+    "Application", "Presentation", "Session", "Transport", "Network", "Data Link", "Physical"
   ], "Mnemonic from bottom to top: Photo Dashed Nonstop; Tokyo Smiled, Praised, Applauded. Read backwards, you get the order from top to bottom.");
   choice("t2", 2, 1, "Who created the OSI model and when?", [
     "ISO, in the 1980s.",

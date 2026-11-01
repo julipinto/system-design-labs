@@ -60,10 +60,10 @@
     "Às 20:00:15; 1 de cada 10 pedidos falha."
   ], 1, "Os checks falham às 20:00:05, :10 e :15 (5 s × 3 = 15 s). Com 3 réplicas no pool, 1 de cada 3 pedidos cai na que travou.");
   order("t1", 5, 2, "Ordene o que acontece com a catalogo-2, da queda à volta ao pool.", [
-    "20:00:00: a catalogo-2 trava",
-    "20:00:15: o terceiro check falha e ela sai do pool",
-    "20:05:00: ela volta a responder",
-    "20:05:10: o segundo check bom a devolve ao pool"
+    "A catalogo-2 trava",
+    "O terceiro check falha e ela sai do pool",
+    "Ela volta a responder",
+    "O segundo check bom a devolve ao pool"
   ], "Para sair, 3 falhas seguidas (5 s cada). Para voltar, 2 sucessos seguidos: os checks das 20:05:05 e 20:05:10.");
   choice("t1", 6, 3, "A loja escala e sobe a catalogo-4 (10.0.1.14). O que acontece com os pedidos?", [
     "A Lena precisa trocar o endereço que digita.",

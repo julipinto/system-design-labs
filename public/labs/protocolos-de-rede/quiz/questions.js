@@ -73,7 +73,7 @@
 
   /* ---------- 2. Modelo OSI ---------- */
   order("t2", 1, 1, "Coloque as camadas do OSI na ordem, de cima (mais perto do programa) para baixo (mais perto do cabo).", [
-    "7 · Aplicação", "6 · Apresentação", "5 · Sessão", "4 · Transporte", "3 · Rede", "2 · Enlace", "1 · Física"
+    "Aplicação", "Apresentação", "Sessão", "Transporte", "Rede", "Enlace", "Física"
   ], "Mnemônico de baixo para cima: Foto Enviada Rapidinho, Tóquio Sorriu, Aplaudiu Alto. Lendo ao contrário, você tem a ordem de cima para baixo.");
   choice("t2", 2, 1, "Quem criou o modelo OSI e quando?", [
     "A ISO, nos anos 1980.",

@@ -60,10 +60,10 @@
     "At 20:00:15; 1 in every 10 requests fails."
   ], 1, "The checks fail at 20:00:05, :10 and :15 (5 s × 3 = 15 s). With 3 replicas in the pool, 1 in every 3 requests lands on the one that hung.");
   order("t1", 5, 2, "Put in order what happens to catalogo-2, from the failure to the return to the pool.", [
-    "20:00:00: catalogo-2 hangs",
-    "20:00:15: the third check fails and it leaves the pool",
-    "20:05:00: it starts answering again",
-    "20:05:10: the second good check puts it back in the pool"
+    "catalogo-2 hangs",
+    "The third check fails and it leaves the pool",
+    "It starts answering again",
+    "The second good check puts it back in the pool"
   ], "To leave, 3 failures in a row (5 s each). To return, 2 successes in a row: the checks at 20:05:05 and 20:05:10.");
   choice("t1", 6, 3, "The store scales and brings up catalogo-4 (10.0.1.14). What happens to the requests?", [
     "Lena has to change the address she types.",
