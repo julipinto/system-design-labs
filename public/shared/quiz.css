@@ -124,3 +124,10 @@
 @media (min-width:700px){.q-chip{flex-basis:calc(33.333% - 9px)}}
 @media (max-width:420px){.q-opts.q-layers{grid-template-columns:1fr 1fr}.q-chip{flex-basis:100%}.q-top{padding-top:var(--s-1)}}
 @media (prefers-reduced-motion:reduce){.q-btn,.q-chip,.q-chip .q-tick::before,.q-chip .q-tick::after{transition:none!important}.q-btn:active:not(:disabled),.q-chip:active{transform:none}}
+
+/* fim do quiz: ponte para o próximo capítulo (next-chapter.js), separada por régua, sem caixa */
+.q-next-ch{margin-top:var(--s-7,48px);padding-top:var(--s-5,24px);border-top:1px solid var(--line-strong)}
+.q-next-ch-k{margin:0 0 8px;font:600 14px/1.35 var(--sans);color:var(--muted)}
+.q-next-ch-t{margin:0 0 8px;font:600 22px/1.3 var(--sans);color:var(--ink-hi)}
+.q-next-ch-lead{margin:0 0 16px;color:var(--muted);max-width:68ch}
+.q-next-ch .q-btn{display:inline-flex;width:auto;text-decoration:none}

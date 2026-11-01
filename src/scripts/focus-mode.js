@@ -6,6 +6,7 @@ import { animate } from 'motion';
   var EN = /^en/.test(document.documentElement.lang);   // versão em inglês (/en/)
   var root = document.querySelector('.sdl-content');
   if (!root) return;
+  var DOC = root.classList.contains('doc');   // página de documentação: seções, não aulas
   var lessons = Array.prototype.slice.call(root.querySelectorAll('.lesson'));
   var N = lessons.length;
   if (!N) return;
@@ -53,12 +54,35 @@ import { animate } from 'motion';
   // muitas aulas para a largura: estação e pacote encolhem para não encostar
   function fitTrail() { track.classList.toggle('dense', track.clientWidth / N < 26); placePkt(false); }
   addEventListener('resize', fitTrail);
+  // a trilha é atalho de ponteiro (o teclado usa o índice): a faixa inteira, com 44px de altura no CSS, leva à estação
+  // mais próxima do clique, então funciona mesmo com 15 estações num celular
+  function stationAt(x) {
+    var r = track.getBoundingClientRect(), best = 0, bd = Infinity;
+    stations.forEach(function (s, i) { var d = Math.abs(r.left + s.offsetLeft + s.offsetWidth / 2 - x); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  track.addEventListener('click', function (e) { go(stationAt(e.clientX)); });
+  track.addEventListener('mousemove', function (e) { var i = stationAt(e.clientX); track.title = (DOC ? (EN ? 'Section ' : 'Seção ') : (EN ? 'Lesson ' : 'Aula ')) + (i + 1) + ': ' + title(lessons[i]); });
+
+  // próximo capítulo (ModuleLayout): só no fim da última aula, ou no fim da página em "ver tudo"
+  var nextCh = root.querySelector('[data-next-chapter]');
 
   var rendered = false;
+  function finSpec() {
+    var terms = +root.getAttribute('data-terms') || 0, figs = new Set(Array.prototype.map.call(root.querySelectorAll('.f3d-wrap'), function (f) { return f.getAttribute('data-src'); })).size, labs = root.querySelectorAll('.widget').length;
+    var rows = [[N, EN ? (N === 1 ? 'lesson' : 'lessons') : (N === 1 ? 'aula' : 'aulas')],
+      [terms, EN ? (terms === 1 ? 'term' : 'terms') : (terms === 1 ? 'termo' : 'termos')],
+      [figs, EN ? (figs === 1 ? '3D figure' : '3D figures') : (figs === 1 ? 'figura 3D' : 'figuras 3D')],
+      [labs, EN ? (labs === 1 ? 'hands-on lab' : 'hands-on labs') : (labs === 1 ? 'laboratório' : 'laboratórios')]];
+    var dl = document.createElement('dl'); dl.className = 'lesson-spec mod-done-spec';
+    dl.setAttribute('aria-label', EN ? 'What you went through in this chapter' : 'O que você atravessou neste capítulo');
+    rows.forEach(function (r) { if (!r[0]) return; var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = r[1]; dd.textContent = r[0]; d.appendChild(dt); d.appendChild(dd); dl.appendChild(d); });
+    return dl;
+  }
   function render() {
     var dc = doneCount(), l = lessons[cur];
     statusText.textContent = '';
-    var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = (EN ? 'Lesson ' + (cur + 1) + ' of ' : 'Aula ' + (cur + 1) + ' de ') + N + ' · ';
+    var pn = document.createElement('span'); pn.className = 'pg-n'; pn.textContent = (DOC ? (EN ? 'Section ' : 'Seção ') : (EN ? 'Lesson ' : 'Aula ')) + (cur + 1) + (EN ? ' of ' : ' de ') + N + ' · ';
     var pm = document.createElement('span'); pm.className = 'pg-min'; pm.textContent = ' · ~' + l.getAttribute('data-min') + ' min';
     statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l))); statusText.appendChild(pm);
     if (rendered && pktAt !== cur) { statusText.classList.remove('swap'); void statusText.offsetWidth; statusText.classList.add('swap'); }
@@ -91,7 +115,12 @@ import { animate } from 'motion';
       var cat = msg && msg.nextElementSibling && msg.nextElementSibling.classList.contains('sdl-cat') ? msg.nextElementSibling : null;
       if (msg && isDone && dc === N && i === cur && window.sdlCat) window.sdlCat(msg);
       else if (cat && dc < N) cat.remove();
+      // módulo completo: a ficha do capítulo (o que a pessoa atravessou) fecha a aula aberta, embaixo do gato
+      var fin = ls.querySelector('.mod-done-spec');
+      if (msg && isDone && dc === N && i === cur && !fin) { var nxt = msg.nextElementSibling; (nxt && nxt.classList.contains('sdl-cat') ? nxt : msg).insertAdjacentElement('afterend', finSpec()); }
+      else if (fin && dc < N) fin.remove();
     });
+    if (nextCh) nextCh.hidden = mode === 'focus' && cur !== N - 1;
   }
 
   /* troca de aula no modo foco: a atual sai rápido para o lado de onde a pessoa veio e a nova entra do lado para onde ela foi.

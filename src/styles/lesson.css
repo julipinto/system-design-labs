@@ -142,7 +142,6 @@
 .sdl-content .cards+.lesson-end{margin-top:var(--s-6);padding-top:0;border-top:0}
 .sdl-content .done-btn{width:100%;max-width:var(--measure)}
 .sdl-content:not(.js) .done-btn{display:none}
-.sdl-content .btn.primary.done-btn[aria-pressed="true"]{background:var(--surface);color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
 .sdl-content .done-msg{margin:var(--s-3) 0 0;font:600 15px/1.5 var(--sans);color:var(--ok);min-height:1.5em;max-width:var(--measure)}
 .sdl-content .done-msg:empty{min-height:0;margin:0}
 .sdl-content .lesson-nav{display:flex;flex-wrap:wrap;gap:var(--s-3);margin-top:var(--s-5);max-width:var(--measure)}
@@ -157,6 +156,9 @@
 .sdl-content .btn.primary:hover:not(:disabled){color:var(--on-accent);background:color-mix(in srgb,var(--accent-fill) 88%,var(--ink-hi))}
 .sdl-content .btn[aria-pressed="true"]{border-color:var(--accent-ink);color:var(--accent-ink);box-shadow:var(--ring)}
 .sdl-content .btn.primary[aria-pressed="true"]{color:var(--on-accent)}
+/* "Entendi" marcado fica verde (contorno e 12% de fundo, como a resposta certa do quiz), também com o mouse em cima:
+   vem depois do hover do primário, senão o hover pinta o fundo de sódio */
+.sdl-content .btn.primary.done-btn[aria-pressed="true"],.sdl-content .btn.primary.done-btn[aria-pressed="true"]:hover:not(:disabled){background:color-mix(in srgb,var(--ok) 12%,var(--surface));color:var(--ok);border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
 .sdl-content .btn.big{font-size:17px;min-height:56px;padding:12px 22px;border-radius:var(--r-3);text-align:center}
 .sdl-content .chip{font:600 14px/1.2 var(--sans);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--bg);border:var(--hair) solid var(--line-strong);border-radius:var(--r-pill);padding:6px 14px;min-height:44px;min-width:44px;cursor:pointer;transition:border-color var(--dur-1),color var(--dur-1)}
 .sdl-content .chip:hover{border-color:var(--accent-ink)}
@@ -275,3 +277,19 @@
   .sdl-content .pg-count{font-size:14px}
   .sdl-content pre{font-size:14px}
 }
+
+/* página de documentação (sistema de design): sem régua de aulas entendidas */
+.sdl-content.doc .pg-meter{display:none}
+
+/* trilha clicável: a faixa inteira vira alvo de 44px (a estação mais próxima do clique) */
+.sdl-content .pg-track{cursor:pointer}
+.sdl-content .pg-track::before{content:"";position:absolute;left:-6px;right:-6px;top:-12px;bottom:-16px}
+
+/* fim de capítulo: a ficha do módulo embaixo do gato, e a ponte para o próximo capítulo (régua, sem caixa) */
+.sdl-content .mod-done-spec{margin:var(--s-4) 0 0;animation:pg-msg 320ms var(--ease-out)}
+.sdl-content .next-ch{max-width:var(--measure);margin:var(--s-7) 0 0;padding-top:var(--s-5);border-top:var(--hair) solid var(--line-strong)}
+.sdl-content .next-ch[hidden]{display:none}
+.sdl-content .next-ch-k{margin:0 0 var(--s-2);font:600 var(--fs-label)/1.35 var(--sans);color:var(--muted)}
+.sdl-content .next-ch-t{margin:0 0 var(--s-2);font:600 22px/1.3 var(--sans);color:var(--ink-hi)}
+.sdl-content .next-ch-lead{margin:0 0 var(--s-4);color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.sdl-content .mod-done-spec{animation:none}}

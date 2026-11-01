@@ -313,7 +313,7 @@ Os ícones são desenhados em CSS ou SVG com traço, herdando a cor do texto; ne
 
 ### Navigation
 - **Barra de estado:** status em Atkinson 600 a 15px, botões quadrados de 48px com setas desenhadas, "Quiz" em sans. Aberto, o status ganha `--ring` e o caret vira e fica sódio.
-- **Trilha do pacote (signature):** uma estação redonda de 10px por aula, ligadas por trilha pontilhada. Não lida: estação vazia em traço forte. Entendida: estação cheia em tinta. O trecho já percorrido acende em tinta. O **pacote** (retângulo de 14×8, cantos de 2px, sódio; sódio de texto no tema claro) fica na aula atual e anda até a próxima em 700ms quando a pessoa avança. Ao marcar "Entendi", a estação dá um pulinho (escala 1,4 e volta). Com muitas aulas para a largura (menos de 26px por aula), estação e pacote encolhem para 8px e 10×6. Sem risco de escala, sem brilho.
+- **Trilha do pacote (signature):** uma estação redonda de 10px por aula, ligadas por trilha pontilhada. Não lida: estação vazia em traço forte. Entendida: estação cheia em tinta. O trecho já percorrido acende em tinta. O **pacote** (retângulo de 14×8, cantos de 2px, sódio; sódio de texto no tema claro) fica na aula atual e anda até a próxima em 700ms quando a pessoa avança. Ao marcar "Entendi", a estação dá um pulinho (escala 1,4 e volta). Com muitas aulas para a largura (menos de 26px por aula), estação e pacote encolhem para 8px e 10×6. Sem risco de escala, sem brilho. A faixa da trilha é clicável (alvo de 44px de altura): leva à estação mais próxima do clique; o teclado usa o índice.
 - **Índice:** linhas de 48px separadas por régua, número mono fraco à esquerda; a aula atual em sódio e peso 600; a concluída leva um check verde desenhado.
 
 ### Números de destaque (signature)
@@ -327,6 +327,12 @@ Logo abaixo do título de cada aula, uma faixa de dados (`<dl class="lesson-spec
 
 ### Mapa da história (home, signature)
 A lista de módulos é uma trilha vertical: uma estação redonda de 12px por módulo, trilha pontilhada, e os 7 blocos da história como paradas (rótulo em sans 600 na cor de apoio, tracinho de 16px na trilha). Estação cheia em tinta = módulo completo; contorno sódio = em andamento. O trecho percorrido acende em tinta e o pacote (8×14, sódio) desce com mola até o módulo onde a pessoa parou; ao pousar, a estação dá um respiro. No fim da linha, o gato de pelúcia e "Fim da linha: o gato de pelúcia chega em Recife."
+
+### Continuar (home)
+Um botão só no topo da home responde "o que eu faço agora?": "Comece por aqui" na primeira visita; depois, "Continuar de onde parou" com o capítulo, a aula (a aberta por último, se não foi entendida, senão a primeira que falta) e os minutos. Painel com traço forte e seta sódio; some quando tudo foi entendido. Nos módulos em andamento, o mapa diz o que falta ("faltam 2 aulas · ~17 min"), não "7 de 9".
+
+### Fim de capítulo
+Ao completar o módulo, embaixo do gato: a ficha do capítulo (aulas, termos, figuras distintas, laboratórios), no estilo da ficha da aula. No fim da última aula e no fim do quiz, separado por régua: "Próximo capítulo", o nome e a frase de abertura do módulo seguinte, e "Começar o capítulo" (botão comum; o primário continua sendo o quiz ou a nova rodada).
 
 ### Gato de pelúcia (mascote)
 O gato da Lena (`public/shared/cat.svg`), em traço fino na tinta, com o laço como único ponto sódio (`--cat-accent`). Aparece só como recompensa: ao completar um módulo (na aula atual, some se desmarcar), ao gabaritar o quiz (`window.sdlCat`) e no fim do mapa da home. Entra com um pulinho de 720ms; nunca decora cabeçalho, botão ou estado vazio.

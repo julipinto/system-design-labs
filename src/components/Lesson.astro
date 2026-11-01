@@ -14,8 +14,9 @@ interface Props {
   prev?: string;          // id da aula anterior
   next?: string;          // id da próxima aula
   final?: NavLink;        // link no lugar de "Próxima aula" na última aula (ex.: quiz)
+  doc?: boolean;          // página de documentação (sistema de design): seção sem número de aula, ficha nem "Entendi"
 }
-const { id, n, total, title, min, prev, next, final } = Astro.props;
+const { id, n, total, title, min, prev, next, final, doc } = Astro.props;
 const html = await Astro.slots.render('default');
 const count = (re: RegExp) => (html.match(re) || []).length;
 const slug = (String(Astro.url.pathname).match(/\/labs\/([^/]+)\//) || [])[1] || '';
@@ -25,14 +26,14 @@ const spec = [
   { n: gl.filter((t: { lesson: string }) => t.lesson === id).length, label: T.specTerms },
   { n: count(/class="f3d-wrap"/g), label: T.specFigs },
   { n: count(/class="widget"/g), label: T.specLabs },
-].filter((x) => x.n > 0);
+].filter((x) => x.n > 0 && !doc);
 ---
 <section class="lesson" id={id} data-min={min}>
   <header>
     <h2>{title}</h2>
-    <p class="lesson-meta"><span class="lesson-n">{T.lessonOf(n, total)}</span><span class="lesson-done-tag">{T.understood}<i class="ico ico-check" aria-hidden="true"></i></span></p>
-    <dl class="lesson-spec">{spec.map((x) => <div><dt>{x.label(x.n)}</dt><dd>{x.n}</dd></div>)}</dl>
+    {!doc && <p class="lesson-meta"><span class="lesson-n">{T.lessonOf(n, total)}</span><span class="lesson-done-tag">{T.understood}<i class="ico ico-check" aria-hidden="true"></i></span></p>}
+    {spec.length > 0 && <dl class="lesson-spec">{spec.map((x) => <div><dt>{x.label(x.n)}</dt><dd>{x.n}</dd></div>)}</dl>}
   </header>
   <Fragment set:html={html} />
-  <DoneButton prev={prev} next={next} final={final} />
+  <DoneButton prev={prev} next={next} final={final} doc={doc} />
 </section>

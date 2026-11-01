@@ -4,9 +4,14 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { withBase } from '../../lib/url.js';
 import { otherLangPath, t, hasEn } from '../../lib/i18n.js';
+import { chapters } from '../../lib/chapters.js';
 import '../../styles/home.css';
 
 const ui = t(Astro.url);
+// "o que eu faço agora?": o botão do topo começa no primeiro capítulo; o home-map.js troca pelo de onde a pessoa parou
+const chs = await chapters('en');
+const first = chs[0], firstL = first.lessons[0];
+const chData = JSON.stringify(chs.map((c) => ({ s: c.slug, t: c.title, l: c.lessons })));
 
 interface Mod { n?: number; slug?: string; title: string; lessons?: number; text: string; poster?: string; alt?: string }
 const modules: Mod[] = [
@@ -80,6 +85,14 @@ import catSvg from '../../../public/shared/cat.svg?raw';
     <h1>SDLabs</h1>
     <p class="lead">System Design labs you can play with and never forget.</p>
     <p class="story">One story from start to finish: Lena, from Recife, buys a plush cat at the store, and each module is the next problem the store faces as it grows.</p>
+    <a class="home-next" data-home-next href={withBase(`en/labs/${first.slug}/#${firstL[0]}`)}>
+      <span class="home-next-k">Start here</span>
+      <span class="home-next-t">{first.title}</span>
+      <span class="home-next-l">Lesson 1: {firstL[1]}</span>
+      <span class="home-next-m">~{firstL[2]} min</span>
+      <i class="ico ico-next" aria-hidden="true"></i>
+    </a>
+    <script type="application/json" id="chapters-data" set:html={chData}></script>
   </header>
   <ol class="mods">
     {modules.map((m, i) => [BLOCKS[i] && <li class="mod-block"><span>{BLOCKS[i]}</span></li>, m.slug ? (

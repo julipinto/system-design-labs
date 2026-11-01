@@ -3,12 +3,12 @@
 import { t as tr } from '../lib/i18n.js';
 const T = tr(Astro.url);
 interface NavLink { href: string; label?: string; primary?: boolean }
-interface Props { prev?: string; next?: string; final?: NavLink }
-const { prev, next, final } = Astro.props;
+interface Props { prev?: string; next?: string; final?: NavLink; doc?: boolean }
+const { prev, next, final, doc } = Astro.props;   // doc: só a navegação entre seções, sem "Entendi"
 const finalLabel = final?.label?.replace(/\s*→$/, '');
 ---
 <div class="lesson-end">
-  <button type="button" class="btn big primary done-btn" aria-pressed="false">{T.done}<i class="ico ico-check" aria-hidden="true"></i></button>
-  <p class="done-msg" role="status" aria-live="polite"></p>
-  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev"><i class="ico ico-prev" aria-hidden="true"></i>{T.prevLesson}</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">{T.nextLesson}<i class="ico ico-next" aria-hidden="true"></i></a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{finalLabel}<i class="ico ico-next" aria-hidden="true"></i></a>}</div>
+  {!doc && <button type="button" class="btn big primary done-btn" aria-pressed="false">{T.done}<i class="ico ico-check" aria-hidden="true"></i></button>}
+  {!doc && <p class="done-msg" role="status" aria-live="polite"></p>}
+  <div class="lesson-nav">{prev && <a class="btn big" href={`#${prev}`} data-nav="prev"><i class="ico ico-prev" aria-hidden="true"></i>{doc ? T.prevSection : T.prevLesson}</a>}{next && <a class="btn big" href={`#${next}`} data-nav="next">{doc ? T.nextSection : T.nextLesson}<i class="ico ico-next" aria-hidden="true"></i></a>}{!next && final && <a class={final.primary === false ? 'btn big' : 'btn big primary'} href={final.href}>{finalLabel}<i class="ico ico-next" aria-hidden="true"></i></a>}</div>
 </div>

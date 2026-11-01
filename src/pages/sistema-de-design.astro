@@ -1,6 +1,6 @@
 ---
 // Sistema de design do SDLabs: cada token e cada componente em uso, com os dados da história (Lena, a loja,
-// o gato de pelúcia = produto 42). A página usa o próprio ModuleLayout: a barra, o modo foco, o "Entendi"
+// o gato de pelúcia = produto 42). A página usa o próprio ModuleLayout em modo doc: a barra, o modo foco
 // e o glossário funcionam aqui como num módulo. Texto e regras: docs/design/SISTEMA.md.
 import ModuleLayout from '../layouts/ModuleLayout.astro';
 import Lesson from '../components/Lesson.astro';
@@ -25,7 +25,7 @@ const sections = [
   { id: 'navegacao', title: 'Barra, navegação, home e quiz', min: 2 },
 ];
 const N = sections.length;
-const at = (i: number) => ({ id: sections[i].id, n: i + 1, total: N, title: sections[i].title, min: sections[i].min, prev: sections[i - 1]?.id, next: sections[i + 1]?.id });
+const at = (i: number) => ({ id: sections[i].id, n: i + 1, total: N, title: sections[i].title, min: sections[i].min, prev: sections[i - 1]?.id, next: sections[i + 1]?.id, doc: true });
 
 const terms = [
   { term: 'Cache', aliases: ['cache'], short: 'Uma cópia do dado guardada mais perto, ou num lugar mais rápido, de quem pergunta. Na loja, o produto 42 sai em 1 ms em vez de 40 ms.', lesson: 'figura-widget' },
@@ -59,7 +59,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
   heading="Sistema de design"
   lead="As peças do site, uma por vez, com a mesma história das aulas: a Lena, de Recife, e o gato de pelúcia da loja (o produto 42)."
   lessons={sections.map((s) => ({ id: s.id, title: s.title }))}
-  quizHref={withBase('labs/cache/quiz/')}
+  doc
   terms={terms}
 >
   <Fragment slot="head">
@@ -89,7 +89,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
   <Lesson {...at(0)}>
     <p class="ponte">O site é a moldura das figuras 3D: chão grafite, traço fino e uma cor só para o que está vivo. Em volta da figura, a página fica quieta, como um livro bem impresso: nada de brilho, pontinho ou rótulo em caixa alta disputando a atenção com a aula.</p>
     <OneLiner>o que está ativo leva a cor de sódio, sem brilho; o resto fica quieto, em traço fino e texto comum.</OneLiner>
-    <DoIt><p>Abra o índice na barra lá em cima e veja qual aula está em sódio. Depois toque em <strong>Ver resposta</strong> num flashcard da seção 5: o link vira <strong>Esconder</strong>, em sódio.</p></DoIt>
+    <DoIt><p>Abra o índice na barra lá em cima e veja qual seção está em sódio. Depois toque em <strong>Ver resposta</strong> num flashcard da seção 5: o link vira <strong>Esconder</strong>, em sódio.</p></DoIt>
     <HowItWorks title="As cinco regras">
       <ol class="flow steps">
         <li><strong>Uma cor, sem brilho.</strong> O sódio (laranja) marca só o que está ativo: a aula atual na régua, o "Faça agora", o botão principal, a figura em foco. É cor e traço de 1px, nunca halo. Se tudo é laranja, nada é.</li>
@@ -217,7 +217,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
       { q: 'Quanto tempo a Lena espera no miss? E o Caio, no hit?', a: 'A Lena espera <strong>40 ms</strong> (vai ao banco); o Caio, <strong>1 ms</strong> (sai do cache).' },
       { q: 'O que acontece quando a Bia abre a página 61 s depois?', a: 'O TTL de 60 s venceu: é um miss de novo e o app busca o produto 42 no banco.' },
     ]} />
-    <p class="gancho">A aula termina no botão "Entendi" logo abaixo, que pinta este traço da régua de verde. Falta ver as peças que se manipulam: figura, widget e glossário.</p>
+    <p class="gancho">Nos módulos, a aula termina no botão "Entendi esta aula", que fica verde e acende a estação da trilha. Falta ver as peças que se manipulam: figura, widget e glossário.</p>
   </Lesson>
 
   <Lesson {...at(5)}>
@@ -247,7 +247,7 @@ const space = [['--s-1', 4], ['--s-2', 8], ['--s-3', 12], ['--s-4', 16], ['--s-5
 
   <Lesson {...at(6)} final={{ href: withBase(''), label: 'Voltar para os módulos' }}>
     <h3 class="sec" style="margin-top:0">Barra fixa</h3>
-    <p>É a barra no topo desta página: anterior, aula atual (abre o índice), próxima e quiz. A régua tem um traço por aula: o atual fica em sódio e mais alto, o entendido fica verde, o contador em mono mostra quantos já foram.</p>
+    <p>É a barra no topo desta página: anterior, seção atual (abre o índice) e próxima. Num módulo ela ganha o botão do quiz e, embaixo, a trilha do pacote: uma estação por aula, cheia quando entendida, com o pacote na aula atual (a demonstração está na seção 4).</p>
     <h3 class="sec">Home: índice de capítulos</h3>
     <ol class="ds-home mods">
       <li class="mod"><a class="mod-link" href={withBase('labs/cache/')}><span class="mod-n" aria-hidden="true">5</span><div class="mod-body"><h2>Estratégias de Cache</h2><p>Uma linha por módulo, na ordem da história, com a prévia da figura no desktop.</p><div class="mod-meta"><span class="label">7 aulas</span><span class="label mod-prog" style="color:var(--ok)">3 de 7 entendidas</span></div></div></a></li>

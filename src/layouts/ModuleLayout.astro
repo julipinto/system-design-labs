@@ -11,6 +11,7 @@ import Glossary from '../components/Glossary.astro';
 import { glossaries } from '../data/glossary.js';
 import { glossariesEn } from '../data/glossary.en.js';
 import { t as tr, langOf, otherLangPath, hasEn } from '../lib/i18n.js';
+import { nextChapter } from '../lib/chapters.js';
 
 interface LessonRef { id: string; title: string }
 interface Props {
@@ -22,11 +23,14 @@ interface Props {
   lessons: LessonRef[];   // na ordem, para o índice
   quizHref?: string;      // link do quiz no painel (opcional)
   terms?: typeof glossaries[string]; // glossário próprio (a página do sistema de design usa)
+  doc?: boolean;          // documentação, não módulo: a barra navega entre seções, sem régua de aulas entendidas
 }
-const { title, description, module, heading, lead, lessons, quizHref } = Astro.props;
+const { title, description, module, heading, lead, lessons, quizHref, doc } = Astro.props;
 const T = tr(Astro.url), en = langOf(Astro.url) === 'en';
 const terms = Astro.props.terms ?? (en ? glossariesEn : glossaries)[module] ?? [];
 const label = `${heading} · ${T.topics(lessons.length)}`;
+// próximo capítulo da história: aparece no fim da última aula (o modo foco esconde nas outras)
+const nx = doc ? null : await nextChapter(en ? 'en' : 'pt', module);
 ---
 <BaseLayout title={title} description={description}>
   <Fragment slot="head">
@@ -71,7 +75,7 @@ const label = `${heading} · ${T.topics(lessons.length)}`;
       });
     })();
   </script>
-  <main class="sdl-content" data-module={module}>
+  <main class={doc ? 'sdl-content doc' : 'sdl-content'} data-module={module} data-terms={terms.length}>
     <div class="sdl-progress">
       <div class="pg-row">
         <button type="button" class="pg-step" data-pg="prev" aria-label={T.prevLesson}></button>
@@ -97,6 +101,14 @@ const label = `${heading} · ${T.topics(lessons.length)}`;
     </div>
     <noscript><style is:inline>.sdl-content .fc-a[hidden]{display:block}</style></noscript>
     <slot />
+    {nx && (
+      <aside class="next-ch" data-next-chapter aria-labelledby="next-ch-t">
+        <p class="next-ch-k">{T.nextChapter}</p>
+        <p class="next-ch-t" id="next-ch-t">{nx.title}</p>
+        <p class="next-ch-lead">{nx.lead}</p>
+        <a class="btn big" href={withBase(`${en ? 'en/' : ''}labs/${nx.slug}/`)}>{T.startChapter}<i class="ico ico-next" aria-hidden="true"></i></a>
+      </aside>
+    )}
     {terms.length > 0 && <Glossary terms={terms} lessons={lessons} />}
   </main>
   <footer class="sdl-credit" set:html={T.credit}></footer>
