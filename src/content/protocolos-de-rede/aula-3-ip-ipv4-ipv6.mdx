@@ -17,9 +17,9 @@ import Flashcards from '../../components/Flashcards.astro';
 <OneLiner>o IP dá a cada dispositivo um endereço lógico na camada 3 para os pacotes saberem aonde chegar, e o IPv6 existe porque os 32 bits do IPv4 acabaram.</OneLiner>
 
 <DoIt>
-  <p>Clique no chip <code>10.0.0.5</code>, depois em <code>8.8.8.8</code>, e compare os bits e o veredito (privado ou público).</p>
+  <p>Clique no chip <code>10.0.0.5</code>, depois em <code>8.8.8.8</code>, e compare os bits e o veredito (privado ou público). Depois toque em <strong>IPv6</strong> e faça o mesmo com <code>fd12:3456:789a::1</code> e <code>2606:4700:4700::1111</code>: veja quais grupos o <code>::</code> escondia.</p>
 </DoIt>
-<Widget name="ip" title="Visualizador de endereços" hint="Digite um IPv4 para ver os 32 bits e saber se é privado." />
+<Widget name="ip" title="Visualizador de endereços" hint="Escolha IPv4 ou IPv6 e digite um endereço: o widget mostra os bits, a forma curta (no IPv6) e o tipo, como privado ou público." />
 
 <HowItWorks>
 <p>Os 32 bits que o visualizador mostrou são o endereço que cada roteador lê.</p>

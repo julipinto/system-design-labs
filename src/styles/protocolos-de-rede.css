@@ -47,19 +47,29 @@
 .sdl-content .bit.b1{background:var(--accent-2);color:var(--bg);border-color:var(--accent-2)}
 .sdl-content .bit.b0{color:var(--faint)}
 .sdl-content .oct-dec{font:600 13px var(--mono);color:var(--fg)}
-.sdl-content .verdict{display:flex;gap:8px;align-items:flex-start;font-size:15px;margin:8px 0 12px}
+.sdl-content .verdict{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;font-size:15px;margin:8px 0 12px}
 .sdl-content .tag{font:600 12px var(--mono);border-radius:999px;padding:2px 10px;border:1px solid currentColor;white-space:nowrap}
-.sdl-content .v6{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-.sdl-content .v6g{font:13px var(--mono);border:1px solid var(--accent-ink);color:var(--accent-ink);border-radius:6px;padding:3px 6px}
+/* campo do endereço: no IPv6 cabe a forma curta inteira */
+.sdl-content .widget input.ip-in.v6{flex:1 1 19em;min-width:0;max-width:40ch}
+/* IPv6: forma completa e curta, um grupo de 16 bits por linha (separados de 4 em 4: um dígito hex), grupos do "::" apagados */
+.sdl-content .v6-forms{display:grid;gap:4px;margin:8px 0}
+.sdl-content .v6-forms div{display:grid;grid-template-columns:7.5em 1fr;gap:8px;align-items:baseline}
+.sdl-content .v6-forms dt{font:600 13px var(--sans);color:var(--muted)}
+.sdl-content .v6-forms dd{margin:0;font:14px var(--mono);color:var(--ink-hi);overflow-wrap:anywhere}
+@media (max-width:560px){.sdl-content .v6-forms div{grid-template-columns:1fr;gap:0}}
+.sdl-content .v6-rows{display:grid;gap:4px;margin:10px 0 6px}
+.sdl-content .v6-row{display:flex;align-items:center;gap:10px}
+.sdl-content .v6-hex{flex:none;width:4.5ch;font:600 13px var(--mono);color:var(--ink-hi)}
+.sdl-content .v6-row .bit{width:clamp(11px,3vw,18px);height:clamp(18px,5vw,24px)}
+.sdl-content .oct-bits.nib .bit:nth-child(4n+1):not(:first-child){margin-left:4px}
+.sdl-content .v6-row.fill .v6-hex,.sdl-content .v6-row.fill .bit{opacity:.4}
+.sdl-content .v6-row.fill .oct-bits{outline:1px dashed var(--line-strong);outline-offset:2px;border-radius:3px}
+.sdl-content .v6-note{display:flex;align-items:center;gap:8px;margin:4px 0 8px;font:13px var(--sans);color:var(--muted)}
+.sdl-content .v6-sw{width:14px;height:10px;border:1px dashed var(--line-strong);border-radius:2px}
 .sdl-content .sub-h{font:600 12px var(--sans);color:var(--muted);margin:16px 0 4px}
-.sdl-content .dots{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;margin:8px 0}
+.sdl-content .dots{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;margin:8px 0;max-width:480px}
 .sdl-content .dot{aspect-ratio:1;border-radius:2px;background:var(--line)}
 .sdl-content .dot.on{background:var(--accent-2)}
-.sdl-content .scale-row{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:center;font:12px var(--mono);margin:6px 0}
-.sdl-content .scale-track{background:var(--bg);border:1px solid var(--line);border-radius:4px;height:22px;position:relative;overflow:hidden}
-.sdl-content .scale-fill{position:absolute;inset:0 auto 0 0;background:var(--accent-2)}
-.sdl-content .scale-fill.v6f{background:var(--accent-ink)}
-.sdl-content .scale-lbl{position:absolute;right:6px;top:2px;color:var(--fg)}
 
 /* seq */
 .sdl-content .seq{margin:8px 0}
@@ -170,8 +180,7 @@
 @media (max-width:480px){
   .sdl-content .widget{padding:12px;border-radius:10px}
   .sdl-content .pdu{margin-left:0}
-  .sdl-content .scale-row{grid-template-columns:48px 1fr}
-  .sdl-content .lane{grid-template-columns:62px 1fr}
+    .sdl-content .lane{grid-template-columns:62px 1fr}
   .sdl-content .lane-n{font-size:12px}
 }
 

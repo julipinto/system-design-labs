@@ -69,77 +69,161 @@
   }
 
   /* =============== AULA 3: IP =============== */
+  // Uma versão por vez (chave IPv4 | IPv6): o endereço digitado vira bits e tipo. Embaixo, o tamanho dos dois espaços.
+  var IP_TXT = {
+    v4: { label: 'IPv4: ', ex: ['10.0.0.5', '172.16.4.1', '172.32.0.1', '192.168.1.10', '8.8.8.8', '127.0.0.1'], def: '192.168.1.10',
+      bad: 'IPv4 inválido: use 4 números de 0 a 255 separados por ponto.' },
+    v6: { label: 'IPv6: ', ex: ['2001:db8:85a3::8a2e:370:7334', '2606:4700:4700::1111', 'fd12:3456:789a::1', 'fe80::1c2b:3fff:fe4a:9d12', '::1', '::ffff:192.168.1.10'],
+      def: '2001:db8:85a3::8a2e:370:7334', bad: 'IPv6 inválido: até 8 grupos hex de 1 a 4 dígitos separados por ":", com "::" no máximo uma vez.' },
+    bin: 'Binário: ', priv: 'privado', natPriv: ' Não é roteado na internet; precisa de NAT para sair.',
+    full: 'Forma completa', short: 'Forma curta', filled: 'grupos preenchidos pelo "::"', group: 'grupo',
+    sizeH: 'Tamanho: cada quadrado é 1 bit de endereço (128 no total)',
+    size4: 'IPv4: 32 bits, 2^32 = 4.294.967.296 endereços. Com ~8 bilhões de pessoas, dá cerca de 0,5 endereço por pessoa: por isso existe NAT.',
+    size6: 'IPv6: 128 bits, 2^128 ≈ 3,4 × 10^38 endereços. Cada bit a mais dobra o total, e são 96 bits a mais: ',
+    size6b: ' vezes o espaço do IPv4, cerca de 4 × 10^28 por pessoa.',
+    ver: 'Versão do IP'
+  };
+  function classify4(o) {
+    var a = o[0], b = o[1];
+    if (a === 10) return { priv: true, t: 'privado', why: 'Faixa 10.0.0.0/8 (10.0.0.0 a 10.255.255.255).' };
+    if (a === 172 && b >= 16 && b <= 31) return { priv: true, t: 'privado', why: 'Faixa 172.16.0.0/12 (172.16.0.0 a 172.31.255.255).' };
+    if (a === 192 && b === 168) return { priv: true, t: 'privado', why: 'Faixa 192.168.0.0/16 (192.168.0.0 a 192.168.255.255).' };
+    if (a === 127) return { priv: false, t: 'loopback', why: '127.0.0.0/8 é a própria máquina (localhost). Não é uma das 3 faixas privadas, mas também não sai para a internet.' };
+    if (a === 169 && b === 254) return { priv: false, t: 'link-local', why: '169.254.0.0/16: o aparelho não achou DHCP e se autoatribuiu um endereço.' };
+    if (a === 100 && b >= 64 && b <= 127) return { priv: false, t: 'CGNAT', why: '100.64.0.0/10: faixa de NAT de operadora. Não é uma das 3 faixas privadas clássicas.' };
+    if (a === 0) return { priv: false, t: 'reservado', why: '0.0.0.0/8: "este host/rede", não é endereço de destino na internet.' };
+    if (a >= 224 && a <= 239) return { priv: false, t: 'multicast', why: '224.0.0.0/4: endereço de grupo (multicast), não pertence a um único dispositivo.' };
+    if (a >= 240) return { priv: false, t: 'reservado', why: '240.0.0.0/4: reservado (inclui o broadcast 255.255.255.255), não é um endereço público de dispositivo.' };
+    return { priv: false, t: 'público', why: 'Fora das faixas privadas: é roteável na internet (se estiver atribuído a alguém).' };
+  }
+  function classify6(g) {
+    var z = function (n) { for (var i = 0; i < n; i++) if (g[i]) return false; return true; };
+    if (z(8)) return { priv: false, t: 'não especificado', why: '"::" (tudo zero) significa "nenhum endereço ainda", como o 0.0.0.0 do IPv4.' };
+    if (z(7) && g[7] === 1) return { priv: false, t: 'loopback', why: '::1 é a própria máquina, como o 127.0.0.1 do IPv4.' };
+    if (z(5) && g[5] === 0xffff) return { priv: false, t: 'IPv4 mapeado', why: '::ffff:0:0/96 carrega um IPv4 nos 32 bits finais: é como um programa IPv6 enxerga um cliente IPv4.' };
+    if ((g[0] & 0xff00) === 0xff00) return { priv: false, t: 'multicast', why: 'ff00::/8: endereço de grupo. ff02::1 é "todos os nós deste enlace"; o IPv6 não tem broadcast.' };
+    if ((g[0] & 0xffc0) === 0xfe80) return { priv: false, t: 'link-local', why: 'fe80::/10: só vale no mesmo enlace (a mesma rede local), como o 169.254 do IPv4. Toda interface IPv6 tem um.' };
+    if ((g[0] & 0xfe00) === 0xfc00) return { priv: true, t: 'privado', why: 'fc00::/7 (ULA, na prática fd00::/8): o equivalente às faixas privadas do IPv4, como 10.0.0.0/8 e 192.168.0.0/16.' };
+    if (g[0] === 0x2001 && g[1] === 0x0db8) return { priv: false, t: 'documentação', why: '2001:db8::/32 é reservado para exemplos em livros e documentação: não existe na internet.' };
+    if ((g[0] & 0xe000) === 0x2000) return { priv: false, t: 'público', why: '2000::/3: unicast global, roteável na internet. Sem NAT: cada aparelho pode ter o seu.' };
+    return { priv: false, t: 'reservado', why: 'Fora das faixas em uso hoje (o IPv6 ainda guarda a maior parte do espaço).' };
+  }
+  // IPv6 em 8 grupos de 16 bits; aceita "::" (uma vez) e um IPv4 no fim (::ffff:192.168.1.10)
+  function parse6(s) {
+    s = s.trim().toLowerCase();
+    if (!/^[0-9a-f:.]+$/.test(s) || s.split('::').length > 2) return null;
+    var halves = s.split('::'), dbl = halves.length === 2;
+    function part(h) {
+      if (h === '') return [];
+      var ps = h.split(':'), out = [];
+      for (var i = 0; i < ps.length; i++) {
+        var q = ps[i];
+        if (i === ps.length - 1 && q.indexOf('.') >= 0) {
+          var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(q), o = m && m.slice(1).map(Number);
+          if (!o || o.some(function (x) { return x > 255; })) return null;
+          out.push(o[0] * 256 + o[1], o[2] * 256 + o[3]);
+        } else if (/^[0-9a-f]{1,4}$/.test(q)) out.push(parseInt(q, 16));
+        else return null;
+      }
+      return out;
+    }
+    var a = part(halves[0]), b = dbl ? part(halves[1]) : [];
+    if (!a || !b) return null;
+    var fill = 8 - a.length - b.length;
+    if (dbl ? fill < 1 : fill !== 0) return null;
+    var g = a.concat(new Array(fill).fill(0), b), filled = g.map(function (_, i) { return i >= a.length && i < a.length + fill; });
+    return { g: g, filled: filled };
+  }
+  // forma curta (RFC 5952): sem zeros à esquerda, a maior sequência de 2+ grupos zero vira "::"
+  function short6(g) {
+    var best = -1, len = 0;
+    for (var i = 0; i < 8; i++) { if (g[i]) continue; var j = i; while (j < 8 && !g[j]) j++; if (j - i > len && j - i >= 2) { best = i; len = j - i; } i = j; }
+    var h = g.map(function (x) { return x.toString(16); });
+    if (best < 0) return h.join(':');
+    return h.slice(0, best).join(':') + '::' + h.slice(best + len).join(':');
+  }
+  function bitRow(bitsStr, nib) {
+    var ob = el('div', { class: 'oct-bits' + (nib ? ' nib' : '') });
+    bitsStr.split('').forEach(function (ch) { ob.appendChild(el('span', { class: 'bit b' + ch, text: ch })); });
+    return ob;
+  }
   function wIp(root) {
-    var inpId = id('ip');
-    var input = el('input', { type: 'text', id: inpId, value: '192.168.1.10', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': inpId + 'r' });
-    var chips = el('div', { class: 'w-row' }, ['10.0.0.5', '172.16.4.1', '172.32.0.1', '192.168.1.10', '8.8.8.8', '127.0.0.1'].map(function (v) {
-      var c = el('button', { type: 'button', class: 'chip', text: v });
-      c.addEventListener('click', function () { input.value = v; update(); });
-      return c;
-    }));
+    var T = IP_TXT, ver = 'v4', inpId = id('ip');
+    var seg = el('div', { class: 'w-row ip-ver', role: 'group', 'aria-label': T.ver });
+    var vb = { v4: el('button', { type: 'button', class: 'chip', 'aria-pressed': 'true', text: 'IPv4' }), v6: el('button', { type: 'button', class: 'chip', 'aria-pressed': 'false', text: 'IPv6' }) };
+    seg.appendChild(vb.v4); seg.appendChild(vb.v6);
+    var label = el('label', { for: inpId, text: T.v4.label });
+    var input = el('input', { type: 'text', class: 'ip-in', id: inpId, value: T.v4.def, inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-describedby': inpId + 'r' });
+    var chips = el('div', { class: 'w-row' });
     var out = el('div', { class: 'live', id: inpId + 'r', 'aria-live': 'polite' });
-    root.appendChild(el('div', { class: 'w-row' }, [el('label', { for: inpId, text: 'IPv4: ' }), input]));
+    root.appendChild(seg);
+    root.appendChild(el('div', { class: 'w-row ip-row' }, [label, input]));
     root.appendChild(chips);
     root.appendChild(out);
 
-    function classify(o) {
-      var a = o[0], b = o[1];
-      if (a === 10) return { priv: true, t: 'privado', why: 'Faixa 10.0.0.0/8 (10.0.0.0 a 10.255.255.255).' };
-      if (a === 172 && b >= 16 && b <= 31) return { priv: true, t: 'privado', why: 'Faixa 172.16.0.0/12 (172.16.0.0 a 172.31.255.255).' };
-      if (a === 192 && b === 168) return { priv: true, t: 'privado', why: 'Faixa 192.168.0.0/16 (192.168.0.0 a 192.168.255.255).' };
-      if (a === 127) return { priv: false, t: 'loopback', why: '127.0.0.0/8 é a própria máquina (localhost). Não é uma das 3 faixas privadas, mas também não sai para a internet.' };
-      if (a === 169 && b === 254) return { priv: false, t: 'link-local', why: '169.254.0.0/16: o aparelho não achou DHCP e se autoatribuiu um endereço.' };
-      if (a === 100 && b >= 64 && b <= 127) return { priv: false, t: 'CGNAT', why: '100.64.0.0/10: faixa de NAT de operadora. Não é uma das 3 faixas privadas clássicas.' };
-      if (a === 0) return { priv: false, t: 'reservado', why: '0.0.0.0/8: "este host/rede", não é endereço de destino na internet.' };
-      if (a >= 224 && a <= 239) return { priv: false, t: 'multicast', why: '224.0.0.0/4: endereço de grupo (multicast), não pertence a um único dispositivo.' };
-      if (a >= 240) return { priv: false, t: 'reservado', why: '240.0.0.0/4: reservado (inclui o broadcast 255.255.255.255), não é um endereço público de dispositivo.' };
-      return { priv: false, t: 'público', why: 'Fora das faixas privadas: é roteável na internet (se estiver atribuído a alguém).' };
+    var dots = el('div', { class: 'dots', 'aria-hidden': 'true', style: 'grid-template-columns:repeat(32,1fr)' }), dl = [];
+    for (var d = 0; d < 128; d++) { var dd = el('span', { class: 'dot' }); dl.push(dd); dots.appendChild(dd); }
+    var sizeP = el('p', { class: 'widget-hint' });
+    root.appendChild(el('p', { class: 'sub-h', text: T.sizeH }));
+    root.appendChild(dots);
+    root.appendChild(sizeP);
+
+    function verdict(c) {
+      return el('div', { class: 'verdict' }, [
+        el('span', { class: 'tag ' + (c.priv ? 'ok' : 'muted'), text: c.priv ? T.priv : c.t }),
+        el('span', { text: c.why + (c.priv && ver === 'v4' ? T.natPriv : '') })
+      ]);
     }
     function update() {
       clear(out);
       var s = input.value.trim();
-      var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
-      var o = m ? m.slice(1).map(Number) : null;
-      if (!o || o.some(function (x) { return x > 255; })) {
-        input.setAttribute('aria-invalid', 'true');
-        out.appendChild(el('p', { class: 'bad', text: 'IPv4 inválido: use 4 números de 0 a 255 separados por ponto.' }));
+      if (ver === 'v4') {
+        var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s), o = m ? m.slice(1).map(Number) : null;
+        if (!o || o.some(function (x) { return x > 255; })) { input.setAttribute('aria-invalid', 'true'); out.appendChild(el('p', { class: 'bad', text: T.v4.bad })); return; }
+        input.removeAttribute('aria-invalid');
+        var b8 = o.map(function (x) { return ('00000000' + x.toString(2)).slice(-8); });
+        var bits = el('div', { class: 'bits', role: 'img', 'aria-label': T.bin + b8.join('.') });
+        o.forEach(function (x, i) { bits.appendChild(el('div', { class: 'oct' }, [bitRow(b8[i]), el('span', { class: 'oct-dec', text: String(x) })])); });
+        out.appendChild(bits);
+        out.appendChild(verdict(classify4(o)));
         return;
       }
+      var r = parse6(s);
+      if (!r) { input.setAttribute('aria-invalid', 'true'); out.appendChild(el('p', { class: 'bad', text: T.v6.bad })); return; }
       input.removeAttribute('aria-invalid');
-      var c = classify(o);
-      var bits = el('div', { class: 'bits', role: 'img', 'aria-label': 'Binário: ' + o.map(function (x) { return ('00000000' + x.toString(2)).slice(-8); }).join('.') });
-      o.forEach(function (x) {
-        var b = ('00000000' + x.toString(2)).slice(-8), ob = el('div', { class: 'oct-bits' });
-        b.split('').forEach(function (ch) { ob.appendChild(el('span', { class: 'bit b' + ch, text: ch })); });
-        bits.appendChild(el('div', { class: 'oct' }, [ob, el('span', { class: 'oct-dec', text: String(x) })]));
-      });
-      out.appendChild(bits);
-      out.appendChild(el('div', { class: 'verdict' }, [
-        el('span', { class: 'tag ' + (c.priv ? 'ok' : 'muted'), text: c.priv ? 'PRIVADO' : c.t.toUpperCase() }),
-        el('span', { text: c.priv ? c.why + ' Não é roteado na internet; precisa de NAT para sair.' : c.why })
+      var full = r.g.map(function (x) { return ('0000' + x.toString(16)).slice(-4); });
+      out.appendChild(el('dl', { class: 'v6-forms' }, [
+        el('div', {}, [el('dt', { text: T.full }), el('dd', { text: full.join(':') })]),
+        el('div', {}, [el('dt', { text: T.short }), el('dd', { text: short6(r.g) })])
       ]));
+      var rows = el('div', { class: 'v6-rows', role: 'img', 'aria-label': T.full + ': ' + full.join(':') });
+      r.g.forEach(function (x, i) {
+        rows.appendChild(el('div', { class: 'v6-row' + (r.filled[i] ? ' fill' : '') }, [
+          el('span', { class: 'v6-hex', text: full[i] }), bitRow(('0000000000000000' + x.toString(2)).slice(-16), true)
+        ]));
+      });
+      out.appendChild(rows);
+      if (r.filled.some(Boolean)) out.appendChild(el('p', { class: 'v6-note' }, [el('span', { class: 'v6-sw', 'aria-hidden': 'true' }), el('span', { text: T.filled })]));
+      out.appendChild(verdict(classify6(r.g)));
     }
+    function setVer(v) {
+      ver = v;
+      vb.v4.setAttribute('aria-pressed', String(v === 'v4')); vb.v6.setAttribute('aria-pressed', String(v === 'v6'));
+      label.textContent = T[v].label; input.value = T[v].def; input.classList.toggle('v6', v === 'v6');
+      clear(chips);
+      T[v].ex.forEach(function (x) {
+        var c = el('button', { type: 'button', class: 'chip', text: x });
+        c.addEventListener('click', function () { input.value = x; update(); });
+        chips.appendChild(c);
+      });
+      dl.forEach(function (dd, i) { dd.className = 'dot' + (i < (v === 'v4' ? 32 : 128) ? ' on' : ''); });
+      sizeP.textContent = v === 'v4' ? T.size4 : T.size6 + (BigInt(2) ** BigInt(96)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + T.size6b;
+      update();
+    }
+    vb.v4.addEventListener('click', function () { if (ver !== 'v4') setVer('v4'); });
+    vb.v6.addEventListener('click', function () { if (ver !== 'v6') setVer('v6'); });
     input.addEventListener('input', update);
-    update();
-
-    root.appendChild(el('p', { class: 'sub-h', text: 'IPv6: 128 bits = 8 grupos de 16 bits (hex)' }));
-    var v6 = el('div', { class: 'v6', role: 'img', 'aria-label': 'Exemplo de IPv6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334' });
-    '2001:0db8:85a3:0000:0000:8a2e:0370:7334'.split(':').forEach(function (g) { v6.appendChild(el('span', { class: 'v6g', text: g })); });
-    root.appendChild(v6);
-    root.appendChild(el('p', { class: 'widget-hint', text: 'Zeros em sequência podem ser abreviados com "::" (uma vez): 2001:db8:85a3::8a2e:370:7334.' }));
-
-    root.appendChild(el('p', { class: 'sub-h', text: 'Escala: cada quadrado = 1 bit de endereço (128 no total, os 32 azuis são o IPv4)' }));
-    var dots = el('div', { class: 'dots', 'aria-hidden': 'true', style: 'grid-template-columns:repeat(32,1fr)' });
-    for (var d = 0; d < 128; d++) dots.appendChild(el('span', { class: 'dot' + (d < 32 ? ' on' : '') }));
-    root.appendChild(dots);
-    var two32 = Math.pow(2, 32);
-    var rows = el('div', {}, [
-      el('div', { class: 'scale-row' }, [el('span', { text: 'IPv4' }), el('div', { class: 'scale-track' }, [el('div', { class: 'scale-fill', style: 'width:' + (32 / 128 * 100) + '%' }), el('span', { class: 'scale-lbl', text: '2^32 = 4.294.967.296' })])]),
-      el('div', { class: 'scale-row' }, [el('span', { text: 'IPv6' }), el('div', { class: 'scale-track' }, [el('div', { class: 'scale-fill v6f', style: 'width:100%' }), el('span', { class: 'scale-lbl', text: '2^128 ≈ 3,4 × 10^38' })])])
-    ]);
-    root.appendChild(rows);
-    var ratio = BigInt(2) ** BigInt(96);
-    root.appendChild(el('p', { class: 'widget-hint', text: 'A barra está em escala de bits (expoente), não de quantidade: em quantidade real, o IPv4 não apareceria nem como um pixel. Cada bit a mais dobra o total, e o IPv6 tem 96 bits a mais: ' + ratio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' vezes o espaço do IPv4. Com ~8 bilhões de pessoas, o IPv4 dá cerca de ' + (two32 / 8e9).toFixed(1).replace('.', ',') + ' endereço por pessoa; o IPv6, cerca de 4 × 10^28 por pessoa.' }));
+    setVer('v4');
   }
 
   /* =============== AULA 4: TCP / UDP =============== */
