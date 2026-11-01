@@ -782,7 +782,115 @@
     pick(2);
   }
 
-  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency, timeline: wTimeline, equip: wEquip };
+  /* =============== LESSON 8: QUIC, loss and resend =============== */
+  // The server notes what went in each packet (numbers never repeat). The ranged ACK shows the gap; the rule
+  // "3 newer packets acknowledged" declares the loss; the data (stream + bytes) goes in a new packet, 11.
+  // The browser places bytes by each stream's offset: only the stream that lost bytes waits.
+  var QX = {
+    srv: 'Server: what it noted for each packet', nav: 'Browser: bytes that arrived, per stream',
+    th: ['no.', 'stream · bytes', 'state'],
+    st: { air: 'in flight', ok: 'acknowledged', lost: 'lost', resent: 'lost · data in 11' },
+    names: { 0: 'index.html', 4: 'store.css', 8: 'cat.webp' },
+    frame: function (s, c) { return 'stream ' + s + ' · ' + (c * 1000) + '–' + (c * 1000 + 999); },
+    reFrame: ' (resent)',
+    done: 'complete, handed to the app', wait: function (c) { return 'waiting for bytes ' + (c * 1000) + '–' + (c * 1000 + 999); },
+    recv: 'receiving', none: 'nothing yet',
+    wireS: 'server → browser', wireA: 'browser → server',
+    lostAria: 'lost on the way', cellAria: function (s, c, k) { return 'stream ' + s + ', bytes ' + (c * 1000) + ' to ' + (c * 1000 + 999) + ': ' + k; },
+    cellK: { got: 'arrived', hole: 'missing', empty: 'not yet', fresh: 'just arrived' },
+    legend: [['got', 'arrived'], ['fresh', 'just arrived'], ['hole', 'gap: missing']],
+    steps: [
+      { h: 'Send', t: 'The server sends packets 1 to 6. Each one gets a number that never repeats, and the server notes what went inside: the stream and the byte range.' },
+      { h: 'Loss', t: 'Packet 7 is lost on the way. The server doesn\'t know: to it, 7 is in flight like any other. Only we can see the X.' },
+      { h: 'Send', t: 'The server goes on with 8, 9 and 10 (10 carries pieces of two streams). In the browser, stream 4 has a gap at bytes 2000–2999 and holds 3000–3999 while it waits. Streams 0 and 8 don\'t depend on it and go on to the app.' },
+      { h: 'ACK', t: 'The browser answers with ranges: "got 1–6 and 8–10". The gap in the ranges is 7.' },
+      { h: 'Detection', t: 'Order rule: 3 packets newer than 7 (8, 9 and 10) were acknowledged and 7 wasn\'t. The server declares 7 lost. Had fewer than 3 arrived, the time rule (9/8 of the RTT) or the PTO timer would decide.' },
+      { h: 'Resend', t: 'The server reads its note for 7 (stream 4, bytes 2000–2999) and puts those bytes in packet 11, with a new number. New data for stream 0 rides in the same packet. It resends the content, not the packet.' },
+      { h: 'Delivery', t: 'The browser places bytes by their position in the stream (offset), not by packet number: stream 4 is complete and goes to the app. The ACK for 11 is clear, because number 11 was sent only once. In TCP the resend reuses the number, so the ACK is ambiguous for measuring the RTT.' }
+    ]
+  };
+  function wQuic(root) {
+    // packet → frames [stream, 1000-byte chunk]
+    var PK = { 1: [[0, 0]], 2: [[4, 0]], 3: [[8, 0]], 4: [[0, 1]], 5: [[4, 1]], 6: [[8, 1]], 7: [[4, 2]], 8: [[8, 2]], 9: [[4, 3]], 10: [[0, 2], [8, 3]], 11: [[4, 2], [0, 3]] };
+    var SENT = [[1, 2, 3, 4, 5, 6], [7], [8, 9, 10], [], [], [11], []];   // what leaves at each step
+    var ARRIVE = [[1, 2, 3, 4, 5, 6], [], [8, 9, 10], [], [], [], [11]]; // what reaches the browser
+    var ACK = { 3: '1–6, 8–10', 6: '1–6, 8–11' };
+    var S = [0, 4, 8];
+    function upto(arr, i) { var o = []; for (var k = 0; k <= i; k++) o = o.concat(arr[k]); return o; }
+    var wire = el('div', { class: 'qx-wire', 'aria-hidden': 'true' });
+    var note = el('div', { class: 'note-box', 'aria-live': 'polite' });
+    var tbl = el('table', { class: 'qx-tbl' });
+    var streams = el('div', { class: 'qx-streams' });
+    var st = stepper(root, function () { return QX.steps.length; }, function (i) {
+      var sent = upto(SENT, i), got = upto(ARRIVE, i), now = ARRIVE[i];
+      var acked = i >= 6 ? [1, 2, 3, 4, 5, 6, 8, 9, 10, 11] : i >= 3 ? [1, 2, 3, 4, 5, 6, 8, 9, 10] : [];
+      // wire: what travels at this step
+      clear(wire);
+      if (ACK[i]) {
+        wire.appendChild(el('span', { class: 'qx-dir', text: QX.wireA }));
+        wire.appendChild(el('span', { class: 'qx-chip ack', text: 'ACK ' + ACK[i] }));
+      } else if (SENT[i].length) {
+        wire.appendChild(el('span', { class: 'qx-dir', text: QX.wireS }));
+        SENT[i].forEach(function (n, k) {
+          var c = el('span', { class: 'qx-chip' + (n === 7 ? ' lost' : ''), text: String(n) });
+          c.style.animationDelay = (k * 70) + 'ms';
+          wire.appendChild(c);
+        });
+      }
+      // server table
+      clear(tbl);
+      tbl.appendChild(el('thead', null, [el('tr', null, QX.th.map(function (h) { return el('th', { text: h }); }))]));
+      var tb = el('tbody');
+      sent.forEach(function (n) {
+        var s = acked.indexOf(n) >= 0 ? 'ok' : n === 7 && i >= 5 ? 'resent' : n === 7 && i >= 4 ? 'lost' : 'air';
+        var touched = SENT[i].indexOf(n) >= 0 || (n === 7 && (i === 4 || i === 5)) || (n === 11 && i === 6);
+        var what = el('td', { class: 'qx-what' }, PK[n].map(function (f, k) {
+          return el('span', null, [el('span', { class: 'qx-f', text: QX.frame(f[0], f[1]) }), n === 11 && k === 0 ? QX.reFrame : null]);
+        }));
+        tb.appendChild(el('tr', { class: 'is-' + s + (touched ? ' cur' : '') + (n === 7 && i === 3 ? ' gap' : '') }, [
+          el('td', { class: 'qx-n', text: String(n) }), what, el('td', { class: 'qx-st', text: QX.st[s] })
+        ]));
+      });
+      tbl.appendChild(tb);
+      // browser streams
+      clear(streams);
+      S.forEach(function (s) {
+        var have = [false, false, false, false], fresh = [false, false, false, false];
+        got.forEach(function (n) { PK[n].forEach(function (f) { if (f[0] === s) { have[f[1]] = true; if (now.indexOf(n) >= 0) fresh[f[1]] = true; } }); });
+        var hole = -1;
+        for (var c = 0; c < 4; c++) if (!have[c] && have.slice(c + 1).some(Boolean)) { hole = c; break; }
+        var cells = el('div', { class: 'qx-cells' });
+        for (var c2 = 0; c2 < 4; c2++) {
+          var k = fresh[c2] ? 'fresh' : have[c2] ? 'got' : c2 === hole ? 'hole' : 'empty';
+          cells.appendChild(el('span', { class: 'qx-cell ' + k, role: 'img', 'aria-label': QX.cellAria(s, c2, QX.cellK[k]) }));
+        }
+        var full = have.every(Boolean), any = have.some(Boolean);
+        var status = full ? QX.done : hole >= 0 ? QX.wait(hole) : any ? QX.recv : QX.none;
+        streams.appendChild(el('div', { class: 'qx-stream' + (hole >= 0 ? ' is-wait' : full ? ' is-done' : '') }, [
+          el('div', { class: 'qx-sh' }, [el('b', { text: 'stream ' + s }), el('span', { text: QX.names[s] })]),
+          cells,
+          el('div', { class: 'qx-scale', 'aria-hidden': 'true' }, [el('span', { text: '0' }), el('span', { text: '4000 bytes' })]),
+          el('div', { class: 'qx-ss', text: status })
+        ]));
+      });
+      clear(note);
+      note.appendChild(el('span', { class: 'phase data', text: QX.steps[i].h }));
+      note.appendChild(document.createTextNode(QX.steps[i].t));
+    });
+    var legend = el('div', { class: 'qx-legend', 'aria-hidden': 'true' }, QX.legend.map(function (l) {
+      return el('span', null, [el('i', { class: 'qx-cell ' + l[0] }), l[1]]);
+    }));
+    root.appendChild(st.bar);
+    root.appendChild(wire);
+    root.appendChild(note);
+    root.appendChild(el('div', { class: 'qx-split' }, [
+      el('div', { class: 'qx-panel' }, [el('p', { class: 'qx-ph', text: QX.srv }), el('div', { class: 'qx-tbl-wrap' }, [tbl])]),
+      el('div', { class: 'qx-panel' }, [el('p', { class: 'qx-ph', text: QX.nav }), streams, legend])
+    ]));
+    st.go(0);
+  }
+
+  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency, timeline: wTimeline, equip: wEquip, quic: wQuic };
   function init() {
     var nodes = document.querySelectorAll('[data-widget]');
     Array.prototype.forEach.call(nodes, function (n) {

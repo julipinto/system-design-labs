@@ -70,6 +70,10 @@ import Flashcards from '../../../components/Flashcards.astro';
 </ol>
 </HowItWorks>
 
+<p>A lost packet doesn't stop everything: QUIC knows exactly which bytes to resend. Step through it to see how.</p>
+
+<Widget name="quic" title="How QUIC resends a lost packet" hint="Click Next: packet 7 is lost, the ACK shows the gap and the bytes come back in a new packet." />
+
 <div class="rtt-table-wrap">
 <table class="rtt-table">
   <thead><tr><th></th><th>TCP + TLS 1.3</th><th>QUIC</th></tr></thead>

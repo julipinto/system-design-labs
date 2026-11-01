@@ -782,7 +782,115 @@
     pick(2);
   }
 
-  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency, timeline: wTimeline, equip: wEquip };
+  /* =============== AULA 8: QUIC, perda e reenvio =============== */
+  // O servidor anota o que foi em cada pacote (número nunca repete). O ACK em faixas mostra o buraco; a regra
+  // "3 pacotes mais novos confirmados" declara a perda; os dados (stream + bytes) vão num pacote novo, o 11.
+  // O navegador encaixa pelo offset de cada stream: só a stream que perdeu bytes espera.
+  var QX = {
+    srv: 'Servidor: o que anotou em cada pacote', nav: 'Navegador: bytes que chegaram, por stream',
+    th: ['nº', 'stream · bytes', 'estado'],
+    st: { air: 'no ar', ok: 'confirmado', lost: 'perdido', resent: 'perdido · dados no 11' },
+    names: { 0: 'index.html', 4: 'loja.css', 8: 'gato.webp' },
+    frame: function (s, c) { return 'stream ' + s + ' · ' + (c * 1000) + '–' + (c * 1000 + 999); },
+    reFrame: ' (reenvio)',
+    done: 'completa, entregue ao app', wait: function (c) { return 'esperando os bytes ' + (c * 1000) + '–' + (c * 1000 + 999); },
+    recv: 'recebendo', none: 'nada ainda',
+    wireS: 'servidor → navegador', wireA: 'navegador → servidor',
+    lostAria: 'perdido no caminho', cellAria: function (s, c, k) { return 'stream ' + s + ', bytes ' + (c * 1000) + ' a ' + (c * 1000 + 999) + ': ' + k; },
+    cellK: { got: 'chegou', hole: 'faltando', empty: 'ainda não', fresh: 'acabou de chegar' },
+    legend: [['got', 'chegou'], ['fresh', 'acabou de chegar'], ['hole', 'buraco: faltando']],
+    steps: [
+      { h: 'Envio', t: 'O servidor manda os pacotes 1 a 6. Cada um ganha um número que nunca se repete, e o servidor anota o que foi dentro: a stream e a faixa de bytes.' },
+      { h: 'Perda', t: 'O pacote 7 se perde no caminho. O servidor não sabe disso: para ele, o 7 está no ar como qualquer outro. Só a gente vê o X.' },
+      { h: 'Envio', t: 'O servidor segue com 8, 9 e 10 (o 10 leva pedaços de duas streams). No navegador, a stream 4 tem um buraco nos bytes 2000–2999 e guarda o 3000–3999 esperando. As streams 0 e 8 não dependem dela e seguem para o app.' },
+      { h: 'ACK', t: 'O navegador responde com faixas: "recebi 1–6 e 8–10". O buraco na faixa é o 7.' },
+      { h: 'Detecção', t: 'Regra por ordem: 3 pacotes mais novos que o 7 (8, 9 e 10) foram confirmados e ele não. O servidor declara o 7 perdido. Se tivessem chegado menos de 3, a regra do tempo (9/8 do RTT) ou o timer PTO decidiria.' },
+      { h: 'Reenvio', t: 'O servidor olha a anotação do 7 (stream 4, bytes 2000–2999) e põe esses bytes no pacote 11, com número novo. No mesmo pacote vai um dado novo da stream 0. Ele reenvia o conteúdo, não o pacote.' },
+      { h: 'Entrega', t: 'O navegador encaixa os bytes pela posição na stream (offset), não pelo número do pacote: a stream 4 fecha e vai para o app. O ACK do 11 é claro, porque o número 11 só foi enviado uma vez. No TCP, o reenvio repete o número e o ACK fica ambíguo para medir o RTT.' }
+    ]
+  };
+  function wQuic(root) {
+    // pacote → frames [stream, pedaço de 1000 bytes]
+    var PK = { 1: [[0, 0]], 2: [[4, 0]], 3: [[8, 0]], 4: [[0, 1]], 5: [[4, 1]], 6: [[8, 1]], 7: [[4, 2]], 8: [[8, 2]], 9: [[4, 3]], 10: [[0, 2], [8, 3]], 11: [[4, 2], [0, 3]] };
+    var SENT = [[1, 2, 3, 4, 5, 6], [7], [8, 9, 10], [], [], [11], []];   // o que sai em cada passo
+    var ARRIVE = [[1, 2, 3, 4, 5, 6], [], [8, 9, 10], [], [], [], [11]]; // o que chega ao navegador
+    var ACK = { 3: '1–6, 8–10', 6: '1–6, 8–11' };
+    var S = [0, 4, 8];
+    function upto(arr, i) { var o = []; for (var k = 0; k <= i; k++) o = o.concat(arr[k]); return o; }
+    var wire = el('div', { class: 'qx-wire', 'aria-hidden': 'true' });
+    var note = el('div', { class: 'note-box', 'aria-live': 'polite' });
+    var tbl = el('table', { class: 'qx-tbl' });
+    var streams = el('div', { class: 'qx-streams' });
+    var st = stepper(root, function () { return QX.steps.length; }, function (i) {
+      var sent = upto(SENT, i), got = upto(ARRIVE, i), now = ARRIVE[i];
+      var acked = i >= 6 ? [1, 2, 3, 4, 5, 6, 8, 9, 10, 11] : i >= 3 ? [1, 2, 3, 4, 5, 6, 8, 9, 10] : [];
+      // fio: o que viaja neste passo
+      clear(wire);
+      if (ACK[i]) {
+        wire.appendChild(el('span', { class: 'qx-dir', text: QX.wireA }));
+        wire.appendChild(el('span', { class: 'qx-chip ack', text: 'ACK ' + ACK[i] }));
+      } else if (SENT[i].length) {
+        wire.appendChild(el('span', { class: 'qx-dir', text: QX.wireS }));
+        SENT[i].forEach(function (n, k) {
+          var c = el('span', { class: 'qx-chip' + (n === 7 ? ' lost' : ''), text: String(n) });
+          c.style.animationDelay = (k * 70) + 'ms';
+          wire.appendChild(c);
+        });
+      }
+      // tabela do servidor
+      clear(tbl);
+      tbl.appendChild(el('thead', null, [el('tr', null, QX.th.map(function (h) { return el('th', { text: h }); }))]));
+      var tb = el('tbody');
+      sent.forEach(function (n) {
+        var s = acked.indexOf(n) >= 0 ? 'ok' : n === 7 && i >= 5 ? 'resent' : n === 7 && i >= 4 ? 'lost' : 'air';
+        var touched = SENT[i].indexOf(n) >= 0 || (n === 7 && (i === 4 || i === 5)) || (n === 11 && i === 6);
+        var what = el('td', { class: 'qx-what' }, PK[n].map(function (f, k) {
+          return el('span', null, [el('span', { class: 'qx-f', text: QX.frame(f[0], f[1]) }), n === 11 && k === 0 ? QX.reFrame : null]);
+        }));
+        tb.appendChild(el('tr', { class: 'is-' + s + (touched ? ' cur' : '') + (n === 7 && i === 3 ? ' gap' : '') }, [
+          el('td', { class: 'qx-n', text: String(n) }), what, el('td', { class: 'qx-st', text: QX.st[s] })
+        ]));
+      });
+      tbl.appendChild(tb);
+      // streams do navegador
+      clear(streams);
+      S.forEach(function (s) {
+        var have = [false, false, false, false], fresh = [false, false, false, false];
+        got.forEach(function (n) { PK[n].forEach(function (f) { if (f[0] === s) { have[f[1]] = true; if (now.indexOf(n) >= 0) fresh[f[1]] = true; } }); });
+        var hole = -1;
+        for (var c = 0; c < 4; c++) if (!have[c] && have.slice(c + 1).some(Boolean)) { hole = c; break; }
+        var cells = el('div', { class: 'qx-cells' });
+        for (var c2 = 0; c2 < 4; c2++) {
+          var k = fresh[c2] ? 'fresh' : have[c2] ? 'got' : c2 === hole ? 'hole' : 'empty';
+          cells.appendChild(el('span', { class: 'qx-cell ' + k, role: 'img', 'aria-label': QX.cellAria(s, c2, QX.cellK[k]) }));
+        }
+        var full = have.every(Boolean), any = have.some(Boolean);
+        var status = full ? QX.done : hole >= 0 ? QX.wait(hole) : any ? QX.recv : QX.none;
+        streams.appendChild(el('div', { class: 'qx-stream' + (hole >= 0 ? ' is-wait' : full ? ' is-done' : '') }, [
+          el('div', { class: 'qx-sh' }, [el('b', { text: 'stream ' + s }), el('span', { text: QX.names[s] })]),
+          cells,
+          el('div', { class: 'qx-scale', 'aria-hidden': 'true' }, [el('span', { text: '0' }), el('span', { text: '4000 bytes' })]),
+          el('div', { class: 'qx-ss', text: status })
+        ]));
+      });
+      clear(note);
+      note.appendChild(el('span', { class: 'phase data', text: QX.steps[i].h }));
+      note.appendChild(document.createTextNode(QX.steps[i].t));
+    });
+    var legend = el('div', { class: 'qx-legend', 'aria-hidden': 'true' }, QX.legend.map(function (l) {
+      return el('span', null, [el('i', { class: 'qx-cell ' + l[0] }), l[1]]);
+    }));
+    root.appendChild(st.bar);
+    root.appendChild(wire);
+    root.appendChild(note);
+    root.appendChild(el('div', { class: 'qx-split' }, [
+      el('div', { class: 'qx-panel' }, [el('p', { class: 'qx-ph', text: QX.srv }), el('div', { class: 'qx-tbl-wrap' }, [tbl])]),
+      el('div', { class: 'qx-panel' }, [el('p', { class: 'qx-ph', text: QX.nav }), streams, legend])
+    ]));
+    st.go(0);
+  }
+
+  var REG = { ip: wIp, tcp: wTcp, tls: wTls, dns: wDns, dhcp: wDhcp, http: wHttp, latency: wLatency, timeline: wTimeline, equip: wEquip, quic: wQuic };
   function init() {
     var nodes = document.querySelectorAll('[data-widget]');
     Array.prototype.forEach.call(nodes, function (n) {
