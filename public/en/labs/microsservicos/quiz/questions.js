@@ -304,10 +304,10 @@
     "The DBA team keeps all of them."
   ], 1, "Each table has an owner. Nobody reads another's table: they ask through the API or listen to the event.");
   order("t8", 2, 3, "Put the timeline of order 1047's events in order.", [
-    "e-501 PedidoCriado, 14:02:10",
-    "e-502 PedidoPago, 14:02:11",
-    "e-503 EstoqueReservado, 14:02:11",
-    "e-504 PedidoEnviado, 14:30:00"
+    "PedidoCriado",
+    "PedidoPago",
+    "EstoqueReservado",
+    "PedidoEnviado"
   ], "The stock is only reserved after the payment, and the shipment comes half an hour later. In e-503, the stock goes from 3 to 2.");
   choice("t8", 3, 3, "PedidoPago e-502 reaches Stock twice, with no protection. What is the cat's final stock?", [
     "2, because the second one is ignored.",

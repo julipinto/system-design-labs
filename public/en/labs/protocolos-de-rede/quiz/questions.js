@@ -324,10 +324,10 @@
     "The browser waits for the firewall to open the port."
   ], 0, "HTTP/3 is announced as an option (Alt-Svc), and TCP stays available. If UDP fails, the client falls back to TCP. That's why the server needs to keep HTTP/2 working.");
   order("t8", 12, 2, "Order from the scenario with the MOST RTTs before the request to the one with the FEWEST.", [
-    "TCP + TLS 1.2 (3 RTTs)",
-    "TCP + TLS 1.3 (2 RTTs)",
-    "QUIC, new connection (1 RTT)",
-    "QUIC, resumption with 0-RTT (0 RTT)"
+    "TCP + TLS 1.2",
+    "TCP + TLS 1.3",
+    "QUIC, new connection",
+    "QUIC, resumption with 0-RTT"
   ], "TLS 1.3 cuts one RTT from 1.2. QUIC merges the transport handshake with the TLS one and ends up at 1. On resumption, the request goes out with the first message.");
 
   /* ---------- 9. Response time ---------- */
@@ -371,12 +371,12 @@
     "The MAC of the next hop."
   ], 0, "Layer 3 adds the source and destination IP: that's the label routers read. TCP came in earlier, at layer 4.");
   order("fig", 2, 2, "On the way down, in what order is each envelope put around the photo?", [
-    "HTTP header (7)",
-    "Compression and TLS (6)",
-    "Session (5)",
-    "TCP header (4)",
-    "IP header (3)",
-    "MAC and FCS of the data link (2)"
+    "HTTP header",
+    "Compression and TLS",
+    "Session",
+    "TCP header",
+    "IP header",
+    "MAC and FCS of the data link"
   ], "From top to bottom, layer by layer. At the physical layer (1) there is no envelope: the frame becomes signal.");
   choice("fig", 3, 2, "Along the path through the routers, what changes and what stays the same?", [
     "The destination IP stays the same; the MAC changes at each hop.",

@@ -178,10 +178,10 @@
 
   /* ---------- 6. Classic problems ---------- */
   order("t6", 1, 2, "Put Bia and Caio's race for the last cat in order.", [
-    "Bia reads quantidade = 1 (SELECT, t = 0)",
-    "Caio reads quantidade = 1, because Bia's UPDATE has not committed yet (t = 2)",
-    "Bia's UPDATE commits: quantidade = 0 (t = 4)",
-    "Caio's UPDATE commits: quantidade = −1 (t = 6)"
+    "Bia reads quantidade = 1 (SELECT)",
+    "Caio reads quantidade = 1, because Bia's UPDATE has not committed yet",
+    "Bia's UPDATE commits: quantidade = 0",
+    "Caio's UPDATE commits: quantidade = −1"
   ], "Both read 1 before any decrement. The window is the one between checking and decrementing: 2 ms.");
   choice("t6", 2, 1, "What is the name of the defect in which the decision rests on a read that may have gone stale?", [
     "Deadlock.",
@@ -288,11 +288,11 @@
     "60 reservations per second."
   ], 2, "1 s ÷ 6 ms ≈ 166, less than the 250 of the local mutex: the round trip to Redis has a cost.");
   order("t8", 4, 3, "Put the Redis lock between Bia and Caio in order, with Caio trying every 50 ms.", [
-    "Bia: SET NX → OK (t = 1 ms)",
-    "Caio: SET NX → nil, the key exists (t = 3 ms)",
-    "Bia releases the lock (t = 6 ms)",
-    "Caio tries again and takes the lock (t = 53 ms)",
-    "Caio reads 0 and gets 409 (t ≈ 56 ms)"
+    "Bia: SET NX → OK",
+    "Caio: SET NX → nil, the key exists",
+    "Bia releases the lock",
+    "Caio tries again and takes the lock",
+    "Caio reads 0 and gets 409"
   ], "Caio is not served right away: he waits for the next attempt, 50 ms after the previous one.");
   choice("t8", 5, 3, "Bia takes the lock (TTL 5 s) and pauses for 6 s before the UPDATE. Caio takes the lock after the expiry and buys. What happens when Bia wakes up?", [
     "The database finds out the lock had expired and cancels the UPDATE.",

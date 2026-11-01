@@ -102,9 +102,9 @@
   choice("t5", 1, 1, "O que o estresse observa além do tamanho da carga?", [
     "A cor do dashboard.", "O que degrada primeiro e como se recupera.", "O número de VUs.", "O custo da nuvem."
   ], 1, "Ele leva a carga acima do esperado, em degraus, e mede a degradação e a recuperação.");
-  order("t5", 2, 2, "Coloque a escada do plano 2 na ordem dos patamares (taxa em pedidos/s):", [
-    "100", "200", "250", "300"
-  ], "A escada é 100 → 200 → 250 → 300 → 100, com 20 s de subida e 45 s de patamar.");
+  choice("t5", 2, 2, "Qual foi a escada do plano 2 (taxa em pedidos/s)?", [
+    "100 → 300 → 100", "100 → 200 → 250 → 300 → 100", "300 → 250 → 200 → 100", "100 → 150 → 200 → 250 → 300 → 350"
+  ], 1, "A escada é 100 → 200 → 250 → 300 → 100, com 20 s de subida e 45 s de patamar.");
   choice("t5", 3, 2, "Até quanto a meta (p95 ≤ 800 ms) se sustentou na escada do plano 2?", [
     "Até 100/s.", "Até 200/s.", "Até 250/s (pior janela, 738 ms).", "Até 300/s."
   ], 2, "A 300/s o p95 foi de 1,5 a 2 s e os erros ficaram entre 0,7% e 5,1%.");

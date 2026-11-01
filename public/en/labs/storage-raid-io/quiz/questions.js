@@ -336,10 +336,10 @@
     "All three give 4 TB."
   ], 0, "0: N x S = 4. 5: (N - 1) x S = 3. 10: N x S / 2 = 2.");
   order("t13", 2, 2, "Put the write penalties in order, from lowest to highest.", [
-    "RAID 0 (1)",
-    "RAID 1 and RAID 10 (2)",
-    "RAID 5 (4)",
-    "RAID 6 (6)"
+    "RAID 0",
+    "RAID 1 and RAID 10",
+    "RAID 5",
+    "RAID 6"
   ], "RAID 0 duplicates nothing; a mirror writes 2; RAID 5 does 4 I/Os; RAID 6 does 6.");
   choice("t13", 3, 2, "With 150 IOPS per disk, what is the theoretical random write of a RAID 5 with 4 disks?", [
     "150 IOPS (4 x 150 / 4).",

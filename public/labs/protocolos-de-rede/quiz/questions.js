@@ -323,10 +323,10 @@
     "O navegador espera o firewall liberar a porta."
   ], 0, "O HTTP/3 é anunciado como opção (Alt-Svc), e o TCP continua disponível. Se o UDP falha, o cliente cai para o TCP. Por isso o servidor precisa manter HTTP/2 funcionando.");
   order("t8", 12, 2, "Ordene do cenário com MAIS RTTs antes do pedido para o com MENOS.", [
-    "TCP + TLS 1.2 (3 RTTs)",
-    "TCP + TLS 1.3 (2 RTTs)",
-    "QUIC, conexão nova (1 RTT)",
-    "QUIC, retomada com 0-RTT (0 RTT)"
+    "TCP + TLS 1.2",
+    "TCP + TLS 1.3",
+    "QUIC, conexão nova",
+    "QUIC, retomada com 0-RTT"
   ], "O TLS 1.3 corta um RTT do 1.2. O QUIC junta o handshake de transporte com o de TLS e fica em 1. Na retomada, o pedido sai junto com a primeira mensagem.");
 
   /* ---------- 9. Tempo de resposta ---------- */
@@ -370,12 +370,12 @@
     "O MAC do próximo salto."
   ], 0, "A camada 3 põe o IP de origem e destino: é esse rótulo que os roteadores leem. O TCP entrou antes, na camada 4.");
   order("fig", 2, 2, "Na descida, qual a ordem em que cada envelope é colocado em volta da foto?", [
-    "Cabeçalho HTTP (7)",
-    "Compressão e TLS (6)",
-    "Sessão (5)",
-    "Cabeçalho TCP (4)",
-    "Cabeçalho IP (3)",
-    "MAC e FCS do enlace (2)"
+    "Cabeçalho HTTP",
+    "Compressão e TLS",
+    "Sessão",
+    "Cabeçalho TCP",
+    "Cabeçalho IP",
+    "MAC e FCS do enlace"
   ], "De cima para baixo, camada por camada. Na física (1) não há envelope: o quadro vira sinal.");
   choice("fig", 3, 2, "Durante o caminho pelos roteadores, o que muda e o que fica igual?", [
     "O IP de destino fica igual; o MAC muda a cada salto.",

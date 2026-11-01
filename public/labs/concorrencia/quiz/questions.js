@@ -178,10 +178,10 @@
 
   /* ---------- 6. Problemas clássicos ---------- */
   order("t6", 1, 2, "Ordene a corrida da Bia e do Caio pelo último gato.", [
-    "A Bia lê quantidade = 1 (SELECT, t = 0)",
-    "O Caio lê quantidade = 1, porque o UPDATE da Bia ainda não confirmou (t = 2)",
-    "O UPDATE da Bia confirma: quantidade = 0 (t = 4)",
-    "O UPDATE do Caio confirma: quantidade = −1 (t = 6)"
+    "A Bia lê quantidade = 1 (SELECT)",
+    "O Caio lê quantidade = 1, porque o UPDATE da Bia ainda não confirmou",
+    "O UPDATE da Bia confirma: quantidade = 0",
+    "O UPDATE do Caio confirma: quantidade = −1"
   ], "Os dois leem 1 antes de qualquer baixa. A janela é a de checar e baixar: 2 ms.");
   choice("t6", 2, 1, "Qual é o nome do defeito em que a decisão se apoia numa leitura que pode ter ficado velha?", [
     "Deadlock.",
@@ -288,11 +288,11 @@
     "60 reservas por segundo."
   ], 2, "1 s ÷ 6 ms ≈ 166, menos que os 250 do mutex local: a ida e volta ao Redis tem custo.");
   order("t8", 4, 3, "Ordene o lock no Redis entre a Bia e o Caio, com o Caio tentando a cada 50 ms.", [
-    "Bia: SET NX → OK (t = 1 ms)",
-    "Caio: SET NX → nil, a chave existe (t = 3 ms)",
-    "Bia solta a trava (t = 6 ms)",
-    "Caio tenta de novo e pega a trava (t = 53 ms)",
-    "Caio lê 0 e recebe 409 (t ≈ 56 ms)"
+    "Bia: SET NX → OK",
+    "Caio: SET NX → nil, a chave existe",
+    "Bia solta a trava",
+    "Caio tenta de novo e pega a trava",
+    "Caio lê 0 e recebe 409"
   ], "O Caio não é servido na hora: ele espera a próxima tentativa, 50 ms depois da anterior.");
   choice("t8", 5, 3, "A Bia pega a trava (TTL 5 s) e pausa por 6 s antes do UPDATE. O Caio pega a trava depois do vencimento e compra. O que acontece quando a Bia acorda?", [
     "O banco descobre que a trava vencera e cancela o UPDATE.",

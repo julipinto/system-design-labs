@@ -96,11 +96,11 @@
     "O preço dobrado."
   ], 1, "A alocação da célula zerou. As saídas: aceitar o esgotado local, rebalancear (assíncrono, o adotado) ou reservar entre células por saga (acopla duas células).");
   order("t2", 7, 2, "Ponha na ordem os anéis de deploy por célula.", [
-    "Célula zero (0%)",
-    "celula-recife (12%)",
-    "celula-rio (27%)",
-    "celula-sp (60%)",
-    "celula-mkt (100%)"
+    "Célula zero",
+    "celula-recife",
+    "celula-rio",
+    "celula-sp",
+    "celula-mkt"
   ], "Cada anel soma ao anterior. A célula zero, com os clientes sintéticos sint-01…03, acha o defeito antes de qualquer cliente real.");
   choice("t2", 8, 3, "A 2.5.0 do módulo 22 (frete 0,00 em Recife) é publicada pelo celula-recife primeiro. Por que isso não protege?", [
     "Porque a célula regional não é representativa do defeito regional: 100% dos clientes de Recife seriam afetados.",

@@ -98,7 +98,7 @@
     "35 s: only the MTTR.", "65 s: MTTD 30 s + MTTR 35 s, counted from the interruption.", "30 s: only detection.", "5 min."
   ], 1, "The region fell at 20:40:00.150 and the map flipped at 20:41:05: 65 s.");
   order("t4", 2, 2, "Put the SP outage timeline in order:", [
-    "The region goes down (20:40:00.150)", "Three probes fail: 30 s MTTD", "The Rio replica is promoted (35 s)", "The passive's pods are ready (60 s)", "The map flips: 65 s RTO"
+    "The region goes down", "Three probes fail and the outage is detected (MTTD)", "The Rio replica is promoted", "The passive's pods are ready", "The map flips and traffic is back (RTO)"
   ], "Detection at 30 s, promotion at 35 s, pods at 60 s and map at 65 s.");
   choice("t4", 3, 2, "How much does Rio's load change when celula-sp goes down?", [
     "From 4.5 to 9 orders/s.", "From 4.5 to 14.4 orders/s (3.2×).", "From 9.9 to 14.4.", "It does not change."

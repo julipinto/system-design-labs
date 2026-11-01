@@ -304,10 +304,10 @@
     "O time de DBA fica com todas."
   ], 1, "Cada tabela tem um dono. Ninguém lê a tabela do outro: pergunta pela API ou escuta o evento.");
   order("t8", 2, 3, "Ordene a linha do tempo dos eventos do pedido 1047.", [
-    "e-501 PedidoCriado, 14:02:10",
-    "e-502 PedidoPago, 14:02:11",
-    "e-503 EstoqueReservado, 14:02:11",
-    "e-504 PedidoEnviado, 14:30:00"
+    "PedidoCriado",
+    "PedidoPago",
+    "EstoqueReservado",
+    "PedidoEnviado"
   ], "O estoque só é reservado depois do pagamento, e o envio chega meia hora depois. No e-503, o estoque vai de 3 para 2.");
   choice("t8", 3, 3, "O PedidoPago e-502 chega duas vezes ao Estoque, sem nenhuma proteção. Qual é o estoque final do gato?", [
     "2, porque o segundo é ignorado.",

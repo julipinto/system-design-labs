@@ -210,11 +210,11 @@
   choice("t8", 1, 1, "What is the checkout chain's systemic capacity today?", [
     "90/s.", "40/s.", "250/s.", "1,000/s."
   ], 1, "It is the minimum across the links: pagamentos 40, pedidos 90, DB 250 and estoque 1,000.");
-  order("t8", 2, 2, "Put the chain's minimum values in order, from the first to the last step of the plan.", [
-    "40/s (pagamentos)",
-    "90/s (pedidos)",
-    "250/s (DB)",
-    "300/s (pedidos and pagamentos)"
+  order("t8", 2, 2, "Put in order who is the chain's minimum, from the first to the last step of the plan.", [
+    "pagamentos",
+    "pedidos",
+    "The DB",
+    "pedidos and pagamentos, tied"
   ], "The bottleneck moves: 40 → 90 (pagamentos from 2 to 15 pods) → 250 (pedidos from 3 to 10) → 300 (dedicated 2× shard for mkt-01).");
   choice("t8", 3, 2, "With the 200 orders/s goal and 60% on shard-2 (150/s), what is the hot shard's utilization?", [
     "26.7%.", "60%.", "80%.", "133%."

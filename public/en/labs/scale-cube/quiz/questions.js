@@ -66,10 +66,10 @@
   ], 1, "The time of one request comes from the code. X only adds more servers. The way out is an index (module 4) or a cache (module 5).");
   tf("t1", 6, 2, "The source article and the primary sources agree that the Scale Cube is a microservices-only model.", false, "Only the Y axis is microservices. X and Z also apply to a monolith, and AKF applies the cube to products, not only to services.");
   order("t1", 7, 2, "Put the store's trajectory through the cube in the order it happened.", [
-    "(1, 1, 1): the monolith",
-    "(1, 9, 1): 9 deployments",
-    "(10, 9, 1): the catalog with 10 replicas",
-    "(10, 9, 3): pedidos in 3 shards"
+    "The monolith",
+    "9 deployments, one per function",
+    "The catalog with 10 replicas",
+    "pedidos in 3 shards"
   ], "First Y (modules 6, 8 and 9), then X (modules 7 and 14) and last Z, which module 16 builds.");
 
   /* ---------- 2. X axis: horizontal scaling ---------- */

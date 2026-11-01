@@ -96,11 +96,11 @@
     "The price doubled."
   ], 1, "The cell's allocation hit zero. The ways out: accept the local sold out, rebalance (async, the one adopted) or reserve across cells with a saga (couples two cells).");
   order("t2", 7, 2, "Put the per-cell deploy rings in order.", [
-    "Cell zero (0%)",
-    "celula-recife (12%)",
-    "celula-rio (27%)",
-    "celula-sp (60%)",
-    "celula-mkt (100%)"
+    "Cell zero",
+    "celula-recife",
+    "celula-rio",
+    "celula-sp",
+    "celula-mkt"
   ], "Each ring adds to the previous one. Cell zero, with the synthetic customers sint-01…03, finds the defect before any real customer.");
   choice("t2", 8, 3, "Version 2.5.0 from module 22 (shipping 0.00 in Recife) is released by celula-recife first. Why does that not protect you?", [
     "Because the regional cell is not representative of the regional defect: 100% of the Recife customers would be affected.",

@@ -210,11 +210,11 @@
   choice("t8", 1, 1, "Qual é a capacidade sistêmica da cadeia do checkout hoje?", [
     "90/s.", "40/s.", "250/s.", "1.000/s."
   ], 1, "É o mínimo entre os elos: pagamentos 40, pedidos 90, banco 250 e estoque 1.000.");
-  order("t8", 2, 2, "Ponha em ordem os valores do mínimo da cadeia, do primeiro ao último passo do plano.", [
-    "40/s (pagamentos)",
-    "90/s (pedidos)",
-    "250/s (banco)",
-    "300/s (pedidos e pagamentos)"
+  order("t8", 2, 2, "Ponha em ordem quem é o mínimo da cadeia, do primeiro ao último passo do plano.", [
+    "Pagamentos",
+    "Pedidos",
+    "O banco",
+    "Pedidos e pagamentos, empatados"
   ], "O gargalo anda: 40 → 90 (pagamentos de 2 para 15 pods) → 250 (pedidos de 3 para 10) → 300 (shard dedicado 2× para o mkt-01).");
   choice("t8", 3, 2, "Com a meta de 200 pedidos/s e 60% no shard-2 (150/s), qual é a utilização do shard quente?", [
     "26,7%.", "60%.", "80%.", "133%."

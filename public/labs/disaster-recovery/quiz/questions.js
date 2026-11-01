@@ -98,7 +98,7 @@
     "35 s: só o MTTR.", "65 s: MTTD 30 s + MTTR 35 s, contado da interrupção.", "30 s: só a detecção.", "5 min."
   ], 1, "A região caiu às 20:40:00.150 e o mapa virou às 20:41:05: 65 s.");
   order("t4", 2, 2, "Coloque a linha do tempo da queda de SP na ordem:", [
-    "A região cai (20:40:00.150)", "Três sondas falham: MTTD de 30 s", "A réplica do Rio é promovida (35 s)", "Os pods da passiva ficam prontos (60 s)", "O mapa vira: RTO de 65 s"
+    "A região cai", "Três sondas falham e a queda é detectada (MTTD)", "A réplica do Rio é promovida", "Os pods da passiva ficam prontos", "O mapa vira e o tráfego volta (RTO)"
   ], "Detecção em 30 s, promoção em 35 s, pods em 60 s e mapa em 65 s.");
   choice("t4", 3, 2, "Quanto a carga do Rio muda quando a celula-sp cai?", [
     "De 4,5 para 9 pedidos/s.", "De 4,5 para 14,4 pedidos/s (3,2×).", "De 9,9 para 14,4.", "Não muda."

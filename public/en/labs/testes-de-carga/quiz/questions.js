@@ -102,9 +102,9 @@
   choice("t5", 1, 1, "What does stress observe besides the size of the load?", [
     "The color of the dashboard.", "What degrades first and how it recovers.", "The number of VUs.", "The cloud bill."
   ], 1, "It takes the load above the expected, in steps, and measures the degradation and the recovery.");
-  order("t5", 2, 2, "Put plan 2's staircase in the order of the levels (rate in orders/s):", [
-    "100", "200", "250", "300"
-  ], "The staircase is 100 → 200 → 250 → 300 → 100, with 20 s climbs and 45 s levels.");
+  choice("t5", 2, 2, "What was plan 2's staircase (rate in orders/s)?", [
+    "100 → 300 → 100", "100 → 200 → 250 → 300 → 100", "300 → 250 → 200 → 100", "100 → 150 → 200 → 250 → 300 → 350"
+  ], 1, "The staircase is 100 → 200 → 250 → 300 → 100, with 20 s climbs and 45 s levels.");
   choice("t5", 3, 2, "Up to how much did the target (p95 ≤ 800 ms) hold on plan 2's staircase?", [
     "Up to 100/s.", "Up to 200/s.", "Up to 250/s (worst window, 738 ms).", "Up to 300/s."
   ], 2, "At 300/s the p95 was 1.5 to 2 s and errors were between 0.7% and 5.1%.");

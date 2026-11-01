@@ -66,10 +66,10 @@
   ], 1, "O tempo de uma requisição vem do código. O X só põe mais atendentes. A saída é um índice (módulo 4) ou um cache (módulo 5).");
   tf("t1", 6, 2, "O artigo-base e as fontes primárias concordam que o Scale Cube é um modelo só de microsserviços.", false, "Só o eixo Y é microsserviços. X e Z valem também para um monolito, e a AKF aplica o cubo a produtos, não só a serviços.");
   order("t1", 7, 2, "Ponha a trajetória da loja pelo cubo na ordem em que aconteceu.", [
-    "(1, 1, 1): o monolito",
-    "(1, 9, 1): 9 deployments",
-    "(10, 9, 1): o catálogo com 10 réplicas",
-    "(10, 9, 3): o pedidos em 3 shards"
+    "O monolito",
+    "9 deployments, um por função",
+    "O catálogo com 10 réplicas",
+    "O pedidos em 3 shards"
   ], "Primeiro o Y (módulos 6, 8 e 9), depois o X (módulos 7 e 14) e por último o Z, que o módulo 16 constrói.");
 
   /* ---------- 2. Eixo X: escalabilidade horizontal ---------- */
