@@ -87,11 +87,10 @@ import { animate } from 'motion';
     statusText.appendChild(pn); statusText.appendChild(document.createTextNode(title(l))); statusText.appendChild(pm);
     if (rendered && pktAt !== cur) { statusText.classList.remove('swap'); void statusText.offsetWidth; statusText.classList.add('swap'); }
     count.textContent = dc + '/' + N;
-    count.classList.toggle('all', dc === N);
     track.setAttribute('aria-valuenow', String(dc));
     track.setAttribute('aria-valuetext', EN ? dc + ' of ' + N + ' lessons understood' : dc + ' de ' + N + ' aulas entendidas');
     stations.forEach(function (s, i) { var was = / done/.test(s.className), now = !!done[lessons[i].id]; s.className = 'pg-st' + (now ? ' done' : '') + (now && !was && rendered ? ' just' : '') + (i === cur ? ' cur' : ''); });
-    links.forEach(function (ln, i) { ln.classList.toggle('lit', i < cur); ln.classList.toggle('ok', !!(done[lessons[i].id] && done[lessons[i + 1].id])); });
+    links.forEach(function (ln, i) { ln.classList.toggle('lit', i < cur); });
     placePkt(rendered);
     rendered = true;
     prevBtn.disabled = cur === 0; nextBtn.disabled = cur === N - 1;
