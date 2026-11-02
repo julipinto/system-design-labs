@@ -1,6 +1,7 @@
 ---
 // Home: índice dos módulos, um por linha, na ordem da história (cada módulo é o próximo problema da loja).
 // O progresso de cada linha vem do localStorage que o modo foco grava (sdl-<módulo>:done).
+import Account from '../components/Account.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { withBase } from '../lib/url.js';
 import { otherLangPath, t } from '../lib/i18n.js';
@@ -81,7 +82,10 @@ import catSvg from '../../public/shared/cat.svg?raw';
 <BaseLayout title="SDLabs" description="Laboratórios visuais e interativos de System Design.">
 <main class="home">
   <header class="home-head">
-    <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang="en" lang="en" aria-label={ui.switchAria}>{ui.switchTo}</a>
+    <div class="home-tools">
+      <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang="en" lang="en" aria-label={ui.switchAria}>{ui.switchTo}</a>
+      <Account />
+    </div>
     <h1>SDLabs</h1>
     <p class="lead">Laboratórios de System Design para mexer e não esquecer mais.</p>
     <p class="story">A mesma história do começo ao fim: a Lena, de Recife, compra um gato de pelúcia na loja, e cada módulo é o próximo problema que essa loja enfrenta ao crescer.</p>

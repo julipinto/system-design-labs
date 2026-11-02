@@ -8,6 +8,7 @@ import '../styles/module.css';
 import '../styles/widgets.css';
 import '../styles/glossary.css';
 import Glossary from '../components/Glossary.astro';
+import Account from '../components/Account.astro';
 import { glossaries } from '../data/glossary.js';
 import { glossariesEn } from '../data/glossary.en.js';
 import { t as tr, langOf, otherLangPath, hasEn } from '../lib/i18n.js';
@@ -43,7 +44,7 @@ const nx = doc ? null : await nextChapter(en ? 'en' : 'pt', module);
       import '../scripts/glossary.js';
     </script>
   </Fragment>
-  <div class="sdl-top"><a class="sdl-brand" href={withBase(en ? 'en/' : '')} aria-label={T.brandAria}>SDLabs</a><span class="label">{T.lessons(lessons.length)}<span class="sdl-top-more">{terms.length > 0 && ` · ${T.glossaryLower}`}{quizHref && ' · quiz'}</span></span>{(en || hasEn(module)) && <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang={en ? 'pt-BR' : 'en'} aria-label={T.switchAria}>{T.switchTo}</a>}</div>
+  <div class="sdl-top"><a class="sdl-brand" href={withBase(en ? 'en/' : '')} aria-label={T.brandAria}>SDLabs</a><span class="label">{T.lessons(lessons.length)}<span class="sdl-top-more">{terms.length > 0 && ` · ${T.glossaryLower}`}{quizHref && ' · quiz'}</span></span>{(en || hasEn(module)) && <a class="sdl-lang" href={otherLangPath(Astro.url)} hreflang={en ? 'pt-BR' : 'en'} aria-label={T.switchAria}>{T.switchTo}</a>}<Account /></div>
   <header class="sdl-hero">
     <h1>{heading}</h1>
     <div class="sdl-lead"><p id="sdl-lead">{lead}</p><button type="button" class="sdl-lead-more" aria-expanded="false" aria-controls="sdl-lead" data-more={T.more} data-less={T.less} hidden><span>{T.more}</span><i class="ico ico-down" aria-hidden="true"></i></button></div>

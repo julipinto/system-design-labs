@@ -35,6 +35,15 @@ const UI = {
     switchTo: 'English', switchAria: 'Read this page in English',
     specMin: () => 'min de leitura', specTerms: (n) => n === 1 ? 'termo novo' : 'termos novos',
     specFigs: (n) => n === 1 ? 'figura 3D' : 'figuras 3D', specLabs: (n) => n === 1 ? 'laboratório' : 'laboratórios',
+    acct: {
+      signIn: 'Entrar', btnAria: 'Entrar para salvar o progresso', btnAriaOn: (e) => `Conta: ${e}`,
+      title: 'Guardar seu progresso', what: 'Entre para levar as aulas entendidas, a aula onde você parou e os acertos do quiz para qualquer aparelho.',
+      google: 'Entrar com Google', privacy: 'Guardamos o e-mail e o nome da sua conta Google e o seu progresso. Nada é público.',
+      local: 'Sem entrar, tudo continua salvo neste navegador.', titleOn: 'Seu progresso', signOut: 'Sair', close: 'Fechar',
+      syncing: 'Sincronizando…', synced: 'Sincronizado às ', never: 'Ainda não sincronizado.',
+      offline: 'Sem conexão com o servidor agora. O progresso continua salvo neste navegador e sobe na próxima vez.',
+      error: 'Não deu para entrar agora. Tente de novo em instantes.', outNote: 'Ao sair, o progresso fica neste navegador.',
+    },
   },
   en: {
     deep: 'Go deeper', doit: 'Try it now', oneliner: 'In one sentence:', how: 'How it works',
@@ -55,6 +64,15 @@ const UI = {
     switchTo: 'Português', switchAria: 'Ler esta página em português',
     specMin: () => 'min read', specTerms: (n) => n === 1 ? 'new term' : 'new terms',
     specFigs: (n) => n === 1 ? '3D figure' : '3D figures', specLabs: (n) => n === 1 ? 'hands-on lab' : 'hands-on labs',
+    acct: {
+      signIn: 'Sign in', btnAria: 'Sign in to save your progress', btnAriaOn: (e) => `Account: ${e}`,
+      title: 'Keep your progress', what: 'Sign in to take your understood lessons, the lesson where you stopped and your quiz answers to any device.',
+      google: 'Sign in with Google', privacy: 'We keep your Google account email and name and your progress. Nothing is public.',
+      local: 'Without signing in, everything stays saved in this browser.', titleOn: 'Your progress', signOut: 'Sign out', close: 'Close',
+      syncing: 'Syncing…', synced: 'Synced at ', never: 'Not synced yet.',
+      offline: 'No connection to the server right now. Your progress stays saved in this browser and goes up next time.',
+      error: 'Could not sign in right now. Try again in a moment.', outNote: 'When you sign out, your progress stays in this browser.',
+    },
   },
 };
 

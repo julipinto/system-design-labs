@@ -388,3 +388,8 @@ Todo movimento responde a algo que a pessoa fez; nada se mexe sozinho, nada puls
 - **Don't** ponha caixa dentro de caixa nem borda colorida com mais de 1px na lateral.
 - **Don't** use sinal, verde ou vermelho como cor de destaque.
 - **Don't** use degradê roxo ou azul, nem cartões iguais com ícone em quadradinho sobre o título.
+
+## Conta (login opcional)
+- No topo, "Entrar" no mesmo estilo discreto do link de língua (texto sublinhado, cor de apoio). Logada, vira um círculo com a inicial e um ponto no canto: verde sincronizado, cinza sincronizando, âmbar sem conexão.
+- O resto mora num modal (`<dialog>`): o que sincroniza, "Entrar com Google", a linha de privacidade e o lembrete de que sem entrar tudo fica no navegador. Logada: e-mail, hora da última sincronização e "Sair".
+- O login nunca é obrigatório e nunca interrompe a aula. Sem rede ou com o Supabase pausado, o site segue com o progresso local, sem aviso na página.
