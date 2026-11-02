@@ -209,12 +209,13 @@
 .sdl-content .pg-meter{display:flex;align-items:center;gap:var(--s-3);margin-top:10px}
 .sdl-content .pg-track{position:relative;flex:1;display:flex;align-items:center;height:16px;min-width:0}
 .sdl-content .pg-st{position:relative;z-index:1;flex:none;width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--line-strong);background:var(--bg);transition:background var(--dur-2),border-color var(--dur-2)}
-.sdl-content .pg-st.done{background:var(--ink);border-color:var(--ink)}
+.sdl-content .pg-st.done{background:var(--ok);border-color:var(--ok)}
 .sdl-content .pg-st.just{animation:pg-pop 380ms var(--ease-out)}
 @keyframes pg-pop{40%{transform:scale(1.4)}}
 .sdl-content .pg-link{position:relative;flex:1;height:2px;margin:0 3px;background:radial-gradient(circle,var(--line-strong) 1px,transparent 1.4px) 0 50%/6px 2px repeat-x;opacity:.75}
 .sdl-content .pg-link i{position:absolute;inset:0;background:radial-gradient(circle,var(--ink) 1.1px,transparent 1.5px) 0 50%/6px 2px repeat-x;clip-path:inset(0 100% 0 0);transition:clip-path 600ms var(--ease-out)}
 .sdl-content .pg-link.lit i{clip-path:inset(0)}
+.sdl-content .pg-link.ok i{clip-path:inset(0);background-image:radial-gradient(circle,var(--ok) 1.1px,transparent 1.5px)}
 .sdl-content .pg-pkt{position:absolute;z-index:2;top:50%;left:0;will-change:transform;width:14px;height:8px;margin:-4px 0 0 -7px;border-radius:2px;background:var(--accent-fill);pointer-events:none}
 /* tema claro: o sódio cheio some no cinza-papel (1,8:1); o pacote usa o sódio de texto (5:1) */
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .sdl-content .pg-pkt{background:var(--accent-ink)}}
@@ -237,7 +238,8 @@
 .sdl-content .toc-ck.fresh{animation:pg-check 420ms var(--ease-out) 80ms both}
 @media (prefers-reduced-motion:reduce){.sdl-content .done-msg:not(:empty),.sdl-content .toc-ck.fresh{animation:none}.sdl-content details.deep>summary::before{transition:none}.sdl-content .pg-st.just,.sdl-content .pg-text.swap,.sdl-content .done-btn.just .ico-check{animation:none}.sdl-content .pg-link i{transition:none}.sdl-content .btn:active{transform:none}}
 .sdl-content .toc a .toc-ck{color:var(--ok);margin-left:auto;order:2;font-size:15px}
-.sdl-content .pg-count{font:600 14px/1 var(--sans);color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+.sdl-content .pg-count{font:600 14px/1 var(--sans);color:var(--muted);flex:none;font-variant-numeric:tabular-nums;transition:color var(--dur-2)}
+.sdl-content .pg-count.all{color:var(--ok)}
 /* painel do índice */
 .sdl-content .pg-panel{margin-top:10px;background:var(--surface);border:var(--hair) solid var(--line-strong);border-radius:var(--r-3);padding:var(--s-3) var(--s-4)}
 .sdl-content.js .pg-panel{position:absolute;left:var(--gutter);right:var(--gutter);top:100%;margin-top:6px;max-height:min(75vh,560px);overflow:auto;box-shadow:var(--shadow-pop);overscroll-behavior:contain}
