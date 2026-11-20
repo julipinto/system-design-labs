@@ -186,30 +186,39 @@ FIGS.push({
   },
 });
 
-// 10 · Saga: a track of stations, the last one fails and a lit compensation track runs back.
+// 10 · Saga: four steps on a forward track; step 4 fails (dark, a lit cross on its screen), and the
+// compensation runs back along a lit return lane from step 3 to step 1.
 FIGS.push({
-  id: 'saga', name: 'Saga', aria: 'Trilho com estações e um desvio que volta, compensando.',
+  id: 'saga', name: 'Saga Pattern', aria: 'Quatro passos em fila; o quarto falha e a compensação volta acesa até o primeiro.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [340, 0, 0], [0, 250, 0], [340, 250, 0], [20, 40, 80]]);
+    const W = 400, D = 230, S = 62, Y = 40, XS = [30, 125, 220, 315], LANE = 160;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [30, Y, 80]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = plateB(K, 340, 250);
-    const st = [20, 100, 180, 260];
-    st.forEach((x, i) => {
-      s += box(x, 36, 10, 56, 56, 44, 6);
-      s += `<g transform="${TOP(x, 36, 54)}">${i < 3 ? `<rect class="halo hot" filter="url(#bloom)" x="-14" y="-14" width="84" height="84" rx="26"/>` : ''}<rect class="${i < 3 ? 'glass hot' : 'face recess'}" x="6" y="6" width="44" height="44" rx="4"/></g>`;
-      s += `<g transform="${FRONT(x, 92, 54)}"><rect class="${i < 3 ? 'lit' : 'face recess'}" ${i < 3 ? 'filter="url(#glow)"' : ''} x="10" y="10" width="36" height="9" rx="2"/><circle class="led ${i < 3 ? 'hot' : ''}" cx="28" cy="32" r="2.6"/></g>`;
+    let s = plateB(K, W, D);
+    const cy = Y + S / 2;
+    // Forward track behind the stations: lit up to step 3, cut before step 4.
+    const brk = XS[3] - 16;
+    s += `<path class="wire hot" filter="url(#soft)" d="M${P(XS[0] + S / 2, cy, 10)} L${P(brk - 8, cy, 10)}"/>`;
+    s += `<path class="wire" d="M${P(brk + 8, cy, 10)} L${P(XS[3] + S / 2, cy, 10)}"/>`;
+    s += `<g transform="${TOP(brk - 7, cy - 7, 10)}"><circle class="lit" filter="url(#glow)" cx="7" cy="7" r="7"/></g>`;
+    // Return lane in front, with chevrons pointing back toward step 1.
+    s += `<g transform="${TOP(XS[0] + 10, LANE - 14, 10)}"><rect class="face recess" x="0" y="0" width="${XS[2] + S / 2 - XS[0]}" height="28" rx="6"/>`;
+    for (let x = 22; x < XS[2] + S / 2 - XS[0] - 14; x += 30)
+      s += `<path class="wire hot" filter="url(#soft)" d="M${x + 10} 6 L${x} 14 L${x + 10} 22"/>`;
+    s += `</g>`;
+    // U-turn from step 3 down to the lane, and from the lane up into step 1.
+    const u3 = XS[2] + S / 2, u1 = XS[0] + S / 2;
+    s += `<path class="wire hot" filter="url(#soft)" d="M${P(u3, Y + S, 10)} L${P(u3, LANE, 10)}"/>`;
+    s += `<path class="wire hot" filter="url(#soft)" d="M${P(u1, LANE, 10)} L${P(u1, Y + S, 10)}"/>`;
+    // Stations, back to front along x.
+    XS.forEach((x, i) => {
+      const ok = i < 3;
+      s += box(x, Y, 10, S, S, 60, 6);
+      s += `<g transform="${FRONT(x, Y + S, 70)}">${ok ? `<rect class="halo hot" filter="url(#bloom)" x="0" y="0" width="${S}" height="60" rx="16"/>` : ''}<rect class="${ok ? 'lit' : 'face recess'}" ${ok ? 'filter="url(#glow)"' : ''} x="10" y="12" width="${S - 20}" height="18" rx="3"/>${ok ? '' : `<path class="wire hot" filter="url(#glow)" d="M${S / 2 - 7} 14 L${S / 2 + 7} 28 M${S / 2 + 7} 14 L${S / 2 - 7} 28"/>`}<circle class="led ${ok ? 'hot' : ''}" cx="${S / 2}" cy="44" r="3.5"/></g>`;
+      s += `<g transform="${SIDE(x + S, Y + S, 70)}">${api.iso.slits(8, S - 8, 7, 10, 50)}</g>`;
+      s += `<g transform="${TOP(x, Y, 70)}"><rect class="${ok ? 'glass hot' : 'face recess'}" x="8" y="8" width="${S - 16}" height="${S - 16}" rx="4"/></g>`;
     });
-    // Forward track with sleepers and a lit packet; return track below it, lit.
-    s += box(10, 112, 10, 320, 24, 6, 3);
-    for (let i = 0; i < 15; i++) s += `<g transform="${TOP(24 + i * 20, 112, 16)}"><rect class="detail" x="0" y="2" width="4" height="20"/></g>`;
-    s += litBoxB(K, 120, 114, 16, 40, 20, 14, 3);
-    s += box(32, 134, 10, 24, 88, 6, 3) + box(192, 134, 10, 24, 88, 6, 3);
-    s += `<g transform="${TOP(32, 134, 16)}"><rect class="detail" x="12" y="6" width="1" height="76"/></g>`;
-    s += `<g transform="${TOP(192, 134, 16)}"><rect class="detail" x="12" y="6" width="1" height="76"/></g>`;
-    s += `<g transform="${TOP(32, 200, 16)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="-10" width="204" height="44" rx="20"/></g>`;
-    s += box(32, 200, 10, 184, 24, 6, 3);
-    for (let i = 0; i < 4; i++) s += litBoxB(K, 52 + i * 38, 202, 16, 28, 20, 10, 3);
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    stage.setAttribute('viewBox', cover(K, -0.04)); stage.innerHTML = s;
     return {};
   },
 });
