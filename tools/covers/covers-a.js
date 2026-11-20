@@ -109,33 +109,32 @@ FIGS.push({
   },
 });
 
-// 8 · API gateways: a turnstile (two posts and a lit arm) in front of three services.
+// 8 · API gateways: a big gate arch (thick posts, thin lintel with a lit bar) centred on a lit lane; requests queue in front, the lane fans out to three services behind and to the sides.
 FIGS.push({
-  id: 'api-gateways', name: 'API Gateways', aria: 'Uma catraca na frente de três serviços.',
+  id: 'api-gateways', name: 'API Gateways', aria: 'Um grande portal sobre uma pista acesa; pedidos na fila na frente e três serviços atrás.',
   mount(stage, api) {
-    const K = frameA(api, 300, 240, [20, 20, 280, 175], 100);
+    const K = frameA(api, 340, 350, [20, 8, 320, 330], 150);
     const { P, TOP, FRONT, box } = K;
-    let s = plateA(K, 300, 240);
-    // Lit lane through the gate and wires fanning out to the services.
-    s += `<path class="wire hot" filter="url(#soft)" d="M${P(117, 230, 10)} L${P(117, 150, 10)}"/>`;
-    for (const x of [55, 145, 235]) s += `<path class="wire hot" filter="url(#soft)" d="M${P(117, 150, 10)} C${P(117, 120, 10)} ${P(x, 120, 10)} ${P(x, 84, 10)}"/>`;
-    const svc = x => {
-      let o = box(x - 35, 20, 10, 70, 60, 55, 6);
-      let f = '';
-      for (let k = 0; k < 3; k++) f += `<rect class="face recess" x="10" y="${8 + k * 12}" width="50" height="7" rx="2"/>`;
-      o += `<g transform="${FRONT(x - 35, 80, 65)}">${f}<circle class="led hot" cx="35" cy="42" r="3"/></g>`;
-      return o;
-    };
-    s += svc(55) + svc(145);
-    s += box(70, 150, 10, 24, 24, 80, 6);
-    s += svc(235);
-    s += `<g transform="${FRONT(70, 174, 90)}"><rect class="detail" x="6" y="8" width="12" height="8" rx="2"/></g>`;
-    // Barrier arm between the posts.
-    s += box(94, 158, 66, 46, 8, 12, 3);
-    s += `<g transform="${FRONT(94, 166, 78)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="-8" width="66" height="32" rx="12"/><rect class="lit" filter="url(#glow)" x="2" y="2" width="42" height="8" rx="2"/></g>`;
-    s += box(164, 150, 10, 24, 24, 80, 6);
-    s += `<g transform="${TOP(164, 150, 90)}"><circle class="lit" filter="url(#glow)" cx="12" cy="12" r="6"/></g><g transform="${TOP(70, 150, 90)}"><circle class="lit" filter="url(#glow)" cx="12" cy="12" r="6"/></g>`;
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    let s = plateA(K, 340, 350);
+    const LX = 170, AY = 205;
+    s += `<path class="wire hot" filter="url(#soft)" d="M${P(LX, 340, 10)} L${P(LX, AY, 10)}"/>`;
+    for (const x of [45, 170, 295]) s += `<path class="wire hot" filter="url(#soft)" d="M${P(LX, AY, 10)} C${P(LX, 130, 10)} ${P(x, 130, 10)} ${P(x, 70, 10)}"/>`;
+    for (const x of [45, 170, 295]) {
+      s += box(x - 35, 8, 10, 70, 56, 40, 6);
+      s += `<g transform="${FRONT(x - 35, 64, 50)}"><rect class="lit" filter="url(#glow)" x="8" y="7" width="54" height="26" rx="3"/></g>`;
+    }
+    // Arch: thick tall posts, thin lintel carrying a solid lit bar.
+    for (const x of [98, 194]) {
+      s += box(x, AY, 10, 48, 38, 116, 8);
+      s += `<g transform="${FRONT(x, AY + 38, 126)}"><rect class="detail" x="10" y="12" width="28" height="90" rx="3"/></g>`;
+    }
+    s += box(90, AY - 2, 126, 160, 42, 22, 6);
+    s += `<g transform="${FRONT(90, AY + 40, 148)}"><rect class="halo hot" filter="url(#bloom)" x="-8" y="-8" width="176" height="38" rx="14"/><rect class="lit" filter="url(#glow)" x="8" y="4" width="144" height="14" rx="3"/></g>`;
+    [262, 292, 322].forEach(y => {
+      s += `<g filter="url(#glow)">${box(LX - 17, y, 10, 34, 24, 22, 3)}</g>`;
+      s += `<g transform="${FRONT(LX - 17, y + 24, 32)}"><rect class="lit" filter="url(#glow)" x="4" y="4" width="26" height="14" rx="2"/></g><g transform="${TOP(LX - 17, y, 32)}"><rect class="glass hot" x="3" y="3" width="28" height="18" rx="2"/></g>`;
+    });
+    stage.setAttribute('viewBox', cover(K, -0.03)); stage.innerHTML = s;
     return {};
   },
 });
@@ -169,30 +168,33 @@ FIGS.push({
   },
 });
 
-// 10 · Service mesh: four services, each with a sidecar box, and a mesh of lit wires between the sidecars.
+// 10 · Service mesh: a 3x2 grid of services, each with a lit sidecar at its front-right; lit wires run sidecar to sidecar on an orthogonal grid, dim wires from the control plane.
 FIGS.push({
-  id: 'service-mesh', name: 'Service Mesh', aria: 'Quatro serviços, cada um com um sidecar, ligados por uma malha de fios.',
+  id: 'service-mesh', name: 'Service Mesh', aria: 'Seis serviços, cada um com um sidecar aceso, ligados em grade; um plano de controle atrás.',
   mount(stage, api) {
-    const K = frameA(api, 290, 250, [15, 20, 275, 225], 70);
+    const K = frameA(api, 330, 320, [15, 10, 315, 280], 46);
     const { P, TOP, FRONT, box } = K;
-    let s = plateA(K, 290, 250);
-    const C = [[115, 55], [175, 55], [115, 185], [175, 185]];
-    const W = (a, b) => `<path class="wire hot" filter="url(#soft)" d="M${P(...C[a], 10)} L${P(...C[b], 10)}"/>`;
-    s += W(0, 1) + W(2, 3) + W(0, 2) + W(1, 3) + W(0, 3) + W(1, 2);
-    const items = [];
-    for (const [i, [cx, cy]] of C.entries()) {
-      const sx = i % 2 === 0 ? 20 : 205, y = cy - 28;
-      items.push({ k: sx + y, d: () => {
-        let f = '';
-        for (let k = 0; k < 2; k++) f += `<rect class="${k === 0 ? 'lit' : 'face recess'}" ${k === 0 ? 'filter="url(#glow)"' : ''} x="8" y="${8 + k * 15}" width="49" height="9" rx="2"/>`;
-        return box(sx, y, 10, 65, 56, 50, 6) + `<g transform="${FRONT(sx, y + 56, 60)}">${f}</g>`;
-      } });
-      items.push({ k: cx - 14 + cy - 14, d: () => box(cx - 14, cy - 14, 10, 28, 28, 28, 4)
-        + `<g transform="${FRONT(cx - 14, cy + 14, 38)}"><rect class="halo hot" filter="url(#bloom)" x="-8" y="-6" width="44" height="26" rx="10"/><rect class="lit" filter="url(#glow)" x="4" y="3" width="20" height="12" rx="2"/></g>`
-        + `<g transform="${TOP(cx - 14, cy - 14, 38)}"><rect class="glass hot" x="4" y="4" width="20" height="20" rx="3"/></g>` });
-    }
-    s += items.sort((a, b) => a.k - b.k).map(o => o.d()).join('');
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    let s = plateA(K, 330, 320);
+    const XS = [30, 135, 240], YS = [75, 205], BW = 62, BD = 46, SW = 26, SD = 22, H = 34;
+    const line = (cls, pts) => `<path class="${cls}" ${cls.includes('hot') ? 'filter="url(#soft)" ' : ''}d="M${pts.map(p => P(...p, 10)).join(' L')}"/>`;
+    const ry = YS.map(y => y + BD + SD / 2), gx = [XS[0] + BW + 20, XS[1] + BW + 20];
+    // Control plane at the back, dim wires to the top row.
+    s += line('wire', [[XS[0] + BW / 2, YS[0]], [XS[0] + BW / 2, 62], [XS[2] + BW / 2, 62]]) + line('wire', [[XS[2] + BW / 2, 62], [XS[2] + BW / 2, YS[0]]]) + line('wire', [[XS[1] + BW / 2, 62], [XS[1] + BW / 2, YS[0]]]);
+    s += box(XS[1] - 20, 8, 10, 102, 40, 36, 6);
+    s += `<g transform="${FRONT(XS[1] - 20, 48, 46)}"><rect class="face recess" x="10" y="8" width="82" height="20" rx="3"/><circle class="led" cx="20" cy="18" r="3"/></g>`;
+    const svc = (x, y) => box(x, y, 10, BW, BD, H, 6)
+      + `<g transform="${FRONT(x, y + BD, 10 + H)}"><rect class="face recess" x="8" y="6" width="${BW - 16}" height="16" rx="3"/></g>`
+      + `<g transform="${TOP(x, y, 10 + H)}">${api.iso.slits(8, BW - 8, 6, 8, BD - 8)}</g>`;
+    const car = (x, y) => { const sx = x + BW - SW; return `<g filter="url(#glow)">${box(sx, y + BD, 10, SW, SD, 26, 4)}</g>`
+      + `<g transform="${FRONT(sx, y + BD + SD, 36)}"><rect class="halo hot" filter="url(#bloom)" x="-6" y="-6" width="${SW + 12}" height="30" rx="10"/><rect class="lit" filter="url(#glow)" x="3" y="3" width="${SW - 6}" height="20" rx="2"/></g>`
+      + `<g transform="${TOP(sx, y + BD, 36)}"><rect class="glass hot" x="3" y="3" width="${SW - 6}" height="${SD - 6}" rx="2"/></g>`; };
+    YS.forEach((y, r) => {
+      for (const x of XS) s += svc(x, y);
+      s += line('wire hot', [[XS[0] + BW, ry[r]], [XS[2] + BW - SW / 2, ry[r]]]);
+      if (r === 0) for (const x of gx) s += line('wire hot', [[x, ry[0]], [x, ry[1]]]);
+      for (const x of XS) s += car(x, y);
+    });
+    stage.setAttribute('viewBox', cover(K, -0.04)); stage.innerHTML = s;
     return {};
   },
 });

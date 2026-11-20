@@ -11,29 +11,37 @@ function plateB(K, w, d) {
   return box(0, 0, 0, w, d, 10, 16) + `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="${w - 20}" height="${d - 20}" rx="10"/></g>`;
 }
 
-// 4 · Comunicação Assíncrona: a conveyor belt carrying message boxes, two lit.
+// 4 · Comunicação Assíncrona: a producer machine feeds a conveyor belt that carries four message boxes (two lit) to a consumer machine.
 FIGS.push({
-  id: 'comunicacao-assincrona', name: 'Comunicação Assíncrona', aria: 'Esteira levando caixas de mensagem; duas estão acesas.',
+  id: 'comunicacao-assincrona', name: 'Comunicação Assíncrona', aria: 'Máquina produtora, esteira com quatro caixas de mensagem (duas acesas) e máquina consumidora.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [390, 0, 0], [0, 240, 0], [390, 240, 0], [200, 70, 120]]);
+    const W = 520, OX = 60;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, 240, 0], [W, 240, 0], [20, 70, 120]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = plateB(K, 390, 240);
-    s += box(10, 60, 10, 370, 130, 26, 8);
-    s += `<g transform="${TOP(10, 60, 36)}"><rect class="face recess" x="8" y="8" width="354" height="114" rx="6"/></g>`;
-    // Rollers: end drums plus rolling cross bars on the belt top.
-    s += `<g transform="${TOP(10, 60, 36)}">${Array.from({ length: 16 }, (_, i) => `<rect class="detail" x="${34 + i * 21}" y="8" width="3" height="114"/>`).join('')}</g>`;
-    s += box(14, 64, 36, 16, 122, 10, 5) + box(350, 64, 36, 16, 122, 10, 5);
-    s += `<g transform="${FRONT(10, 190, 36)}">${Array.from({ length: 10 }, (_, i) => `<circle class="face recess" cx="${22 + i * 36}" cy="13" r="8"/><circle class="led ${i % 3 === 0 ? 'hot' : ''}" cx="${22 + i * 36}" cy="13" r="2.6"/>`).join('')}</g>`;
-    s += `<g transform="${SIDE(380, 190, 36)}"><rect class="face recess" x="10" y="6" width="114" height="14" rx="3"/></g>`;
-    s += `<g transform="${TOP(10, 60, 36)}"><rect class="halo hot" filter="url(#bloom)" x="60" y="-10" width="260" height="150" rx="50"/></g>`;
-    // Message boxes riding the belt; 2nd and 4th are live.
-    const env = (x, y, z, w, d) => `<g transform="${TOP(x, y, z)}"><path class="detail" d="M5 5 L${w / 2} ${d / 2} L${w - 5} 5"/></g>`;
-    [{ x: 40, on: false }, { x: 120, on: true }, { x: 200, on: false }, { x: 280, on: true }].forEach(m => {
-      const y = 86, w = 58, d = 54, h = m.on ? 34 : 28;
-      s += m.on ? litBoxB(K, m.x, y, 36, w, d, h, 4) : box(m.x, y, 36, w, d, h, 4);
-      s += env(m.x, y, 36 + h, w, d);
+    let s = plateB(K, W, 240);
+    // Producer machine (left end): lit output slot facing the belt.
+    s += box(15, 75, 10, 56, 100, 80, 6);
+    s += `<g transform="${FRONT(15, 175, 90)}"><rect class="face recess" x="8" y="10" width="40" height="40" rx="3"/><circle class="led hot" cx="28" cy="62" r="3"/></g>`;
+    s += `<g transform="${SIDE(71, 175, 90)}"><rect class="halo hot" filter="url(#bloom)" x="12" y="14" width="76" height="40" rx="14"/><rect class="lit" filter="url(#glow)" x="22" y="26" width="56" height="18" rx="3"/></g>`;
+    s += `<g transform="${TOP(15, 75, 90)}">${api.iso.slits(8, 48, 6, 8, 92)}</g>`;
+    // Belt.
+    s += box(OX + 10, 60, 10, 370, 130, 26, 8);
+    s += `<g transform="${TOP(OX + 10, 60, 36)}"><rect class="face recess" x="8" y="8" width="354" height="114" rx="6"/>${Array.from({ length: 16 }, (_, i) => `<rect class="detail" x="${34 + i * 21}" y="8" width="3" height="114"/>`).join('')}</g>`;
+    s += box(OX + 14, 64, 36, 16, 122, 10, 5) + box(OX + 350, 64, 36, 16, 122, 10, 5);
+    s += `<g transform="${FRONT(OX + 10, 190, 36)}">${Array.from({ length: 10 }, (_, i) => `<circle class="face recess" cx="${22 + i * 36}" cy="13" r="8"/><circle class="led ${i % 3 === 0 ? 'hot' : ''}" cx="${22 + i * 36}" cy="13" r="2.6"/>`).join('')}</g>`;
+    s += `<g transform="${TOP(OX + 10, 60, 36)}"><rect class="halo hot" filter="url(#bloom)" x="60" y="-10" width="260" height="150" rx="50"/></g>`;
+    // Four message boxes; 2nd and 4th have solid lit faces.
+    [0, 1, 2, 3].forEach(i => {
+      const x = OX + 40 + i * 82, y = 86, w = 58, d = 54, on = i % 2 === 1, h = on ? 34 : 28;
+      s += on ? `<g filter="url(#glow)">${box(x, y, 36, w, d, h, 4)}</g>` : box(x, y, 36, w, d, h, 4);
+      if (on) s += `<g transform="${FRONT(x, y + d, 36 + h)}"><rect class="lit" filter="url(#glow)" x="4" y="4" width="${w - 8}" height="${h - 8}" rx="3"/></g><g transform="${SIDE(x + w, y + d, 36 + h)}"><rect class="lit" opacity=".75" x="4" y="4" width="${d - 8}" height="${h - 8}" rx="3"/></g><g transform="${TOP(x, y, 36 + h)}"><rect class="glass hot" x="4" y="4" width="${w - 8}" height="${d - 8}" rx="3"/></g>`;
+      else s += `<g transform="${TOP(x, y, 36 + h)}"><path class="detail" d="M5 5 L${w / 2} ${d / 2} L${w - 5} 5"/></g>`;
     });
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    // Consumer machine (right end): lit intake on top and on the front.
+    s += box(W - 71, 75, 10, 56, 100, 80, 6);
+    s += `<g transform="${TOP(W - 71, 75, 90)}"><rect class="face recess" x="8" y="8" width="40" height="84" rx="4"/><rect class="halo hot" filter="url(#bloom)" x="-4" y="6" width="64" height="88" rx="20"/><rect class="lit" filter="url(#glow)" x="14" y="22" width="28" height="56" rx="3"/></g>`;
+    s += `<g transform="${FRONT(W - 71, 175, 90)}"><rect class="lit" filter="url(#glow)" x="8" y="10" width="40" height="16" rx="3"/><rect class="face recess" x="8" y="34" width="40" height="22" rx="3"/></g>`;
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });
@@ -160,32 +168,33 @@ FIGS.push({
   },
 });
 
-// 9 · CQRS: a write counter and a read counter, joined through a lit store by wires.
+// 9 · CQRS: an L-shaped flow. Along x: command desk -> lit wire -> write store; then lit sync chevrons down y -> read store -> wire -> wall of three lit screens.
 FIGS.push({
-  id: 'cqrs', name: 'CQRS', aria: 'Dois balcões, um para escrever e outro para ler.',
+  id: 'cqrs', name: 'CQRS', aria: 'Um balcão de comandos, um armazém de escrita, setas de sincronização, um armazém de leitura e uma parede de três telas acesas.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [350, 0, 0], [0, 250, 0], [350, 250, 0], [200, 30, 130]]);
+    const W = 370, D = 330;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [120, 10, 100], [20, 20, 70], [340, 240, 90]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = plateB(K, 350, 250);
-    const wire = pts => `<path class="wire hot" filter="url(#soft)" d="M${pts.map(p => P(...p)).join(' L')}"/>`;
-    // Wires first (on the ground), then the objects in front of them.
-    s += wire([[75, 100, 10], [75, 185, 10], [140, 185, 10]]) + wire([[210, 185, 10], [275, 185, 10], [275, 100, 10]]);
-    // Write counter: slab top with a lit ledger block.
-    s += box(20, 30, 10, 110, 70, 50, 6) + box(14, 24, 60, 122, 82, 8, 5);
-    s += `<g transform="${FRONT(20, 100, 60)}"><rect class="face recess" x="14" y="12" width="82" height="26" rx="4"/><circle class="led hot" cx="98" cy="45" r="3"/></g>`;
-    s += `<g transform="${TOP(14, 24, 68)}"><rect class="halo hot" filter="url(#bloom)" x="-6" y="-6" width="134" height="94" rx="30"/></g>`;
-    s += litBoxB(K, 40, 44, 68, 70, 44, 14, 4);
-    // Read counter: slab top with three standing display panels.
-    s += box(220, 30, 10, 110, 70, 50, 6) + box(214, 24, 60, 122, 82, 8, 5);
-    s += `<g transform="${FRONT(220, 100, 60)}"><rect class="face recess" x="14" y="12" width="82" height="26" rx="4"/><circle class="led" cx="98" cy="45" r="3"/></g>`;
+    let s = plateB(K, W, D);
+    const wire = pts => `<path class="wire hot" filter="url(#soft)" d="M${pts.map(p => P(...p, 10)).join(' L')}"/>`;
+    const store = (x, y, hot) => box(x, y, 10, 76, 76, 64, 6)
+      + `<g transform="${FRONT(x, y + 76, 74)}"><rect class="face recess" x="8" y="8" width="60" height="34" rx="3"/>${[0, 1, 2].map(i => `<rect class="detail" x="14" y="${14 + i * 9}" width="48" height="4" rx="1"/>`).join('')}<circle class="led ${hot ? 'hot' : ''}" cx="38" cy="54" r="3"/></g>`
+      + `<g transform="${TOP(x, y, 74)}">${api.iso.slits(8, 68, 6, 8, 68)}</g>`;
+    s += wire([[70, 58], [125, 58]]);
+    // Command desk with one lit input slot.
+    s += box(15, 20, 10, 56, 76, 34, 6);
+    s += `<g transform="${TOP(15, 20, 44)}"><rect class="face recess" x="8" y="8" width="40" height="60" rx="4"/><rect class="halo hot" filter="url(#bloom)" x="-6" y="14" width="68" height="48" rx="20"/><rect class="lit" filter="url(#glow)" x="12" y="24" width="32" height="28" rx="3"/></g>`;
+    s += `<g transform="${FRONT(15, 96, 44)}"><rect class="face recess" x="8" y="6" width="40" height="14" rx="3"/></g>`;
+    s += store(125, 20, true);
+    for (let i = 0; i < 3; i++) s += `<g transform="${TOP(143, 114 + i * 28, 10)}"><polygon class="lit" filter="url(#glow)" points="0,0 20,14 40,0 40,14 20,28 0,14"/></g>`;
+    s += store(125, 240, false);
+    s += wire([[201, 278], [268, 278]]);
     for (let i = 0; i < 3; i++) {
-      const x = 226 + i * 34;
-      s += box(x, 50, 68, 26, 8, 58, 3);
-      s += `<g transform="${FRONT(x, 58, 126)}"><rect class="glass hot" x="3" y="3" width="20" height="46" rx="2"/><rect class="lit" filter="url(#glow)" x="6" y="8" width="14" height="6" rx="1"/><rect class="lit" filter="url(#glow)" x="6" y="20" width="14" height="6" rx="1"/></g>`;
+      const x = 268 + i * 34;
+      s += box(x, 262, 10, 28, 10, 70, 3);
+      s += `<g transform="${FRONT(x, 272, 80)}"><rect class="glass hot" x="3" y="3" width="22" height="58" rx="2"/><rect class="lit" filter="url(#glow)" x="6" y="8" width="16" height="22" rx="2"/><rect class="lit" filter="url(#glow)" x="6" y="36" width="16" height="16" rx="2"/></g>`;
     }
-    // Store between them, lit.
-    s += litBoxB(K, 140, 160, 10, 70, 50, 40, 6);
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });

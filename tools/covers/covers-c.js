@@ -59,29 +59,31 @@ FIGS.push({
   },
 });
 
-// Capacity planning: a tank with a limit mark and a lit liquid level close to it.
+// Capacity planning: five columns of growing load in a row; a lit limit line runs across their
+// front faces, and only the parts of the columns above the limit are lit.
 FIGS.push({
-  id: 'capacity-planning', name: 'Capacity Planning', aria: 'Tanque com marca de limite e nível aceso.',
+  id: 'capacity-planning', name: 'Capacity Planning', aria: 'Cinco colunas crescendo; a última passa da linha de limite acesa.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [300, 0, 0], [0, 260, 0], [300, 260, 0], [70, 70, 220]]);
+    const W = 380, D = 200, CW = 46, CD = 60, Y = 80, Z0 = 10, L = 92;
+    const H = [44, 68, 100, 132, 176], X = (i) => 34 + i * 64;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [X(4), Y, Z0 + H[4]]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = box(0, 0, 0, 300, 260, 10, 16);
-    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="280" height="240" rx="10"/></g>`;
-    s += box(70, 70, 10, 150, 110, 210, 10);
-    s += `<g transform="${SIDE(220, 180, 220)}">${api.iso.slits(12, 98, 7, 14, 190)}</g>`;
-    // Front window with the liquid level and the limit mark above it.
-    let f = `<rect class="face recess" x="20" y="16" width="110" height="178" rx="8"/>`;
-    f += `<rect class="halo hot" filter="url(#bloom)" x="8" y="70" width="134" height="130" rx="30"/>`;
-    f += `<rect class="lit" filter="url(#glow)" x="26" y="74" width="98" height="114" rx="5"/>`;
-    f += `<rect class="glass hot" x="34" y="82" width="22" height="98" rx="4"/>`;
-    f += `<rect class="face" x="8" y="48" width="134" height="6" rx="2"/>`;
-    for (let i = 0; i < 5; i++) f += `<rect class="detail" x="${i % 2 ? 20 : 14}" y="${96 + i * 20}" width="${i % 2 ? 12 : 18}" height="2"/>`;
-    s += `<g transform="${FRONT(70, 180, 220)}">${f}</g>`;
-    // Top hatch and a pipe stub with a lit valve.
-    s += `<g transform="${TOP(70, 70, 220)}"><circle class="face recess" cx="75" cy="55" r="22"/><circle class="led hot" cx="75" cy="55" r="6"/></g>`;
-    s += box(220, 110, 40, 50, 24, 24, 4);
-    s += `<g transform="${FRONT(220, 134, 64)}"><rect class="lit" filter="url(#glow)" x="14" y="6" width="22" height="12" rx="2"/></g>`;
-    stage.setAttribute('viewBox', cover(K, 0.02)); stage.innerHTML = s;
+    let s = box(0, 0, 0, W, D, 10, 16);
+    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="${W - 20}" height="${D - 20}" rx="10"/></g>`;
+    H.forEach((h, i) => {
+      const x = X(i), over = h > L;
+      s += box(x, Y, Z0, CW, CD, h, 4);
+      s += `<g transform="${SIDE(x + CW, Y + CD, Z0 + h)}">${api.iso.slits(8, CD - 8, 8, 8, h - 8)}</g>`;
+      if (over) {
+        const up = h - L;                                              // height above the limit
+        s += `<g transform="${FRONT(x, Y + CD, Z0 + h)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="-10" width="${CW + 20}" height="${up + 20}" rx="14"/><rect class="lit" filter="url(#glow)" x="5" y="5" width="${CW - 10}" height="${up - 8}" rx="3"/></g>`;
+        s += `<g transform="${SIDE(x + CW, Y + CD, Z0 + h)}"><rect class="lit" opacity=".75" x="5" y="5" width="${CD - 10}" height="${up - 8}" rx="3"/></g>`;
+        s += `<g transform="${TOP(x, Y, Z0 + h)}"><rect class="glass hot" x="5" y="5" width="${CW - 10}" height="${CD - 10}" rx="3"/></g>`;
+      }
+    });
+    // Limit line across the front faces, from just before the first column to just past the last.
+    s += `<path class="wire hot" style="stroke-width:5" filter="url(#glow)" d="M${P(X(0) - 6, Y + CD, Z0 + L)} L${P(X(4) + CW + 10, Y + CD, Z0 + L)}"/>`;
+    stage.setAttribute('viewBox', cover(K, 0.0)); stage.innerHTML = s;
     return {};
   },
 });
@@ -160,28 +162,38 @@ FIGS.push({
   },
 });
 
-// Disaster recovery: two regions (plates); the left one is dark, the right one lights up, a wire fails over.
+// Disaster recovery: two separate region plates; left servers are dark (one failed), right ones are lit; a lit chevron strip fails over across the gap.
 FIGS.push({
-  id: 'disaster-recovery', name: 'Disaster Recovery', aria: 'Duas regiões, uma apagada e outra acendendo.',
+  id: 'disaster-recovery', name: 'Disaster Recovery', aria: 'Duas regiões separadas; a da esquerda apagada com um X, a da direita acesa, e setas de failover entre elas.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [380, 0, 0], [0, 240, 0], [380, 240, 0], [200, 40, 160]]);
+    const K = api.iso.frame([[0, 0, 0], [470, 0, 0], [0, 190, 0], [470, 190, 0], [20, 40, 120]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = box(0, 0, 0, 380, 240, 10, 16);
-    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="360" height="220" rx="10"/></g>`;
-    const region = (x, on) => {
-      let r = `<g transform="${TOP(x - 10, 30, 10)}"><rect class="detail" x="0" y="0" width="180" height="170" rx="10"/></g>`;
-      r += box(x, 40, 10, 100, 80, 40, 8);
-      r += box(x + 10, 120, 10, 80, 40, 30, 6);
-      if (on) r += `<g transform="${TOP(x, 40, 50)}"><rect class="halo hot" filter="url(#bloom)" x="-20" y="-20" width="140" height="120" rx="40"/></g>`;
-      r += `<g transform="${TOP(x, 40, 50)}"><rect class="${on ? 'lit' : 'face recess'}" ${on ? 'filter="url(#glow)"' : ''} x="12" y="12" width="76" height="56" rx="5"/></g>`;
-      r += `<g transform="${FRONT(x, 120, 50)}">${[0, 1, 2].map(i => `<circle class="${on ? 'led hot' : 'led'}" cx="${22 + i * 28}" cy="20" r="3.5"/>`).join('')}</g>`;
-      r += `<g transform="${FRONT(x + 10, 160, 40)}"><rect class="face recess" x="10" y="8" width="60" height="16" rx="3"/></g>`;
+    const SW = 46, SD = 60, SH = 70;
+    const region = (x0, on) => {
+      let r = box(x0, 0, 0, 170, 190, 10, 12);
+      r += `<g transform="${TOP(x0, 0, 10)}"><rect class="detail" x="8" y="8" width="154" height="174" rx="8"/></g>`;
+      if (on) r += `<g transform="${TOP(x0, 0, 10)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="20" width="190" height="150" rx="50"/></g>`;
+      [0, 1, 2].forEach(i => {
+        const x = x0 + 14 + i * 52, y = 50 + (2 - i) * 0;
+        r += box(x, y, 10, SW, SD, SH, 6);
+        const cross = !on && i === 1;
+        r += `<g transform="${FRONT(x, y + SD, 10 + SH)}"><rect class="face recess" x="5" y="6" width="${SW - 10}" height="40" rx="3"/>`;
+        if (on) r += `<rect class="lit" filter="url(#glow)" x="8" y="9" width="${SW - 16}" height="34" rx="2"/>`;
+        if (cross) r += `<path class="wire hot" filter="url(#glow)" d="M${SW / 2 - 8} 18 L${SW / 2 + 8} 34 M${SW / 2 + 8} 18 L${SW / 2 - 8} 34"/>`;
+        r += `<circle class="led ${on ? 'hot' : ''}" cx="${SW / 2}" cy="56" r="3.5"/></g>`;
+        r += `<g transform="${SIDE(x + SW, y + SD, 10 + SH)}">${api.iso.slits(8, SD - 8, 5, 10, 50)}</g>`;
+      });
       return r;
     };
-    s += region(30, false) + region(230, true);
-    s += `<path class="wire" d="M${P(130, 80, 20)} L${P(165, 80, 20)}"/><path class="wire hot" filter="url(#soft)" d="M${P(180, 80, 20)} L${P(230, 80, 20)}"/>`;
-    s += `<g transform="${TOP(166, 74, 20)}"><circle class="lit" filter="url(#glow)" cx="6" cy="6" r="6"/></g>`;
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    let s = region(0, false);
+    // Failover strip across the gap.
+    s += box(176, 62, 0, 118, 56, 6, 4);
+    s += `<g transform="${TOP(176, 62, 6)}"><rect class="face recess" x="0" y="0" width="118" height="56" rx="4"/>`;
+    s += `<rect class="halo hot" filter="url(#bloom)" x="0" y="0" width="118" height="56" rx="20"/>`;
+    [0, 1, 2].forEach(i => { const x = 14 + i * 32; s += `<path class="lit" filter="url(#glow)" d="M${x} 6 L${x + 16} 6 L${x + 30} 28 L${x + 16} 50 L${x} 50 L${x + 14} 28 Z"/>`; });
+    s += `</g>`;
+    s += region(300, true);
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });
@@ -212,30 +224,44 @@ FIGS.push({
   },
 });
 
-// Provas finais: the whole store as a miniature: shop, warehouse, gateway and a lit cart.
+// Provas finais: the whole store as a miniature: shop (hero), warehouse behind, server rack, delivery van, joined by lit ground wires.
 FIGS.push({
-  id: 'provas-finais', name: 'Provas Finais', aria: 'A loja inteira em miniatura.',
+  id: 'provas-finais', name: 'Provas Finais', aria: 'A loja inteira em miniatura: loja, armazém, rack de servidores e van de entrega ligados por fios acesos.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [380, 0, 0], [0, 300, 0], [380, 300, 0], [40, 40, 130]]);
+    const K = api.iso.frame([[0, 0, 0], [380, 0, 0], [0, 290, 0], [380, 290, 0], [120, 100, 140]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = box(0, 0, 0, 380, 300, 10, 16);
-    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="360" height="280" rx="10"/></g>`;
-    // Warehouse at the back.
-    s += box(40, 30, 10, 170, 90, 90, 8);
-    s += `<g transform="${TOP(40, 30, 100)}">${api.iso.slits(14, 156, 6, 16, 76)}</g>`;
-    s += `<g transform="${FRONT(40, 120, 100)}"><rect class="face recess" x="14" y="24" width="142" height="60" rx="4"/>${[0, 1, 2].map(i => `<rect class="face" x="${22 + i * 44}" y="32" width="36" height="44" rx="3"/>`).join('')}</g>`;
-    // Shop front on the right with a lit sign window.
-    s += box(250, 40, 10, 100, 110, 100, 8);
-    s += `<g transform="${FRONT(250, 150, 110)}"><rect class="halo hot" filter="url(#bloom)" x="0" y="0" width="100" height="70" rx="26"/><rect class="face recess" x="8" y="8" width="84" height="54" rx="4"/><rect class="lit" filter="url(#glow)" x="14" y="14" width="72" height="30" rx="3"/><rect class="face" x="38" y="46" width="24" height="14" rx="2"/></g>`;
-    s += `<g transform="${SIDE(350, 150, 110)}">${api.iso.slits(14, 96, 5, 10, 80)}</g>`;
-    // Gateway arch and a lit cart in front.
-    s += box(60, 180, 10, 14, 14, 60, 3) + box(150, 180, 10, 14, 14, 60, 3);
-    s += box(60, 180, 70, 104, 14, 10, 3);
-    s += `<g transform="${FRONT(60, 194, 80)}"><rect class="lit" filter="url(#glow)" x="20" y="2" width="64" height="5" rx="2"/></g>`;
-    s += box(200, 200, 14, 80, 56, 26, 6);
-    s += `<g transform="${TOP(200, 200, 40)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="-10" width="100" height="76" rx="30"/><rect class="lit" filter="url(#glow)" x="8" y="8" width="64" height="40" rx="4"/><rect class="glass hot" x="18" y="16" width="44" height="24" rx="3"/></g>`;
-    s += `<g transform="${FRONT(200, 256, 40)}"><circle class="led" cx="16" cy="13" r="4"/><circle class="led" cx="64" cy="13" r="4"/></g>`;
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    let s = box(0, 0, 0, 380, 290, 10, 16);
+    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="360" height="270" rx="10"/></g>`;
+    // Lit wires on the ground, drawn first so every building sits on top.
+    const W = (pts) => `<path class="wire hot" style="stroke-width:3.5" filter="url(#soft)" d="M${pts.map(q => P(q[0], q[1], 10)).join(' L')}"/>`;
+    s += W([[90, 70], [90, 150], [150, 150]]) + W([[290, 150], [310, 150]]) + W([[200, 175], [200, 208], [335, 208], [335, 160]]);
+    // Warehouse behind.
+    s += box(10, 14, 10, 160, 56, 70, 8);
+    s += `<g transform="${TOP(10, 14, 80)}">${api.iso.slits(12, 136, 5, 12, 32)}</g>`;
+    s += `<g transform="${FRONT(10, 70, 80)}"><rect class="face recess" x="12" y="12" width="136" height="56" rx="3"/>${[0, 1, 2].map(i => `<rect class="face" x="${20 + i * 42}" y="18" width="34" height="50" rx="2"/>`).join('')}</g>`;
+    // Shop (hero) with a lit window and awning.
+    const sx = 150, sy = 100, sw = 140, sd = 75, sh = 120;
+    s += box(sx, sy, 10, sw, sd, sh, 8);
+    s += `<g transform="${FRONT(sx, sy + sd, 10 + sh)}"><rect class="halo hot" filter="url(#bloom)" x="0" y="26" width="${sw}" height="80" rx="30"/>` +
+      `<rect class="face recess" x="10" y="40" width="${sw - 20}" height="66" rx="4"/><rect class="lit" filter="url(#glow)" x="16" y="46" width="78" height="54" rx="3"/>` +
+      `<rect class="face" x="100" y="46" width="30" height="64" rx="3"/><rect class="lit" filter="url(#glow)" x="0" y="8" width="${sw}" height="14" rx="3"/></g>`;
+    s += `<g transform="${SIDE(sx + sw, sy + sd, 10 + sh)}">${api.iso.slits(10, sd - 10, 6, 40, 100)}</g>`;
+    // Server rack beside it with lit blades.
+    const rx = 310, ry = 105, rw = 54, rd = 54, rh = 110;
+    s += box(rx, ry, 10, rw, rd, rh, 6);
+    let f = '';
+    for (let i = 0; i < 5; i++) f += `<rect class="lit" filter="url(#glow)" x="6" y="${8 + i * 18}" width="${rw - 12}" height="11" rx="2"/>`;
+    s += `<g transform="${FRONT(rx, ry + rd, 10 + rh)}">${f}</g>`;
+    // Delivery van in front-left, facing +x: box body, lower cab, wheels and windows on its long side.
+    const vx = 30, vy = 214, vb = 120, vc = 50, vd = 56;
+    s += box(vx, vy, 10, vb, vd, 62, 6);
+    s += box(vx + vb, vy, 10, vc, vd, 42, 6);
+    s += `<g transform="${FRONT(vx, vy + vd, 72)}"><rect class="lit" filter="url(#glow)" x="10" y="14" width="${vb - 20}" height="8" rx="2"/>` +
+      `<circle class="face recess" cx="28" cy="58" r="11"/><circle class="face recess" cx="${vb + 20}" cy="58" r="11"/></g>`;
+    s += `<g transform="${FRONT(vx + vb, vy + vd, 52)}"><rect class="glass hot" x="8" y="6" width="${vc - 16}" height="14" rx="2"/></g>`;
+    s += `<g transform="${SIDE(vx + vb + vc, vy + vd, 52)}"><rect class="halo hot" filter="url(#bloom)" x="-8" y="10" width="${vd + 16}" height="30" rx="12"/>` +
+      `<rect class="glass hot" x="8" y="4" width="${vd - 16}" height="12" rx="2"/><rect class="lit" filter="url(#glow)" x="4" y="24" width="12" height="9" rx="2"/><rect class="lit" filter="url(#glow)" x="${vd - 16}" y="24" width="12" height="9" rx="2"/></g>`;
+    stage.setAttribute('viewBox', cover(K, 0.0)); stage.innerHTML = s;
     return {};
   },
 });
