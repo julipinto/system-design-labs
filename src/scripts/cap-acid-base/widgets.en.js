@@ -19,7 +19,7 @@
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
   /* =============== LESSON 2: isolation levels ===============
-     Two transactions, T1 and T2, touch Lena's account (balance R$ 150): T1 is the R$ 100 transfer to her brother, T2 is the automatic rent debit (R$ 40).
+     Two transactions, T1 and T2, touch Lena's wallet (balance R$ 150): T1 is the R$ 100 transfer to Bia, T2 is a R$ 40 purchase paid with the same balance.
      Each scenario shows the worst interleaving the level ALLOWS. */
   var LEVELS = ['Read Uncommitted', 'Read Committed', 'Repeatable Read', 'Serializable'];
   var SHORT = ['RU', 'RC', 'RR', 'SER'];
@@ -49,7 +49,7 @@
         ],
         bad: bad,
         msg: bad
-          ? 'Dirty read: T2 saw R$ 50, a balance that never really existed. If T2 had refused the rent for lack of funds based on that number, it would be wrong.'
+          ? 'Dirty read: T2 saw R$ 50, a balance that never really existed. If T2 had refused the purchase for lack of funds based on that number, it would be wrong.'
           : 'No dirty read: T2 only sees what has already been committed (COMMIT). The undone debit never showed up for it.'
       };
     },
@@ -58,7 +58,7 @@
       return {
         steps: [
           { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';", out: 'T1 reads R$ 150.', db: 'DB (committed): ' + brl(150) },
-          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 40\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 commits the rent: the balance is now R$ 110.', db: 'DB (committed): ' + brl(110) },
+          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 40\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 commits the purchase: the balance is now R$ 110.', db: 'DB (committed): ' + brl(110) },
           { w: 'T1', sql: "SELECT saldo FROM conta\n WHERE id = 'lena';  -- again, in the same transaction",
             out: bad ? 'T1 reads R$ 110. The same query gave a different result.' : 'T1 reads R$ 150 again: it keeps seeing the same "snapshot" from when it started.',
             db: 'DB (committed): ' + brl(110), flag: bad }
@@ -78,7 +78,7 @@
       return {
         steps: [
           { w: 'T1', sql: "BEGIN;\nSELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;", out: '2 rows, total spent R$ 60 (daily limit: R$ 200).', db: 'DB: balance ' + brl(150) + ' · 2 entries today' },
-          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lena', -40, hoje);\nCOMMIT;", out: 'T2 commits a new entry: the R$ 40 rent.', db: 'DB: balance ' + brl(110) + ' · 3 entries today' },
+          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lena', -40, hoje);\nCOMMIT;", out: 'T2 commits a new entry: the R$ 40 purchase.', db: 'DB: balance ' + brl(110) + ' · 3 entries today' },
           { w: 'T1', sql: "SELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;  -- same query", out: third, db: 'DB: balance ' + brl(110) + ' · 3 entries today', flag: bad }
         ],
         bad: bad,

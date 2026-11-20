@@ -13,21 +13,21 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>A Lena compra um gato de pelúcia em São Paulo. O irmão dela compra o mesmo gato, ao mesmo tempo, em Recife. O estoque da loja está copiado em três bancos, e o cabo para Recife acabou de cair. O que a loja faz?</p>
+<p>Março de 2026. O disco que queimou ensinou a Iara a não confiar em uma máquina só, e agora a loja tem servidores em São Paulo (perto da fábrica), no Rio e em Recife. A Bia compra o último gato da remessa em São Paulo. A Lena compra o mesmo gato, ao mesmo tempo, em Recife. O estoque está copiado em três bancos, e o cabo para Recife acabou de cair. A decisão é da Iara: o que a loja faz?</p>
 
 <OneLiner>Quando a rede entre os bancos quebra, um sistema replicado só consegue escolher entre responder sempre (disponível) ou responder sempre o dado mais novo (consistente).</OneLiner>
 
 <DoIt>
-  <p>Na figura, corte o cabo entre Rio e Recife. Depois faça duas compras do <strong>gato de pelúcia</strong> ao mesmo tempo, a da Lena em São Paulo e a do irmão dela em Recife, e compare o que cada modo faz.</p>
+  <p>Na figura, corte o cabo entre Rio e Recife. Depois faça duas compras do <strong>gato de pelúcia</strong> ao mesmo tempo, a da Bia em São Paulo e a da Lena em Recife, e compare o que cada modo faz.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/cap-3d/?mode=cp" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, escolhendo consistência (CP)" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja guarda o estoque do gato de pelúcia em <strong>3 bancos replicados</strong>: São Paulo, Rio e Recife. Com a rede boa, a venda #101 (5 → 4) chega aos três e cada um fica com a mesma linha: <code>gato_pelucia: estoque 4, v2</code>. A Lena compra em SP e o irmão dela, em Recife.</li>
+  <li>A loja guarda o estoque do gato de pelúcia em <strong>3 bancos replicados</strong>: São Paulo, Rio e Recife. Com a rede boa, a venda #101 (5 → 4) chega aos três e cada um fica com a mesma linha: <code>gato_pelucia: estoque 4, v2</code>. A Bia compra em SP e a Lena, em Recife.</li>
   <li>Então o cabo entre Rio e Recife cai. São Paulo e Rio ainda se falam, mas <strong>Recife fica isolado</strong>: é uma partição de rede.</li>
-  <li>Nessa hora entram dois pedidos: o #102 da Lena, em São Paulo, e o #103 do irmão, em Recife. Recife não consegue perguntar nada a ninguém, e só resta escolher o que fazer.</li>
-  <li><strong>Escolha 1, consistente:</strong> SP grava 3 e o Rio confirma. São 2 de 3 nós, há quórum, e a #102 passa. Recife não tem maioria: recusa depois de 3.000 ms de timeout (erro 503). Quando o cabo volta, o irmão tenta de novo, a #103 passa e o estoque final é 2 (v4). Ninguém recebeu uma promessa falsa, mas o irmão ficou um tempo sem resposta.</li>
+  <li>Nessa hora entram dois pedidos: o #102 da Bia, em São Paulo, e o #103 da Lena, em Recife. Recife não consegue perguntar nada a ninguém, e só resta escolher o que fazer.</li>
+  <li><strong>Escolha 1, consistente:</strong> SP grava 3 e o Rio confirma. São 2 de 3 nós, há quórum, e a #102 passa. Recife não tem maioria: recusa depois de 3.000 ms de timeout (erro 503). Quando o cabo volta, a Lena tenta de novo, a #103 passa e o estoque final é 2 (v4). Ninguém recebeu uma promessa falsa, mas a Lena ficou um tempo sem resposta.</li>
   <li><strong>Escolha 2, disponível:</strong> desta vez Recife aceita e também grava 3, sem saber da #102. Os dois recebem OK, mas o estoque real é 5 − 3 = 2 e os nós mostram 3. A divergência só aparece quando o cabo volta.</li>
 </ol>
 </HowItWorks>
@@ -39,8 +39,8 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <WhyItMatters>
   <li>Partições <strong>acontecem</strong>: cabo, roteador, deploy mal feito, nuvem com problema numa zona. Não dá para decidir "isso não vai ocorrer".</li>
-  <li>Como elas vão acontecer, a pergunta de design é: <strong>o que cada parte da loja prefere, recusar ou arriscar?</strong> Estoque e pagamento pedem uma resposta, carrinho e recomendação pedem outra.</li>
-  <li>E a resposta precisa vir antes da falha. Se você não decidir, o banco decide por você no pior momento.</li>
+  <li>Como elas vão acontecer, a pergunta de design é: <strong>o que cada parte da loja prefere, recusar ou arriscar?</strong> Quem responde é a Iara. Estoque e pagamento pedem uma resposta, carrinho e recomendação pedem outra.</li>
+  <li>E a resposta precisa vir antes da falha. Se a Iara não decidir, o banco decide por ela no pior momento.</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -59,7 +59,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>Recusar o pedido do irmão foi uma promessa: "não vou deixar o dado errado". Falta saber o que um banco promete, dentro de uma transação, para nunca deixar a conta da Lena pela metade. É o ACID.</p>
+<p>Recusar o pedido da Lena foi uma promessa da Iara: "não vou deixar o dado errado". O preço foi uma cliente zero sem resposta por 3.000 ms. Falta saber o que um banco promete, dentro de uma transação, para nunca deixar a carteira da Lena pela metade. É o ACID.</p>
 
 <Flashcards cards={[
   { q: "O que diz o teorema CAP?",

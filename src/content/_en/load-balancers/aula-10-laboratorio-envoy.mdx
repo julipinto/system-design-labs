@@ -241,7 +241,7 @@ reverse_proxy_cluster::172.29.77.7:8080::health_flags::healthy
   ]} />
 </Deep>
 
-<p>The lab's three proxies limit 10 requests per minute each, and each one counts on its own: the same client gets through one and is refused by another. In the store, <code>catalogo</code>, <code>carrinho</code> and <code>pedidos</code> also check the login, limit abuse and maintain API versions each on its own, which repeats the same work in every service. What's left is whether that work can be done just once, at the door, before the request reaches any service.</p>
+<p>In Téo's promotion, Bruna's round robin proved costly: the heavy searches landed on a single replica, and the healthcheck pulled <code>catalogo-2</code> from the pool. Now Bruna's app and a partner of Téo's are about to call the store directly. The lab's three proxies limit 10 requests per minute each, and each one counts on its own: the same client gets through one and is refused by another. In the store, <code>catalogo</code>, <code>carrinho</code> and <code>pedidos</code> also check the login, limit abuse and maintain API versions each on its own, which repeats the same work in every service. What's left is whether that work can be done just once, at the door, before the request reaches any service.</p>
 
 <Flashcards cards={[
   { q: "What role does each Envoy play in the lab?",

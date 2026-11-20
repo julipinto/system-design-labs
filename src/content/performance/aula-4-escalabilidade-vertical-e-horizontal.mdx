@@ -39,7 +39,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p>São 20:05, o pico está em 640 req/s e uma falha de zona derruba <strong>4</strong> das 10 réplicas. Restam 6, com capacidade de 600 req/s, e a demanda é de 640: faltam <strong>40 req/s</strong>. Esses 40 por segundo viram fila, <strong>2.400 por minuto</strong>, e as respostas passam de 2 s e levam <code>504</code>. Com 7 réplicas vivas o catálogo ainda aguentava (91,4%, 126,7 ms).</p>
 
-<p>Se a loja tivesse feito o scale up para uma réplica de 8 vCPU, a queda seria pior: sem nenhuma outra réplica, as 640 req/s encontram uma capacidade de <strong>zero</strong>. A vertical é mais simples de operar, e concentra o risco numa unidade só.</p>
+<p>Se a Iara tivesse feito o scale up para uma réplica de 8 vCPU, a queda seria pior: sem nenhuma outra réplica, as 640 req/s encontram uma capacidade de <strong>zero</strong>. A vertical é mais simples de operar, e concentra o risco numa unidade só.</p>
 
 <WhyItMatters>
   <li><strong>As duas formas respondem a limites diferentes.</strong> A vertical bate no teto da máquina e no reinício; a horizontal pede estado fora do processo e um balanceador.</li>

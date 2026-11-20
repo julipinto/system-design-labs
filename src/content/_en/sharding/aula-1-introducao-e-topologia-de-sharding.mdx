@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">Module 15 ended with the scale cube and one axis the store never used: <strong>Z</strong>, splitting by customer. The reason is in module 14. The <code>pedidos</code> database handles <strong>150 orders per second</strong>, and more service replicas do not move that ceiling. The database also got big: the <code>pedidos</code> table, which had 6 rows in module 4 (1041 to 1046), now has <strong>50 million</strong>. The problem in this module is <strong>splitting the table across servers</strong>: by which key, where each row lands, and what happens when things change.</p>
+<p class="ponte">Module 15 ended with Iara's whiteboard and one axis the store never used: <strong>Z</strong>, splitting by customer. It is 20:08 on Black Friday, and the reason is in module 14. The <code>pedidos</code> database handles <strong>150 orders per second</strong>, and more service replicas do not move that ceiling. The database also got big: the <code>pedidos</code> table, which had 6 rows in module 4 (1041 to 1046), now has <strong>50 million</strong>, and 40% of them belong to MegaMercado, the partner Téo brought in. Lena has just bought (1054), and Iara has to decide how to <strong>split the table across servers</strong>: by which key, where each row lands, and what happens when things change.</p>
 
 <OneLiner>Sharding means splitting a table's data across several <strong>servers</strong>, each holding one piece (a <strong>shard</strong>), and giving each row an address computed from a <strong>key</strong>.</OneLiner>
 

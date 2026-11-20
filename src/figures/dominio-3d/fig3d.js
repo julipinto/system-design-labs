@@ -216,7 +216,7 @@ FIGS3D.push({ id: 'dominio', name: 'Domínios', mod: (() => {
   const STEPS = {
     contextos: [
       { id: 'catalogo', dur: 4, title: 'No Catálogo, o gato é o produto 42',
-        story: 'A Lena vai comprar outro gato de pelúcia, presente para o irmão. Na vitrine, o gato é o produto 42: nome, preço de 79.90, fotos e descrição. É tudo o que o Catálogo precisa para mostrar e vender. O resto da loja ainda não entrou na história.',
+        story: 'A Lena vai comprar outro gato de pelúcia, presente de boas-vindas para o Téo. Na vitrine, o gato é o produto 42: nome, preço de 79.90, fotos e descrição. É tudo o que o Catálogo precisa para mostrar e vender. O resto da loja ainda não entrou na história.',
         look: 'A ilha do Catálogo acende com a cerca em volta. Em cima dela, os 4 campos do produto 42; as outras ilhas ainda não sabem como chamam o gato.',
         key: 'Contexto delimitado: uma fronteira dentro da qual cada palavra tem um sentido só.',
         f(o, t) { o.rows.cat = CAT; o.on.cat = 1; o.fences[0].on = true; JS(o, 'MODELO NO CATÁLOGO', J.cat);

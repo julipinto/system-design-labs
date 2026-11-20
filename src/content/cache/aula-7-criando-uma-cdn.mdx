@@ -128,7 +128,7 @@ import Figure3D from '../../components/Figure3D.astro';
 <h3 class="sec">E se der errado: o que o laboratório não faz</h3>
 
 <ol class="flow steps">
-  <li><strong>Não tem TTL.</strong> O dono da loja troca a foto na origem por um gato novo. O proxy olha a pasta, acha o arquivo de <code>GET/gato.jpg</code> e responde com a foto velha, para sempre. Nem o <code>Cache-Control: max-age=3600</code> da origem é lido. Só <code>rm cache/f34b…</code>, à mão, faz a foto nova aparecer.</li>
+  <li><strong>Não tem TTL.</strong> O Téo troca a foto na origem por um gato novo. O proxy olha a pasta, acha o arquivo de <code>GET/gato.jpg</code> e responde com a foto velha, para sempre. Nem o <code>Cache-Control: max-age=3600</code> da origem é lido. Só <code>rm cache/f34b…</code>, à mão, faz a foto nova aparecer.</li>
   <li><strong>Não olha o status.</strong> O <code>http.Get</code> não devolve erro quando a origem responde 404 ou 500. O corpo da página de erro vai para o arquivo como se fosse a foto, e a Lena recebe um 200 com o erro, hoje e em todos os pedidos seguintes.</li>
   <li><strong>A query entra na chave e some do pedido.</strong> <code>GET /gato.jpg?v=2</code> vira outro arquivo (<code>442f2a6a…</code>), mas a linha 32 pede <code>origem + Path</code>, sem a query. Resultado: duas cópias da mesma foto. Pior: <code>/busca?q=gato</code> e <code>/busca?q=cachorro</code> guardam a mesma resposta, a da busca sem termo.</li>
   <li><strong>O método entra na chave, mas a origem sempre recebe GET.</strong> Um <code>POST /gato.jpg</code> vira um arquivo próprio (<code>98650421…</code>) com a resposta de um GET. Guardar o resultado de uma escrita num cache de leitura é pedir problema.</li>
@@ -166,7 +166,7 @@ import Figure3D from '../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p>A loja agora guarda a cópia, esquece pelo tempo e pelo espaço, mede o que acerta e leva a foto até Recife, mas o cache continua sendo só uma cópia: tudo o que ele sabe vem do banco. Só que a loja inteira ainda é um programa só, e três times mexem no mesmo código. Falta saber quando e onde partir esse programa em serviços: é o assunto do módulo 6, Microsserviços.</p>
+<p>A loja agora guarda a cópia, esquece pelo tempo e pelo espaço, mede o que acerta e leva a foto até Recife, mas o cache continua sendo só uma cópia: tudo o que ele sabe vem do banco. O preço da decisão está à vista: o cache mostra o preço velho por até 60 s depois da promoção do Téo, e a Iara aceitou isso de propósito. Só que a loja inteira ainda é um programa só, e cada mudança mexe no mesmo código. Falta saber quando e onde partir esse programa em serviços: é o assunto do módulo 6, Microsserviços.</p>
 
 <Flashcards cards={[
   { q: "Como o proxy do laboratório decide qual arquivo ler?",

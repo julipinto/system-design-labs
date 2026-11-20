@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>In the last lesson, the Recife database refused the brother's order to avoid a mistake. But refusing only works if the database knows how to undo what it already started. Before spreading the data across three cities, see what a single database promises when Lena transfers R$ 100 to her brother.</p>
+<p>In the last lesson, the Recife database refused Lena's order to avoid a mistake. But refusing only works if the database knows how to undo what it already started. Before spreading the data across three cities, see what a single database promises when Lena sends R$ 100 of store-wallet credit to Bia, as a gift.</p>
 
 <OneLiner>ACID is a transaction's promise: it happens whole or not at all (A), it leaves the database valid (C), it doesn't mix with the others (I) and, once confirmed, it isn't lost (D).</OneLiner>
 
@@ -21,13 +21,13 @@ import Flashcards from '../../../components/Flashcards.astro';
   <p>In the simulator, pick <strong>Lost update</strong> and <strong>Read Committed</strong>, go to the end and look at the wrong balance. Then switch to <strong>Repeatable Read</strong> and compare.</p>
 </DoIt>
 <Figure3D path="en/labs/cap-acid-base/acid-3d/?mode=a" poster="labs/cap-acid-base/acid-3d-previa.webp" title="Interactive figure: Lena's transfer and atomicity" alt="Preview of the 3D figure: a database server with the accounts table, the WAL and the disk, showing the transaction undone with ROLLBACK" hint="Drag to rotate · Next step or ← → to move on · switch between A, C, I, D or BASE in the panel" />
-<Widget name="isolation" title="Isolation level simulator" hint="Two transactions touch Lena's account (balance R$ 150): the R$ 100 transfer to her brother and the automatic R$ 40 rent debit. Pick the anomaly and the level, then step through." />
+<Widget name="isolation" title="Isolation level simulator" hint="Two transactions touch Lena's wallet (balance R$ 150): the R$ 100 transfer to Bia and a R$ 40 purchase paid with the same balance. Pick the anomaly and the level, then step through." />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Atomicity.</strong> The R$ 100 transfer is two writes: debit Lena's account (150 → 50) and credit her brother's (20 → 120). If the server crashes between the two, the <strong>rollback</strong> restores everything: 150 and 20. It never ends up half done.</li>
-  <li><strong>Consistency.</strong> Doing it all together isn't enough: the result also has to be valid. The database's rules hold before and after: <code>CHECK saldo &gt;= 0</code>, the sum of the two accounts is still R$ 170, the foreign key points to an account that exists. If Lena asks for R$ 200 by mistake, her account would end at 150 − 200 = −50. The database refuses and the whole transaction rolls back.</li>
-  <li><strong>Isolation.</strong> So far Lena had the database to herself. But the automatic rent debit (R$ 40) touches her account at the same instant, and the two transactions must not get in each other's way. The levels (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decide how much the database protects. The simulator above shows the four anomalies.</li>
+  <li><strong>Atomicity.</strong> The R$ 100 transfer is two writes: debit Lena's wallet (150 → 50) and credit Bia's (20 → 120). If the server crashes between the two, the <strong>rollback</strong> restores everything: 150 and 20. It never ends up half done.</li>
+  <li><strong>Consistency.</strong> Doing it all together isn't enough: the result also has to be valid. The database's rules hold before and after: <code>CHECK saldo &gt;= 0</code>, the sum of the two wallets is still R$ 170, the foreign key points to a wallet that exists. If Lena asks for R$ 200 by mistake, her wallet would end at 150 − 200 = −50. The database refuses and the whole transaction rolls back.</li>
+  <li><strong>Isolation.</strong> So far Lena had the database to herself. But a R$ 40 purchase, paid with the same balance, touches her wallet at the same instant, and the two transactions must not get in each other's way. The levels (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decide how much the database protects. The simulator above shows the four anomalies.</li>
   <li><strong>Durability.</strong> When everything went well, the <strong>commit</strong> only returns "ok" after the change has been written to the <strong>WAL</strong> (the database's journal) on disk. If the power goes out a second later, the database rereads the WAL on startup and the transfer is still there.</li>
   <li>Each guarantee has a price. The more isolation, the more the database locks or redoes: <strong>Serializable</strong> is the safest and the most expensive, which is why many databases use an intermediate level as the default.</li>
 </ol>
@@ -48,8 +48,8 @@ import Flashcards from '../../../components/Flashcards.astro';
   <h4 class="deep-h">The four anomalies, with the simulator's numbers</h4>
   <ul>
     <li><strong>Dirty read:</strong> T2 reads R$ 50 that T1 (the transfer) hasn't committed yet. T1 rolls back: the real balance was R$ 150.</li>
-    <li><strong>Non-repeatable read:</strong> T1 reads R$ 150, T2 (the rent) commits R$ 110, T1 reads again and sees R$ 110.</li>
-    <li><strong>Phantom:</strong> the same query returns 2 rows (R$ 60 spent) and then 3 (R$ 100), because T2 inserted the rent entry.</li>
+    <li><strong>Non-repeatable read:</strong> T1 reads R$ 150, T2 (the purchase) commits R$ 110, T1 reads again and sees R$ 110.</li>
+    <li><strong>Phantom:</strong> the same query returns 2 rows (R$ 60 spent) and then 3 (R$ 100), because T2 inserted the purchase entry.</li>
     <li><strong>Lost update:</strong> T1 and T2 start from R$ 150, write 50 and 110. The right result would be 150 − 100 − 40 = R$ 10.</li>
   </ul>
   <h4 class="deep-h">SQL standard vs. real engine</h4>
@@ -74,7 +74,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <Flashcards cards={[
   { q: "What does ACID stand for?",
     a: "Atomicity, Consistency, Isolation, Durability: the four guarantees of a transaction." },
-  { q: "What does atomicity guarantee in Lena's R$ 100 transfer to her brother?",
+  { q: "What does atomicity guarantee in Lena's R$ 100 transfer to Bia?",
     a: "The debit and the credit happen together or neither happens (rollback)." },
   { q: "Is the C in ACID the same as the C in CAP?",
     a: "No. In ACID it means respecting the database's rules. In CAP it means the replicas look like a single copy." },

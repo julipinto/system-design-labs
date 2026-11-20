@@ -128,7 +128,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 <h3 class="sec">What if it goes wrong: what the lab doesn't do</h3>
 
 <ol class="flow steps">
-  <li><strong>No TTL.</strong> The store owner swaps the photo at the origin for a new cat. The proxy looks at the folder, finds the <code>GET/gato.jpg</code> file and answers with the old photo, forever. It doesn't even read the origin's <code>Cache-Control: max-age=3600</code>. Only <code>rm cache/f34b…</code>, by hand, makes the new photo show up.</li>
+  <li><strong>No TTL.</strong> Téo swaps the photo at the origin for a new cat. The proxy looks at the folder, finds the <code>GET/gato.jpg</code> file and answers with the old photo, forever. It doesn't even read the origin's <code>Cache-Control: max-age=3600</code>. Only <code>rm cache/f34b…</code>, by hand, makes the new photo show up.</li>
   <li><strong>It doesn't check the status.</strong> <code>http.Get</code> doesn't return an error when the origin answers 404 or 500. The error page body goes into the file as if it were the photo, and Lena gets a 200 with the error, today and on every following request.</li>
   <li><strong>The query goes into the key and vanishes from the request.</strong> <code>GET /gato.jpg?v=2</code> becomes another file (<code>442f2a6a…</code>), but line 32 requests <code>origem + Path</code>, without the query. Result: two copies of the same photo. Worse: <code>/busca?q=gato</code> and <code>/busca?q=cachorro</code> store the same response, the one for the search without a term.</li>
   <li><strong>The method goes into the key, but the origin always receives GET.</strong> A <code>POST /gato.jpg</code> becomes its own file (<code>98650421…</code>) with the response of a GET. Storing the result of a write in a read cache is asking for trouble.</li>
@@ -166,7 +166,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p>The store now keeps the copy, forgets by time and by space, measures what it gets right and takes the photo to Recife, but the cache is still just a copy: everything it knows comes from the database. Yet the whole store is still one program, and three teams edit the same code. What's left to find out is when and where to split that program into services: that's the topic of module 6, Microservices.</p>
+<p>The store now keeps the copy, forgets by time and by space, measures what it gets right and takes the photo to Recife, but the cache is still just a copy: everything it knows comes from the database. The price of the decision is in plain sight: the cache shows the old price for up to 60 s after Téo's promotion, and Iara accepted that on purpose. Yet the whole store is still one program, and every change touches the same code. What's left to find out is when and where to split that program into services: that's the topic of module 6, Microservices.</p>
 
 <Flashcards cards={[
   { q: "How does the lab proxy decide which file to read?",

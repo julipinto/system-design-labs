@@ -126,7 +126,7 @@ COMMIT 832`}</code></pre>
   ]} />
 </Deep>
 
-<p class="gancho">The store now has one model for writing and another for reading, linked by events that do not get lost. And when <strong>an order crosses several services</strong> and one of them <strong>fails midway</strong>: the payment went through and the stock did not? That is the compensation left open in module 6. What is left is how to undo what was already done, step by step. That is module 19, the Saga Pattern.</p>
+<p class="gancho">The store now has one model for writing and another for reading, linked by events that do not get lost. The price of Bruna's decision is one more thing to maintain and a read that can be a few milliseconds behind. At 20:15, though, Raí finds damaged stock, and the <strong>order crosses several services</strong>: Davi's Pix was already approved and the stock no longer exists. That is the compensation left open in module 6. What is left is how to undo what was already done, step by step. That is module 19, the Saga Pattern.</p>
 
 <Flashcards cards={[
   { q: "What does the outbox guarantee and how?",

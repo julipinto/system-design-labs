@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">Na aula passada a loja viu que mais réplicas dão mais capacidade e que a folga protege da queda. Falta decidir quantas ligar e quando, sem que ninguém fique olhando o painel. O Kubernetes faz isso com o HPA, o Horizontal Pod Autoscaler, e a conta dele cabe numa linha.</p>
+<p class="ponte">Na aula passada a loja viu que mais réplicas dão mais capacidade e que a folga protege da queda. A Iara precisa decidir quantas ligar e quando, sem que ninguém fique olhando o painel. O Kubernetes faz isso com o HPA, o Horizontal Pod Autoscaler, e a conta dele cabe numa linha.</p>
 
 <OneLiner>A fórmula do HPA transforma uma métrica num número de réplicas: <strong>desejadas = ⌈ atuais × valor atual ÷ valor desejado ⌉</strong>. No pico de 950 req/s, 10 réplicas a 95% de CPU com alvo de 70% viram <strong>14</strong>.</OneLiner>
 

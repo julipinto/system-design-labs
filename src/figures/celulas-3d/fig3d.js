@@ -317,7 +317,7 @@ FIGS3D.push({ id: 'cel', name: 'Cell-Based', mod: (() => {
           o.res = [[hit ? '2.880 só do parceiro' : 'o roteador lê o JWT', hit ? 'bad' : 'dim']]; } },
       { id: 'lena', dur: 6, title: 'Pedido 1060: a Lena compra às 20:25', yk: 'PEDIDO 1060 · celula-recife',
         code: ['2 gatos de pelúcia: 79,90 × 2 = 159,80', 'frete Recife: 15,00', 'total: 174,80 → 201', 'gato na rede: 19 → 17', 'alocação da celula-recife: 2 → 0', 'commit local: 2 ms (sem os 80 ms até SP)'],
-        story: 'Na mesma hora do veneno, <b>20:25:00.000</b>, a Lena compra na <code>celula-recife</code>: <b>2 gatos de pelúcia</b> (159,80, presente para as duas sobrinhas) e frete de Recife 15,00. Total <b>174,80</b>, resposta <code>201</code>: o <b>pedido 1060</b>. Como a célula dela mora em Recife, o commit é local, <b>2 ms</b>, sem cruzar o país até SP.',
+        story: 'Na mesma hora do veneno, <b>20:25:00.000</b>, a Lena compra na <code>celula-recife</code>: <b>2 gatos de pelúcia</b> (159,80, presente para a sala de aula dela) e frete de Recife 15,00. Total <b>174,80</b>, resposta <code>201</code>: o <b>pedido 1060</b>. Como a célula dela mora em Recife, o commit é local, <b>2 ms</b>, sem cruzar o país até SP.',
         look: 'A ficha da Lena entra pela porta da celula-recife e vai até o banco; ao lado, a celula-mkt segue apagada.',
         key: 'Enquanto o parceiro cai, a Lena compra sem perceber nada.',
         f(o, t) { cells(o, { st: c => c.id === 'mkt' ? 'bad' : 1, flow: false, rows: c => c.id === 'rec' && t > 3 ? ['1060 · 174,80 · 201', 'acc'] : c.id === 'mkt' ? ['503 só para o parceiro', 'bad'] : [`${c.rate} pedidos/s · ${c.reg}`, 'dim'] });

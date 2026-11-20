@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">No módulo 16 a loja partiu os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena caiu no <code>shard-1</code>. Só que cada shard é <strong>um servidor só</strong>: se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e se o disco queimar os dados vão junto (o RAID do módulo 2 protegia o disco, não o servidor). Falta <strong>copiar</strong> cada shard para outro lugar, e essa cópia tem nome: replicação.</p>
+<p class="ponte">No módulo 16 a Iara partiu os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena caiu no <code>shard-1</code>. São 20:10 da Black Friday, e o preço da decisão aparece logo: cada shard é <strong>um servidor só</strong>. Se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e se o disco queimar os dados vão junto (o RAID do módulo 2 protegia o disco, não o servidor). Falta <strong>copiar</strong> cada shard para outro lugar, e essa cópia tem nome: replicação. Ela também tem um custo que a Lena vai sentir em seguida, quando comprar o 1055.</p>
 
 <OneLiner>Replicar é ter o <strong>mesmo dado em mais de um lugar</strong> para a loja continuar de pé, ler perto e sobreviver a uma perda. O preço é o <strong>atraso</strong> (a cópia fica para trás) e o <strong>conflito</strong> (duas cópias mudam ao mesmo tempo).</OneLiner>
 

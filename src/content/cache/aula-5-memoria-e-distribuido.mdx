@@ -28,7 +28,7 @@ import Figure3D from '../../components/Figure3D.astro';
   <li>As três começam <strong>frias</strong>. O primeiro pedido que cai em cada uma é um miss, e cada uma vai sozinha ao banco, 40 ms. São 3 leituras do banco para a mesma chave. Em 10 pedidos distribuídos em rodízio (A, B, C, A, B, C…), são 3 misses e 7 hits: <strong>70%</strong>. Com um Redis só, seria 1 miss e 9 hits: <strong>90%</strong>.</li>
   <li>O preço muda para 79.90 em t = 20 s. A guardou a cópia em t = 0 e B em t = 10, então as duas dizem <strong>89.90</strong>. C guardou em t = 30, depois da mudança, e diz <strong>79.90</strong>. A Lena recarrega e o balanceador a leva a A, a C, a B: 89.90, 79.90, 89.90.</li>
   <li>Apagar a chave não resolve sozinho. A réplica que gravou o preço apaga <code>produto:42</code> do <strong>seu</strong> hashmap, e as outras duas nem sabem que isso aconteceu. Seria preciso avisar as três.</li>
-  <li>Com um <strong>Redis compartilhado</strong>, as três réplicas leem e gravam a mesma chave. Existe uma cópia só e um <code>DEL produto:42</code> vale para todas. O custo é 1 ms por leitura (quase tudo é rede) e uma peça nova que pode cair ou virar gargalo.</li>
+  <li>Com o <strong>Redis compartilhado</strong> que a Iara escolhe, as três réplicas leem e gravam a mesma chave. Existe uma cópia só e um <code>DEL produto:42</code> vale para todas. O custo é 1 ms por leitura (quase tudo é rede) e uma peça nova que pode cair ou virar gargalo.</li>
 </ol>
 </HowItWorks>
 

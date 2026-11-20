@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p class="ponte">Na aula passada o GraphQL fechou a lista de jeitos de o <code>pedidos</code> e as telas conversarem, e nenhum deles ganhou de todos. O REST é fácil de entender e caro em bytes, o gRPC é enxuto e pede contrato, o WebSocket empurra e guarda conexão, o GraphQL deixa o cliente escolher e exige defesa. Falta decidir onde cada um entra no pedido do Davi, do app até o PSP.</p>
+<p class="ponte">Na aula passada o GraphQL fechou a lista de jeitos de o <code>pedidos</code> e as telas conversarem, e nenhum deles ganhou de todos. O REST é fácil de entender e caro em bytes, o gRPC é enxuto e pede contrato, o WebSocket empurra e guarda conexão, o GraphQL deixa o cliente escolher e exige defesa. Falta decidir onde cada um entra no pedido do Davi, do app até o PSP, e quem decide é o Júlio.</p>
 
 <OneLiner>Cada protocolo rende onde o problema dele aparece: REST na porta de fora, gRPC entre os serviços, WebSocket onde o servidor precisa empurrar, webhook com os terceiros e GraphQL quando o cliente precisa de formas diferentes dos mesmos dados.</OneLiner>
 
@@ -78,7 +78,7 @@ import Figure3D from '../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p class="gancho">Falta saber o que não coube em nenhuma chamada. Cada uma deste módulo fica esperando alguém, e o <code>PedidoPago</code> do pedido 1050 precisa chegar ao <code>estoque</code>, às <code>entregas</code> e às <code>notificacoes</code>. Fazer três chamadas em fila deixa o pagamento do Davi três respostas mais lento e, se as <code>entregas</code> estiverem fora, a falha volta para ele. Como avisar os três sem esperar nenhum, e sem perder o aviso se um deles estiver fora do ar? É a pergunta do módulo 13, Comunicação Assíncrona.</p>
+<p class="gancho">O Júlio ficou com gRPC por dentro e webhook por fora, e o preço foi o webhook falso e o polling que satura. Falta saber o que não coube em nenhuma chamada. Cada uma deste módulo fica esperando alguém, e o <code>PedidoPago</code> do pedido 1050 precisa chegar ao <code>estoque</code>, às <code>entregas</code> e às <code>notificacoes</code>. Fazer três chamadas em fila deixa o pagamento do Davi três respostas mais lento e, se as <code>entregas</code> estiverem fora, a falha volta para ele. Como avisar os três sem esperar nenhum, e sem perder o aviso se um deles estiver fora do ar? É a pergunta do módulo 13, Comunicação Assíncrona.</p>
 
 <Flashcards cards={[
   { q: "Qual protocolo a loja usa por fora, e qual por dentro?",

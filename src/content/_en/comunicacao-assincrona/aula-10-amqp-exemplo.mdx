@@ -113,7 +113,7 @@ queue.faturamento.prioritario 4 | queue.faturamento 56 | queue.faturamento.datal
   ]} />
 </Deep>
 
-<p class="gancho">The store now talks every way there is: REST and gRPC between services, events in Kafka, the truck's position over MQTT and the emails in RabbitMQ. And Black Friday showed something none of these modules measured: the catalog answered in <strong>2 s</strong> for some customers, and nobody could say how much the store can take. How long does it really take, for how many, and where is the bottleneck? We still need to see how to <strong>measure</strong>: p50, p95 and p99 latency, throughput and saturation. That is module 14, Performance, Capacity and Scalability.</p>
+<p class="gancho">The store now talks every way there is: REST and gRPC between services, events in Kafka, the truck's position over MQTT and the emails in RabbitMQ. Raí built it this way (a queue for email, a topic for events, MQTT on the truck), and the price is that the reply to Lena no longer says whether the stock was reserved. Now Téo schedules the Black Friday newsletter for 20:00, and none of these modules measured how much the store can take. How long does it really take, for how many, and where is the bottleneck? We still need to see how to <strong>measure</strong>: p50, p95 and p99 latency, throughput and saturation. That is module 14, Performance, Capacity and Scalability.</p>
 
 <Flashcards cards={[
   { q: "What does each RabbitMQ lab route?",

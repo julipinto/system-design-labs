@@ -111,7 +111,7 @@
     { t: 'pedidos database at the 150 orders/s ceiling, with 50 million rows', src: 'modules 14 and 16', ax: 'Z',
       said: 'The ceiling belongs to the single-primary database, not to the service.',
       why: 'X does not help: 7 replicas give 210/s of service and the database stays at 150/s. Z: 3 shards give 3 × 150 = 450/s.' },
-    { t: 'One customer (mkt-01, the marketplace from module 8) with 40% of the orders', src: 'module 16', ax: 'Z',
+    { t: 'One customer (mkt-01, MegaMercado, the marketplace Téo signed in module 8) with 40% of the orders', src: 'module 16', ax: 'Z',
       said: 'A single customer concentrates the write load of a table.',
       why: 'Z by customer type: a shard dedicated to mkt-01. Y does not split it (it is the same function) and X does not relieve the database.' },
     { t: 'The SP region goes down and takes everything with it', src: 'module 27', ax: 'Z',

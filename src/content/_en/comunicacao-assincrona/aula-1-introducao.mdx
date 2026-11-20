@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">Module 12 ended with Davi's order <strong>1050</strong> paid: the PSP called the store's webhook and <code>PedidoPago</code> went out. But that notice has to reach three places, <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code>, and every call in the last module waits for someone. Making the three calls one after another slows the payment down, and if <code>entregas</code> is down, the payment fails. The problem in this module is <strong>how to notify without waiting, without losing the notice and without the producer knowing who listens</strong>.</p>
+<p class="ponte">Module 12 ended with Davi's order <strong>1050</strong> paid: the PSP called the store's webhook and <code>PedidoPago</code> went out. But that notice has to reach three places, <code>estoque</code>, <code>entregas</code> and <code>notificacoes</code>, and every call in the last module waits for someone. Making the three calls one after another slows the payment down, and if <code>entregas</code> is down, the payment fails. Raí, who looks after stock and shipping, decides that events will travel through Kafka. The problem in this module is <strong>how to notify without waiting, without losing the notice and without the producer knowing who listens</strong>.</p>
 
 <OneLiner>Asynchronous communication means handing the notice to an intermediary, the <strong>broker</strong>, and moving on: whoever needs it reads it when they can, and the sender neither waits for an answer nor knows who reads.</OneLiner>
 

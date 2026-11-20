@@ -208,7 +208,7 @@ FIGS3D.push({ id: 'monolito', name: 'Monolith', mod: (() => {
           SVC.forEach((n, i) => { if (t > 0.4 + i * 0.3 && t < 0.4 + i * 0.3 + 0.9) o.on[n] = 1; });
           if (t > 2.8) { T(o, 'slab', '1 process · 7 modules', 'acc', 66); T(o, 'db', '1 database: loja', 'hi', 24); } } },
       { id: 'chamadas', dur: 7.5, title: 'Order 1047\'s checkout crosses the rooms',
-        story: 'Lena, in Recife, buys another plush cat for her brother: order 1047, 79.90 plus 15.00 shipping. The checkout goes through Cart, Orders, Payments, Stock and Shipping. Each hop is a function call inside the same process and takes about 0.01 ms.',
+        story: 'Lena, in Recife, buys another plush cat as a welcome gift for Téo: order 1047, 79.90 plus 15.00 shipping. The checkout goes through Cart, Orders, Payments, Stock and Shipping. Each hop is a function call inside the same process and takes about 0.01 ms.',
         look: 'The light leaves Cart and travels along the corridor between the rooms to Shipping; each hop carries the name of the function called.',
         key: 'In a monolith, one module talks to another through a function call: there is no network in between.',
         f(o, t) { o.cmdLab = 'calls in the same process'; o.msLab = 'MS IN LOCAL CALLS'; o.ms = 0;

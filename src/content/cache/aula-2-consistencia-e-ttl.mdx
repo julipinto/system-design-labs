@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p>Na aula passada a cópia do <code>produto:42</code> entrou no cache com o preço de 89.90. Só que o preço do gato de pelúcia pode mudar no banco, e o cache não fica sabendo. A Bia abre a página logo depois da mudança e vê 89.90, enquanto o banco já diz 79.90. Quem confere o preço do cache contra o do banco?</p>
+<p>Na aula passada a cópia do <code>produto:42</code> entrou no cache com o preço de 89.90. Só que o Téo vai baixar o preço do gato de pelúcia na promoção, e o cache não fica sabendo. A Bia abre a página logo depois da mudança e vê 89.90, enquanto o banco já diz 79.90. Quem confere o preço do cache contra o do banco?</p>
 
 <OneLiner>O cache pode estar desatualizado, e o TTL é o prazo que limita por quanto tempo; quando o dado não pode esperar o prazo, quem grava no banco também apaga a chave.</OneLiner>
 
@@ -28,7 +28,7 @@ import Figure3D from '../../components/Figure3D.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>Em <strong>t = 0 s</strong>, o primeiro pedido é um miss. O app lê o banco (89.90) e grava <code>produto:42</code> no cache com <strong>TTL de 60 s</strong>. O relógio da chave começa a contar.</li>
-  <li>Em <strong>t = 20 s</strong>, o dono da loja baixa o preço para <strong>79.90</strong>. A escrita vai para o banco, e o banco não avisa o cache.</li>
+  <li>Em <strong>t = 20 s</strong>, o Téo baixa o preço para <strong>79.90</strong>, na promoção. A escrita vai para o banco, e o banco não avisa o cache.</li>
   <li>Em <strong>t = 30 s</strong>, a Bia abre a página. O cache tem a chave, então é um hit, em 1 ms, com <strong>89.90</strong>. O banco já diz 79.90. Isso é <strong>dado velho</strong> (stale): o cache não quebrou, só ficou para trás.</li>
   <li>Em <strong>t = 60 s</strong>, o TTL vence e a chave some. O pedido seguinte é um miss, lê 79.90 no banco e grava de novo, com outros 60 s. O dado velho durou <strong>40 s</strong>, de t = 20 a t = 60.</li>
   <li>Se o dono tivesse mudado o preço em t = 1 s, o dado velho duraria 59 s. O <strong>pior caso é o TTL inteiro</strong>. Para ter zero segundo de dado velho, o app que grava o 79.90 no banco também manda <code>DEL produto:42</code>: o pedido seguinte já é miss e traz o preço novo.</li>

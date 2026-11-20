@@ -26,8 +26,8 @@ import Flashcards from '../../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>SLI: the measure.</strong> A <strong>good ÷ valid</strong> ratio over <code>POST /pedidos</code>. <strong>Good</strong> is a <code>2xx</code> response <strong>and</strong> with a duration of up to <strong>800 ms</strong>. <strong>Valid</strong> is everything except what the store did not choose: the customer's error (<code>422</code>), the <code>409</code> for "sold out" (module 11) and the <code>429</code> from the tenant's <em>rate limit</em> (module 25).</li>
-  <li><strong>SLO: the target.</strong> <strong>99.9% over 30 days</strong> (errors ≤ 0.1% and p95 ≤ 800 ms, the module 24 goals). It is an <strong>internal</strong> target, which the team uses to decide.</li>
-  <li><strong>SLA: the contract.</strong> With <code>mkt-01</code> the store signed <strong>99.5% per month</strong>: 216 min, or 3 h 36 min, of allowed failure. The SLA is <strong>less demanding</strong> than the SLO, and that is on purpose: the SLO is the contract's <strong>shield</strong>.</li>
+  <li><strong>SLO: the target.</strong> <strong>99.9% over 30 days</strong> (errors ≤ 0.1% and p95 ≤ 800 ms, the module 24 goals). It is an <strong>internal</strong> target, which Iara uses to decide.</li>
+  <li><strong>SLA: the contract.</strong> With <code>mkt-01</code> Téo signed, for the store, <strong>99.5% per month</strong>: 216 min, or 3 h 36 min, of allowed failure. The SLA is <strong>less demanding</strong> than the SLO, and that is on purpose: the SLO is the contract's <strong>shield</strong>.</li>
   <li><strong>The budget.</strong> What remains between the SLO and 100%: 0.1%. In 30 days, at 5 orders per second, that is 5 × 2,592,000 = <strong>12,960,000</strong> requests, and 0.1% is <strong>12,960 bad ones</strong> (or <strong>43.2 min</strong> of total downtime).</li>
   <li><strong>Never 100%.</strong> The article recommends: an SLA is written with nines, and never 100%. Each extra nine costs a lot, and a 100% target forbids any change.</li>
 </ol>

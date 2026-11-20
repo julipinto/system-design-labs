@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">In module 16 the store split <code>pedidos</code> into 3 shards, and Lena's order 1054 landed on <code>shard-1</code>. But each shard is <strong>a single server</strong>: if <code>shard-1</code> goes down, Lena and Bia have no orders, and if the disk burns the data goes with it (the RAID from module 2 protected the disk, not the server). The missing piece is to <strong>copy</strong> each shard somewhere else, and that copy has a name: replication.</p>
+<p class="ponte">In module 16 Iara split <code>pedidos</code> into 3 shards, and Lena's order 1054 landed on <code>shard-1</code>. It is 20:10 on Black Friday, and the price of that decision shows up right away: each shard is <strong>a single server</strong>. If <code>shard-1</code> goes down, Lena and Bia have no orders, and if the disk burns the data goes with it (the RAID from module 2 protected the disk, not the server). The missing piece is to <strong>copy</strong> each shard somewhere else, and that copy has a name: replication. It also has a cost that Lena is about to feel, when she buys order 1055.</p>
 
 <OneLiner>To replicate is to keep the <strong>same data in more than one place</strong> so the store stays up, reads close to the customer and survives a loss. The price is <strong>lag</strong> (the copy falls behind) and <strong>conflict</strong> (two copies change at the same time).</OneLiner>
 

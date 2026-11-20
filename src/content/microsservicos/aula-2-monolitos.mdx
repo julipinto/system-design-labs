@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>Na aula passada a loja era um programa só, e dois problemas apareciam. Antes de culpar o monolito, vale ver o que ele faz bem, porque a loja só chegou até aqui por causa disso: um deploy, um banco, um teste de ponta a ponta e uma consistência que vem de graça. Os defeitos aparecem quando o programa cresce, e cada um tem hora e número.</p>
+<p>Na aula passada a loja era um programa só, e dois problemas apareciam. Antes de culpar o monolito, a Iara quer ver o que ele faz bem, porque a loja só chegou até aqui por causa disso: um deploy, um banco, um teste de ponta a ponta e uma consistência que vem de graça. Os defeitos aparecem quando o programa cresce, e cada um tem hora e número.</p>
 
 <OneLiner>O monolito é o ponto de partida certo para quase todo produto; os defeitos são o vizinho barulhento (um módulo come o que é dos outros), o raio de explosão (um módulo derruba todos) e a escala que só sabe copiar tudo.</OneLiner>
 
@@ -28,7 +28,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>O que ele faz bem.</strong> Um deploy, um banco, um teste de ponta a ponta. Se o pagamento falha, o <code>ROLLBACK</code> devolve o estoque, sem ninguém programar isso. É por isso que o monolito é o começo certo de quase todo produto.</li>
-  <li><strong>Vizinho barulhento.</strong> Às <strong>23:00</strong> o módulo Relatórios roda o fechamento de caixa e usa <strong>7 dos 8 vCPU</strong> por 15 minutos. A página do gato vai de <strong>120 ms para 2,4 s</strong>, e o checkout da Lena passa do limite de <strong>2 s</strong> e dá timeout. Ninguém mexeu no checkout: ele só divide o servidor com um vizinho que pesa.</li>
+  <li><strong>Vizinho barulhento.</strong> Às <strong>23:00</strong> o módulo Relatórios, do Raí, roda o fechamento de caixa e usa <strong>7 dos 8 vCPU</strong> por 15 minutos. A página do gato vai de <strong>120 ms para 2,4 s</strong>, e o checkout da Lena passa do limite de <strong>2 s</strong> e dá timeout. Ninguém mexeu no checkout: ele só divide o servidor com um vizinho que pesa.</li>
   <li><strong>Raio de explosão.</strong> Um bug no cálculo de frete (módulo Entregas) estoura a memória e o <strong>processo cai</strong>. Como é um processo só, saem do ar a vitrine, o carrinho e o pagamento. Um módulo derrubou os sete.</li>
   <li><strong>Escala que só copia tudo.</strong> Na Black Friday a vitrine recebe <strong>10 vezes</strong> o tráfego. Para aguentar, a loja copia o programa inteiro: 10 cópias × 8 vCPU = <strong>80 vCPU</strong>. Relatórios e Pagamentos vão junto em cada cópia, sem precisar.</li>
   <li><strong>Deploy lento.</strong> Três times, um binário: o deploy leva <strong>40 minutos</strong>, e um time espera o outro (rebase, fila de deploy). Uma mudança de uma linha no Catálogo espera o frete do outro time ficar pronto.</li>

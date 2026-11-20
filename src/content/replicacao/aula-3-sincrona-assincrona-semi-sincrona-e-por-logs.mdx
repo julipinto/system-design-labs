@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">Na aula passada a loja escolheu um primário em SP e viu o que a queda dele custa: 35 s e, se a replicação for assíncrona, 9 ou 24 pedidos. Falta saber <strong>quando exatamente o primário diz "pronto"</strong> à Lena. Se for antes de a réplica ter o dado, o commit é rápido e a perda é possível. Se for depois, a perda some e o commit fica lento.</p>
+<p class="ponte">Na aula passada a Iara escolheu um primário em SP e viu o que a queda dele custa: 35 s e, se a replicação for assíncrona, 9 ou 24 pedidos. Falta saber <strong>quando exatamente o primário diz "pronto"</strong> à Lena. Se for antes de a réplica ter o dado, o commit é rápido e a perda é possível. Se for depois, a perda some e o commit fica lento.</p>
 
 <OneLiner>O momento em que o primário confirma o commit decide <strong>o que se perde e quanto se espera</strong>: <strong>assíncrona</strong> confirma em 2 ms e pode perder pedidos, <strong>semi-síncrona</strong> espera uma réplica (12 ms), <strong>síncrona</strong> espera todas (82 ms). Em todas, a réplica recebe o <strong>log</strong>, e não a linha.</OneLiner>
 

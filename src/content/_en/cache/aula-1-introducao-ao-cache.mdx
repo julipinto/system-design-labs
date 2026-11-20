@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p>Module 4 ended with the store well kept: the <code>pedidos</code> table in PostgreSQL, Lena's order 1042 in the right place, the index finding the row in two pages. Lesson 15 left one phrase hanging, "read-heavy workloads call for a cache", and now it has a face. The plush cat page (product 42) got slow because everyone opens it: Lena in Recife, Bia, Caio and Davi, plus thousands more. Every visit makes the database read the same row, which hasn't changed since yesterday, in 40 ms.</p>
+<p>May 2026. Iara left the store well kept: the <code>pedidos</code> table in PostgreSQL, Lena's order 1042 in the right place, the index finding the row in two pages. Then an influencer posts the plush cat. The phrase left hanging in lesson 15, "read-heavy workloads call for a cache", gets a face. The cat page (product 42) gets slow because everyone opens it: Lena in Recife, Bia, Caio and Davi, plus thousands more. Every visit makes the database read the same row, which hasn't changed since yesterday, in 40 ms.</p>
 
 <OneLiner>A cache is a copy of the data kept somewhere faster or closer to whoever asks; it pays off when the data is read a lot and changed little.</OneLiner>
 

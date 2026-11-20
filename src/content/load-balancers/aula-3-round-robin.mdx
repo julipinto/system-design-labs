@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p>Na aula passada ficou a pergunta de como o <code>lb-loja</code> escolhe entre três réplicas. A resposta mais simples é não escolher: dar um pedido para cada uma, em volta. É o <strong>round robin</strong>. Vamos soltar nele a mesma fila de 9 pedidos que vai atravessar as próximas cinco aulas.</p>
+<p>Na aula passada ficou a pergunta de como o <code>lb-loja</code> escolhe entre três réplicas. A resposta mais simples é não escolher: dar um pedido para cada uma, em volta. É o <strong>round robin</strong>, e é o que a Bruna escolhe "porque é o padrão". Vamos soltar nele a mesma fila de 9 pedidos que vai atravessar as próximas cinco aulas.</p>
 
 <OneLiner>Round robin entrega cada pedido para a próxima réplica da lista, em círculo, sem olhar quanto trabalho o pedido dá nem como a réplica está; é justo na contagem e cego no trabalho.</OneLiner>
 
@@ -27,7 +27,7 @@ import Figure3D from '../../components/Figure3D.astro';
 <ol class="flow steps">
   <li><strong>A fila.</strong> Chegam 9 pedidos, nesta ordem: P1 Lena (gato) · P2 Bia (busca) · P3 Caio (gato) · P4 Davi (gato) · P5 Lena (busca) · P6 Bia (gato) · P7 Caio (gato) · P8 Davi (busca) · P9 Lena (gato). O <strong>gato</strong> é <code>GET /produtos/42</code> e leva <strong>20 ms</strong>. A <strong>busca</strong> é <code>GET /busca?q=pelucia&amp;ordem=preco</code> e leva <strong>900 ms</strong>.</li>
   <li><strong>O rodízio.</strong> O balanceador guarda só um número, o índice da próxima réplica, e o avança a cada pedido: 1, 2, 3, 1, 2, 3, 1, 2, 3. Cada réplica recebe 3 pedidos. A conta parece justa.</li>
-  <li><strong>O problema.</strong> As três buscas (P2, P5 e P8) caíram todas no <code>catalogo-2</code>: ela tem <strong>2,7 s</strong> de trabalho (3 × 900 ms), enquanto a 1 e a 3 têm <strong>60 ms</strong> cada (3 × 20 ms). O round robin contou pedidos e não olhou o que cada um custava.</li>
+  <li><strong>O problema.</strong> Esse foi o preço da escolha da Bruna: as três buscas (P2, P5 e P8) caíram todas no <code>catalogo-2</code>: ela tem <strong>2,7 s</strong> de trabalho (3 × 900 ms), enquanto a 1 e a 3 têm <strong>60 ms</strong> cada (3 × 20 ms). O round robin contou pedidos e não olhou o que cada um custava.</li>
   <li><strong>Com quantum.</strong> O código Go do artigo troca de réplica só depois de um tempo, o <em>quantum</em>: com 300 ms de quantum e um pedido a cada 200 ms, cada réplica recebe <strong>2 pedidos seguidos</strong>. Se vier um pico dentro do quantum, ele inteiro cai numa réplica só.</li>
   <li><strong>Com peso.</strong> Se o <code>catalogo-3</code> tem o dobro de CPU, ele ganha <strong>peso 2</strong> e entra duas vezes por volta: 1, 2, 3, 3. É o round robin ponderado, e ele cuida da diferença entre as máquinas, não da diferença entre os pedidos.</li>
 </ol>

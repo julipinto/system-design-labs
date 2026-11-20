@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">No fim do módulo 22 a loja já sabia <strong>publicar</strong> sem derrubar a si mesma: rolling, blue/green, canary, shadow, flags e anéis. Só que toda primavera o comercial faz uma pergunta que nenhum deploy responde: <strong>"a Black Friday do ano que vem aguenta?"</strong> Ninguém calculou. A de 2026 foi medida no módulo 14; a de 2027 (sexta, <strong>26/11/2027</strong>) ainda é uma incógnita.</p>
+<p class="ponte">No fim do módulo 22 a loja já sabia <strong>publicar</strong> sem derrubar a si mesma: rolling, blue/green, canary, shadow, flags e anéis. Em 2027 a Marta pede o plano da Black Friday, e o Téo, sem esperar a conta, já prometeu 200 pedidos por segundo ao comercial. É uma pergunta que nenhum deploy responde: <strong>"a Black Friday do ano que vem aguenta?"</strong> A de 2026 foi medida no módulo 14; a de 2027 (sexta, <strong>26/11/2027</strong>) ainda é uma incógnita. A Iara decide medir antes de prometer.</p>
 
 <OneLiner><strong>Capacity planning</strong> não prevê o futuro. Ele <strong>transforma o que foi medido em limites e em um plano</strong>, antes do incidente: quanto cada serviço precisa ter, em que ordem os elos quebram, quanto custa e o que ainda não se sabe.</OneLiner>
 
@@ -95,7 +95,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <Deep min={3}>
   <h4 class="deep-h">O que o artigo-base deixa de fora</h4>
   <ul>
-    <li><strong>O custo da meta.</strong> A diferença entre a tendência e a meta do comercial é uma decisão de negócio, com preço em vCPU. Planejar só pela tendência esconde a conta.</li>
+    <li><strong>O custo da meta.</strong> A diferença entre a tendência e a meta do comercial é uma decisão do Téo e da Marta, com preço em vCPU. Planejar só pela tendência esconde a conta.</li>
     <li><strong>O gatilho de reavaliação.</strong> Um plano sem a regra "se a demanda passar de X, refaça a conta" envelhece em silêncio (aula 9).</li>
     <li><strong>O congelamento e a pré-escala.</strong> O plano inclui parar mudanças antes do evento e subir réplicas antes da newsletter (aula 9).</li>
     <li><strong>Capacidade nominal × operacional.</strong> O módulo 24 mede a segunda; este módulo calcula a primeira.</li>

@@ -24,7 +24,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A loja quer o melhor para o pedidos.db: <strong>4 discos de 1 TB</strong>.</li>
+  <li>A Iara quer o melhor para o pedidos.db: <strong>4 discos de 1 TB</strong>.</li>
   <li>Eles formam <strong>2 pares espelhados</strong> (RAID 1): D1+D2 e D3+D4. Cada par é um "disco" inteiro.</li>
   <li>Os blocos são fatiados (RAID 0) entre os 2 pares: A1 vai para o par 1 e é copiado nos dois discos dele, A2 vai para o par 2, também copiado. A leitura chega a ~4x e a escrita a ~2x.</li>
   <li>Quando o D2 queima, o D1 tem A1 e A3, e os outros pares nem notam. O rebuild só <strong>copia o D1</strong> para o disco novo, sem conta nenhuma: é rápido e leve.</li>

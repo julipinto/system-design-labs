@@ -535,7 +535,7 @@ FIGS3D.push({ id: 'cubo', name: 'Scale Cube', mod: (() => {
           SLOT(o, 2, 0, 'serviço 270/s · bancos 450/s\nsaída 200 de 200 (100%)');
           o.coord = [3, 1, 3]; o.npods = 9; o.vcpu = 9; o.extra = 'saída 200 de 200/s (100%)'; o.cmd = ['min(9 × 30, 3 × 150) ≥ 200', '200 de 200 = 100%', 'cada banco: 66,7 ÷ 150 = 44%']; } },
       { id: 'erro', dur: 8, title: 'E se der errado: o mkt-01 esquenta o shard-2',
-        story: "O marketplace mkt-01, parceiro do módulo 8, tem 40% dos pedidos, e murmur3('mkt-01') mod 3 = 2: ele cai no shard-2. Com a parte dos outros clientes, o shard-2 recebe 60% dos pedidos: 120 dos 200 pedidos/s, 80% do banco, no joelho do módulo 14; os outros dois recebem 40/s cada. Com 250 pedidos/s no total, o shard-2 chega aos 150/s do teto, e o sistema aproveita 250 dos 450 nominais: 55,6%.",
+        story: "O MegaMercado (mkt-01), parceiro do módulo 8, tem 40% dos pedidos, e murmur3('mkt-01') mod 3 = 2: ele cai no shard-2. Com a parte dos outros clientes, o shard-2 recebe 60% dos pedidos: 120 dos 200 pedidos/s, 80% do banco, no joelho do módulo 14; os outros dois recebem 40/s cada. Com 250 pedidos/s no total, o shard-2 chega aos 150/s do teto, e o sistema aproveita 250 dos 450 nominais: 55,6%.",
         look: 'O banco do shard-2 acende em vermelho com 120 de 150; os outros dois ficam em 40.',
         key: 'O Z resolve os 200/s, mas uma chave quente esquenta um shard só.',
         f(o, t) { ghostAll(o, [2]); shards(o, ['soft', 'soft', 'bad']);

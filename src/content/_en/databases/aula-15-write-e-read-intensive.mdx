@@ -24,7 +24,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Transactional.</strong> Lena pays for the plush cat: the order is written and the stock goes down, all or nothing. It calls for atomicity, ACID and an immediate read of the last write. The choice is a relational database with a <strong>B-Tree</strong> on keys and secondary indexes. The more replicas confirm the commit, the higher the latency. Vertical scaling, or NewSQL with consensus.</li>
+  <li><strong>Transactional.</strong> Lena pays for the plush cat: the order is written and the stock goes down, all or nothing. It calls for atomicity, ACID and an immediate read of the last write. The choice is a relational database with a <strong>B-Tree</strong> on keys and secondary indexes: it was Iara's decision for the orders, PostgreSQL. The more replicas confirm the commit, the higher the latency. Vertical scaling, or NewSQL with consensus.</li>
   <li><strong>Write-intensive.</strong> Millions of events per second arrive (clicks, logs, sensors), and none can be lost. The choice is NoSQL with <strong>LSM</strong> (Cassandra, ScyllaDB) and asynchronous replication. You accept eventual consistency and replicas that lag for a while.</li>
   <li><strong>Read-intensive.</strong> The catalog and the order list are read a thousand times more than they are written. The choice is a consistent primary database with <strong>read replicas</strong> and a <strong>cache</strong> layer (Redis, Memcached), which are in-memory key-value stores.</li>
   <li>When the screens need a different format from what the transactional database stores, you use <strong>CQRS</strong>: the transactional database writes the orders and a copy, in a model built for reading (documents, or columnar for the reports), feeds the screens. The source of truth stays protected from read spikes.</li>
@@ -65,7 +65,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>The store now knows which database to use for each question, but a single server has limits of disk, memory and failures. What is left is to see how to split the data across several servers (sharding) and how to copy it (replication) without losing the consistency promise each database chose.</p>
+<p>Iara now knows which database to use for each question, and the price of the choice is that the orders' PostgreSQL is still a single server, with limits of disk, memory and failures. Lena finds order 1042 in an instant, but the cat page is another story. What is left is what happens to it when everyone opens it at once.</p>
 
 <Flashcards cards={[
   { q: "What does a transactional scenario call for?",

@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p class="ponte">O módulo 7 terminou com o <code>lb-loja</code> distribuindo o catálogo entre as réplicas e roteando por caminho em L7. Só que a loja abriu duas portas novas: um app de celular, que a Lena usa em Recife, e uma API para parceiros, o <code>marketplace-xyz</code>, que revende o gato de pelúcia. Quem bate na loja agora é gente que a loja não controla, e cada serviço do módulo 6 continua atendendo do seu jeito: o <code>catalogo</code> aceita qualquer um, o <code>pedidos</code> confere um token e o <code>pagamentos</code> confere outro. Para o parceiro, são seis URLs e três jeitos de provar quem é.</p>
+<p class="ponte">O módulo 7 terminou com o <code>lb-loja</code> distribuindo o catálogo entre as réplicas e roteando por caminho em L7. Só que em agosto a loja abriu duas portas novas: o Téo fechou com o MegaMercado, um marketplace grande que revende o gato de pelúcia (nas aulas ele aparece como <code>marketplace-xyz</code>), e a Bruna lançou o app de celular, que a Lena usa em Recife. Quem bate na loja agora é gente que a loja não controla, e cada serviço do módulo 6 continua atendendo do seu jeito: o <code>catalogo</code> aceita qualquer um, o <code>pedidos</code> confere um token e o <code>pagamentos</code> confere outro. Para o parceiro, são seis URLs e três jeitos de provar quem é. A Iara decide pôr uma porta única na frente.</p>
 
 <OneLiner>Um API Gateway é a porta única da loja: todo pedido de fora entra por <code>api.loja.com.br</code>, e as regras que valem para todos (rota, identidade, limite, versão) são aplicadas ali, uma vez.</OneLiner>
 

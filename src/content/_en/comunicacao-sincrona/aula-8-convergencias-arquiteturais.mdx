@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p class="ponte">In the last lesson GraphQL closed the list of ways for the <code>pedidos</code> and the screens to talk, and none of them beat all the others. REST is easy to understand and expensive in bytes, gRPC is lean and asks for a contract, WebSocket pushes and holds a connection, GraphQL lets the client choose and demands defenses. What is left is deciding where each one goes in Davi's order, from the app to the PSP.</p>
+<p class="ponte">In the last lesson GraphQL closed the list of ways for the <code>pedidos</code> and the screens to talk, and none of them beat all the others. REST is easy to understand and expensive in bytes, gRPC is lean and asks for a contract, WebSocket pushes and holds a connection, GraphQL lets the client choose and demands defenses. What is left is deciding where each one goes in Davi's order, from the app to the PSP, and Júlio is the one who decides.</p>
 
 <OneLiner>Each protocol pays off where its own problem shows up: REST at the outside door, gRPC between services, WebSocket where the server needs to push, webhook with third parties and GraphQL when the client needs different shapes of the same data.</OneLiner>
 
@@ -78,7 +78,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p class="gancho">What is left is what did not fit in any call. Every call in this module waits for someone, and the <code>PedidoPago</code> of order 1050 has to reach the <code>estoque</code>, the <code>entregas</code> and the <code>notificacoes</code>. Making three calls in a row makes Davi's payment three answers slower and, if the <code>entregas</code> is down, the failure comes back to him. How do you notify all three without waiting for any, and without losing the notice if one of them is down? That is the question of module 13, Asynchronous Communication.</p>
+<p class="gancho">Júlio ended up with gRPC inside and a webhook outside, and the price was the fake webhook and the polling that saturates. What is left is what did not fit in any call. Every call in this module waits for someone, and the <code>PedidoPago</code> of order 1050 has to reach the <code>estoque</code>, the <code>entregas</code> and the <code>notificacoes</code>. Making three calls in a row makes Davi's payment three answers slower and, if the <code>entregas</code> is down, the failure comes back to him. How do you notify all three without waiting for any, and without losing the notice if one of them is down? That is the question of module 13, Asynchronous Communication.</p>
 
 <Flashcards cards={[
   { q: "Which protocol does the store use outside, and which inside?",

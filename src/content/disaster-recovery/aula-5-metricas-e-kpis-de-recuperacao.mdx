@@ -87,7 +87,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p>O estrago continua depois do pedido. A Bia pagou o Pix <code>c-7733</code> às <strong>20:40:20</strong>. O Davi, cinco segundos depois de o mapa virar, criou um pedido na <code>celula-sp@rio</code> às 20:41:10: duas canecas azuis (39,80) e o frete de SP (9,00), <strong>R$ 48,80</strong>, Pix <code>c-7734</code>. A sequência do Rio parou em 1060, então o número foi <strong>1061, de novo</strong>. Quando o PSP reenviou o webhook de <code>c-7733</code> (com <em>backoff</em>, módulo 12), ele chegou ao Rio às <strong>20:41:25</strong> e a loja achou um 1061 diferente: o <code>cobranca_id</code> não bate, e a mensagem vai para a <strong>quarentena</strong> (a DLQ do módulo 13).</p>
 
-<p>Há três saídas:</p>
+<p>No dia seguinte a Iara liga para a Bia e conta o que houve com o pedido dela. Há três saídas para ele:</p>
 
 <ol class="flow steps">
   <li><strong>O disco de SP volta.</strong> Neste exemplo, às 23:40, três horas depois: o 1061 da Bia é <strong>recuperado e renumerado para 1062</strong> (o 1061 fica com o Davi).</li>
@@ -125,7 +125,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">O MTTD de 30 s só existiu porque alguém tinha posto sondas para medir. Antes delas, o defeito do frete do módulo 22 levou <strong>60 min</strong> para ser notado. Falta saber como <strong>ver</strong>, em 30 s, o que está acontecendo dentro da loja, e por quê, pedido por pedido. É o módulo 28, Observabilidade e Monitoramento.</p>
+<p class="gancho">O MTTD de 30 s só existiu porque alguém tinha posto sondas para medir. Antes delas, o defeito do frete do módulo 22 levou <strong>60 min</strong> para ser notado. Falta saber como <strong>ver</strong>, em 30 s, o que está acontecendo dentro da loja, e por quê, pedido por pedido, antes que a Lena, uma semana depois, receba uma caneca em dobro com todos os painéis verdes. É o módulo 28, Observabilidade e Monitoramento.</p>
 
 <Flashcards cards={[
   { q: "Quais são as medidas e quais são os objetivos?",

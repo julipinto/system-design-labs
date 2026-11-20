@@ -317,7 +317,7 @@ FIGS3D.push({ id: 'cel', name: 'Cell-Based', mod: (() => {
           o.res = [[hit ? '2,880 from the partner only' : 'the router reads the JWT', hit ? 'bad' : 'dim']]; } },
       { id: 'lena', dur: 6, title: 'Order 1060: Lena buys at 20:25', yk: 'ORDER 1060 · celula-recife',
         code: ['2 plush cats: 79.90 × 2 = 159.80', 'Recife shipping: 15.00', 'total: 174.80 → 201', 'cat in the network: 19 → 17', 'celula-recife allocation: 2 → 0', 'local commit: 2 ms (without the 80 ms to SP)'],
-        story: 'At the same time as the poison, <b>20:25:00.000</b>, Lena buys in <code>celula-recife</code>: <b>2 plush cats</b> (159.80, a gift for her two nieces) and Recife shipping of 15.00. Total <b>174.80</b>, response <code>201</code>: <b>order 1060</b>. Since her cell lives in Recife, the commit is local, <b>2 ms</b>, without crossing the country to SP.',
+        story: 'At the same time as the poison, <b>20:25:00.000</b>, Lena buys in <code>celula-recife</code>: <b>2 plush cats</b> (159.80, a gift for her classroom) and Recife shipping of 15.00. Total <b>174.80</b>, response <code>201</code>: <b>order 1060</b>. Since her cell lives in Recife, the commit is local, <b>2 ms</b>, without crossing the country to SP.',
         look: 'Lena\'s token enters through the celula-recife door and goes to the database; next to it, celula-mkt stays dark.',
         key: 'While the partner goes down, Lena buys without noticing anything.',
         f(o, t) { cells(o, { st: c => c.id === 'mkt' ? 'bad' : 1, flow: false, rows: c => c.id === 'rec' && t > 3 ? ['1060 · 174.80 · 201', 'acc'] : c.id === 'mkt' ? ['503 for the partner only', 'bad'] : [`${c.rate} orders/s · ${c.reg}`, 'dim'] });

@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">Last lesson the store chose a primary in SP and saw what losing it costs: 35 s and, if replication is asynchronous, 9 or 24 orders. What is left is <strong>exactly when the primary says "done"</strong> to Lena. If it is before the replica has the data, the commit is fast and a loss is possible. If it is after, the loss goes away and the commit gets slow.</p>
+<p class="ponte">Last lesson Iara chose a primary in SP and saw what losing it costs: 35 s and, if replication is asynchronous, 9 or 24 orders. What is left is <strong>exactly when the primary says "done"</strong> to Lena. If it is before the replica has the data, the commit is fast and a loss is possible. If it is after, the loss goes away and the commit gets slow.</p>
 
 <OneLiner>The moment the primary confirms the commit decides <strong>what is lost and how long you wait</strong>: <strong>asynchronous</strong> confirms in 2 ms and can lose orders, <strong>semi-synchronous</strong> waits for one replica (12 ms), <strong>synchronous</strong> waits for all of them (82 ms). In all of them, the replica receives the <strong>log</strong>, not the row.</OneLiner>
 

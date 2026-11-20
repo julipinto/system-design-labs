@@ -94,7 +94,7 @@ import murmurMod from '../../lab-code/sharding/murmur-go.mod?raw';
   ]} />
 </Deep>
 
-<p class="gancho">A loja agora parte os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena cai no <code>shard-1</code>. Só que cada shard é <strong>um servidor só</strong>: se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e o sharding não copia nada. Falta saber como <strong>copiar cada shard</strong>: primário em SP, réplicas no Rio e em Recife. É o módulo 17, Replicação de Dados.</p>
+<p class="gancho">A loja agora parte os <code>pedidos</code> em 3 shards, e o pedido 1054 da Lena cai no <code>shard-1</code>. O preço da decisão da Iara é que cada shard é <strong>um servidor só</strong>: se o <code>shard-1</code> cair, a Lena e a Bia ficam sem pedidos, e o sharding não copia nada. Falta saber como <strong>copiar cada shard</strong>: primário em SP, réplicas no Rio e em Recife, e o que a Lena vê quando a cópia de Recife está atrasada. É o módulo 17, Replicação de Dados.</p>
 
 <Flashcards cards={[
   { q: "Quais programas do autor rodam sem go.mod?",

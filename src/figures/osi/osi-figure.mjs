@@ -1,4 +1,4 @@
-// Figura OSI: duas torres de 7 andares (o celular da Lena em São Paulo e o do irmão em Tóquio),
+// Figura OSI: duas torres de 7 andares (o celular da Lena em Recife e o do Téo em Tóquio),
 // cada uma com um monta-carga na frente. Descendo, cada andar põe um envelope em volta da foto
 // (a carga vira uma pirâmide de degraus = encapsulamento). Embaixo vira bits num cabo com 3 roteadores.
 // Subindo do outro lado, cada andar tira o seu envelope.
@@ -345,7 +345,7 @@ function hits() {
 
 // ---------- roteiro ----------
 export const STAGES = [
-  { side: "sp", L: 7, name: "Envio", pdu: "dados", title: "Lena toca em enviar", body: "A foto do gato tem 7,68 MB e por enquanto é só dado dentro do app, no topo da pilha. Ela vai descer os 7 andares do celular da Lena, cruzar o planeta e subir os 7 andares do celular do irmão, em Tóquio.", protos: [] },
+  { side: "sp", L: 7, name: "Envio", pdu: "dados", title: "Lena toca em enviar", body: "A foto do gato tem 7,68 MB e por enquanto é só dado dentro do app, no topo da pilha. Ela vai descer os 7 andares do celular da Lena, cruzar o planeta e subir os 7 andares do celular do Téo, em Tóquio.", protos: [] },
   { side: "sp", L: 7, name: "Aplicação", pdu: "dados", title: "7 · Aplicação: o app pede para enviar", body: "O app monta uma requisição HTTP (método, URL, headers). Antes disso usou o DNS para descobrir o IP do destino. É a camada que o software enxerga.", protos: ["HTTP", "DNS", "gRPC", "WebSocket", "SSH"] },
   { side: "sp", L: 6, name: "Apresentação", pdu: "dados", title: "6 · Apresentação: comprime e cifra", body: "Formato, compressão e criptografia. A foto é comprimida (7,68 MB → 313 KB) e cifrada com TLS. Por isso o bloco do meio encolhe.", protos: ["TLS", "JPEG", "PNG", "UTF-8"] },
   { side: "sp", L: 5, name: "Sessão", pdu: "dados", title: "5 · Sessão: abre a conversa", body: "Abre, mantém e encerra a conversa entre os dois apps. Se a conexão cair no meio, é aqui que se sabe de onde retomar.", protos: ["sessão TLS", "RPC", "sockets"] },
@@ -354,7 +354,7 @@ export const STAGES = [
   { side: "sp", L: 2, name: "Enlace", pdu: "quadro", title: "2 · Enlace: o MAC do próximo salto", body: "Para sair de casa, o pacote precisa chegar primeiro ao roteador do Wi-Fi. Ganha o endereço MAC desse próximo salto e um trailer (FCS) que detecta bits corrompidos. Esse endereço só vale até o próximo salto.", protos: ["Wi-Fi 802.11", "Ethernet", "ARP"] },
   { side: "sp", L: 1, name: "Física", pdu: "bits", title: "1 · Física: vira sinal", body: "O quadro vira sinal: ondas de rádio no Wi-Fi, pulsos elétricos no cobre, luz na fibra que cruza o oceano. Aqui não tem envelope, só bits.", protos: ["rádio", "cobre", "fibra óptica"] },
   { side: "x", L: 3, name: "Roteadores", pdu: "bits → pacote → bits", title: "Salto a salto até Tóquio", body: "Cada roteador sobe só até a camada 3: abre o quadro, lê o IP de destino, escolhe o próximo salto e monta um quadro novo, com um MAC novo. O IP de destino não muda no caminho; o MAC muda a cada salto.", protos: ["roteamento", "BGP", "TTL"] },
-  { side: "tk", L: 1, name: "Física", pdu: "bits", title: "1 · Física: o sinal chega", body: "A luz da fibra vira sinal elétrico e depois rádio, e o celular do irmão reconstrói os bits do quadro. A volta é a mesma escada, de baixo para cima.", protos: ["fibra óptica", "rádio"] },
+  { side: "tk", L: 1, name: "Física", pdu: "bits", title: "1 · Física: o sinal chega", body: "A luz da fibra vira sinal elétrico e depois rádio, e o celular do Téo reconstrói os bits do quadro. A volta é a mesma escada, de baixo para cima.", protos: ["fibra óptica", "rádio"] },
   { side: "tk", L: 2, name: "Enlace", pdu: "quadro", title: "2 · Enlace: confere e tira o quadro", body: "Confere o FCS (se veio corrompido, descarta) e vê que o MAC de destino é o dele. Tira o envelope do enlace e entrega o pacote para cima.", protos: ["Wi-Fi 802.11", "Ethernet"] },
   { side: "tk", L: 3, name: "Rede", pdu: "pacote", title: "3 · Rede: o IP é meu", body: "O IP de destino é o dele. Tira o cabeçalho IP e entrega o segmento para o transporte.", protos: ["IPv4", "IPv6"] },
   { side: "tk", L: 4, name: "Transporte", pdu: "segmento", title: "4 · Transporte: põe em ordem e confirma", body: "O TCP coloca os 215 segmentos em ordem, pede de novo os que faltaram e confirma com ACKs. Pela porta de destino sabe para qual app entregar.", protos: ["TCP", "ACK"] },
@@ -374,13 +374,13 @@ const LOOKS = [
   "Andar 2: entra o degrau mais largo, o quadro de enlace. A pirâmide está completa, com 6 envelopes em volta da foto.",
   "Andar 1: a pirâmide some do elevador, porque daqui em diante ela é só sinal. A luz da caixinha na base da torre acende.",
   "Os pontos brancos correndo no cabo são os bits. Cada roteador acende quando eles passam: ali o quadro é aberto até o IP e refeito.",
-  "Torre da direita (irmão), andar 1: a pirâmide inteira reaparece no elevador, reconstruída a partir dos bits.",
+  "Torre da direita (Téo), andar 1: a pirâmide inteira reaparece no elevador, reconstruída a partir dos bits.",
   "Andar 2: sai o degrau mais largo, o do enlace.",
   "Andar 3: sai o degrau do IP.",
   "Andar 4: sai o degrau do TCP.",
   "Andar 5: sai o degrau da sessão.",
   "Andar 6: sai o degrau do TLS e o bloco branco volta ao tamanho original.",
-  "Andar 7: sai o último degrau, o HTTP. Sobra só a foto, e a tela do celular do irmão acende.",
+  "Andar 7: sai o último degrau, o HTTP. Sobra só a foto, e a tela do celular do Téo acende.",
 ];
 STAGES.forEach((st, i) => { st.tag = TAGS[i]; st.look = LOOKS[i]; });
 
@@ -433,7 +433,7 @@ export function buildOsiFigure() {
     width: WIDTH,
     height: HEIGHT,
     label:
-      "Duas estantes de sete andares representam o celular da Lena e o do irmão. Um monta-carga desce a foto pelos andares 7 a 1 da primeira estante, e cada andar coloca um envelope em volta dela até a carga virar uma pirâmide de degraus. Embaixo ela vira bits num cabo que passa por três roteadores, e na segunda estante sobe do andar 1 ao 7 perdendo um envelope por andar.",
+      "Duas estantes de sete andares representam o celular da Lena e o do Téo. Um monta-carga desce a foto pelos andares 7 a 1 da primeira estante, e cada andar coloca um envelope em volta dela até a carga virar uma pirâmide de degraus. Embaixo ela vira bits num cabo que passa por três roteadores, e na segunda estante sobe do andar 1 ao 7 perdendo um envelope por andar.",
     body: order,
   });
 
@@ -457,7 +457,7 @@ export function buildOsiFigure() {
       { mark: "dotted", label: "Bits no cabo, salto a salto pelos roteadores" },
     ],
     caption: "",
-    body: `<div class="iso-stage osi-stage" tabindex="0" role="group" aria-roledescription="figura interativa" aria-label="Modelo OSI: use as setas para avançar e voltar os passos"><div class="osi-canvas">${svg}<div class="osi-overlay" aria-hidden="true">${floorLabels}<span class="osi-tower-name" data-tname="sp" style="left:${pct(at([TOWERS.sp, -40, TOP + 30]))[0]}%;top:${pct(at([TOWERS.sp, -40, TOP + 30]))[1]}%">Lena · São Paulo</span><span class="osi-tower-name" data-tname="tk" style="left:${pct(at([TOWERS.tk, -40, TOP + 30]))[0]}%;top:${pct(at([TOWERS.tk, -40, TOP + 30]))[1]}%">Irmão · Tóquio</span><span class="osi-callout" data-callout><b class="osi-callout-floor" data-callout-floor></b><span data-callout-text></span></span></div></div></div>`,
+    body: `<div class="iso-stage osi-stage" tabindex="0" role="group" aria-roledescription="figura interativa" aria-label="Modelo OSI: use as setas para avançar e voltar os passos"><div class="osi-canvas">${svg}<div class="osi-overlay" aria-hidden="true">${floorLabels}<span class="osi-tower-name" data-tname="sp" style="left:${pct(at([TOWERS.sp, -40, TOP + 30]))[0]}%;top:${pct(at([TOWERS.sp, -40, TOP + 30]))[1]}%">Lena · Recife</span><span class="osi-tower-name" data-tname="tk" style="left:${pct(at([TOWERS.tk, -40, TOP + 30]))[0]}%;top:${pct(at([TOWERS.tk, -40, TOP + 30]))[1]}%">Téo · Tóquio</span><span class="osi-callout" data-callout><b class="osi-callout-floor" data-callout-floor></b><span data-callout-text></span></span></div></div></div>`,
   });
 
 
@@ -470,7 +470,7 @@ export function buildOsiFigure() {
   </div>
   <div class="osi-grid">
     <section class="osi-panel" aria-live="polite">
-      <div class="osi-panel-head"><span data-where>São Paulo · celular da Lena</span><span data-pdu>PDU: dados</span></div>
+      <div class="osi-panel-head"><span data-where>Recife · celular da Lena</span><span data-pdu>PDU: dados</span></div>
       <h3 data-title>${STAGES[0].title}</h3>
       <p class="osi-look"><span class="osi-eye">No desenho</span><span data-look>${STAGES[0].look}</span></p>
       <p data-body>${STAGES[0].body}</p>
@@ -482,7 +482,7 @@ export function buildOsiFigure() {
     </section>
   </div>
   <div class="osi-extra">
-    <div class="osi-strip" role="toolbar" aria-label="Ir para um passo"><span class="osi-strip-label">Lena ↓</span>${stageStrip.replace('data-go="9"', 'data-go="9" data-break').replace(/(<button[^>]*data-go="9"[^>]*>)/, '<span class="osi-strip-label">Irmão ↑</span>$1')}</div>
+    <div class="osi-strip" role="toolbar" aria-label="Ir para um passo"><span class="osi-strip-label">Lena ↓</span>${stageStrip.replace('data-go="9"', 'data-go="9" data-break').replace(/(<button[^>]*data-go="9"[^>]*>)/, '<span class="osi-strip-label">Téo ↑</span>$1')}</div>
     <div class="osi-tools">
       <button type="button" class="osi-btn" data-act="play" aria-pressed="false">▶ Tocar sozinho</button>
       <label class="osi-fault">Simular falha em
@@ -662,7 +662,7 @@ function setLamps() {
 
 function describe() {
   const st = STAGES[s];
-  const where = st.side === "sp" ? "São Paulo · celular da Lena" : st.side === "tk" ? "Tóquio · celular do irmão" : "No caminho · roteadores e fibra";
+  const where = st.side === "sp" ? "Recife · celular da Lena" : st.side === "tk" ? "Tóquio · celular do Téo" : "No caminho · roteadores e fibra";
   let title = st.title, body = st.body, protos = st.protos;
   panel.classList.toggle("is-bad", halted);
   root.classList.toggle("is-fault", halted);
@@ -690,7 +690,7 @@ function describe() {
     el.classList.toggle("is-tower", tower);
     el.classList.toggle("is-here", tower && +fl === st.L && s !== 8);
   }
-  const who = st.side === "sp" ? "Lena" : st.side === "tk" ? "Irmão" : "Caminho";
+  const who = st.side === "sp" ? "Lena" : st.side === "tk" ? "Téo" : "Caminho";
   const text = halted ? "Falha · camada " + (fault >= 5 ? "5–7" : fault) : "Passo " + (s + 1) + " de " + STAGES.length + " · " + (s === 0 ? "início" : s === 8 ? "roteadores" : who + " · " + st.L + " " + st.name);
   readout.textContent = text;
   chips.forEach((c, i) => { c.classList.toggle("is-seen", seen.has(i)); c.classList.toggle("is-here", i === s); c.classList.toggle("is-bad", halted && i === s); c.setAttribute("aria-current", i === s ? "step" : "false"); });

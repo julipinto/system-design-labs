@@ -15,7 +15,7 @@ import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import replicacaoLab from '../../lab-code/replicacao/replicacao-lab.sh?raw';
 
-<p class="ponte">Na aula passada a loja decidiu ter o banco do <code>pedidos</code> em SP, no Rio e em Recife. Falta decidir <strong>quem recebe as escritas</strong>. Se só um site escreve, o desenho é simples e esse site é o ponto único de falha. Se todos escrevem, nenhum é ponto único, mas dois sites podem mudar o mesmo dado ao mesmo tempo.</p>
+<p class="ponte">Na aula passada a Iara decidiu ter o banco do <code>pedidos</code> em SP, no Rio e em Recife. Falta decidir <strong>quem recebe as escritas</strong>. Se só um site escreve, o desenho é simples e esse site é o ponto único de falha. Se todos escrevem, nenhum é ponto único, mas dois sites podem mudar o mesmo dado ao mesmo tempo.</p>
 
 <OneLiner>Com <strong>um escritor</strong> (Primary/Replica) tudo é simples e o primário é o ponto de falha até alguém ser eleito. Com <strong>vários escritores</strong> (Primary/Primary) não há ponto único, e os escritores <strong>brigam</strong>: ids repetidos, o mesmo registro escrito por dois e o estoque que desce abaixo de zero.</OneLiner>
 

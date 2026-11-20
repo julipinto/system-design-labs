@@ -12,7 +12,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">Cada aula deixou uma conta de RTTs: um para o TCP, um ou dois para o TLS, o DNS antes de tudo e as esperas do HTTP. Agora a conta fecha: quanto tempo a página da loja leva para a Lena, e onde cortar?</p>
+<p class="ponte">Cada aula deixou uma conta de RTTs: um para o TCP, um ou dois para o TLS, o DNS antes de tudo e as esperas do HTTP. O Téo publicou a página "do jeito que deu", sem somar nada disso. Agora a conta fecha: quanto tempo a página leva para a Lena, e onde cortar?</p>
 
 <OneLiner>o tempo de resposta é a soma de várias esperas (DNS, handshakes, servidor, download), e a maioria delas é feita de RTTs, não de largura de banda.</OneLiner>
 
@@ -65,7 +65,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">Agora cada protocolo do módulo tem um custo que você sabe medir em RTTs. Na próxima vez que uma página demorar, some as esperas e corte a maior.</p>
+<p class="gancho">O preço do "jeito que deu" apareceu na tela da Lena: a página demorou, e ela disse isso ao Téo sem filtro. Agora cada protocolo do módulo tem um custo que você sabe medir em RTTs. Falta saber onde guardar os pedidos e as fotos de verdade, já que a loja só tem um servidor alugado.</p>
 
 <Flashcards cards={[
   { q: "Quais parcelas compõem o tempo de resposta?",

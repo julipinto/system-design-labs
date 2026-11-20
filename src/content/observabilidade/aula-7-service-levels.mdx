@@ -26,8 +26,8 @@ import Flashcards from '../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li><strong>SLI: a medida.</strong> Uma razão <strong>bons ÷ válidos</strong> sobre o <code>POST /pedidos</code>. <strong>Bom</strong> é uma resposta <code>2xx</code> <strong>e</strong> com duração de até <strong>800 ms</strong>. <strong>Válido</strong> é tudo, menos o que a loja não escolheu: o erro do cliente (<code>422</code>), o <code>409</code> de "esgotado" (módulo 11) e o <code>429</code> do <em>rate limit</em> do tenant (módulo 25).</li>
-  <li><strong>SLO: a meta.</strong> <strong>99,9% em 30 dias</strong> (erros ≤ 0,1% e p95 ≤ 800 ms, as metas do módulo 24). É uma meta <strong>interna</strong>, que o time usa para decidir.</li>
-  <li><strong>SLA: o contrato.</strong> Com o <code>mkt-01</code> a loja assinou <strong>99,5% por mês</strong>: 216 min, ou 3 h 36, de falha permitida. O SLA é <strong>menos exigente</strong> que o SLO, e é de propósito: o SLO é a <strong>blindagem</strong> do contrato.</li>
+  <li><strong>SLO: a meta.</strong> <strong>99,9% em 30 dias</strong> (erros ≤ 0,1% e p95 ≤ 800 ms, as metas do módulo 24). É uma meta <strong>interna</strong>, que a Iara usa para decidir.</li>
+  <li><strong>SLA: o contrato.</strong> Com o <code>mkt-01</code> o Téo assinou, pela loja, <strong>99,5% por mês</strong>: 216 min, ou 3 h 36, de falha permitida. O SLA é <strong>menos exigente</strong> que o SLO, e é de propósito: o SLO é a <strong>blindagem</strong> do contrato.</li>
   <li><strong>O orçamento.</strong> O que sobra entre o SLO e 100%: 0,1%. Em 30 dias, a 5 pedidos por segundo, são 5 × 2.592.000 = <strong>12.960.000</strong> requisições, e 0,1% são <strong>12.960 ruins</strong> (ou <strong>43,2 min</strong> de indisponibilidade total).</li>
   <li><strong>Nunca 100%.</strong> O artigo recomenda: SLA se escreve com noves, e nunca 100%. Cada nove a mais custa muito, e uma meta de 100% proíbe qualquer mudança.</li>
 </ol>

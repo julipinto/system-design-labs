@@ -1,4 +1,4 @@
-// Figura OSI em 3D (iso-glow): duas pilhas explodidas de 7 placas (celular da Lena e do irmão).
+// Figura OSI em 3D (iso-glow): duas pilhas explodidas de 7 placas (celular da Lena e do Téo).
 // O dado aparece SOBRE a camada ativa e se transforma de verdade: foto → comprimida e cifrada →
 // quebrada em fatias (TCP) → quadro da fatia #1 [MAC][IP][TCP][dados][FCS] → bits no cabo → volta.
 // Usa OSI_STAGES e osiDataView, injetados pelo build.
@@ -55,7 +55,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
         const bx = 12, by = SD - 46, bw = 88, bh = 34, ink = C.inkHi, sub = C.ink;
         c.strokeStyle = ink; c.lineWidth = 0.5 * P; c.beginPath(); c.roundRect(bx * P, by * P, bw * P, bh * P, 3 * P); c.stroke();
         c.textAlign = 'left'; c.fillStyle = ink; c.font = `600 ${5.5 * P}px ${MONO3}`;
-        c.fillText(side === 'sp' ? 'Irmão · Tóquio' : 'Lena · São Paulo', (bx + 4) * P, (by + 8) * P);
+        c.fillText(side === 'sp' ? 'Téo · Tóquio' : 'Lena · Recife', (bx + 4) * P, (by + 8) * P);
         c.fillStyle = sub; c.font = `${5 * P}px ${MONO3}`;
         if (chat === 'call') { c.fillText('chamada de vídeo · 00:03', (bx + 4) * P, (by + 15) * P); }
         else if (chat === 'recv') { c.fillText('Lena enviou uma foto', (bx + 4) * P, (by + 15) * P); drawCat(c, (bx + 60) * P, (by + 7) * P, 24 * P, A_, theme === 'light' ? '#fbfbfa' : '#141516'); }
@@ -68,7 +68,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   };
   for (const side of ['sp', 'tk']) {
     for (let L = 1; L <= 7; L++) slabs[side][L] = makeSlab(side, L);
-    label(side === 'sp' ? 'LENA · SÃO PAULO' : 'IRMÃO · TÓQUIO', 150, 10, 7, onTop(SXS[side] + SW / 2, OY + SD + 22, 7), g0);
+    label(side === 'sp' ? 'LENA · RECIFE' : 'TÉO · TÓQUIO', 150, 10, 7, onTop(SXS[side] + SW / 2, OY + SD + 22, 7), g0);
   }
 
   // ── cabo no piso, 3 roteadores, vários pontos de luz para os bits ──
@@ -152,7 +152,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0, mode = 'tcp', followT = 1.6;
 
   function readout() { if (active !== 'osi') return; const t = ST[s];
-    document.getElementById('read').textContent = `passo ${s + 1}/16 · ` + (s === 0 ? 'início' : s === 8 ? 'roteadores' : (t.side === 'sp' ? 'lena' : 'irmão') + ` · ${t.L} ${t.name.toLowerCase()}`); }
+    document.getElementById('read').textContent = `passo ${s + 1}/16 · ` + (s === 0 ? 'início' : s === 8 ? 'roteadores' : (t.side === 'sp' ? 'lena' : 'téo') + ` · ${t.L} ${t.name.toLowerCase()}`); }
   const LOOK3D = [
     'A placa 7 (a tela do chat) saiu da pilha; o gato está em cima dela.',
     'Em cima da foto apareceu o rótulo do pedido HTTP.',
@@ -163,18 +163,18 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     'Terceira caixa por fora: MAC. Três caixas, uma dentro da outra.',
     'Os cubinhos somem da gaveta e os pontos de luz saem pelo cabo.',
     'Siga os pontos de luz no cabo; cada roteador (R1, R2, R3) pisca quando eles passam.',
-    'A placa 1 do irmão saiu da pilha com o quadro completo.',
+    'A placa 1 do Téo saiu da pilha com o quadro completo.',
     'A caixa de fora (MAC) sumiu.',
     'A caixa do IP sumiu; só resta a do TCP.',
     'A última caixa sumiu e os cubinhos se juntaram no bloco cifrado.',
     'A ponte da sessão acende de novo entre as camadas 5: é a mesma conversa.',
     'O ruído virou gato de novo.',
-    'A foto entrou no chat do irmão (placa 7).',
+    'A foto entrou no chat do Téo (placa 7).',
   ];
 
   // a história, passo a passo (cada passo continua o anterior) e o conceito para guardar
   const STORY = [
-    ['São Paulo, 21h. A Lena tira uma foto do gato e abre a conversa com o irmão, que mora em Tóquio. Ela toca em enviar. Daqui pra frente a foto vai descer as 7 camadas do celular dela, cruzar o planeta e subir as 7 camadas do celular dele, em cerca de 1 segundo.', 'Cada camada faz um único trabalho e entrega o resultado para a camada de baixo.'],
+    ['Recife, 21h. A Lena tira uma foto do gato e abre a conversa com o Téo, que mora em Tóquio. Ela toca em enviar. Daqui pra frente a foto vai descer as 7 camadas do celular dela, cruzar o planeta e subir as 7 camadas do celular dele, em cerca de 1 segundo.', 'Cada camada faz um único trabalho e entrega o resultado para a camada de baixo.'],
     ['Primeiro o app precisa dizer o que quer. Ele escreve um pedido HTTP, "POST /v1/fotos", com a foto no corpo. (Um pouco antes, o DNS já tinha descoberto o IP do servidor de mensagens.)', 'Camada 7 é onde o app fala: HTTP, DNS, gRPC.'],
     ['Mandar 7,68 MB seria lento, e qualquer um no caminho poderia ver o gato. Então a foto é comprimida para 313 KB e cifrada com TLS. Para quem interceptar, agora é só ruído.', 'Camada 6 cuida de formato, compressão e criptografia.'],
     ['Antes de mandar, os dois lados precisam estar na mesma conversa. A sessão marca quem fala com quem e de onde retomar se a conexão cair no meio.', 'Camada 5 abre, mantém e fecha a conversa.'],
@@ -183,16 +183,16 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     ['Mas o primeiro trecho é curtinho: do celular até o roteador de casa. Por fora do IP entra o cabeçalho MAC, com o endereço desse roteador, e um FCS no fim para detectar bits estragados. Pacote dentro de pacote dentro de pacote: isso é encapsulamento.', 'Camada 2 entrega só até o próximo salto (MAC).'],
     ['Fim da descida. O quadro vira sinal: ondas de rádio até o roteador, pulsos elétricos no cobre e luz na fibra.', 'Camada 1 é o meio físico: aqui só existem bits.'],
     ['Os bits cruzam o planeta pelo cabo submarino. Em cada roteador o quadro é aberto até o IP: ele lê o destino, escolhe o próximo salto, troca o MAC e manda adiante. O IP de destino nunca muda no caminho.', 'Roteadores trabalham até a camada 3.'],
-    ['Tóquio. O celular do irmão recebe o sinal e remonta os bits do quadro. Agora a mesma escada é percorrida ao contrário, de baixo para cima, e cada camada tira o cabeçalho que a camada equivalente da Lena colocou.', 'Desencapsular: cada camada tira o seu próprio cabeçalho.'],
+    ['Tóquio. O celular do Téo recebe o sinal e remonta os bits do quadro. Agora a mesma escada é percorrida ao contrário, de baixo para cima, e cada camada tira o cabeçalho que a camada equivalente da Lena colocou.', 'Desencapsular: cada camada tira o seu próprio cabeçalho.'],
     ['O enlace confere o FCS (nenhum bit estragou no caminho) e vê que o MAC de destino é o dele. Sai a caixa do MAC.', 'Camada 2 confere a integridade e o endereço local.'],
     ['O IP de destino também é o dele. Sai a caixa do IP.', 'Camada 3 confirma que o pacote chegou ao destino certo.'],
     ['O TCP junta as 215 fatias pela numeração, pede de novo as que faltaram e confirma o recebimento para a Lena. Sai o TCP, e o bloco cifrado fica inteiro de novo.', 'Camada 4 põe em ordem, completa e confirma.'],
     ['A sessão confere que esses dados são da mesma conversa com a Lena.', 'Camada 5 sabe a qual conversa cada dado pertence.'],
     ['O TLS decifra e a imagem é descomprimida: o ruído volta a ser o gato.', 'Camada 6 desfaz a criptografia e a compressão.'],
-    ['O app mostra a foto no chat. Para o irmão foi instantâneo, mas a foto passou por 14 camadas e vários roteadores em cerca de 1 segundo.', 'Cada camada pôs um envelope na ida, e a mesma camada o tirou na volta.'],
+    ['O app mostra a foto no chat. Para o Téo foi instantâneo, mas a foto passou por 14 camadas e vários roteadores em cerca de 1 segundo.', 'Cada camada pôs um envelope na ida, e a mesma camada o tirou na volta.'],
   ];
   const UDP_TXT = {
-    0: ['Lena liga para o irmão (chamada de vídeo)', 'Agora a Lena não manda uma foto: ela liga para o irmão por vídeo. O dado não está pronto, ele nasce a cada instante na câmera e no microfone, dezenas de pedaços por segundo. Numa conversa ao vivo, atrasar é pior do que perder um pedacinho.', 'A placa 7 mostra a chamada e, sobre ela, o vídeo ao vivo.', 'Voz e vídeo ao vivo têm pressa: chegar agora vale mais que chegar completo.'],
+    0: ['Lena liga para o Téo (chamada de vídeo)', 'Agora a Lena não manda uma foto: ela liga para o Téo por vídeo. O dado não está pronto, ele nasce a cada instante na câmera e no microfone, dezenas de pedaços por segundo. Numa conversa ao vivo, atrasar é pior do que perder um pedacinho.', 'A placa 7 mostra a chamada e, sobre ela, o vídeo ao vivo.', 'Voz e vídeo ao vivo têm pressa: chegar agora vale mais que chegar completo.'],
     1: ['7 · Aplicação: o app abre a chamada', 'O app de chamada (WebRTC) não faz um pedido e espera a resposta. Ele abre um fluxo e manda pedaços de áudio e vídeo sem parar.', 'Camada 7 acesa: o fluxo de mídia começa a sair.', 'Camada 7: o app decide o que enviar (aqui, um fluxo de mídia).'],
     2: ['6 · Apresentação: codifica e cifra', 'Cada pedacinho passa por um codec (Opus para voz, VP8 para vídeo), que comprime, e pelo SRTP, que cifra. Cada pedaço é pequeno e independente dos outros.', 'Camada 6: o vídeo vira ruído cifrado (SRTP).', 'Camada 6: compressão e criptografia, agora em tempo real.'],
     3: ['5 · Sessão: a chamada está aberta', 'A sessão aqui é a própria chamada: quem fala com quem, com que codec e há quanto tempo.', 'Camada 5: a linha da sessão (a chamada) acende entre os dois lados.', 'Camada 5 mantém a conversa aberta.'],
@@ -200,12 +200,12 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     8: ['Salto a salto: um pedaço se perde', 'No caminho um pedaço se perde (fila cheia num roteador, Wi-Fi ruim). Com UDP ninguém avisa e ninguém reenvia. Os outros seguem em frente.', 'Um dos pontos de luz some no meio do cabo: é o pedaço perdido.', 'Perder pacote é normal na internet; o UDP simplesmente segue.'],
     12: ['4 · Transporte: segue sem o pedaço que faltou', 'Chegou quase tudo. O pedaço que se perdeu fica de fora: a imagem dá uma travadinha de milissegundos e a chamada continua. Se fosse esperar o reenvio, a conversa ficaria atrasada.', 'As fatias se juntam com um buraco: falta uma. A chamada segue mesmo assim.', 'TCP espera o que faltou; UDP pula e continua.'],
     14: ['6 · Apresentação: decifra e decodifica', 'O SRTP decifra e o codec remonta voz e imagem, mesmo com um pedacinho a menos.', 'Camada 6: o bloco é decifrado e o vídeo volta.', 'Camada 6 desfaz a criptografia e a compressão.'],
-    15: ['7 · Aplicação: a chamada continua', 'O irmão vê e ouve a Lena ao vivo, com uma travadinha que ele nem percebeu. Por isso chamadas, jogos e transmissões ao vivo usam UDP (ou QUIC, que também roda sobre UDP).', 'Camada 7: a chamada aparece na tela do irmão.', 'Foto: TCP. Ligação ao vivo: UDP.'],
+    15: ['7 · Aplicação: a chamada continua', 'O Téo vê e ouve a Lena ao vivo, com uma travadinha que ele nem percebeu. Por isso chamadas, jogos e transmissões ao vivo usam UDP (ou QUIC, que também roda sobre UDP).', 'Camada 7: a chamada aparece na tela do Téo.', 'Foto: TCP. Ligação ao vivo: UDP.'],
   };
   const cmpHtml = () => (s === 4 || s === 12) ? `<div class="dv-cmp"><div class="${mode === 'tcp' ? 'is-here' : ''}"><b>Foto · TCP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">#7?</span><span>#8</span></div>espera o #7 chegar de novo (reenvio)</div><div class="${mode === 'udp' ? 'is-here' : ''}"><b>Ligação · UDP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">–</span><span>#8</span></div>pula o #7: uma travadinha e segue</div></div>` : '';
   function panelHtml() {
     const u = mode === 'udp' ? UDP_TXT[s] : null;
-    const t = ST[s], wh = t.side === 'sp' ? 'São Paulo · celular da Lena' : t.side === 'tk' ? 'Tóquio · celular do irmão' : 'No caminho · roteadores';
+    const t = ST[s], wh = t.side === 'sp' ? 'Recife · celular da Lena' : t.side === 'tk' ? 'Tóquio · celular do Téo' : 'No caminho · roteadores';
     return `<div class="o3-head"><span>Passo ${s + 1} de 16 · ${wh}</span><span>PDU: ${t.pdu}</span></div>
       <div class="o3-bar"><i style="width:${((s + 1) / 16 * 100).toFixed(1)}%"></i></div>
       <div class="o3-mode" role="group" aria-label="Cenário"><button data-mode="tcp" aria-pressed="${mode === 'tcp'}">Foto · TCP</button><button data-mode="udp" aria-pressed="${mode === 'udp'}">Ligação · UDP</button></div>

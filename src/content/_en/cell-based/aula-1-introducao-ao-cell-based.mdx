@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">In the last module the store got bulkheads by <strong>function</strong>, by <strong>customer</strong> and by <strong>priority</strong> (the 20-connection pool split 16 + 4, the <code>mkt-01</code> cap of 100 req/s, the 12 · 6 · 2 lanes). It is still <strong>a single stack</strong>: <code>estoque</code>, <code>pagamentos</code>, Redis and <code>lb-loja</code> belong to everyone, and one version of <code>pedidos</code> serves the whole store. What happens when <strong>one order</strong> takes that version down?</p>
+<p class="ponte">In the last module the store got bulkheads by <strong>function</strong>, by <strong>customer</strong> and by <strong>priority</strong> (the 20-connection pool split 16 + 4, the <code>mkt-01</code> cap of 100 req/s, the 12 · 6 · 2 lanes). It is still <strong>a single stack</strong>: <code>estoque</code>, <code>pagamentos</code>, Redis and <code>lb-loja</code> belong to everyone, and one version of <code>pedidos</code> serves the whole store. Iara decided to split the stack into cells, and they were ready a week before Black Friday night 2027 (Friday, 11/26/2027), with Marta watching the dashboard. To see what the cells buy, first the same night without them: what happens when <strong>one order</strong> takes that version down?</p>
 
 <OneLiner>The <em>bulkhead</em> splits <strong>resources</strong>. The <strong>cell</strong> splits the <strong>whole stack</strong>: an independent copy with its own database, queue and cache, serving a <strong>fixed share</strong> of the customers and <strong>sharing no state</strong> with the others.</OneLiner>
 
@@ -25,7 +25,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>20:25:00.000.</strong> The <code>mkt-01</code> bot sends a <code>POST /pedidos</code> with an item of <code>quantidade: 2147483648</code>. That is 2³¹, one more than fits in an <code>int32</code>.</li>
+  <li><strong>20:25:00.000.</strong> The MegaMercado (<code>mkt-01</code>) bot sends a <code>POST /pedidos</code> with an item of <code>quantidade: 2147483648</code>. That is 2³¹, one more than fits in an <code>int32</code>.</li>
   <li><strong>The <code>panic</code>.</strong> <code>pedidos</code> 2.6.0 adds up the total, overflows the integer and crashes.</li>
   <li><strong>The retry.</strong> <code>gw-loja</code> tries again (up to 3 times, module 21) and the bot sends an <code>Idempotency-Key</code>. The key does not help: the crash happens <strong>before</strong> any deduplication. The same request takes down all <strong>3 pods</strong> in ~150 ms (3 × ~50 ms).</li>
   <li><strong>The comeback.</strong> Each pod restarts in <strong>30 s</strong> (the module 14 math), and the bot resends once per second. It crashes again.</li>
@@ -39,7 +39,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <p>Now the store is <strong>four copies</strong> of the stack, and each serves a share of the customers. The router reads the <code>cliente_id</code> in the JWT (module 8) and sends the <code>mkt-01</code> poison to <code>celula-mkt</code>. It has a <strong>floor</strong> of <strong>2 pods</strong> of <code>pedidos</code> and goes down on its own. The partner loses <strong>12 orders/s × 240 s = 2,880 attempts</strong>, 40% of the traffic. The <strong>1.5 million individual customers</strong> lose <strong>0</strong>.</p>
 
-<p>At the same instant, at 20:25:00.000, Lena buys two plush cats as a gift for her nieces. The order lands in <code>celula-recife</code>, which does not know <code>celula-mkt</code> exists: <strong>order 1060</strong>, 2 × 79.90 = 159.80 + Recife shipping 15.00 = <strong>174.80</strong>, <code>201</code>. The cat's stock goes from 19 to 17. In the single stack, that order would have run into the <code>503</code> with the others. The order numbers in the story are didactic: 1060 is from Black Friday night, and 1059 from module 22 is from a Tuesday after it.</p>
+<p>At the same instant, at 20:25:00.000, Lena, in Recife, buys two plush cats for her classroom. The order lands in <code>celula-recife</code>, which does not know <code>celula-mkt</code> exists: <strong>order 1060</strong>, 2 × 79.90 = 159.80 + Recife shipping 15.00 = <strong>174.80</strong>, <code>201</code>. The cat's stock goes from 19 to 17. In the single stack, that order would have run into the <code>503</code> with the others. The order numbers in the story are didactic: 1060 is from Black Friday night 2027, and 1059 from module 22 is from the Tuesday after Black Friday 2026.</p>
 
 <Widget name="veneno" title="Poison: single stack × cells" hint="Number of cells (1 to 10), traffic split (uniform, the store's 40 · 33 · 15 · 12 or editable), attempts per second and minutes until the block. Shows the lost attempts (7,200 × 2,880), the radius by customer type and what gets stuck in the topic (24,000 × 9,600)." />
 
@@ -51,7 +51,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <table class="sr-table">
   <thead><tr><th>Cell</th><th>Who it serves</th><th>Share</th><th>Orders/s</th><th>Primary in</th></tr></thead>
   <tbody>
-    <tr><th><code>celula-mkt</code></th><td>the partner <code>mkt-01</code></td><td><strong>40%</strong></td><td>12.0</td><td>Recife</td></tr>
+    <tr><th><code>celula-mkt</code></th><td>MegaMercado, <code>mkt-01</code></td><td><strong>40%</strong></td><td>12.0</td><td>Recife</td></tr>
     <tr><th><code>celula-sp</code></th><td>individuals in SP (Bia, Davi)</td><td><strong>33%</strong> (55% × 60%)</td><td>9.9</td><td>SP</td></tr>
     <tr><th><code>celula-rio</code></th><td>individuals in Rio (Caio)</td><td><strong>15%</strong> (25% × 60%)</td><td>4.5</td><td>Rio</td></tr>
     <tr><th><code>celula-recife</code></th><td>individuals in Recife (Lena)</td><td><strong>12%</strong> (20% × 60%)</td><td>3.6</td><td>Recife</td></tr>

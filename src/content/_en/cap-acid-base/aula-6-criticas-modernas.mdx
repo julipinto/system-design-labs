@@ -54,7 +54,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   <h4 class="deep-h">Invariants in the store</h4>
   <ul>
     <li><strong>Can break and fix:</strong> the cat's stock going to -1 (selling more than there was). You cancel an order.</li>
-    <li><strong>Always protect:</strong> Lena's balance doesn't go negative (<code>CHECK saldo &gt;= 0</code>): an R$ 200 request with R$ 150 in the account is refused.</li>
+    <li><strong>Always protect:</strong> Lena's wallet balance doesn't go negative (<code>CHECK saldo &gt;= 0</code>): an R$ 200 request with R$ 150 in the wallet is refused.</li>
     <li><strong>Postpone:</strong> the card charge, until the network is back.</li>
   </ul>
   <h4 class="deep-h">The CP and AP labels</h4>

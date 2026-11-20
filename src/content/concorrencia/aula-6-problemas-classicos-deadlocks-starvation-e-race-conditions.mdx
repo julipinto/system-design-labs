@@ -58,7 +58,7 @@ import Figure3D from '../../components/Figure3D.astro';
 
 <h3 class="sec">Deadlock: a reserva contra o estorno</h3>
 
-<p>Para consertar a corrida, o time põe uma trava. Só que a loja tem mais de um recurso para travar. Às 14:02:10.500 o pagamento do 1049 confirma e, no mesmo instante, a Bia se arrepende e clica em "cancelar". Duas operações começam juntas: <code>reservar(1049)</code> trava <code>estoque:GATO-042</code> e depois <code>pedido:1049</code>; <code>cancelar(1049)</code> trava <code>pedido:1049</code> e depois <code>estoque:GATO-042</code>.</p>
+<p>Para consertar a corrida, o Raí põe uma trava. Só que a loja tem mais de um recurso para travar. Às 14:02:10.500 o pagamento do 1049 confirma e, no mesmo instante, a Bia se arrepende e clica em "cancelar". Duas operações começam juntas: <code>reservar(1049)</code> trava <code>estoque:GATO-042</code> e depois <code>pedido:1049</code>; <code>cancelar(1049)</code> trava <code>pedido:1049</code> e depois <code>estoque:GATO-042</code>.</p>
 
 <Widget name="deadlock" title="Reserva × estorno: em que ordem travar?" hint="Escolha a ordem em que cada operação pega as duas travas. Com ordens cruzadas, o ciclo aparece e ninguém anda. Marque 'ordem global' e o ciclo desfaz." />
 
@@ -75,7 +75,7 @@ import Figure3D from '../../components/Figure3D.astro';
 
 <h3 class="sec">Starvation: ninguém trava, o Caio só nunca é servido</h3>
 
-<p>O <code>marketplace-xyz</code> (o parceiro do módulo 8) sincroniza o estoque chamando <code>reservar</code> em laço: 4 ms por vez, sem pausa. O Caio tenta pegar a trava <strong>a cada 50 ms</strong>. A trava, sem fila, está sempre ocupada quando ele chega, e ele desiste aos <strong>10 s</strong>. Não houve deadlock, nada parou: ele só nunca foi servido. Isso é <em>starvation</em>, e acontece quando a trava não tem fila.</p>
+<p>O <code>marketplace-xyz</code> (o MegaMercado, parceiro do módulo 8) sincroniza o estoque chamando <code>reservar</code> em laço: 4 ms por vez, sem pausa. O Caio tenta pegar a trava <strong>a cada 50 ms</strong>. A trava, sem fila, está sempre ocupada quando ele chega, e ele desiste aos <strong>10 s</strong>. Não houve deadlock, nada parou: ele só nunca foi servido. Isso é <em>starvation</em>, e acontece quando a trava não tem fila.</p>
 
 <p>O <code>sync.Mutex</code> do Go evita isso. Se quem espera passa de <strong>1 ms</strong>, o mutex entra em <em>modo de starvation</em> e passa a entregar a trava em ordem de chegada (FIFO). O spinlock do laboratório (aula 9) não tem esse cuidado: no log do artigo, entre 10 amigos, o amigo 6 foi servido por último (ordem 10, 3, 5, 1, 9, 2, 8, 7, 4, 6).</p>
 

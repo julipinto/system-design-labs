@@ -1,7 +1,7 @@
-// Figura 3D (iso-glow): ACID e BASE. A Lena transfere R$ 100 para o irmão pelo app do banco (ela tem R$ 150, ele R$ 20).
+// Figura 3D (iso-glow): ACID e BASE. A Lena manda R$ 100 de crédito da carteira da loja para a Bia (ela tem R$ 150, a Bia R$ 20).
 // Cena: o servidor de banco de dados como uma máquina. Em cima dela: a TABELA contas (uma gaveta por linha, com o saldo em visor
 // grande), a barra da REGRA (CHECK saldo >= 0), o RASCUNHO da transação em andamento (memória) e a esteira do WAL, que leva cada
-// linha do log até o DISCO, à direita. Os clientes (tablets com o app do banco) ficam à esquerda.
+// linha do log até o DISCO, à direita. Os clientes (tablets com o app da loja) ficam à esquerda.
 // Cenários (toggle e ?mode=a|c|i|d|base): cada letra do ACID é um "e se der errado" da mesma transferência; BASE troca a máquina
 // por três nós (A, B, C) que convergem com atraso.
 // Números (LSN, ms, valores) são exemplos didáticos coerentes, avisados no painel.
@@ -27,7 +27,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   const glowCap = (x, y, z, w, d, h, r, parent) => { const m = capMat(); twCaps.push(m); rbox(x, y, z, w, d, h, r, m, parent); return m; };
   const GRP = { acid: mkGroup(null), base: mkGroup(null) };
 
-  // clientes: tablets deitados com o app do banco
+  // clientes: tablets deitados com o app da loja
   const CLY = { lena: 30, irmao: 116, aux: 202 };
   const CL = {};
   for (const k of ['lena', 'irmao', 'aux']) {
@@ -75,7 +75,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   const diskLed = dotFront(712, 152, 40, 2.6, diskG);
 
   // BASE: três nós
-  const NX = { A: 170, B: 360, C: 550 }, NCITY = { A: 'São Paulo', B: 'Rio', C: 'Recife' };
+  const NX = { A: 170, B: 360, C: 550 }, NCITY = { A: 'Recife', B: 'Rio', C: 'São Paulo' };
   const NODE = {};
   for (const k of ['A', 'B', 'C']) {
     const x = NX[k], g = mkGroup('node', GRP.base);
@@ -149,8 +149,8 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   // rows: { id: [saldo, tom, sub] } · draft: [{ t, lines: [[texto, tom]] }] · wal: [[lsn, texto, tom, f]] · disk: { wal: [[texto, tom]], tab, st }
   // power: on | off | boot · gate: idle | check | bad | ok · front: [[texto, tom]] (linha do tempo) · cl: { id: [grande, pequeno, tom] }
   // fly: [{ p, f, bad }] · card/card2/ghost: [título, tom, sub, onde] · nodes (BASE): { A: { lena, irmao, v, tone, note } }
-  const S0 = () => ({ rows: { lena: [150, 'n'], irmao: [20, 'n'] }, draft: null, wal: [], disk: { wal: [], tab: 'lena 150 · irmão 20', st: ['ocioso', 'dim'] },
-    power: 'on', gate: 'idle', front: null, cl: { lena: ['R$ 150', 'saldo da Lena', 'dim'], irmao: ['R$ 20', 'saldo do irmão', 'dim'] }, fly: [], card: null, card2: null, ghost: null });
+  const S0 = () => ({ rows: { lena: [150, 'n'], irmao: [20, 'n'] }, draft: null, wal: [], disk: { wal: [], tab: 'lena 150 · bia 20', st: ['ocioso', 'dim'] },
+    power: 'on', gate: 'idle', front: null, cl: { lena: ['R$ 150', 'saldo da Lena', 'dim'], irmao: ['R$ 20', 'saldo da Bia', 'dim'] }, fly: [], card: null, card2: null, ghost: null });
   const FL = (p, t, a, b, o = {}) => { if (t < a || t >= b) return null; const f = ease(ph(t, a, b)); return { p, f: o.back ? 1 - f : f * (o.stop || 1), bad: o.bad }; };
   const addFly = (S, ...f) => f.forEach(x => x && S.fly.push(x));
   const WE = (lsn, txt, tone, t, at) => t >= at ? [[lsn, txt, tone, ph(t, at, at + 0.5)]] : [];
@@ -160,23 +160,23 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     const lines = [];
     if (t >= 0.9) lines.push(['BEGIN', 'dim']);
     if (t >= 1.4) lines.push(['lena   150 → 50', t < 2.6 ? 'acc' : 'hi']);
-    if (t >= 2.0) lines.push(['irmão   20 → 120', t < 2.6 ? 'acc' : 'hi']);
+    if (t >= 2.0) lines.push(['bia    20 → 120', t < 2.6 ? 'acc' : 'hi']);
     if (t >= 2.6) lines.push(['COMMIT ✓', 'acc']);
     S.draft = t >= 0.9 ? [{ t: 'T1 · transferência de R$ 100', lines }] : null;
     const disk = t >= 3.6 ? 'disk' : 'mem';
     S.wal = [...WE('#' + l0, 'T1 BEGIN', disk, t, 1.0), ...WE('#' + (l0 + 1), 'UPDATE lena 150→50', disk, t, 1.5),
-      ...WE('#' + (l0 + 2), 'UPDATE irmão 20→120', disk, t, 2.1), ...WE('#' + (l0 + 3), 'T1 COMMIT', disk === 'disk' ? 'disk' : 'hot', t, 2.7)];
+      ...WE('#' + (l0 + 2), 'UPDATE bia 20→120', disk, t, 2.1), ...WE('#' + (l0 + 3), 'T1 COMMIT', disk === 'disk' ? 'disk' : 'hot', t, 2.7)];
     addFly(S, FL('d_w', t, 1.0, 1.6), FL('d_w', t, 1.5, 2.1), FL('d_w', t, 2.1, 2.7), FL('d_w', t, 2.7, 3.2), FL('w_k', t, 3.0, 3.6));
-    if (t >= 3.6) { S.disk.wal = [['#' + l0 + ' T1 BEGIN', 'hi'], ['#' + (l0 + 1) + ' UPDATE lena', 'hi'], ['#' + (l0 + 2) + ' UPDATE irmão', 'hi'], ['#' + (l0 + 3) + ' T1 COMMIT ✓', 'acc']]; S.disk.st = ['fsync ✓ #' + (l0 + 3), 'acc']; }
+    if (t >= 3.6) { S.disk.wal = [['#' + l0 + ' T1 BEGIN', 'hi'], ['#' + (l0 + 1) + ' UPDATE lena', 'hi'], ['#' + (l0 + 2) + ' UPDATE bia', 'hi'], ['#' + (l0 + 3) + ' T1 COMMIT ✓', 'acc']]; S.disk.st = ['fsync ✓ #' + (l0 + 3), 'acc']; }
     addFly(S, FL('d_t', t, 3.6, 4.2));
-    if (t >= 4.2) { S.rows.lena = [50, t < 6 ? 'hot' : 'n']; S.rows.irmao = [120, t < 6 ? 'hot' : 'n']; S.disk.tab = 'lena 150 · irmão 20 (velho até o checkpoint)'; }
+    if (t >= 4.2) { S.rows.lena = [50, t < 6 ? 'hot' : 'n']; S.rows.irmao = [120, t < 6 ? 'hot' : 'n']; S.disk.tab = 'lena 150 · bia 20 (velho até o checkpoint)'; }
     addFly(S, FL('l_d', t, 4.2, 4.9, { back: true }));
-    S.cl.lena = t >= 4.9 ? ['R$ 50', '✓ transferência feita', 'ok'] : t >= 0.2 ? ['enviando…', 'R$ 100 → irmão', 'hi'] : S.cl.lena;
+    S.cl.lena = t >= 4.9 ? ['R$ 50', '✓ transferência feita', 'ok'] : t >= 0.2 ? ['enviando…', 'R$ 100 → Bia', 'hi'] : S.cl.lena;
     if (t >= 4.9) S.cl.irmao = ['R$ 120', '+ R$ 100 da Lena', 'ok'];
-    if (!opts.noCard && t >= 4.3) S.card = ['COMMIT: as duas mudanças juntas', 'acc', 'lena 50 · irmão 120 · total R$ 170', 'table'];
+    if (!opts.noCard && t >= 4.3) S.card = ['COMMIT: as duas mudanças juntas', 'acc', 'lena 50 · bia 120 · total R$ 170', 'table'];
     return S;
   }
-  const TX_SQL = "BEGIN;\nUPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'irmao';\nCOMMIT;";
+  const TX_SQL = "BEGIN;\nUPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'bia';\nCOMMIT;";
   const RECOV = 'LOG:  database system was not properly shut down;\n      automatic recovery in progress';
   const EX = '<li class="h3-dim">Valores, LSN (#101…) e tempos são exemplos didáticos. Os textos de LOG/ERROR são os do PostgreSQL.</li>';
 
@@ -184,12 +184,12 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   const STEPS = {
     a: [
       { title: 'O ponto de partida', dur: 2,
-        story: 'A Lena quer mandar R$ 100 para o irmão pelo app do banco. Hoje a conta dela tem R$ 150 e a dele, R$ 20: juntas, R$ 170. Para o banco, transferir são duas mudanças, tirar de uma conta e pôr na outra. O que acontece se só a primeira der certo?',
-        look: 'A tabela contas está no fundo da máquina, uma gaveta por linha. Os tablets da Lena e do irmão estão à esquerda.',
+        story: 'A Lena quer mandar R$ 100 para a Bia pelo app da loja. Hoje a carteira dela tem R$ 150 e a da Bia, R$ 20: juntas, R$ 170. Para o banco, transferir são duas mudanças, tirar de uma carteira e pôr na outra. O que acontece se só a primeira der certo?',
+        look: 'A tabela contas está no fundo da máquina, uma gaveta por linha. Os tablets da Lena e da Bia estão à esquerda.',
         key: 'Uma transferência são duas escritas que precisam andar juntas.',
-        sql: { who: 'qualquer cliente', code: 'SELECT id, saldo FROM contas;', out: ' lena  | 150\n irmao |  20' },
-        st: t => { const S = S0(); S.cl.lena = ['R$ 150', 'Transferir R$ 100?', 'hi']; if (t > 0.4) S.card = ['contas: total R$ 170', 'acc', 'lena 150 + irmão 20', 'table']; return S; },
-        data: () => '<li>Duas linhas na tabela <b>contas</b>: lena = 150, irmao = 20.</li><li>Regra do negócio: a soma (R$ 170) não pode mudar com uma transferência.</li>' },
+        sql: { who: 'qualquer cliente', code: 'SELECT id, saldo FROM contas;', out: ' lena | 150\n bia  |  20' },
+        st: t => { const S = S0(); S.cl.lena = ['R$ 150', 'Transferir R$ 100?', 'hi']; if (t > 0.4) S.card = ['contas: total R$ 170', 'acc', 'lena 150 + bia 20', 'table']; return S; },
+        data: () => '<li>Duas linhas na tabela <b>contas</b>: lena = 150, bia = 20.</li><li>Regra do negócio: a soma (R$ 170) não pode mudar com uma transferência.</li>' },
       { title: 'BEGIN: abre um rascunho', dur: 2.2,
         story: 'O app manda BEGIN. A partir daqui o banco abre uma transação, a T1. Tudo o que a T1 fizer fica num rascunho dela, invisível para os outros, até o COMMIT. Cada passo também vira uma linha no WAL, o log que o banco escreve antes de mexer nos dados.',
         look: 'Uma luz sai do tablet da Lena até o RASCUNHO. A primeira linha (#101 T1 BEGIN) entra na esteira do WAL.',
@@ -197,11 +197,11 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         sql: { who: 'app da Lena', code: 'BEGIN;', out: 'BEGIN' },
         st: t => { const S = S0(); addFly(S, FL('l_d', t, 0.2, 1.1), FL('d_w', t, 1.2, 1.7));
           if (t >= 1.1) S.draft = [{ t: 'T1 · transferência de R$ 100', lines: [['BEGIN', 'acc']] }];
-          S.wal = WE('#101', 'T1 BEGIN', 'mem', t, 1.6); S.cl.lena = ['enviando…', 'R$ 100 → irmão', 'hi'];
+          S.wal = WE('#101', 'T1 BEGIN', 'mem', t, 1.6); S.cl.lena = ['enviando…', 'R$ 100 → Bia', 'hi'];
           if (t >= 1.2) S.card = ['T1 aberta', 'acc', 'rascunho vazio, só da T1', 'draft']; return S; },
         data: () => '<li>T1 = a transação da transferência.</li><li>WAL (write-ahead log): o banco anota a mudança no log <b>antes</b> de mexer nos dados.</li>' },
       { title: 'Tira R$ 100 da Lena… só no rascunho', dur: 3.2,
-        story: 'O primeiro UPDATE tira R$ 100 da Lena: no rascunho da T1, ela fica com R$ 50. Repare no que isso seria se valesse agora: Lena 50, irmão 20, total R$ 70. Cem reais sumidos. Esse estado pela metade existe só dentro da T1; quem consulta a tabela continua vendo 150.',
+        story: 'O primeiro UPDATE tira R$ 100 da Lena: no rascunho da T1, ela fica com R$ 50. Repare no que isso seria se valesse agora: Lena 50, Bia 20, total R$ 70. Cem reais sumidos. Esse estado pela metade existe só dentro da T1; quem consulta a tabela continua vendo 150.',
         look: 'O rascunho mostra lena 150 → 50, mas a gaveta da Lena na tabela segue com R$ 150. O WAL é gravado no disco aos poucos.',
         key: 'O estado pela metade fica preso no rascunho: ninguém de fora o enxerga.',
         sql: { who: 'app da Lena', code: "UPDATE contas SET saldo = saldo - 100\n WHERE id = 'lena';", out: 'UPDATE 1   (ainda sem COMMIT)' },
@@ -209,25 +209,25 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
           S.draft = [{ t: 'T1 · transferência de R$ 100', lines: [['BEGIN', 'dim'], ...(t >= 0.8 ? [['lena   150 → 50', 'acc']] : [])] }];
           const dk = t >= 2.6 ? 'disk' : 'mem'; S.wal = [['#101', 'T1 BEGIN', dk, 1], ...WE('#102', 'UPDATE lena 150→50', dk, t, 1.4)];
           if (t >= 2.6) { S.disk.wal = [['#101 T1 BEGIN', 'hi'], ['#102 UPDATE lena', 'hi']]; S.disk.st = ['WAL gravado', 'dim']; }
-          S.rows.lena = [150, 'n', 'os outros ainda veem 150']; S.cl.lena = ['enviando…', 'R$ 100 → irmão', 'hi'];
-          if (t >= 1.2) S.ghost = ['pela metade: lena 50 · irmão 20', 'bad', 'total R$ 70: R$ 100 sumidos\nsó existe dentro da T1', 'ghost'];
+          S.rows.lena = [150, 'n', 'os outros ainda veem 150']; S.cl.lena = ['enviando…', 'R$ 100 → Bia', 'hi'];
+          if (t >= 1.2) S.ghost = ['pela metade: lena 50 · bia 20', 'bad', 'total R$ 70: R$ 100 sumidos\nsó existe dentro da T1', 'ghost'];
           return S; },
-        data: () => '<li>No rascunho da T1: lena = <b>50</b>, irmao = 20.</li><li>Para os outros: lena = <b>150</b>, irmao = 20 (o que foi confirmado).</li><li>No WAL: #101 BEGIN, #102 UPDATE lena 150→50. Ainda <b>não</b> há COMMIT.</li>' },
-      { title: 'O servidor cai antes de creditar o irmão', dur: 2.6,
+        data: () => '<li>No rascunho da T1: lena = <b>50</b>, bia = 20.</li><li>Para os outros: lena = <b>150</b>, bia = 20 (o que foi confirmado).</li><li>No WAL: #101 BEGIN, #102 UPDATE lena 150→50. Ainda <b>não</b> há COMMIT.</li>' },
+      { title: 'O servidor cai antes de creditar a Bia', dur: 2.6,
         story: 'Antes do segundo UPDATE chegar, o servidor cai. Tudo o que estava na memória some: o rascunho da T1 vai junto. O app da Lena recebe um erro de conexão. Se o banco gravasse cada UPDATE direto na tabela, agora a conta teria R$ 70 no total.',
         look: 'As telas da máquina apagam e o rascunho some. O disco, à direita, guarda as linhas #101 e #102 do WAL.',
         key: 'Falha no meio da transação é o caso que a atomicidade existe para cobrir.',
-        sql: { who: 'app da Lena', code: "UPDATE contas SET saldo = saldo + 100\n WHERE id = 'irmao';   -- nunca chegou", out: 'server closed the connection unexpectedly' },
+        sql: { who: 'app da Lena', code: "UPDATE contas SET saldo = saldo + 100\n WHERE id = 'bia';   -- nunca chegou", out: 'server closed the connection unexpectedly' },
         st: t => { const S = S0(); const off = t >= 0.8;
           S.draft = off ? null : [{ t: 'T1 · transferência de R$ 100', lines: [['BEGIN', 'dim'], ['lena   150 → 50', 'acc']] }];
           S.wal = [['#101', 'T1 BEGIN', 'disk', 1], ['#102', 'UPDATE lena 150→50', 'disk', 1]];
           S.disk.wal = [['#101 T1 BEGIN', 'hi'], ['#102 UPDATE lena', 'hi']]; S.power = off ? 'off' : 'on';
-          S.cl.lena = t >= 1.1 ? ['erro', 'conexão perdida', 'bad'] : ['enviando…', 'R$ 100 → irmão', 'hi'];
-          if (off) { S.card = ['✕ o servidor caiu', 'bad', 'antes do UPDATE do irmão', 'mach']; S.card2 = ['o disco guarda o WAL', 'acc', '#101 BEGIN · #102 UPDATE', 'disk']; }
+          S.cl.lena = t >= 1.1 ? ['erro', 'conexão perdida', 'bad'] : ['enviando…', 'R$ 100 → Bia', 'hi'];
+          if (off) { S.card = ['✕ o servidor caiu', 'bad', 'antes do UPDATE da Bia', 'mach']; S.card2 = ['o disco guarda o WAL', 'acc', '#101 BEGIN · #102 UPDATE', 'disk']; }
           return S; },
-        data: () => '<li>Perdido (memória): o rascunho da T1.</li><li>Guardado (disco): WAL #101 e #102, e o arquivo da tabela com lena 150, irmão 20.</li><li>Falta no WAL: o COMMIT da T1.</li>' },
+        data: () => '<li>Perdido (memória): o rascunho da T1.</li><li>Guardado (disco): WAL #101 e #102, e o arquivo da tabela com lena 150, bia 20.</li><li>Falta no WAL: o COMMIT da T1.</li>' },
       { title: 'Religou: a T1 é desfeita (ROLLBACK)', dur: 4,
-        story: 'O servidor volta e, antes de aceitar conexões, faz a recuperação: lê o WAL do disco. A T1 tem BEGIN e UPDATE, mas não tem COMMIT. Então ela não vale: o banco descarta o débito, como num ROLLBACK. A Lena continua com R$ 150 e o irmão com R$ 20.',
+        story: 'O servidor volta e, antes de aceitar conexões, faz a recuperação: lê o WAL do disco. A T1 tem BEGIN e UPDATE, mas não tem COMMIT. Então ela não vale: o banco descarta o débito, como num ROLLBACK. A Lena continua com R$ 150 e a Bia com R$ 20.',
         look: 'A luz sai do disco até a tabela. No WAL entra #103 T1 ABORT, em vermelho. As gavetas seguem com 150 e 20.',
         key: 'Sem COMMIT, nada vale: atomicidade é tudo ou nada.',
         sql: { who: 'o próprio banco, ao ligar', code: '-- recuperação automática (ninguém digita nada)\n-- T1: BEGIN e UPDATE no WAL, sem COMMIT → desfeita', out: RECOV + '\nLOG:  database system is ready to accept connections' },
@@ -236,18 +236,18 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
           S.disk.wal = [['#101 T1 BEGIN', 'hi'], ['#102 UPDATE lena', 'hi'], ...(t >= 2.6 ? [['#103 T1 ABORT', 'bad']] : [])];
           addFly(S, FL('k_t', t, 1.2, 2.4));
           if (t >= 1.2 && t < 2.6) S.card = ['recuperação lê o WAL', 'acc', '#101 BEGIN · #102 UPDATE · sem COMMIT', 'disk'];
-          if (t >= 2.6) { S.card = ['T1 desfeita (ROLLBACK)', 'acc', 'lena 150 · irmão 20 · total R$ 170', 'table'];
-            S.ghost = ['o estado pela metade nunca apareceu', 'dim', 'ninguém leu lena 50 com irmão 20', 'ghost'];
+          if (t >= 2.6) { S.card = ['T1 desfeita (ROLLBACK)', 'acc', 'lena 150 · bia 20 · total R$ 170', 'table'];
+            S.ghost = ['o estado pela metade nunca apareceu', 'dim', 'ninguém leu lena 50 com Bia 20', 'ghost'];
             S.cl.lena = ['R$ 150', 'não foi: tente de novo', 'hi']; } else S.cl.lena = ['erro', 'conexão perdida', 'bad'];
           return S; },
-        data: () => '<li>WAL lido: #101 BEGIN, #102 UPDATE lena, <b>nenhum COMMIT</b> da T1.</li><li>Decisão: T1 abortada. lena = 150, irmao = 20.</li><li>No PostgreSQL, mudanças de transação sem COMMIT ficam invisíveis para sempre; o efeito é o de um ROLLBACK.</li>' + EX },
+        data: () => '<li>WAL lido: #101 BEGIN, #102 UPDATE lena, <b>nenhum COMMIT</b> da T1.</li><li>Decisão: T1 abortada. lena = 150, bia = 20.</li><li>No PostgreSQL, mudanças de transação sem COMMIT ficam invisíveis para sempre; o efeito é o de um ROLLBACK.</li>' + EX },
       { title: 'De novo, agora até o fim: tudo', dur: 6,
-        story: 'A Lena tenta outra vez. BEGIN, tira R$ 100 dela, põe R$ 100 no irmão, COMMIT. Só no COMMIT as duas mudanças saem do rascunho e entram na tabela, juntas: Lena 50, irmão 120. O total continua R$ 170.',
+        story: 'A Lena tenta outra vez. BEGIN, tira R$ 100 dela, põe R$ 100 na Bia, COMMIT. Só no COMMIT as duas mudanças saem do rascunho e entram na tabela, juntas: Lena 50, Bia 120. O total continua R$ 170.',
         look: 'O rascunho enche linha por linha; no COMMIT, a luz desce para a tabela e as duas gavetas mudam ao mesmo tempo.',
         key: 'Atomicidade: as duas escritas valem juntas (COMMIT) ou nenhuma vale (ROLLBACK).',
         sql: { who: 'app da Lena', code: TX_SQL, out: 'COMMIT' },
         st: t => fullTx(S0(), t, 104),
-        data: () => '<li>WAL: #104 BEGIN, #105 UPDATE lena, #106 UPDATE irmão, #107 COMMIT.</li><li>Antes: 150 + 20 = 170. Depois: 50 + 120 = 170.</li><li>Nenhum instante com só uma das duas mudanças visível.</li>' + EX },
+        data: () => '<li>WAL: #104 BEGIN, #105 UPDATE lena, #106 UPDATE bia, #107 COMMIT.</li><li>Antes: 150 + 20 = 170. Depois: 50 + 120 = 170.</li><li>Nenhum instante com só uma das duas mudanças visível.</li>' + EX },
     ],
     c: [
       { title: 'A regra mora no banco', dur: 2,
@@ -258,13 +258,13 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         st: t => { const S = S0(); S.gate = 'check'; S.cl.lena = ['R$ 150', 'Transferir R$ 200?', 'hi']; if (t > 0.4) S.card = ['CHECK (saldo >= 0)', 'acc', 'nenhum saldo pode ficar negativo', 'gate']; return S; },
         data: () => '<li>Regras que o banco garante: CHECK, NOT NULL, PRIMARY KEY, UNIQUE, FOREIGN KEY e o tipo de cada coluna.</li><li>Aqui: <b>saldo >= 0</b>.</li>' },
       { title: 'A Lena pede R$ 200', dur: 2.6,
-        story: 'A Lena erra o valor e pede R$ 200 em vez de 100. O app abre a transação e manda o UPDATE. No rascunho, a conta dá 150 − 200 = −50. Antes de a linha valer, o banco confere as regras.',
+        story: 'A Lena erra o valor e pede R$ 200 em vez de 100. O app abre a transação e manda o UPDATE. No rascunho, a carteira dá 150 − 200 = −50. Antes de a linha valer, o banco confere as regras.',
         look: 'O rascunho mostra lena 150 − 200 = −50, ainda sem passar pela barra da regra.',
         key: 'Toda escrita é conferida contra as regras, não só as "suspeitas".',
         sql: { who: 'app da Lena', code: "BEGIN;\nUPDATE contas SET saldo = saldo - 200\n WHERE id = 'lena';", out: '(o banco confere a linha nova: saldo = -50)' },
         st: t => { const S = S0(); S.gate = 'check'; addFly(S, FL('l_d', t, 0.2, 1.0));
           if (t >= 1.0) S.draft = [{ t: 'T1 · transferência de R$ 200', lines: [['BEGIN', 'dim'], ...(t >= 1.4 ? [['lena   150 − 200 = −50', 'acc']] : [])] }];
-          S.wal = WE('#201', 'T1 BEGIN', 'mem', t, 1.1); S.cl.lena = ['enviando…', 'R$ 200 → irmão', 'hi'];
+          S.wal = WE('#201', 'T1 BEGIN', 'mem', t, 1.1); S.cl.lena = ['enviando…', 'R$ 200 → Bia', 'hi'];
           if (t >= 1.6) S.card = ['saldo novo: −50', 'acc', 'vai passar pela regra', 'draft']; return S; },
         data: () => '<li>Linha nova proposta: lena = <b>−50</b>.</li><li>Regra: saldo >= 0.</li>' },
       { title: 'A regra barra', dur: 2.4,
@@ -275,11 +275,11 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         st: t => { const S = S0(); addFly(S, FL('d_g', t, 0.2, 1.0, { stop: 0.95, bad: true }));
           S.gate = t >= 0.9 ? 'bad' : 'check';
           S.draft = [{ t: 'T1 · transferência de R$ 200', lines: [['BEGIN', 'dim'], ['lena   150 − 200 = −50', t >= 0.9 ? 'bad' : 'acc'], ...(t >= 1.0 ? [['✕ viola saldo >= 0', 'bad']] : [])] }];
-          S.wal = [['#201', 'T1 BEGIN', 'mem', 1]]; S.cl.lena = t >= 1.2 ? ['erro', 'violou a regra', 'bad'] : ['enviando…', 'R$ 200 → irmão', 'hi'];
+          S.wal = [['#201', 'T1 BEGIN', 'mem', 1]]; S.cl.lena = t >= 1.2 ? ['erro', 'violou a regra', 'bad'] : ['enviando…', 'R$ 200 → Bia', 'hi'];
           if (t >= 0.9) S.card = ['✕ saldo −50 viola saldo >= 0', 'bad', 'a linha nova não entra', 'gate']; return S; },
         data: () => '<li>Código do erro no PostgreSQL: <b>23514</b> (check_violation).</li><li>Depois de um erro, a transação fica abortada: qualquer comando, até o COMMIT, vira ROLLBACK.</li>' },
       { title: 'A transação inteira é recusada', dur: 2.6,
-        story: 'Não é só aquele UPDATE que cai: a transação toda volta. O app encerra com ROLLBACK, o rascunho é jogado fora e o WAL registra o fim da T1 sem efeito. O irmão não recebe nada, a Lena não perde nada, e o app mostra "saldo insuficiente".',
+        story: 'Não é só aquele UPDATE que cai: a transação toda volta. O app encerra com ROLLBACK, o rascunho é jogado fora e o WAL registra o fim da T1 sem efeito. A Bia não recebe nada, a Lena não perde nada, e o app mostra "saldo insuficiente".',
         look: 'O rascunho esvazia. As gavetas seguem com 150 e 20; no WAL entra #202 T1 ABORT.',
         key: 'Regra quebrada = transação inteira recusada; o banco não sai de um estado válido.',
         sql: { who: 'app da Lena', code: 'ROLLBACK;', out: 'ROLLBACK' },
@@ -287,10 +287,10 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
           S.draft = t < 0.9 ? [{ t: 'T1 · transferência de R$ 200', lines: [['BEGIN', 'dim'], ['lena   150 − 200 = −50', 'bad'], ['ROLLBACK', 'bad']] }] : null;
           S.wal = [['#201', 'T1 BEGIN', 'mem', 1], ...WE('#202', 'T1 ABORT', 'bad', t, 0.6)];
           S.cl.lena = ['R$ 150', '✕ saldo insuficiente', 'bad']; S.cl.irmao = ['R$ 20', 'nada chegou', 'dim'];
-          if (t >= 1.0) S.card = ['nada mudou', 'acc', 'lena 150 · irmão 20 · total R$ 170', 'table']; return S; },
-        data: () => '<li>Tabela: lena = 150, irmao = 20 (igual a antes).</li><li>O erro voltou para o app, que mostra a mensagem certa para a Lena.</li>' },
+          if (t >= 1.0) S.card = ['nada mudou', 'acc', 'lena 150 · bia 20 · total R$ 170', 'table']; return S; },
+        data: () => '<li>Tabela: lena = 150, bia = 20 (igual a antes).</li><li>O erro voltou para o app, que mostra a mensagem certa para a Lena.</li>' },
       { title: 'R$ 100 cabem na regra', dur: 6,
-        story: 'A Lena corrige para R$ 100. Agora 150 − 100 = 50, que é >= 0, e o irmão vai a 120. As duas linhas novas passam pela barra e o COMMIT vale. O banco saiu de um estado válido (170 no total, ninguém negativo) e chegou a outro estado válido.',
+        story: 'A Lena corrige para R$ 100. Agora 150 − 100 = 50, que é >= 0, e a Bia vai a 120. As duas linhas novas passam pela barra e o COMMIT vale. O banco saiu de um estado válido (170 no total, ninguém negativo) e chegou a outro estado válido.',
         look: 'A barra da regra fica acesa sem vermelho; as duas gavetas mudam juntas no COMMIT.',
         key: 'Consistência: de um estado válido para outro estado válido, sempre.',
         sql: { who: 'app da Lena', code: TX_SQL, out: 'COMMIT' },
@@ -300,20 +300,20 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     ],
     i: [
       { title: 'Duas transferências no mesmo segundo', dur: 2,
-        story: 'Ao mesmo tempo em que a Lena manda R$ 100 ao irmão, roda o débito automático do aluguel: R$ 40 para a imobiliária. As duas mexem na mesma linha, a da Lena. Neste banco, o app faz três passos: lê o saldo, calcula o novo e grava o número pronto. Deve sobrar 150 − 100 − 40 = 10.',
-        look: 'Agora há dois clientes mexendo na Lena: o tablet dela (T1) e o débito automático (T2), embaixo.',
+        story: 'Ao mesmo tempo em que a Lena manda R$ 100 de crédito para a Bia, ela paga uma compra de R$ 40 na loja com o mesmo saldo. As duas mexem na mesma linha, a da Lena. Neste banco, o app faz três passos: lê o saldo, calcula o novo e grava o número pronto. Deve sobrar 150 − 100 − 40 = 10.',
+        look: 'Agora há dois clientes mexendo na Lena: o tablet dela (T1) e a compra na loja (T2), embaixo.',
         key: 'Isolamento: transações simultâneas não podem atrapalhar uma à outra.',
         sql: { who: 'o app (T1 e T2 fazem igual)', code: "SELECT saldo FROM contas WHERE id = 'lena';\n-- o app calcula: saldo - valor\nUPDATE contas SET saldo = <novo> WHERE id = 'lena';", out: '(ler, calcular, gravar)' },
-        st: t => { const S = S0(); S.rows.imob = [0, 'n']; S.cl.lena = ['R$ 150', 'T1: R$ 100 → irmão', 'hi']; S.cl.aux = ['agendado', 'T2: R$ 40 → imobiliária', 'hi'];
+        st: t => { const S = S0(); S.rows.imob = [0, 'n']; S.cl.lena = ['R$ 150', 'T1: R$ 100 → Bia', 'hi']; S.cl.aux = ['no caixa', 'T2: compra R$ 40', 'hi'];
           if (t > 0.4) S.card = ['lena tem R$ 150', 'acc', 'T1 tira 100 · T2 tira 40 · deve sobrar 10', 'table']; return S; },
-        data: () => '<li>T1: Lena → irmão, R$ 100.</li><li>T2: Lena → imobiliária, R$ 40 (aluguel; valor pequeno de exemplo).</li><li>Certo no fim: lena 10, irmão 120, imobiliária 40 (total 170).</li>' },
+        data: () => '<li>T1: Lena → Bia, R$ 100.</li><li>T2: compra de R$ 40 na loja, paga com a carteira da Lena (valor pequeno de exemplo).</li><li>Certo no fim: lena 10, bia 120, loja 40 (total 170).</li>' },
       { title: 'Sem isolamento: as duas leem 150', dur: 2.6,
         story: 'Sem nenhuma trava, T1 lê o saldo da Lena: 150. Um instante depois, T2 também lê: 150. Nenhuma sabe da outra. Cada uma vai fazer a conta a partir de um número que está prestes a ficar velho.',
         look: 'As duas luzes saem da gaveta da Lena para os clientes. O rascunho mostra T1 leu 150 e T2 leu 150, e a linha do tempo na frente da máquina anota a ordem.',
         key: 'Duas leituras do mesmo valor, ao mesmo tempo, são o começo do problema.',
         sql: { who: 'T1 e T2', code: "SELECT saldo FROM contas WHERE id = 'lena';  -- T1\nSELECT saldo FROM contas WHERE id = 'lena';  -- T2", out: 'T1: 150   T2: 150' },
         st: t => { const S = S0(); S.rows.imob = [0, 'n']; addFly(S, FL('l_t', t, 0.2, 0.9, { back: true }), FL('a_t', t, 0.9, 1.7, { back: true }));
-          S.draft = [{ t: 'T1 · irmão', lines: t >= 0.9 ? [['leu lena = 150', 'acc']] : [] }, { t: 'T2 · aluguel', lines: t >= 1.7 ? [['leu lena = 150', 'acc']] : [] }];
+          S.draft = [{ t: 'T1 · Bia', lines: t >= 0.9 ? [['leu lena = 150', 'acc']] : [] }, { t: 'T2 · compra', lines: t >= 1.7 ? [['leu lena = 150', 'acc']] : [] }];
           S.front = [['T1 lê 150', t >= 0.9 ? 'acc' : 'off'], ['T2 lê 150', t >= 1.7 ? 'acc' : 'off']];
           S.cl.lena = ['T1', t >= 0.9 ? 'leu 150' : 'lendo…', 'hi']; S.cl.aux = ['T2', t >= 1.7 ? 'leu 150' : 'lendo…', 'hi'];
           if (t >= 1.8) S.card = ['T1 leu 150 · T2 leu 150', 'acc', 'as duas viram o mesmo número', 'draft']; return S; },
@@ -326,19 +326,19 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         st: t => { const S = S0(); addFly(S, FL('l_t', t, 0.2, 0.9), FL('a_t', t, 1.3, 2.1));
           S.rows.lena = t >= 2.1 ? [110, 'bad', 'o débito da T1 sumiu'] : t >= 0.9 ? [50, 'hot'] : [150, 'n'];
           S.rows.irmao = t >= 0.9 ? [120, 'n'] : [20, 'n']; S.rows.imob = t >= 2.1 ? [40, 'n'] : [0, 'n'];
-          S.draft = [{ t: 'T1 · irmão', lines: [['leu lena = 150', 'dim'], ['grava 150−100 = 50', t >= 0.9 ? 'acc' : 'dim']] }, { t: 'T2 · aluguel', lines: [['leu lena = 150', 'dim'], ['grava 150−40 = 110', t >= 2.1 ? 'bad' : 'dim']] }];
+          S.draft = [{ t: 'T1 · Bia', lines: [['leu lena = 150', 'dim'], ['grava 150−100 = 50', t >= 0.9 ? 'acc' : 'dim']] }, { t: 'T2 · compra', lines: [['leu lena = 150', 'dim'], ['grava 150−40 = 110', t >= 2.1 ? 'bad' : 'dim']] }];
           S.front = [['T1 lê 150', 'acc'], ['T2 lê 150', 'acc'], ['T1 grava 50', t >= 0.9 ? 'acc' : 'off'], ['T2 grava 110', t >= 2.1 ? 'bad' : 'off']];
           S.cl.lena = ['T1', t >= 0.9 ? 'gravou 50 ✓' : 'gravando…', 'hi']; S.cl.aux = ['T2', t >= 2.1 ? 'gravou 110 ✓' : 'esperando a vez…', 'hi'];
           if (t >= 2.2) S.card = ['lost update', 'bad', 'lena 110, mas devia ser 10', 'table']; return S; },
         data: () => '<li>Linha do tempo: T1 lê 150 → T2 lê 150 → T1 grava 50 → T2 grava 110.</li><li>As duas transações acharam que deu certo.</li>' },
       { title: 'A conta não fecha', dur: 2,
-        story: 'Some tudo: Lena 110, irmão 120, imobiliária 40. São R$ 270, mas antes eram R$ 170. O banco "criou" R$ 100. Para um banco de verdade, isso é dinheiro de graça para a Lena e prejuízo para o banco.',
+        story: 'Some tudo: Lena 110, Bia 120, loja 40. São R$ 270, mas antes eram R$ 170. O sistema "criou" R$ 100. Para um banco de verdade, isso é crédito de graça para a Lena e prejuízo para a loja.',
         look: 'A gaveta da Lena fica vermelha com R$ 110. A linha do tempo mostra as quatro operações intercaladas.',
         key: 'Sem isolamento, transações certas sozinhas dão resultado errado juntas.',
         sql: { who: 'auditoria', code: 'SELECT sum(saldo) FROM contas;', out: '270   -- antes eram 170' },
         st: t => { const S = S0(); S.rows.lena = [110, 'bad', 'devia ser 10']; S.rows.irmao = [120, 'n']; S.rows.imob = [40, 'n'];
           S.front = [['T1 lê 150', 'acc'], ['T2 lê 150', 'acc'], ['T1 grava 50', 'acc'], ['T2 grava 110', 'bad']];
-          S.cl.lena = ['R$ 110', '?! devia ser R$ 10', 'bad']; S.cl.irmao = ['R$ 120', '+ R$ 100', 'ok']; S.cl.aux = ['T2', 'aluguel pago', 'ok'];
+          S.cl.lena = ['R$ 110', '?! devia ser R$ 10', 'bad']; S.cl.irmao = ['R$ 120', '+ R$ 100', 'ok']; S.cl.aux = ['T2', 'compra paga', 'ok'];
           if (t > 0.3) S.card = ['total R$ 270', 'bad', 'eram R$ 170: R$ 100 surgiram do nada', 'table']; return S; },
         data: () => '<li>110 + 120 + 40 = <b>270</b>.</li><li>Certo seria 10 + 120 + 40 = <b>170</b>.</li>' },
       { title: 'Com isolamento: trava a linha', dur: 3,
@@ -348,64 +348,64 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         sql: { who: 'T1 e T2', code: "BEGIN;  -- T1\nSELECT saldo FROM contas WHERE id = 'lena' FOR UPDATE;  -- 150, trava\nBEGIN;  -- T2\nSELECT saldo FROM contas WHERE id = 'lena' FOR UPDATE;  -- espera…", out: 'T1: 150   T2: (bloqueada, esperando)' },
         st: t => { const S = S0(); S.rows.imob = [0, 'n']; addFly(S, FL('l_t', t, 0.2, 0.9, { back: true }), FL('a_t', t, 1.3, 2.1, { back: true, stop: 0.82 }));
           S.rows.lena = t >= 0.9 ? [150, 'lock', 'LOCK · T1'] : [150, 'n'];
-          S.draft = [{ t: 'T1 · irmão', lines: t >= 0.9 ? [['leu lena = 150 (trava)', 'acc']] : [] }, { t: 'T2 · aluguel', lines: t >= 2.0 ? [['⏳ esperando o lock…', 'old']] : [] }];
+          S.draft = [{ t: 'T1 · Bia', lines: t >= 0.9 ? [['leu lena = 150 (trava)', 'acc']] : [] }, { t: 'T2 · compra', lines: t >= 2.0 ? [['⏳ esperando o lock…', 'old']] : [] }];
           S.front = [['T1 lê+trava', t >= 0.9 ? 'acc' : 'off'], ['T2 espera', t >= 2.0 ? 'old' : 'off']];
           S.cl.lena = ['T1', t >= 0.9 ? 'leu 150 (trava)' : 'lendo…', 'hi']; S.cl.aux = ['T2', t >= 2.0 ? '⏳ esperando' : 'lendo…', 'hi'];
           if (t >= 1.0) S.card = ['LOCK · T1 na linha da lena', 'acc', 'T2 espera na fila', 'table']; return S; },
         data: () => '<li>FOR UPDATE: lê e trava a linha até o fim da transação.</li><li>T2 fica parada: isolamento custa espera.</li>' },
       { title: 'T1 termina, T2 lê o valor novo', dur: 4.4,
-        story: 'T1 grava 50, credita o irmão e faz COMMIT. O COMMIT solta a trava. Só então T2 consegue ler: agora o saldo é 50, não 150. T2 calcula 50 − 40 = 10, grava e faz COMMIT. Uma rodou depois da outra.',
+        story: 'T1 grava 50, credita a Bia e faz COMMIT. O COMMIT solta a trava. Só então T2 consegue ler: agora o saldo é 50, não 150. T2 calcula 50 − 40 = 10, grava e faz COMMIT. Uma rodou depois da outra.',
         look: 'A trava passa da T1 para a T2. A gaveta da Lena vai de 150 para 50 e depois para 10.',
         key: 'Com isolamento, o resultado é o mesmo de rodar uma transação depois da outra.',
         sql: { who: 'T1 e depois T2', code: "UPDATE contas SET saldo = 50 WHERE id = 'lena';  -- T1\nCOMMIT;  -- T1 solta a trava\n-- T2 acorda e lê 50\nUPDATE contas SET saldo = 10 WHERE id = 'lena';  -- T2\nCOMMIT;", out: 'COMMIT · COMMIT' },
         st: t => { const S = S0(); addFly(S, FL('l_t', t, 0.2, 0.9), FL('a_t', t, 1.6, 2.3, { back: true }), FL('a_t', t, 2.6, 3.3));
           S.rows.lena = t >= 3.3 ? [10, 'hot'] : t >= 2.3 ? [50, 'lock', 'LOCK · T2'] : t >= 1.4 ? [50, 'n', 'trava solta'] : t >= 0.9 ? [50, 'lock', 'LOCK · T1'] : [150, 'lock', 'LOCK · T1'];
           S.rows.irmao = t >= 1.4 ? [120, t < 3 ? 'hot' : 'n'] : [20, 'n']; S.rows.imob = t >= 3.6 ? [40, 'hot'] : [0, 'n'];
-          S.draft = [{ t: 'T1 · irmão', lines: [['leu 150 (trava)', 'dim'], ...(t >= 0.9 ? [['grava 50', 'acc']] : []), ...(t >= 1.4 ? [['COMMIT ✓ solta a trava', 'acc']] : [])] },
-            { t: 'T2 · aluguel', lines: t < 2.3 ? [['⏳ esperando o lock…', 'old']] : [['leu lena = 50', 'acc'], ...(t >= 3.3 ? [['grava 50−40 = 10', 'acc']] : []), ...(t >= 3.6 ? [['COMMIT ✓', 'acc']] : [])] }];
+          S.draft = [{ t: 'T1 · Bia', lines: [['leu 150 (trava)', 'dim'], ...(t >= 0.9 ? [['grava 50', 'acc']] : []), ...(t >= 1.4 ? [['COMMIT ✓ solta a trava', 'acc']] : [])] },
+            { t: 'T2 · compra', lines: t < 2.3 ? [['⏳ esperando o lock…', 'old']] : [['leu lena = 50', 'acc'], ...(t >= 3.3 ? [['grava 50−40 = 10', 'acc']] : []), ...(t >= 3.6 ? [['COMMIT ✓', 'acc']] : [])] }];
           S.front = [['T1 lê+trava', 'acc'], ['T2 espera', 'old'], ['T1 grava 50 ✓', t >= 1.4 ? 'acc' : 'off'], ['T2 lê 50', t >= 2.3 ? 'acc' : 'off'], ['T2 grava 10 ✓', t >= 3.6 ? 'acc' : 'off']];
           S.cl.lena = ['T1', t >= 1.4 ? 'COMMIT ✓' : 'gravando…', t >= 1.4 ? 'ok' : 'hi']; S.cl.aux = ['T2', t >= 3.6 ? 'COMMIT ✓' : t >= 2.3 ? 'leu 50' : '⏳ esperando', t >= 3.6 ? 'ok' : 'hi'];
           if (t >= 2.3 && t < 3.6) S.card = ['T2 leu 50, não 150', 'acc', 'o valor que a T1 confirmou', 'draft'];
           if (t >= 3.6) S.card = ['lena = 10', 'acc', '150 − 100 − 40', 'table']; return S; },
         data: () => '<li>Linha do tempo: T1 lê 150 e trava → T2 espera → T1 grava 50, COMMIT → T2 lê 50 → T2 grava 10, COMMIT.</li>' },
       { title: 'Resultado certo: R$ 170 no total', dur: 2,
-        story: 'Lena 10, irmão 120, imobiliária 40: R$ 170, como antes. A trava com FOR UPDATE é um jeito. Outro é pedir o nível SERIALIZABLE (ou REPEATABLE READ): o banco percebe o conflito e aborta uma das duas, que o app repete. E o mais simples aqui: UPDATE ... SET saldo = saldo − 40, que lê e grava numa operação só.',
+        story: 'Lena 10, Bia 120, loja 40: R$ 170, como antes. A trava com FOR UPDATE é um jeito. Outro é pedir o nível SERIALIZABLE (ou REPEATABLE READ): o banco percebe o conflito e aborta uma das duas, que o app repete. E o mais simples aqui: UPDATE ... SET saldo = saldo − 40, que lê e grava numa operação só.',
         look: 'As três gavetas com os valores certos; a linha do tempo mostra uma transação depois da outra.',
         key: 'Isolamento troca um pouco de espera (ou de repetição) por resultados certos.',
         sql: { who: 'outra saída', code: 'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;', out: 'ERROR:  could not serialize access due to concurrent update\n-- o app repete a T2, que agora lê 50' },
         st: t => { const S = S0(); S.rows.lena = [10, 'n']; S.rows.irmao = [120, 'n']; S.rows.imob = [40, 'n'];
           S.front = [['T1 lê+trava', 'acc'], ['T2 espera', 'old'], ['T1 grava 50 ✓', 'acc'], ['T2 lê 50', 'acc'], ['T2 grava 10 ✓', 'acc']];
-          S.cl.lena = ['R$ 10', '✓ certo', 'ok']; S.cl.irmao = ['R$ 120', '+ R$ 100', 'ok']; S.cl.aux = ['T2', 'aluguel pago ✓', 'ok'];
+          S.cl.lena = ['R$ 10', '✓ certo', 'ok']; S.cl.irmao = ['R$ 120', '+ R$ 100', 'ok']; S.cl.aux = ['T2', 'compra paga ✓', 'ok'];
           if (t > 0.3) S.card = ['total R$ 170', 'acc', 'como se uma rodasse depois da outra', 'table']; return S; },
         data: () => '<li>10 + 120 + 40 = <b>170</b> ✓</li><li>Níveis no PostgreSQL: READ COMMITTED (padrão), REPEATABLE READ, SERIALIZABLE.</li><li>MVCC: cada transação lê uma "foto" consistente; leitura não bloqueia escrita.</li><li>Anomalias que o isolamento evita: lost update, dirty read, non-repeatable read, phantom read.</li>' + EX },
     ],
     d: [
       { title: 'A transferência, ainda na memória', dur: 3.2,
-        story: 'A Lena manda os R$ 100. A transação abre, tira 100 dela e põe 100 no irmão. Até aqui tudo está na memória do servidor: o rascunho e as linhas do WAL na esteira. A memória é rápida, mas some se a luz acabar.',
+        story: 'A Lena manda os R$ 100. A transação abre, tira 100 dela e põe 100 na Bia. Até aqui tudo está na memória do servidor: o rascunho e as linhas do WAL na esteira. A memória é rápida, mas some se a luz acabar.',
         look: 'O rascunho tem as duas mudanças. Na esteira, três linhas do WAL com borda tracejada: ainda só na memória.',
         key: 'Memória é rápida e volátil; o disco é mais lento e guarda sem energia.',
-        sql: { who: 'app da Lena', code: "BEGIN;\nUPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'irmao';", out: 'UPDATE 1 · UPDATE 1' },
-        st: t => { const S = fullTx(S0(), Math.min(t, 2.5), 301); S.cl.lena = ['enviando…', 'R$ 100 → irmão', 'hi'];
+        sql: { who: 'app da Lena', code: "BEGIN;\nUPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'bia';", out: 'UPDATE 1 · UPDATE 1' },
+        st: t => { const S = fullTx(S0(), Math.min(t, 2.5), 301); S.cl.lena = ['enviando…', 'R$ 100 → Bia', 'hi'];
           if (t >= 2.2) S.card = ['WAL na memória', 'acc', 'cada mudança vira uma linha no log', 'belt']; return S; },
-        data: () => '<li>WAL na memória (buffer): #301 BEGIN, #302 UPDATE lena, #303 UPDATE irmão.</li><li>Disco: nada novo ainda.</li>' },
+        data: () => '<li>WAL na memória (buffer): #301 BEGIN, #302 UPDATE lena, #303 UPDATE bia.</li><li>Disco: nada novo ainda.</li>' },
       { title: 'COMMIT: o log desce para o disco', dur: 3.6,
         story: 'A Lena confirma e o app manda COMMIT. O banco põe a linha #304 COMMIT no WAL e manda o log para o disco com fsync, a chamada que só volta quando o disco diz "gravei de verdade". Repare: o arquivo da tabela no disco ainda tem 150 e 20. Ele é atualizado depois (checkpoint); o que garante a transferência é o WAL.',
         look: 'As linhas do WAL viajam pela esteira até o disco. A tela do disco mostra fsync ✓ e o WAL com o COMMIT.',
         key: 'Write-ahead: o log vai para o disco antes de o banco dizer "pronto".',
         sql: { who: 'app da Lena', code: 'COMMIT;', out: '(o banco espera o fsync do WAL…)' },
         st: t => { const S = fullTx(S0(), 2.6 + t, 301, { noCard: true }); if (t < 1.6) S.rows = { lena: [150, 'n'], irmao: [20, 'n'] };
-          S.cl.lena = ['enviando…', 'COMMIT', 'hi']; S.cl.irmao = ['R$ 20', 'saldo do irmão', 'dim']; S.fly = S.fly.filter(f => f.p !== 'l_d');
+          S.cl.lena = ['enviando…', 'COMMIT', 'hi']; S.cl.irmao = ['R$ 20', 'saldo da Bia', 'dim']; S.fly = S.fly.filter(f => f.p !== 'l_d');
           if (t >= 1.0) S.card = ['fsync ✓', 'acc', 'o disco confirmou: o WAL está gravado', 'disk']; return S; },
-        data: () => '<li>WAL no disco: #301 … #304 COMMIT.</li><li>Arquivo da tabela no disco: lena 150, irmão 20 (velho, até o checkpoint).</li><li>fsync: pede ao sistema operacional que tire os dados do cache e grave no meio físico.</li>' + EX },
+        data: () => '<li>WAL no disco: #301 … #304 COMMIT.</li><li>Arquivo da tabela no disco: lena 150, bia 20 (velho, até o checkpoint).</li><li>fsync: pede ao sistema operacional que tire os dados do cache e grave no meio físico.</li>' + EX },
       { title: 'Só agora: "OK" para o app', dur: 2,
-        story: 'Com o WAL seguro no disco, o banco responde COMMIT ao app. A tela da Lena mostra "transferência feita" e o irmão já vê R$ 120. Daqui para frente, o banco prometeu: essa transferência não se perde.',
+        story: 'Com o WAL seguro no disco, o banco responde COMMIT ao app. A tela da Lena mostra "transferência feita" e a Bia já vê R$ 120. Daqui para frente, o banco prometeu: essa transferência não se perde.',
         look: 'A luz volta ao tablet da Lena. As gavetas mostram 50 e 120.',
         key: 'COMMIT respondido = promessa de durabilidade.',
         sql: { who: 'resposta do banco', code: 'COMMIT;', out: 'COMMIT' },
         st: t => { const S = fullTx(S0(), 4.2 + t * 0.5, 301, { noCard: true }); S.rows.lena = [50, 'n']; S.rows.irmao = [120, 'n'];
           S.fly = S.fly.filter(f => f.p !== 'l_d'); addFly(S, FL('l_d', t, 0, 0.8, { back: true })); S.cl.lena = t >= 0.8 ? ['R$ 50', '✓ transferência feita', 'ok'] : ['enviando…', 'COMMIT', 'hi']; S.cl.irmao = ['R$ 120', '+ R$ 100 da Lena', 'ok'];
           if (t >= 0.8) S.card = ['COMMIT → OK', 'acc', 'só depois do fsync', 'lena']; return S; },
-        data: () => '<li>O app recebeu COMMIT.</li><li>Tabela na memória: lena 50, irmão 120.</li><li>No disco: WAL com o COMMIT; arquivo da tabela ainda velho.</li>' },
+        data: () => '<li>O app recebeu COMMIT.</li><li>Tabela na memória: lena 50, bia 120.</li><li>No disco: WAL com o COMMIT; arquivo da tabela ainda velho.</li>' },
       { title: 'A luz acaba', dur: 2.4,
         story: 'Um segundo depois do OK, a energia do prédio cai. O servidor desliga na hora. A tabela que estava na memória, com 50 e 120, sumiu. No disco sobraram duas coisas: o arquivo da tabela, velho (150 e 20), e o WAL, com a transferência inteira e o COMMIT.',
         look: 'A máquina apaga. Só o disco mantém o que tem: o WAL até #304 e o arquivo velho da tabela.',
@@ -414,9 +414,9 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
         st: t => { const S = fullTx(S0(), 6.5, 301, { noCard: true }); S.rows.lena = [50, 'n']; S.rows.irmao = [120, 'n']; S.fly = [];
           S.cl.lena = ['R$ 50', '✓ transferência feita', 'ok']; S.cl.irmao = ['R$ 120', '+ R$ 100 da Lena', 'ok'];
           if (t >= 0.6) { S.power = 'off'; S.card = ['⚡ a luz acabou', 'bad', 'tudo o que estava na memória sumiu', 'mach']; S.card2 = ['o disco guardou o WAL', 'acc', '#301 … #304 COMMIT', 'disk']; } return S; },
-        data: () => '<li>Perdido: tabela e WAL que estavam na memória.</li><li>No disco: WAL #301…#304 (com COMMIT) e o arquivo da tabela (lena 150, irmão 20).</li>' },
+        data: () => '<li>Perdido: tabela e WAL que estavam na memória.</li><li>No disco: WAL #301…#304 (com COMMIT) e o arquivo da tabela (lena 150, bia 20).</li>' },
       { title: 'Religou: replay do WAL', dur: 4.4,
-        story: 'A luz volta. O banco vê que não desligou direito e faz a recuperação: abre o arquivo da tabela (ainda 150 e 20) e refaz, uma por uma, as mudanças do WAL que têm COMMIT (redo). A T1 tem: Lena volta a 50 e o irmão a 120. Só depois disso aceita conexões.',
+        story: 'A luz volta. O banco vê que não desligou direito e faz a recuperação: abre o arquivo da tabela (ainda 150 e 20) e refaz, uma por uma, as mudanças do WAL que têm COMMIT (redo). A T1 tem: Lena volta a 50 e a Bia a 120. Só depois disso aceita conexões.',
         look: 'As gavetas acendem com os valores velhos do arquivo (150, 20). A luz sai do disco e as gavetas viram 50 e 120.',
         key: 'Replay do WAL: o log no disco reconstrói o que a memória perdeu.',
         sql: { who: 'o próprio banco, ao ligar', code: '-- recuperação automática ao ligar', out: RECOV + '\nLOG:  redo starts at #302 · redo done at #304\nLOG:  database system is ready to accept connections' },
@@ -425,8 +425,8 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
           S.rows = t < 3.0 ? { lena: [150, 'old', 'do arquivo velho'], irmao: [20, 'old', 'do arquivo velho'] } : { lena: [50, 'hot', 'refeito pelo WAL'], irmao: [120, 'hot', 'refeito pelo WAL'] };
           addFly(S, FL('k_t', t, 1.6, 2.4), FL('k_t', t, 2.2, 3.0));
           if (t >= 1.2 && t < 3.0) S.card = ['redo: #302 e #303', 'acc', 'a T1 tem COMMIT (#304), então vale', 'disk'];
-          if (t >= 3.0) S.card = ['lena 50 · irmão 120 de volta', 'acc', 'nada se perdeu', 'table']; return S; },
-        data: () => '<li>Ponto de partida: arquivo da tabela (lena 150, irmão 20).</li><li>Redo: #302 UPDATE lena 150→50, #303 UPDATE irmão 20→120 (T1 tem COMMIT).</li><li>Transação sem COMMIT no WAL seria ignorada (veja o cenário A).</li>' + EX },
+          if (t >= 3.0) S.card = ['lena 50 · bia 120 de volta', 'acc', 'nada se perdeu', 'table']; return S; },
+        data: () => '<li>Ponto de partida: arquivo da tabela (lena 150, bia 20).</li><li>Redo: #302 UPDATE lena 150→50, #303 UPDATE bia 20→120 (T1 tem COMMIT).</li><li>Transação sem COMMIT no WAL seria ignorada (veja o cenário A).</li>' + EX },
       { title: 'Por que funciona', dur: 2,
         story: 'Durabilidade é isto: se o banco disse COMMIT, o dado sobrevive a queda de luz e a travamento. O truque é a ordem: primeiro o log vai para o disco (write-ahead), depois o banco responde. Dá para trocar isso por velocidade (synchronous_commit = off): o banco responde antes do fsync e uma queda pode levar os últimos instantes de commits.',
         look: 'A máquina de volta ao normal; o WAL no disco tem a transferência com COMMIT.',
@@ -438,25 +438,25 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     ],
     base: [
       { title: 'Uma loja, três servidores', dur: 2,
-        story: 'Agora o banco é outro: em vez de uma máquina, três nós com cópias do mesmo dado, em São Paulo (A), no Rio (B) e em Recife (C). Cada um responde sozinho, sem perguntar aos outros. É o estilo BASE, de bancos distribuídos que põem a disponibilidade em primeiro lugar.',
-        look: 'Três nós lado a lado, cada um com o saldo da Lena e do irmão e a versão (v1).',
+        story: 'Agora o banco é outro: em vez de uma máquina, três nós com cópias do mesmo dado, em Recife (A), no Rio (B) e em São Paulo (C). Cada um responde sozinho, sem perguntar aos outros. É o estilo BASE, de bancos distribuídos que põem a disponibilidade em primeiro lugar.',
+        look: 'Três nós lado a lado, cada um com o saldo da Lena e da Bia e a versão (v1).',
         key: 'BASE: Basically Available, Soft state, Eventually consistent.',
         sql: { who: 'em A, B ou C', code: "SELECT saldo FROM contas WHERE id = 'lena';", out: 'A: 150 · B: 150 · C: 150' },
         st: t => { const S = S0(); S.nodes = { A: [150, 20, 1, 'n'], B: [150, 20, 1, 'n'], C: [150, 20, 1, 'n'] };
-          if (t > 0.4) S.card = ['3 cópias do mesmo dado', 'acc', 'A São Paulo · B Rio · C Recife', 'B']; return S; },
-        data: () => '<li>Nó A, B e C: lena 150, irmão 20, versão v1.</li><li>Exemplos de bancos nesse estilo: Cassandra, DynamoDB.</li>' },
+          if (t > 0.4) S.card = ['3 cópias do mesmo dado', 'acc', 'A Recife · B Rio · C São Paulo', 'B']; return S; },
+        data: () => '<li>Nó A, B e C: lena 150, bia 20, versão v1.</li><li>Exemplos de bancos nesse estilo: Cassandra, DynamoDB.</li>' },
       { title: 'A escreve e responde na hora', dur: 2.4,
-        story: 'A Lena transfere os R$ 100 e o pedido cai no nó A, o mais perto dela. O A grava na hora e já responde OK, sem esperar B e C. A Lena vê R$ 50 em poucos milissegundos. É o "basicamente disponível": responder sempre que der.',
+        story: 'A Lena transfere os R$ 100 e o pedido cai no nó A, o de Recife, o mais perto dela. O A grava na hora e já responde OK, sem esperar B e C. A Lena vê R$ 50 em poucos milissegundos. É o "basicamente disponível": responder sempre que der.',
         look: 'A luz vai do tablet da Lena ao nó A, que passa a mostrar 50, 120 e v2.',
         key: 'Disponível primeiro: o nó responde sem esperar os outros.',
-        sql: { who: 'no nó A', code: "UPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'irmao';", out: 'OK em ~5 ms (exemplo) · réplicas: depois' },
+        sql: { who: 'no nó A', code: "UPDATE contas SET saldo = saldo - 100 WHERE id = 'lena';\nUPDATE contas SET saldo = saldo + 100 WHERE id = 'bia';", out: 'OK em ~5 ms (exemplo) · réplicas: depois' },
         st: t => { const S = S0(); addFly(S, FL('l_A', t, 0.2, 1.1), FL('l_A', t, 1.3, 1.9, { back: true }));
           S.nodes = { A: t >= 1.1 ? [50, 120, 2, 'hot'] : [150, 20, 1, 'n'], B: [150, 20, 1, 'n'], C: [150, 20, 1, 'n'] };
-          S.cl.lena = t >= 1.9 ? ['R$ 50', '✓ feito em ~5 ms', 'ok'] : ['enviando…', 'R$ 100 → irmão', 'hi'];
+          S.cl.lena = t >= 1.9 ? ['R$ 50', '✓ feito em ~5 ms', 'ok'] : ['enviando…', 'R$ 100 → Bia', 'hi'];
           if (t >= 1.2) S.card = ['OK em ~5 ms', 'acc', 'A não esperou B nem C', 'A']; return S; },
-        data: () => '<li>Nó A: lena 50, irmão 120, <b>v2</b>.</li><li>Nós B e C: ainda v1.</li>' },
+        data: () => '<li>Nó A: lena 50, bia 120, <b>v2</b>.</li><li>Nós B e C: ainda v1.</li>' },
       { title: 'Soft state: as cópias discordam', dur: 3,
-        story: 'O A manda a mudança para B e C em segundo plano (replicação assíncrona). Enquanto ela viaja, os três nós discordam: A diz 120 para o irmão, B e C ainda dizem 20. Nada está quebrado; o estado é "mole" e vai mudar sozinho.',
+        story: 'O A manda a mudança para B e C em segundo plano (replicação assíncrona). Enquanto ela viaja, os três nós discordam: A diz 120 para a Bia, B e C ainda dizem 20. Nada está quebrado; o estado é "mole" e vai mudar sozinho.',
         look: 'Luzes vão de A para B e C pelos arcos, devagar. B e C mostram v1 em âmbar.',
         key: 'Soft state: o valor de um nó pode mudar sem ninguém escrever nele.',
         sql: { who: 'nó A, em segundo plano', code: '-- replicação assíncrona: A → B, A → C', out: 'B: v1 · C: v1   (atraso de ms a segundos)' },
@@ -464,28 +464,28 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
           S.nodes = { A: [50, 120, 2, 'n'], B: [150, 20, 1, 'old', 'réplica a caminho…'], C: [150, 20, 1, 'old', 'réplica a caminho…'] };
           S.cl.lena = ['R$ 50', '✓ feito', 'ok'];
           if (t >= 0.5) S.card = ['B e C ainda com v1', 'acc', 'a mudança está a caminho', 'B']; return S; },
-        data: () => '<li>A: v2 (lena 50, irmão 120).</li><li>B e C: v1 (lena 150, irmão 20).</li>' },
-      { title: 'O irmão olha o saldo… no nó C', dur: 2.6,
-        story: 'O irmão, em Recife, abre o app. A leitura vai para o nó C, o mais perto dele. O C responde na hora, mas com o que tem: R$ 20. A transferência já foi aceita, só ainda não chegou ali. É uma leitura velha (stale read).',
-        look: 'A luz vai do tablet do irmão até o nó C e volta com R$ 20. A tela do irmão fica vermelha.',
+        data: () => '<li>A: v2 (lena 50, bia 120).</li><li>B e C: v1 (lena 150, bia 20).</li>' },
+      { title: 'A Bia olha o saldo… no nó C', dur: 2.6,
+        story: 'A Bia, em São Paulo, abre o app. A leitura vai para o nó C, o mais perto dela. O C responde na hora, mas com o que tem: R$ 20. A transferência já foi aceita, só ainda não chegou ali. É uma leitura velha (stale read).',
+        look: 'A luz vai do tablet da Bia até o nó C e volta com R$ 20. A tela da Bia fica vermelha.',
         key: 'Disponível sempre, mas às vezes com valor velho.',
-        sql: { who: 'app do irmão, no nó C', code: "SELECT saldo FROM contas WHERE id = 'irmao';", out: '20   -- o nó A já diz 120' },
+        sql: { who: 'app da Bia, no nó C', code: "SELECT saldo FROM contas WHERE id = 'bia';", out: '20   -- o nó A já diz 120' },
         st: t => { const S = S0(); addFly(S, FL('i_C', t, 0.2, 1.1), FL('i_C', t, 1.1, 2.0, { back: true }), { p: 'A_B', f: 0.5 + 0.15 * ph(t, 0, 2.6) }, { p: 'A_C', f: 0.35 + 0.1 * ph(t, 0, 2.6) });
           S.nodes = { A: [50, 120, 2, 'n'], B: [150, 20, 1, 'old'], C: [150, 20, 1, t >= 1.1 ? 'stale' : 'old', 'leu daqui: 20'] };
           S.cl.lena = ['R$ 50', '✓ feito', 'ok']; S.cl.irmao = t >= 2.0 ? ['R$ 20', 'cadê os R$ 100?', 'bad'] : ['abrindo…', 'lendo do nó C', 'hi'];
-          if (t >= 1.1) S.card = ['C respondeu: irmão = 20', 'bad', 'leitura velha (stale read)', 'C']; return S; },
+          if (t >= 1.1) S.card = ['C respondeu: bia = 20', 'bad', 'leitura velha (stale read)', 'C']; return S; },
         data: () => '<li>Leitura no C: <b>20</b> (v1).</li><li>No A, o mesmo dado já é <b>120</b> (v2).</li>' },
       { title: 'Convergência', dur: 3.6,
-        story: 'A réplica chega: primeiro ao B, depois ao C. Os três passam a mostrar Lena 50 e irmão 120, versão v2. Ninguém precisou fazer nada: sem novas escritas, as cópias convergem. O irmão atualiza o app e vê R$ 120.',
-        look: 'As luzes terminam a viagem; B e C acendem com v2. A tela do irmão fica verde.',
+        story: 'A réplica chega: primeiro ao B, depois ao C. Os três passam a mostrar Lena 50 e Bia 120, versão v2. Ninguém precisou fazer nada: sem novas escritas, as cópias convergem. A Bia atualiza o app e vê R$ 120.',
+        look: 'As luzes terminam a viagem; B e C acendem com v2. A tela da Bia fica verde.',
         key: 'Eventual consistency: sem novas escritas, todos os nós acabam iguais.',
-        sql: { who: 'app do irmão, no nó C', code: "SELECT saldo FROM contas WHERE id = 'irmao';", out: '120' },
+        sql: { who: 'app da Bia, no nó C', code: "SELECT saldo FROM contas WHERE id = 'bia';", out: '120' },
         st: t => { const S = S0(); addFly(S, FL('A_B', t, 0, 0.8, {}), FL('A_C', t, 0, 1.4, {}), FL('i_C', t, 2.0, 2.6), FL('i_C', t, 2.6, 3.2, { back: true }));
           for (const f of S.fly) if (f.p === 'A_B' || f.p === 'A_C') f.f = (f.p === 'A_B' ? 0.65 : 0.45) + (1 - (f.p === 'A_B' ? 0.65 : 0.45)) * f.f;
           S.nodes = { A: [50, 120, 2, 'n'], B: t >= 0.8 ? [50, 120, 2, t < 2.6 ? 'hot' : 'n'] : [150, 20, 1, 'old'], C: t >= 1.4 ? [50, 120, 2, t < 2.6 ? 'hot' : 'n'] : [150, 20, 1, 'old'] };
           S.cl.lena = ['R$ 50', '✓ feito', 'ok']; S.cl.irmao = t >= 3.2 ? ['R$ 120', '+ R$ 100 da Lena', 'ok'] : ['R$ 20', 'cadê os R$ 100?', 'bad'];
           if (t >= 1.5) S.card = ['A, B e C: v2', 'acc', 'convergiram', 'B']; return S; },
-        data: () => '<li>A, B e C: lena 50, irmão 120, v2.</li><li>Quanto tempo leva depende da rede e da carga: de milissegundos a segundos.</li>' },
+        data: () => '<li>A, B e C: lena 50, bia 120, v2.</li><li>Quanto tempo leva depende da rede e da carga: de milissegundos a segundos.</li>' },
       { title: 'ACID x BASE', dur: 2,
         story: 'Os dois guardam a mesma transferência, com promessas diferentes. ACID: quem lê vê sempre o valor confirmado, mas às vezes precisa esperar uma trava ou recebe um erro. BASE: sempre responde rápido, em qualquer nó, mas pode mostrar um saldo velho por um tempo. Para dinheiro, quase sempre ACID; para carrinho, curtidas e catálogo, BASE costuma bastar.',
         look: 'Os três nós iguais de novo. No painel, a tabela compara os dois modelos.',
@@ -507,11 +507,11 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
   // ── painel ──
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const cmdHtml = c => `<div class="s3-cmd"><b>Comando SQL</b><i>${esc(c.who)}</i><code>${esc(c.code)}</code>${c.out ? `<span>→ ${esc(c.out)}</span>` : ''}</div>`;
-  const RN = { lena: 'lena', irmao: 'irmao', imob: 'imobiliaria' };
+  const RN = { lena: 'lena', irmao: 'bia', imob: 'loja' };
   function nowHtml() {
     const S = cur().st(lt);
     let tab;
-    if (S.nodes) tab = `<table class="s3-tab"><tr><th>nó</th><th>lena</th><th>irmão</th><th>versão</th></tr>${['A', 'B', 'C'].map(k => { const n = S.nodes[k]; return `<tr class="${n[3] === 'old' || n[3] === 'stale' ? '' : 'on'}"><td>${k} · ${NCITY[k]}</td><td>${n[0]}</td><td>${n[1]}</td><td>v${n[2]}</td></tr>`; }).join('')}</table>`;
+    if (S.nodes) tab = `<table class="s3-tab"><tr><th>nó</th><th>lena</th><th>bia</th><th>versão</th></tr>${['A', 'B', 'C'].map(k => { const n = S.nodes[k]; return `<tr class="${n[3] === 'old' || n[3] === 'stale' ? '' : 'on'}"><td>${k} · ${NCITY[k]}</td><td>${n[0]}</td><td>${n[1]}</td><td>v${n[2]}</td></tr>`; }).join('')}</table>`;
     else { const off = S.power !== 'on';
       tab = `<table class="s3-tab"><tr><th>contas.id</th><th>saldo que os outros veem</th></tr>${Object.entries(S.rows).map(([k, r]) => `<tr class="${r[1] === 'n' ? '' : 'on'}"><td>'${RN[k]}'</td><td>${off ? '— (servidor desligado)' : r[0]}${r[2] && !off ? ' · ' + r[2] : ''}</td></tr>`).join('')}</table>`; }
     return tab + cur().data();
@@ -559,7 +559,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     if (!once('cl' + k, c)) return;
     const cv = CL[k].scr, { x, P } = cv, { C } = colors(), u = v => v * P;
     bgFill(cv, c[2] === 'ok' || c[2] === 'hi' ? C.glassOn : null); x.textBaseline = 'middle'; x.textAlign = 'left';
-    x.fillStyle = C.ink; x.font = `600 ${u(6.2)}px ${MONO3}`; x.fillText({ lena: 'LENA · app do banco', irmao: 'IRMÃO · app do banco', aux: 'DÉBITO AUTOMÁTICO' }[k], u(5), u(8));
+    x.fillStyle = C.ink; x.font = `600 ${u(6.2)}px ${MONO3}`; x.fillText({ lena: 'LENA · carteira da loja', irmao: 'BIA · carteira da loja', aux: 'COMPRA NA LOJA' }[k], u(5), u(8));
     x.strokeStyle = C.detail; x.lineWidth = u(0.4); x.beginPath(); x.moveTo(u(5), u(14)); x.lineTo(u(95), u(14)); x.stroke();
     x.fillStyle = TC(c[2] === 'hi' ? 'hi' : c[2]); x.font = `600 ${u(c[0].length > 9 ? 12 : 16)}px ${MONO3}`; x.fillText(c[0], u(5), u(29));
     x.fillStyle = c[2] === 'bad' || c[2] === 'ok' ? TC(c[2]) : C.ink; x.font = `${u(c[1].length > 22 ? 5.6 : 6.6)}px ${MONO3}`; x.fillText(c[1], u(5), u(45));
@@ -570,7 +570,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     const cv = ROW[k].scr, { x, P } = cv, { C } = colors(), u = v => v * P, hot = r[1] !== 'n';
     if (power === 'off') { bgFill(cv, OFFBG()); cv.tex.needsUpdate = true; return; }
     bgFill(cv, hot ? C.glassOn : null); x.textBaseline = 'middle';
-    x.textAlign = 'left'; x.fillStyle = C.inkHi; x.font = `600 ${u(10)}px ${MONO3}`; x.fillText({ lena: 'lena', irmao: 'irmao', imob: 'imob.' }[k], u(6), u(11.5));
+    x.textAlign = 'left'; x.fillStyle = C.inkHi; x.font = `600 ${u(10)}px ${MONO3}`; x.fillText({ lena: 'lena', irmao: 'bia', imob: 'loja' }[k], u(6), u(11.5));
     const col = power === 'boot' ? C.ink : TC(hot ? r[1] : 'hi');
     if (r[2] && power === 'on') { x.textAlign = 'center'; x.fillStyle = r[1] === 'n' ? C.ink : col; x.font = `600 ${u(7.2)}px ${MONO3}`; x.fillText(r[2], u(118), u(11.5)); }
     x.textAlign = 'right'; x.fillStyle = col; x.font = `600 ${u(17)}px ${MONO3}`; x.fillText(power === 'boot' ? '…' : money(r[0]), u(233), u(12));
@@ -670,7 +670,7 @@ FIGS3D.push({ id: 'acid', name: 'ACID', mod: (() => {
     const vc = tone === 'old' || tone === 'stale' ? TC('old') : TC('acc');
     x.textAlign = 'right'; x.beginPath(); x.roundRect(u(118), u(3), u(22), u(12), u(2)); x.strokeStyle = vc; x.lineWidth = u(0.8); x.stroke();
     x.fillStyle = vc; x.font = `600 ${u(7)}px ${MONO3}`; x.fillText('v' + n[2], u(136), u(9.4));
-    [['lena', n[0]], ['irmão', n[1]]].forEach(([nm, v], i) => { const y = 34 + i * 34;
+    [['lena', n[0]], ['bia', n[1]]].forEach(([nm, v], i) => { const y = 34 + i * 34;
       x.textAlign = 'left'; x.fillStyle = C.ink; x.font = `600 ${u(9)}px ${MONO3}`; x.fillText(nm, u(6), u(y));
       x.textAlign = 'right'; x.fillStyle = tone === 'stale' && i === 1 ? '#ff5a4a' : tone === 'old' || tone === 'stale' ? TC('old') : tone === 'hot' ? TC('acc') : C.inkHi;
       x.font = `600 ${u(17)}px ${MONO3}`; x.fillText(money(v), u(138), u(y)); });

@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>Photos and backups have a home now. pedidos.db still lives on a single disk, and that disk has two flaws: its speed is limited and, if it dies, it takes the file with it. The way out is to combine several disks and treat them as one. That is a <strong>RAID</strong> (Redundant Array of Independent Disks).</p>
+<p>Photos and backups have a home now. pedidos.db still lives on a single disk, and that disk has two flaws: its speed is limited and, if it dies, it takes the file with it. The way out is to combine several disks and treat them as one. That is a <strong>RAID</strong> (Redundant Array of Independent Disks). Téo wants the cheapest option and asks for RAID 0: "put the disks together and the store gets faster". Iara gives in, and the bill arrives in this lesson.</p>
 
 <OneLiner>RAID 0 slices the data and spreads it across the disks to add up the speed, but keeps no copy: one failed disk brings everything down.</OneLiner>
 
@@ -28,7 +28,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   <li>In RAID 0, the controller spreads the blocks in <strong>stripes</strong>: A1 goes to D1, A2 to D2, A3 to D3, A4 to D4. The next stripe starts again at D1 (A5).</li>
   <li>All 4 disks read and write <strong>at the same time</strong>: speed reaches ~4x.</li>
   <li>Since nothing is copied, the capacity is the sum: 4 x 1 TB = <strong>4 TB usable</strong>.</li>
-  <li>Then comes the cost. One night D2 dies and takes A2 and A6 with it. Every file has pieces on all the disks, so pedidos.db is left with holes and won't open. <strong>One disk fails, everything is lost.</strong> Swapping D2 only gives an empty disk: only the backup restores it.</li>
+  <li>Then comes the cost. One night D2 dies and takes A2 and A6 with it. Every file has pieces on all the disks, so pedidos.db is left with holes and won't open, with Lena's first orders inside. <strong>One disk fails, everything is lost.</strong> Swapping D2 only gives an empty disk: only the backup restores it.</li>
 </ol>
 </HowItWorks>
 

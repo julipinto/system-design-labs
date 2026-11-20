@@ -19,13 +19,13 @@ import { withBase } from '../../lib/url.js';
 <OneLiner>o modelo OSI divide a comunicação em 7 camadas, e cada camada embrulha os dados do nível acima com o seu próprio cabeçalho, até virar bits.</OneLiner>
 
 <DoIt>
-  <p>Na figura abaixo, clique em <strong>Próximo passo</strong> e veja a foto da Lena descer camada por camada, virar bits no cabo e subir no celular do irmão. Experimente também o botão <strong>Ligação · UDP</strong>.</p>
+  <p>Na figura abaixo, clique em <strong>Próximo passo</strong> e veja a foto da Lena descer camada por camada, virar bits no cabo e subir no celular do Téo. Experimente também o botão <strong>Ligação · UDP</strong>.</p>
 </DoIt>
 
 <Figure3D path="labs/protocolos-de-rede/osi-3d/" poster="labs/protocolos-de-rede/osi-3d-previa.webp" title="Figura interativa do modelo OSI em 3D" alt="Prévia da figura 3D: a pilha de 7 camadas com a fatia de dados dentro das caixas TCP, IP e MAC" hint="Arraste para girar · Próximo passo ou ← → para avançar · clique numa camada para ir até ela" />
 
 <HowItWorks>
-<p>A Lena, em São Paulo, manda uma foto pelo celular para o irmão em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele. Na figura, os 7,68 MB da foto viram 313 KB cifrados e depois 215 fatias.</p>
+<p>A Lena, em Recife, manda uma foto pelo celular para o Téo, em Tóquio. A foto desce 7 camadas, cruza um cabo submarino e sobe 7 camadas no celular dele. Na figura, os 7,68 MB da foto viram 313 KB cifrados e depois 215 fatias.</p>
 <ol class="flow steps">
   <li>No topo ficam <strong>7 Aplicação, 6 Apresentação e 5 Sessão</strong>: o que o app diz, em que formato (ou cifrado) e qual conversa está aberta.</li>
   <li>Abaixo, o <strong>4 Transporte</strong> corta o resultado em fatias e leva cada uma de um processo a outro, pela <strong>porta</strong>. TCP ou UDP.</li>

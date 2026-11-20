@@ -111,7 +111,7 @@
     { t: 'Banco do pedidos no teto de 150 pedidos/s, com 50 milhões de linhas', src: 'módulos 14 e 16', ax: 'Z',
       said: 'O teto é do banco de um primário, e não do serviço.',
       why: 'X não adianta: 7 réplicas dão 210/s de serviço e o banco continua em 150/s. Z: 3 shards dão 3 × 150 = 450/s.' },
-    { t: 'Um cliente (mkt-01, o marketplace do módulo 8) com 40% dos pedidos', src: 'módulo 16', ax: 'Z',
+    { t: 'Um cliente (mkt-01, o MegaMercado, marketplace que o Téo fechou no módulo 8) com 40% dos pedidos', src: 'módulo 16', ax: 'Z',
       said: 'Um só cliente concentra a carga de escrita de uma tabela.',
       why: 'Z por tipo de cliente: um shard dedicado ao mkt-01. O Y não divide (é a mesma função) e o X não alivia o banco.' },
     { t: 'A região de SP cai e leva tudo', src: 'módulo 27', ax: 'Z',

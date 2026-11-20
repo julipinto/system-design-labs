@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p>The last lesson left a question: how does <code>lb-loja</code> choose among three replicas? The simplest answer is not to choose: hand one request to each, in turn. That's <strong>round robin</strong>. We'll feed it the same queue of 9 requests that will run through the next five lessons.</p>
+<p>The last lesson left a question: how does <code>lb-loja</code> choose among three replicas? The simplest answer is not to choose: hand one request to each, in turn. That's <strong>round robin</strong>, and it is what Bruna picks "because it's the default". We'll feed it the same queue of 9 requests that will run through the next five lessons.</p>
 
 <OneLiner>Round robin hands each request to the next replica on the list, in a circle, without looking at how much work the request is or how the replica is doing; it is fair in the count and blind to the work.</OneLiner>
 
@@ -27,7 +27,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 <ol class="flow steps">
   <li><strong>The queue.</strong> 9 requests arrive, in this order: P1 Lena (cat) · P2 Bia (search) · P3 Caio (cat) · P4 Davi (cat) · P5 Lena (search) · P6 Bia (cat) · P7 Caio (cat) · P8 Davi (search) · P9 Lena (cat). The <strong>cat</strong> is <code>GET /produtos/42</code> and takes <strong>20 ms</strong>. The <strong>search</strong> is <code>GET /busca?q=pelucia&amp;ordem=preco</code> and takes <strong>900 ms</strong>.</li>
   <li><strong>The rotation.</strong> The balancer keeps just one number, the index of the next replica, and advances it with each request: 1, 2, 3, 1, 2, 3, 1, 2, 3. Each replica gets 3 requests. The math looks fair.</li>
-  <li><strong>The problem.</strong> The three searches (P2, P5 and P8) all landed on <code>catalogo-2</code>: it has <strong>2.7 s</strong> of work (3 × 900 ms), while 1 and 3 have <strong>60 ms</strong> each (3 × 20 ms). Round robin counted requests and didn't look at what each one cost.</li>
+  <li><strong>The problem.</strong> This was the price of Bruna's choice: the three searches (P2, P5 and P8) all landed on <code>catalogo-2</code>: it has <strong>2.7 s</strong> of work (3 × 900 ms), while 1 and 3 have <strong>60 ms</strong> each (3 × 20 ms). Round robin counted requests and didn't look at what each one cost.</li>
   <li><strong>With quantum.</strong> The article's Go code switches replicas only after some time, the <em>quantum</em>: with a 300 ms quantum and one request every 200 ms, each replica gets <strong>2 requests in a row</strong>. If a spike comes within the quantum, all of it lands on a single replica.</li>
   <li><strong>With weight.</strong> If <code>catalogo-3</code> has twice the CPU, it gets <strong>weight 2</strong> and enters twice per round: 1, 2, 3, 3. That's weighted round robin, and it handles the difference between machines, not the difference between requests.</li>
 </ol>

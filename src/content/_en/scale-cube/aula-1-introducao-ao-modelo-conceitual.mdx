@@ -13,7 +13,7 @@ import Widget from '../../../components/Widget.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">At the end of module 14, every bottleneck we solved moved somewhere else. The catalog page (CPU at 99% on one replica, p99 of 2,000 ms) was fixed by cloning, from 10 to 14 replicas. <code>pagamentos</code> (40 orders/s) was fixed the same way, from 2 to 4. After both, the ceiling became the <code>pedidos</code> database, at <strong>150 orders/s</strong>, and cloning a service does not move it. We need a map to decide where to grow, and the map fits in three questions.</p>
+<p class="ponte">At the end of module 14, every bottleneck we solved moved somewhere else. The catalog page (CPU at 99% on one replica, p99 of 2,000 ms) was fixed by cloning, from 10 to 14 replicas. <code>pagamentos</code> (40 orders/s) was fixed the same way, from 2 to 4. After both, the ceiling became the <code>pedidos</code> database, at <strong>150 orders/s</strong>, and cloning a service does not move it. It is 20:05 on Black Friday, and Iara goes to the whiteboard to organize what the store has already done before deciding what to do next. Her map fits in three questions.</p>
 
 <OneLiner>The Scale Cube is a <strong>vocabulary of three questions</strong>: do I copy the service (X axis)? Do I split what is different (Y axis)? Do I split what is the same but too big (Z axis)? The store already answered two of them without knowing the names.</OneLiner>
 
@@ -46,7 +46,7 @@ import Flashcards from '../../../components/Flashcards.astro';
     <tr><th>40-minute deploy, three teams waiting on each other</th><td>module 8</td><td><strong>Y</strong></td></tr>
     <tr><th><code>pagamentos</code> at 40/s and <code>estoque</code> idle at 1,000/s</th><td>module 14</td><td><strong>X on the right link</strong>, and only there</td></tr>
     <tr><th><code>pedidos</code> database at the 150 orders/s ceiling, 50 million rows</th><td>modules 14 and 16</td><td><strong>Z</strong></td></tr>
-    <tr><th>One customer (<code>mkt-01</code>, the marketplace from module 8) with 40% of the orders</th><td>module 16</td><td><strong>Z by customer type</strong> (dedicated shard)</td></tr>
+    <tr><th>One customer (<code>mkt-01</code>, <strong>MegaMercado</strong>, the marketplace Téo signed in module 8) with 40% of the orders</th><td>module 16</td><td><strong>Z by customer type</strong> (dedicated shard)</td></tr>
     <tr><th>The SP region goes down and takes everything with it</th><td>module 27</td><td><strong>Z by region</strong> (pods) and X inside each pod</td></tr>
     <tr><th>The 900 ms search per request</th><td>module 7</td><td><strong>no axis</strong>: index (module 4) or cache (module 5)</td></tr>
   </tbody>

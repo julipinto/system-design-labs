@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">O módulo 19 terminou com um log de saga: 7 linhas que contam o que aconteceu com o pedido 1057 e de onde sai o seu estado. Aquele log já era uma <strong>lista de fatos</strong>, mas só da saga. O pedido <strong>1047</strong> da Lena (o do módulo 6) vive numa tabela <code>pedidos</code> que guarda só o <strong>último</strong> estado: <code>entregue</code>. <strong>Como</strong> ele chegou lá ficou nos eventos <code>e-501</code> a <code>e-505</code>, e o Kafka apaga isso em 7 dias (módulo 13). Falta guardar o que <strong>aconteceu</strong>, e não só o que sobrou.</p>
+<p class="ponte">O módulo 19 terminou com um log de saga: 7 linhas que contam o que aconteceu com o pedido 1057. Agora é madrugada, a noite da Black Friday acabou, e a Iara quer entender o que houve sem depender da memória de ninguém. Aquele log já era uma <strong>lista de fatos</strong>, mas só da saga. Para treinar o método ela escolhe o pedido <strong>1047</strong> da Lena (o do módulo 6, o presente de boas-vindas para o Téo), que vive numa tabela <code>pedidos</code> guardando só o <strong>último</strong> estado: <code>entregue</code>. <strong>Como</strong> ele chegou lá ficou nos eventos <code>e-501</code> a <code>e-505</code>, e o Kafka apaga isso em 7 dias (módulo 13). Falta guardar o que <strong>aconteceu</strong>, e não só o que sobrou.</p>
 
 <OneLiner>O <strong>Event Sourcing</strong> guarda cada <strong>mudança</strong> como um fato imutável e <strong>deriva</strong> o estado a partir deles. O estado atual é uma <strong>consequência</strong> dos eventos, não a fonte.</OneLiner>
 

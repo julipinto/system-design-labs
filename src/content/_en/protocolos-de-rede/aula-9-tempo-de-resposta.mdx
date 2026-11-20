@@ -12,7 +12,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">Each lesson left a tally of RTTs: one for TCP, one or two for TLS, DNS before everything and HTTP's waits. Now the tally closes: how long does the store page take for Lena, and where do we cut?</p>
+<p class="ponte">Each lesson left a tally of RTTs: one for TCP, one or two for TLS, DNS before everything and HTTP's waits. Téo published the page "the way it came out", without adding any of this up. Now the tally closes: how long does the page take for Lena, and where do we cut?</p>
 
 <OneLiner>response time is the sum of several waits (DNS, handshakes, server, download), and most of them are made of RTTs, not bandwidth.</OneLiner>
 
@@ -65,7 +65,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">Now every protocol in the module has a cost you can measure in RTTs. Next time a page is slow, add up the waits and cut the biggest one.</p>
+<p class="gancho">The price of "the way it came out" showed up on Lena's screen: the page was slow, and she told Téo so with no filter. Now every protocol in the module has a cost you can measure in RTTs. What's left is where to keep the orders and the photos for real, since the store has only one rented server.</p>
 
 <Flashcards cards={[
   { q: "Which parts make up response time?",

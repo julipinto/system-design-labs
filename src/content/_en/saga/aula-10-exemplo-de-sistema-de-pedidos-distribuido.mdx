@@ -106,7 +106,7 @@ import estoqueMain from '../../../lab-code/_en/saga/estoque-main.go?raw';
   ]} />
 </Deep>
 
-<p class="gancho">The saga depends on commands that repeat, events that arrive twice and services that are slow, and all of that calls for <strong>idempotency, timeout, <em>retry</em> and <em>circuit breaker</em></strong>. First, another question: what if the order's state were <strong>just the list of events</strong>, and what's in the table were a summary? The saga log is already half of that. What's left is what happens when the log becomes the source: that's module 20, Event Sourcing.</p>
+<p class="gancho">The saga canceled and refunded Davi's 1057 in 45 s, and the price is that it depends on commands that repeat, events that arrive twice and services that are slow: all of that calls for <strong>idempotency, timeout, <em>retry</em> and <em>circuit breaker</em></strong>. First, another question, which Iara will ask in the small hours after the night: what if the order's state were <strong>just the list of events</strong>, and what's in the table were a summary? The saga log is already half of that. What's left is what happens when the log becomes the source: that's module 20, Event Sourcing.</p>
 
 <Flashcards cards={[
   { q: "What does the author's lab have?",

@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>In the last lesson DDD drew the contexts from the business. But the people who will build each context are in teams, and teams have boundaries too. The store had three teams organized by layer, and the system came out with three layers. That is no coincidence: it has a name, Conway's Law, and you can use it in your favor.</p>
+<p>In the last lesson DDD drew the contexts from the business. But the people who will build each context are in teams, and teams have boundaries too. If the three new teams were organized by layer, the system would come out with three layers. That is no coincidence: it has a name, Conway's Law, and you can use it in your favor.</p>
 
 <OneLiner>Conway's Law says a system ends up with the shape of the communication of the organization that built it; so, to get the system you want, you design the teams in the same shape.</OneLiner>
 
@@ -24,9 +24,9 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Before: teams by layer.</strong> The store has a <strong>frontend</strong> team, a <strong>backend</strong> team and a <strong>DBA</strong> team. The system comes out in 3 layers, exactly like the teams. A new shipping field in the checkout goes through all three: the screen, the rule and the column.</li>
+  <li><strong>Before: teams by layer.</strong> Picture the store with a <strong>frontend</strong> team, a <strong>backend</strong> team and a <strong>DBA</strong> team. The system comes out in 3 layers, exactly like the teams. A new shipping field in the checkout goes through all three: the screen, the rule and the column.</li>
   <li><strong>The cost.</strong> Every business change crosses 3 teams, with 3 queues, 3 priorities and 3 meetings. Nobody owns the whole checkout, so nobody answers for the whole of it.</li>
-  <li><strong>After: teams by domain.</strong> The store reorganizes into 3 teams: <strong>Storefront</strong> (Catalog and search), <strong>Checkout</strong> (Cart, Orders and Payments) and <strong>Logistics</strong> (Stock and Shipping). Each team owns a piece of the business end to end.</li>
+  <li><strong>After: teams by domain.</strong> Iara forms 3 teams: <strong>Storefront</strong> (Catalog and search, Bruna's), <strong>Checkout</strong> (Cart, Orders and Payments, Júlio's) and <strong>Logistics</strong> (Stock and Shipping, Raí's). Each team owns a piece of the business end to end.</li>
   <li><strong>The design follows.</strong> The services start to mirror the teams: Checkout keeps its three services, Logistics its two. Communication between services of the same team is easy (you just talk); between teams, it goes through a contract.</li>
   <li><strong>Inverse Conway maneuver.</strong> Instead of waiting for the system to copy the teams, you design the teams <strong>in the shape of the architecture</strong> you want. If the goal is services by domain, you form one team per domain first.</li>
 </ol>

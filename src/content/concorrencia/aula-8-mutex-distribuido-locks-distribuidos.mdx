@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p class="ponte">Na aula passada o <code>sync.Mutex</code> segurou o Caio por 2 ms e o gato foi para a Bia. Mas isso foi com uma réplica. A Black Friday sobe a <code>estoque-2</code>, o balanceador manda a Bia para a <code>estoque-1</code> e o Caio para a <code>estoque-2</code>, e cada réplica tem o seu mutex, na sua memória. Os dois leem 1, os dois baixam, e o estoque vai a −1 de novo. O mutex local só protege dentro do processo, e a trava precisa passar a valer entre processos.</p>
+<p class="ponte">Na aula passada o <code>sync.Mutex</code> segurou o Caio por 2 ms e o gato foi para a Bia. Mas isso foi com uma réplica, e o Raí sabe que não basta. A Black Friday sobe a <code>estoque-2</code>, o balanceador manda a Bia para a <code>estoque-1</code> e o Caio para a <code>estoque-2</code>, e cada réplica tem o seu mutex, na sua memória. Os dois leem 1, os dois baixam, e o estoque vai a −1 de novo. O mutex local só protege dentro do processo, e a trava precisa passar a valer entre processos.</p>
 
 <OneLiner>Um lock distribuído é uma trava guardada num lugar que todas as réplicas enxergam (Redis, ZooKeeper); como ela pode vencer sozinha, quem a segura pode perdê-la sem saber, e por isso, para o último gato, a checagem final é do banco.</OneLiner>
 

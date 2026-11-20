@@ -13,7 +13,7 @@ import Widget from '../../components/Widget.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">No fim do módulo 14, cada gargalo resolvido andou para outro lugar. A página do catálogo (CPU a 99% numa réplica, p99 de 2.000 ms) se resolveu clonando, de 10 para 14 réplicas. O <code>pagamentos</code> (40 pedidos/s) também, de 2 para 4. Depois dos dois, o teto virou o banco do <code>pedidos</code>, a <strong>150 pedidos/s</strong>, e clonar serviço não o move. Falta um mapa para decidir por onde crescer, e o mapa cabe em três perguntas.</p>
+<p class="ponte">No fim do módulo 14, cada gargalo resolvido andou para outro lugar. A página do catálogo (CPU a 99% numa réplica, p99 de 2.000 ms) se resolveu clonando, de 10 para 14 réplicas. O <code>pagamentos</code> (40 pedidos/s) também, de 2 para 4. Depois dos dois, o teto virou o banco do <code>pedidos</code>, a <strong>150 pedidos/s</strong>, e clonar serviço não o move. São 20:05 da Black Friday, e a Iara vai à lousa para organizar o que a loja já fez antes de decidir o que fazer. O mapa dela cabe em três perguntas.</p>
 
 <OneLiner>O Scale Cube é um <strong>vocabulário de três perguntas</strong>: copio o serviço (eixo X)? separo o que é diferente (eixo Y)? separo o que é igual, mas grande demais (eixo Z)? A loja já respondeu duas delas sem ter o nome.</OneLiner>
 
@@ -46,7 +46,7 @@ import Flashcards from '../../components/Flashcards.astro';
     <tr><th>Deploy de 40 min, três times esperando um ao outro</th><td>módulo 8</td><td><strong>Y</strong></td></tr>
     <tr><th><code>pagamentos</code> com 40/s e <code>estoque</code> com 1.000/s parado</th><td>módulo 14</td><td><strong>X no elo certo</strong>, e só nele</td></tr>
     <tr><th>Banco do <code>pedidos</code> no teto de 150 pedidos/s, 50 milhões de linhas</th><td>módulos 14 e 16</td><td><strong>Z</strong></td></tr>
-    <tr><th>Um cliente (<code>mkt-01</code>, o marketplace do módulo 8) com 40% dos pedidos</th><td>módulo 16</td><td><strong>Z por tipo de cliente</strong> (shard dedicado)</td></tr>
+    <tr><th>Um cliente (<code>mkt-01</code>, o <strong>MegaMercado</strong>, o marketplace que o Téo fechou no módulo 8) com 40% dos pedidos</th><td>módulo 16</td><td><strong>Z por tipo de cliente</strong> (shard dedicado)</td></tr>
     <tr><th>A região de SP cai e leva tudo</th><td>módulo 27</td><td><strong>Z por região</strong> (pods) e X dentro de cada pod</td></tr>
     <tr><th>A busca de 900 ms por requisição</th><td>módulo 7</td><td><strong>nenhum eixo</strong>: índice (módulo 4) ou cache (módulo 5)</td></tr>
   </tbody>

@@ -57,7 +57,7 @@ Content-Length: 7680000</span></pre>
       <svg class="dv-wave" viewBox="0 0 ${b.length * W} 50" aria-hidden="true"><path d="${d}"/><line x1="${8 * W}" y1="0" x2="${8 * W}" y2="34" class="dv-wave-sep"/>${t}</svg>
       <div class="dv-legend"><span>1 = high signal · 0 = low signal</span><span>these bytes are the start of the router's MAC</span></div>
       <div class="dv-media"><span>radio (Wi-Fi) to the router</span><span>pulses on copper</span><span>light in the ocean fiber</span></div>`
-      + note(rx ? "On the brother's side the path is reversed: light, then electrical, then radio, and the phone rebuilds the frame's bits." : "The same bits change shape along the way (radio, copper, light), but the content does not change.");
+      + note(rx ? "On Téo's side the path is reversed: light, then electrical, then radio, and the phone rebuilds the frame's bits." : "The same bits change shape along the way (radio, copper, light), but the content does not change.");
   };
 
   const PAY = () => payload(UDP ? "encrypted media piece" : "encrypted slice #1", UDP ? "~1,200 B" : "1,460 B");
@@ -75,13 +75,13 @@ Content-Length: 7680000</span></pre>
     () => FRAME([], [], `<div class="dv-card is-chg"><div class="dv-card-h"><span>At each router</span><b>what changes and what does not</b><em>layers 2 and 3</em></div>
         <ul><li><b>MAC:</b> replaced (now "to the next router")</li><li><b>FCS:</b> recalculated, because the frame changed</li><li><b>Destination IP:</b> the same, 198.51.100.7</li><li><b>TTL:</b> 64 → 63 → 62… (if it reaches 0, the packet is dropped)</li><li><b>${UDP ? "UDP" : "TCP"} and the data:</b> are not even opened</li></ul></div>`),
     () => bits(true),
-    () => FRAME([], ["mac", "fcs"], card(["fcs", "mac"], "is-out") + note("Checked: the FCS matched (no bit got corrupted) and the destination MAC is the brother's phone.")),
+    () => FRAME([], ["mac", "fcs"], card(["fcs", "mac"], "is-out") + note("Checked: the FCS matched (no bit got corrupted) and the destination MAC is Téo's phone.")),
     () => strip(["ip", "tcp"], PAY(), [], [], ["ip"]) + card(["ip"], "is-out") + note("Checked: the destination IP is his."),
     () => slices(true) + strip(["tcp"], payload(UDP ? "media pieces" : "215 slices in order", UDP ? "#5 #6 · #8" : "313 KB"), [], [], ["tcp"]) + card(["tcp"], "is-out")
       + note(UDP ? "One piece is missing and nobody asked again: the picture stutters for a moment and the call goes on." : "The 215 slices were put together by their numbers, and the missing ones were asked for again."),
     () => `<div class="dv-badge is-out">session 9f3a… (still open)</div>` + strip(["tls"], payload("HTTP request + photo, encrypted", "313 KB"), ["tag"]) + note("No new bytes: the session only confirms which conversation this data belongs to."),
     () => strip(["tls"], payload("decrypted: HTTP request + photo", "313 KB → 7.68 MB", "is-ok"), ["tag"], [], ["tls", "tag"]) + note("The tag checked out (nobody tampered), TLS decrypted it and the photo was decompressed."),
-    () => photo("is-new", "7.68 MB · shows up in the brother's chat") + note("Each header was removed by the same layer that added it on the way out."),
+    () => photo("is-new", "7.68 MB · shows up in Téo's chat") + note("Each header was removed by the same layer that added it on the way out."),
   ];
   const UDP_VIEWS = {
     0: () => call("", "live voice and picture, ~50 pieces per second") + note("Now the data is born every instant at the camera and microphone. Arriving late is worse than losing a little piece."),

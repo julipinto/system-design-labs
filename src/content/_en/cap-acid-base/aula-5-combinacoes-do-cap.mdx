@@ -26,7 +26,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <table class="sr-table">
   <thead><tr><th>Combination</th><th>During the partition</th><th>Cost</th><th>At the plush cat store</th></tr></thead>
   <tbody>
-    <tr><th>CP</th><td>The side without a quorum refuses requests (error or timeout)</td><td>Unavailable for some customers</td><td>Plush cat stock, Lena's transfers, balance</td></tr>
+    <tr><th>CP</th><td>The side without a quorum refuses requests (error or timeout)</td><td>Unavailable for some customers</td><td>Plush cat stock, wallet transfers, balance</td></tr>
     <tr><th>AP</th><td>All nodes answer, with the data they have</td><td>Stale reads and conflicts to resolve</td><td>Cart, search, recommendations, view counter</td></tr>
     <tr><th>CA</th><td>Doesn't tolerate a partition: if the network breaks, the system stops or gets corrupted</td><td>Only works where there is no network between nodes</td><td>The single database from the store's early days</td></tr>
   </tbody>
@@ -35,7 +35,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>CP.</strong> With the cable cut, Recife (without a majority) returns an error instead of taking a risk. Lena's brother waits a while with no answer, but the copies never diverge: in the end the stock is 2. etcd, Consul and ZooKeeper are the usual examples here.</li>
+  <li><strong>CP.</strong> With the cable cut, Recife (without a majority) returns an error instead of taking a risk. Lena waits a while with no answer, but the copies never diverge: in the end the stock is 2. etcd, Consul and ZooKeeper are the usual examples here.</li>
   <li><strong>AP.</strong> Here Recife keeps selling and stores <code>estoque 3, v3b</code> (#103) locally, while SP and Rio store <code>3, v3a</code> (#102). When the network is back, the replicas compare versions and reconcile. Cassandra, DynamoDB and CouchDB are the usual examples here.</li>
   <li><strong>CA.</strong> The third combination is what's left. A single PostgreSQL with the whole store is consistent and available, because there is no other replica to disagree with. If the server goes down, everything goes down. There is no partition tolerance because no partition is possible.</li>
   <li><strong>In practice, CP and CA look alike:</strong> both lose availability when the network breaks. The real everyday choice is between CP and AP.</li>
@@ -64,7 +64,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   <h4 class="deep-h">Why CP and CA almost blur together</h4>
   <p>Daniel Abadi argues that both lose availability in a partition. The only difference is that CP planned for it (refuses on purpose) and CA didn't think about the partition.</p>
   <h4 class="deep-h">What you do afterward, in AP</h4>
-  <p>When the replicas can talk again, they reconcile with last-write-wins, vector clocks or CRDTs (lesson 3). The diverging stock (nodes saying 3, real 2) becomes a business problem: with last-write-wins Lena's #102 is lost, and with a merge someone has to write the rule. If the stock ran out, the store would have to cancel an order, apologize and give a coupon.</p>
+  <p>When the replicas can talk again, they reconcile with last-write-wins, vector clocks or CRDTs (lesson 3). The diverging stock (nodes saying 3, real 2) becomes a business problem: with last-write-wins Bia's #102 is lost, and with a merge someone has to write the rule. If the stock ran out, the store would have to cancel an order, apologize and give a coupon.</p>
   <Sources items={[
     { label: "Public article by Matheus Fidelis on the CAP theorem, ACID and BASE (fidelissauro.dev, no affiliation)", href: "https://fidelissauro.dev/teorema-cap/" },
     { label: "Abadi (2010): problems with CAP", href: "http://dbmsmusings.blogspot.com/2010/04/problems-with-cap-and-yahoos-little.html" },

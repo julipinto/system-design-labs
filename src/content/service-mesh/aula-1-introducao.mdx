@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 import Figure3D from '../../components/Figure3D.astro';
 
-<p class="ponte">O módulo 9 terminou com o <code>bff-app</code> montando a tela da Lena, com timeout e fallback para o que falhasse. Mas aquela tela é só a porta da frente. Atrás dela, a loja roda 30 pods que se chamam o tempo todo: o <code>pedidos</code> chama o <code>pagamentos</code> e o <code>estoque</code>, o <code>bff-app</code> chama o <code>catalogo</code>. Cada time escreveu, no seu serviço, o seu jeito de tentar de novo, de esperar, de cifrar e de medir. O problema deste módulo é tirar isso do código e colocar na rede, uma vez só, igual para todos.</p>
+<p class="ponte">O módulo 9 terminou com o <code>bff-app</code> montando a tela da Lena, com timeout e fallback para o que falhasse. Mas aquela tela é só a porta da frente. Atrás dela, a loja roda 30 pods que se chamam o tempo todo: o <code>pedidos</code> chama o <code>pagamentos</code> e o <code>estoque</code>, o <code>bff-app</code> chama o <code>catalogo</code>. Cada time escreveu, no seu serviço, o seu jeito de tentar de novo, de esperar, de cifrar e de medir. Em outubro o Júlio e o Raí brigam por causa disso: o <code>pedidos</code> repete 5 vezes sem esperar e derruba o <code>pagamentos</code>. A Iara decide tirar retry, timeout e mTLS do código e colocar na rede, uma vez só, igual para todos.</p>
 
 <OneLiner>Service mesh (malha de serviço) é uma camada de rede que cuida da conversa entre os serviços, com um proxy ao lado de cada um, para que retry, timeout, TLS e métricas deixem de ser código de cada time.</OneLiner>
 
@@ -25,7 +25,7 @@ import Figure3D from '../../components/Figure3D.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>O pedido 1048 da Lena, de 94.90, chega ao <code>pedidos</code>. Ele precisa cobrar, e chama o <code>pagamentos</code> como qualquer cliente HTTP chamaria: <code>POST http://pagamentos:8080/cobrancas</code>, com o corpo <code>{`{ "pedido_id": 1048, "valor": 94.90 }`}</code>.</li>
-  <li>O <code>pagamentos</code> responde <strong>503</strong>. Sem malha, quem decide o que fazer é o próprio <code>pedidos</code>, e o time dele escolheu tentar de novo <strong>5 vezes, sem esperar</strong> entre as tentativas. Se o <code>pagamentos</code> estava sobrecarregado, agora recebe 6 chamadas em vez de 1.</li>
+  <li>O <code>pagamentos</code> responde <strong>503</strong>. Sem malha, quem decide o que fazer é o próprio <code>pedidos</code>, e o time do Júlio escolheu tentar de novo <strong>5 vezes, sem esperar</strong> entre as tentativas. Se o <code>pagamentos</code> estava sobrecarregado, agora recebe 6 chamadas em vez de 1.</li>
   <li>Cada outro serviço resolveu a sua parte de outro jeito. O <code>estoque</code> não usa TLS, então o que ele recebe e envia trafega em texto aberto. O <code>catalogo</code> não mede nada, então ninguém sabe quanto ele demora. E isso se repete em Go, em Node.js e em Java, cada um com a sua biblioteca.</li>
   <li>A ideia da malha é tirar esse código dos serviços. Um <strong>proxy</strong> fica ao lado de cada app e intercepta a chamada que sai e a que entra. O app continua pedindo <code>http://pagamentos:8080/cobrancas</code>, sem saber que o proxy existe.</li>
   <li>Como o retry, o TLS e a métrica agora moram nos proxies, a regra é escrita <strong>uma vez</strong>, num lugar só, e vale para os 30 pods, qualquer que seja a linguagem. Esse conjunto de proxies e o que o comanda é a malha.</li>

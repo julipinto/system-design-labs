@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">By the end of module 22 the store knew how to <strong>ship</strong> without taking itself down: rolling, blue/green, canary, shadow, flags and rings. But every spring the sales team asks a question no deploy answers: <strong>"will next year's Black Friday hold up?"</strong> Nobody has done the math. The 2026 one was measured in module 14; the 2027 one (Friday, <strong>11/26/2027</strong>) is still an unknown.</p>
+<p class="ponte">By the end of module 22 the store knew how to <strong>ship</strong> without taking itself down: rolling, blue/green, canary, shadow, flags and rings. In 2027 Marta asks for the Black Friday plan, and Téo, without waiting for the math, has already promised the sales team 200 orders per second. It is a question no deploy answers: <strong>"will next year's Black Friday hold up?"</strong> The 2026 one was measured in module 14; the 2027 one (Friday, <strong>11/26/2027</strong>) is still an unknown. Iara decides to measure before promising.</p>
 
 <OneLiner><strong>Capacity planning</strong> does not predict the future. It <strong>turns what was measured into limits and a plan</strong>, before the incident: how much each service needs, in which order the links break, how much it costs and what is still unknown.</OneLiner>
 
@@ -95,7 +95,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <Deep min={3}>
   <h4 class="deep-h">What the base article leaves out</h4>
   <ul>
-    <li><strong>The cost of the goal.</strong> The gap between the trend and the sales goal is a business decision, priced in vCPU. Planning only by the trend hides the bill.</li>
+    <li><strong>The cost of the goal.</strong> The gap between the trend and the sales goal is a decision for Téo and Marta, priced in vCPU. Planning only by the trend hides the bill.</li>
     <li><strong>The re-evaluation trigger.</strong> A plan without the rule "if demand passes X, redo the math" ages in silence (lesson 9).</li>
     <li><strong>The freeze and the pre-scale.</strong> The plan includes stopping changes before the event and raising replicas before the newsletter (lesson 9).</li>
     <li><strong>Nominal × operational capacity.</strong> Module 24 measures the second; this module calculates the first.</li>

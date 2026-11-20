@@ -13,7 +13,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>Fotos e backups já têm casa. O pedidos.db ainda mora num disco só, e esse disco tem dois defeitos: é limitado em velocidade e, se queimar, leva o arquivo junto. A saída é juntar vários discos e tratá-los como um só. Isso é um <strong>RAID</strong> (Redundant Array of Independent Disks).</p>
+<p>Fotos e backups já têm casa. O pedidos.db ainda mora num disco só, e esse disco tem dois defeitos: é limitado em velocidade e, se queimar, leva o arquivo junto. A saída é juntar vários discos e tratá-los como um só. Isso é um <strong>RAID</strong> (Redundant Array of Independent Disks). O Téo quer o mais barato e pede RAID 0: "juntando os discos, a loja ganha velocidade". A Iara cede, e a conta chega na aula.</p>
 
 <OneLiner>RAID 0 fatia os dados e espalha entre os discos para somar a velocidade, mas não guarda nenhuma cópia: um disco que falha derruba tudo.</OneLiner>
 
@@ -28,7 +28,7 @@ import Flashcards from '../../components/Flashcards.astro';
   <li>No RAID 0, a controladora espalha os blocos em <strong>faixas (stripes)</strong>: A1 vai para o D1, A2 para o D2, A3 para o D3, A4 para o D4. A faixa seguinte recomeça no D1 (A5).</li>
   <li>Os 4 discos leem e gravam <strong>ao mesmo tempo</strong>: a velocidade chega a ~4x.</li>
   <li>Como nada é copiado, a capacidade é a soma: 4 x 1 TB = <strong>4 TB úteis</strong>.</li>
-  <li>Aí vem o custo. Numa noite o D2 queima e leva A2 e A6. Cada arquivo tem pedaços em todos os discos, então o pedidos.db fica com buracos e não abre. <strong>Um disco falha, tudo é perdido.</strong> Trocar o D2 só dá um disco vazio: só o backup restaura.</li>
+  <li>Aí vem o custo. Numa noite o D2 queima e leva A2 e A6. Cada arquivo tem pedaços em todos os discos, então o pedidos.db fica com buracos e não abre, com os primeiros pedidos da Lena dentro. <strong>Um disco falha, tudo é perdido.</strong> Trocar o D2 só dá um disco vazio: só o backup restaura.</li>
 </ol>
 </HowItWorks>
 

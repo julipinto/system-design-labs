@@ -37,7 +37,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 
 <Widget name="timeout" title="Timeout and fallback" hint="Choose how long the recomendacoes takes and whether the BFF has a 100 ms timeout. See what Lena sees and how long the screen takes." />
 
-<p>What if it goes wrong? With no timeout, the <code>bff-app</code> waits for the <code>recomendacoes</code> for 30 s. Meanwhile more screens arrive, each stuck in the same wait. Connections pile up until the BFF falls, and the whole home screen disappears. A service that only decorates the screen took down the app.</p>
+<p>What if it goes wrong? With no timeout, the <code>bff-app</code> waits for the <code>recomendacoes</code> for 30 s. Meanwhile more screens arrive, each stuck in the same wait. Connections pile up until the BFF falls, and the whole home screen disappears. A service that only decorates the screen took down the app. That is the price of Bruna's design: a backend per channel only protects the channel if each BFF has a timeout.</p>
 
 <p>In code, the 100 ms timeout and the fallback go together. Example written for the lesson (Go):</p>
 

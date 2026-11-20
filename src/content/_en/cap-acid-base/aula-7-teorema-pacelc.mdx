@@ -13,20 +13,20 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>The last lesson left a gap: CAP says nothing about latency, and the network is healthy almost all the time. PACELC fills that gap, and Lena's sale #101 shows the price.</p>
+<p>The last lesson left a gap: CAP says nothing about latency, and the network is healthy almost all the time. PACELC fills that gap, and Bia's sale #101 shows the price.</p>
 
 <OneLiner>PACELC completes CAP: if there is a Partition, choose between Availability and Consistency; else (Else), choose between Latency and Consistency, and the "else" is what happens almost all the time.</OneLiner>
 
 <DoIt>
-  <p>In the figure, make sale #101 in São Paulo in <strong>latency</strong> mode and in <strong>consistency</strong> mode. Compare the milliseconds until Lena's "ok" and what her brother, reading in Recife, sees in that time.</p>
+  <p>In the figure, make sale #101 in São Paulo in <strong>latency</strong> mode and in <strong>consistency</strong> mode. Compare the milliseconds until Bia's "ok" and what Lena, reading in Recife, sees in that time.</p>
 </DoIt>
 <Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=pacelc-el" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, PACELC without a partition: latency vs. consistency" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
 
 <HowItWorks>
 <ol class="flow steps">
   <li>CAP only looks at the failure. With the network working there is also a price: <strong>distance costs milliseconds</strong>. There are two ways to pay it.</li>
-  <li><strong>Consistent write (EC):</strong> first, SP only answers "ok" after Rio and Recife confirm. Lena waits <strong>~80 ms</strong>, and with a slow network (300 ms between the cities) the wait becomes ~300 ms.</li>
-  <li><strong>Fast write (EL):</strong> the other option is for SP to write and answer in <strong>~5 ms</strong>, sending the copy afterward. In exchange, if her brother checks Recife right after, he still sees <code>estoque 5</code> (v1) instead of 4: a stale read, for about 80 ms.</li>
+  <li><strong>Consistent write (EC):</strong> first, SP only answers "ok" after Rio and Recife confirm. Bia waits <strong>~80 ms</strong>, and with a slow network (300 ms between the cities) the wait becomes ~300 ms.</li>
+  <li><strong>Fast write (EL):</strong> the other option is for SP to write and answer in <strong>~5 ms</strong>, sending the copy afterward. In exchange, if Lena checks Recife right after, she still sees <code>estoque 5</code> (v1) instead of 4: a stale read, for about 80 ms.</li>
   <li><strong>Putting the two halves together:</strong> "PA" or "PC" says what the system does in a partition; "EL" or "EC" says what it does without one. Hence PA/EL, PC/EL, PA/EC and PC/EC.</li>
   <li><strong>In the store,</strong> each operation picks its own: cart in PA/EL (fast and always up), balance and transfer in PC/EC (correct, even if slower).</li>
 </ol>
@@ -90,7 +90,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>With the network cut or healthy, the question is the same: does this operation prefer to wait or to take a risk? Whoever designs a replicated system answers that operation by operation, before the failure.</p>
+<p>With the network cut or healthy, the question is the same: does this operation prefer to wait or to take a risk? Whoever designs a replicated system answers that operation by operation, before the failure. Iara answered: balance and stock wait, cart takes the risk, and the price is Bia waiting ~80 ms. The servers now need a database to hold all this. What's left is which database serves each kind of the store's data.</p>
 
 <Flashcards cards={[
   { q: "What does PACELC stand for?",

@@ -297,7 +297,7 @@ FIGS3D.push({ id: 'isolamento', name: 'Isolamento', mod: (() => {
           o.res = [['a promessa: 33,3% por shard', 'acc']]; } },
       { id: 'shard2', dur: 6, title: 'E se der errado: o shard-2 leva 60% das linhas', yk: 'A CONTA COM CARGA DESIGUAL', act: ['Derrubar shard-2', 'onde mora o mkt-01'],
         code: ['mkt-01: 40% das linhas (módulo 16)', 'shard-2 = 0,4 + 0,6 ÷ 3 = 60%', 'shard-0 = 0,6 ÷ 3 = 20%', 'shard-1 = 0,6 ÷ 3 = 20%', 'fora: 1/3 dos clientes, 60% das linhas'],
-        story: 'O <code>shard-2</code> para. Pela conta 1/N, seria um terço. Mas é nele que mora o <code>mkt-01</code>, o marketplace parceiro que sozinho tem <b>40%</b> das linhas de <code>pedidos</code> (módulo 16). O <code>shard-2</code> guarda 0,4 + 0,6 ÷ 3 = <b>60% das linhas</b>, e os outros dois, 20% cada. A queda afeta 1/3 dos clientes e 60% dos pedidos. O artigo supõe carga uniforme, e 1/N é só o melhor caso.',
+        story: 'O <code>shard-2</code> para. Pela conta 1/N, seria um terço. Mas é nele que mora o <code>mkt-01</code>, o MegaMercado, parceiro que sozinho tem <b>40%</b> das linhas de <code>pedidos</code> (módulo 16). O <code>shard-2</code> guarda 0,4 + 0,6 ÷ 3 = <b>60% das linhas</b>, e os outros dois, 20% cada. A queda afeta 1/3 dos clientes e 60% dos pedidos. O artigo supõe carga uniforme, e 1/N é só o melhor caso.',
         look: 'O shard-2 fica vermelho, e com ele o checkout e os pedidos de 1/3 dos clientes, entre eles o mkt-01.',
         key: 'Com carga desigual, o raio de um shard é o peso dele, não 1/N.',
         f(o, t) { const d = t > 0.6; blastBase(o, d ? 's2' : ''); lit(o, 'tela');

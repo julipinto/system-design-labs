@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>Na aula passada o DDD desenhou os contextos a partir do negócio. Mas quem vai construir cada contexto são pessoas, em times, e os times também têm fronteiras. A loja tinha três times organizados por camada, e o sistema saiu com três camadas. Isso não é coincidência: tem nome, Lei de Conway, e dá para usar a seu favor.</p>
+<p>Na aula passada o DDD desenhou os contextos a partir do negócio. Mas quem vai construir cada contexto são pessoas, em times, e os times também têm fronteiras. Se os três times novos fossem organizados por camada, o sistema sairia com três camadas. Isso não é coincidência: tem nome, Lei de Conway, e dá para usar a seu favor.</p>
 
 <OneLiner>A Lei de Conway diz que o sistema acaba com o desenho da comunicação da organização que o fez; por isso, para ter o sistema que se quer, desenham-se os times no mesmo formato.</OneLiner>
 
@@ -24,9 +24,9 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Antes: times por camada.</strong> A loja tem um time de <strong>frontend</strong>, um de <strong>backend</strong> e um de <strong>DBA</strong>. O sistema sai em 3 camadas, exatamente como os times. Um novo campo de frete no checkout passa pelos três: a tela, a regra e a coluna.</li>
+  <li><strong>Antes: times por camada.</strong> Imagine a loja com um time de <strong>frontend</strong>, um de <strong>backend</strong> e um de <strong>DBA</strong>. O sistema sai em 3 camadas, exatamente como os times. Um novo campo de frete no checkout passa pelos três: a tela, a regra e a coluna.</li>
   <li><strong>O custo.</strong> Toda mudança de negócio atravessa 3 times, com 3 filas, 3 prioridades e 3 reuniões. Ninguém é dono do checkout inteiro, então ninguém responde por ele inteiro.</li>
-  <li><strong>Depois: times por domínio.</strong> A loja se reorganiza em 3 times: <strong>Vitrine</strong> (Catálogo e busca), <strong>Checkout</strong> (Carrinho, Pedidos e Pagamentos) e <strong>Logística</strong> (Estoque e Entregas). Cada time é dono de ponta a ponta de um pedaço do negócio.</li>
+  <li><strong>Depois: times por domínio.</strong> A Iara forma 3 times: <strong>Vitrine</strong> (Catálogo e busca, da Bruna), <strong>Checkout</strong> (Carrinho, Pedidos e Pagamentos, do Júlio) e <strong>Logística</strong> (Estoque e Entregas, do Raí). Cada time é dono de ponta a ponta de um pedaço do negócio.</li>
   <li><strong>O desenho acompanha.</strong> Os serviços passam a espelhar os times: o Checkout fica com os seus três serviços, a Logística com os seus dois. A comunicação entre serviços do mesmo time é fácil (é só conversar); entre times, passa por um contrato.</li>
   <li><strong>Manobra inversa de Conway.</strong> Em vez de esperar o sistema copiar os times, o time desenha os times <strong>no formato da arquitetura</strong> que quer. Se o objetivo são serviços por domínio, forma-se um time por domínio primeiro.</li>
 </ol>

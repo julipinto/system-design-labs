@@ -57,7 +57,7 @@ Content-Length: 7680000</span></pre>
       <svg class="dv-wave" viewBox="0 0 ${b.length * W} 50" aria-hidden="true"><path d="${d}"/><line x1="${8 * W}" y1="0" x2="${8 * W}" y2="34" class="dv-wave-sep"/>${t}</svg>
       <div class="dv-legend"><span>1 = sinal alto · 0 = sinal baixo</span><span>esses bytes são o começo do MAC do roteador</span></div>
       <div class="dv-media"><span>rádio (Wi-Fi) até o roteador</span><span>pulsos no cobre</span><span>luz na fibra do oceano</span></div>`
-      + note(rx ? "Do lado do irmão o caminho é o inverso: luz, depois elétrico, depois rádio, e o celular remonta os bits do quadro." : "Os mesmos bits mudam de forma no caminho (rádio, cobre, luz), mas o conteúdo não muda.");
+      + note(rx ? "Do lado do Téo o caminho é o inverso: luz, depois elétrico, depois rádio, e o celular remonta os bits do quadro." : "Os mesmos bits mudam de forma no caminho (rádio, cobre, luz), mas o conteúdo não muda.");
   };
 
   const PAY = () => payload(UDP ? "pedaço de mídia cifrado" : "fatia #1 cifrada", UDP ? "~1.200 B" : "1.460 B");
@@ -75,13 +75,13 @@ Content-Length: 7680000</span></pre>
     () => FRAME([], [], `<div class="dv-card is-chg"><div class="dv-card-h"><span>Em cada roteador</span><b>o que muda e o que não muda</b><em>camadas 2 e 3</em></div>
         <ul><li><b>MAC:</b> trocado (agora "para o roteador seguinte")</li><li><b>FCS:</b> recalculado, porque o quadro mudou</li><li><b>IP de destino:</b> igual, 198.51.100.7</li><li><b>TTL:</b> 64 → 63 → 62… (se chegar a 0, o pacote é descartado)</li><li><b>${UDP ? "UDP" : "TCP"} e os dados:</b> nem são abertos</li></ul></div>`),
     () => bits(true),
-    () => FRAME([], ["mac", "fcs"], card(["fcs", "mac"], "is-out") + note("Conferido: o FCS bateu (nenhum bit estragou) e o MAC de destino é o do celular do irmão.")),
+    () => FRAME([], ["mac", "fcs"], card(["fcs", "mac"], "is-out") + note("Conferido: o FCS bateu (nenhum bit estragou) e o MAC de destino é o do celular do Téo.")),
     () => strip(["ip", "tcp"], PAY(), [], [], ["ip"]) + card(["ip"], "is-out") + note("Conferido: o IP de destino é o dele."),
     () => slices(true) + strip(["tcp"], payload(UDP ? "pedaços de mídia" : "215 fatias em ordem", UDP ? "#5 #6 · #8" : "313 KB"), [], [], ["tcp"]) + card(["tcp"], "is-out")
       + note(UDP ? "Faltou um pedaço e ninguém pediu de novo: a imagem dá uma travadinha e a chamada segue." : "As 215 fatias foram juntadas pela numeração, e as que faltaram foram pedidas de novo."),
     () => `<div class="dv-badge is-out">sessão 9f3a… (segue aberta)</div>` + strip(["tls"], payload("pedido HTTP + foto, cifrados", "313 KB"), ["tag"]) + note("Sem bytes novos: a sessão só confirma de qual conversa esses dados são."),
     () => strip(["tls"], payload("decifrado: pedido HTTP + foto", "313 KB → 7,68 MB", "is-ok"), ["tag"], [], ["tls", "tag"]) + note("A tag conferiu (ninguém mexeu), o TLS decifrou e a foto foi descomprimida."),
-    () => photo("is-new", "7,68 MB · aparece no chat do irmão") + note("Cada cabeçalho foi tirado pela mesma camada que o colocou na ida."),
+    () => photo("is-new", "7,68 MB · aparece no chat do Téo") + note("Cada cabeçalho foi tirado pela mesma camada que o colocou na ida."),
   ];
   const UDP_VIEWS = {
     0: () => call("", "voz e imagem ao vivo, ~50 pedaços por segundo") + note("Agora o dado nasce a cada instante na câmera e no microfone. Chegar atrasado é pior do que perder um pedacinho."),

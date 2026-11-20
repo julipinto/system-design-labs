@@ -28,7 +28,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   <li><strong>Write-through (double write).</strong> The price changes to 79.90. The app writes to the <strong>database</strong> and, in the same operation, to the <strong>cache</strong>. The write takes the sum of both (in the example, 40 + 1 = 41 ms), and in return no read sees 89.90 again.</li>
   <li><strong>The order matters.</strong> Writing the database first and the cache after is the safe order. If the cache fails, the old 89.90 stays until the TTL expires (or until a <code>DEL</code>). In the reverse order, the cache would hold a 79.90 the database never received, and the store would sell a price that doesn't exist.</li>
   <li><strong>Write-behind (delayed write).</strong> The app writes <strong>only to the cache</strong> (1 ms) and answers "saved". A queue and a separate process pass the 79.90 to the database later. The write is the fastest, and the database lags behind the cache until the queue empties.</li>
-  <li><strong>What if Redis goes down before the queue empties?</strong> The 79.90 disappears along with the queue. The database still says 89.90, and the store owner thinks the price changed. It's the only one of the three strategies where acknowledged data is lost.</li>
+  <li><strong>What if Redis goes down before the queue empties?</strong> The 79.90 disappears along with the queue. The database still says 89.90, and Téo thinks the promotion price went live. It's the only one of the three strategies where acknowledged data is lost.</li>
 </ol>
 </HowItWorks>
 
@@ -55,7 +55,7 @@ if err == redis.Nil { // miss: the cache doesn't have the key
 	rdb.Set(ctx, "produto:"+id, valor, 60*time.Second)
 }`}</code></pre>
 
-<p>There is also a cache that sits far from the app and close to Lena. Lena opens the page's photo <code>gato.jpg</code> (120 KB), and the photo origin is in São Paulo. A CDN keeps copies on servers spread around (the edges), and it follows the same reasoning as cache-aside: on the 1st access the Recife edge doesn't have the photo (<code>X-Cache: MISS</code>), fetches it from the origin (~50 ms round trip to São Paulo, ~55 ms total for Lena) and stores it. On the 2nd access it answers by itself (<code>X-Cache: HIT</code>), in about <strong>5 ms</strong>, with <code>Age: 12</code>. The TTL here comes from the origin, in the header <code>Cache-Control: public, max-age=3600</code>.</p>
+<p>There is also a cache that sits far from the app and close to Lena, and Iara adds it to the plan: a CDN with an edge in Recife. Lena opens the page's photo <code>gato.jpg</code> (120 KB), and the photo origin is in São Paulo. A CDN keeps copies on servers spread around (the edges), and it follows the same reasoning as cache-aside: on the 1st access the Recife edge doesn't have the photo (<code>X-Cache: MISS</code>), fetches it from the origin (~50 ms round trip to São Paulo, ~55 ms total for Lena) and stores it. On the 2nd access it answers by itself (<code>X-Cache: HIT</code>), in about <strong>5 ms</strong>, with <code>Age: 12</code>. The TTL here comes from the origin, in the header <code>Cache-Control: public, max-age=3600</code>.</p>
 
 <WhyItMatters>
   <li>Cache-aside is the starting point when you read far more than you write. It's simple, and if the cache goes down the app goes straight to the database.</li>

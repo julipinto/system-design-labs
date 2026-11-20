@@ -16,7 +16,7 @@ import Flashcards from '../../components/Flashcards.astro';
 import lojaPool from '../../../public/labs/bulkhead/lab/loja-pool.js?raw';
 import poolK6 from '../../../public/labs/bulkhead/lab/pool.js?raw';
 
-<p class="ponte">O módulo 24 terminou com um achado que o <code>checkout.js</code> nunca veria: o relatório das 23:00, rodando junto com o tráfego normal, deixou <strong>1 em cada 3 pedidos do checkout</strong> e <strong>1 em cada 10 consultas de status</strong> com <code>503</code>. Ninguém tinha errado nada. O pedido da Lena (o <strong>1054</strong>) e o status dele dividem o <strong>mesmo pool de 20 conexões</strong> ao banco do <code>pedidos</code> com o relatório do módulo 6. Cuidar do tempo e da falha de cada chamada (módulo 21) não resolve isso. Falta cuidar da <strong>fronteira</strong>.</p>
+<p class="ponte">O módulo 24 terminou com um achado que o <code>checkout.js</code> nunca veria: o relatório das 23:00, rodando junto com o tráfego normal, deixou <strong>1 em cada 3 pedidos do checkout</strong> e <strong>1 em cada 10 consultas de status</strong> com <code>503</code>. Ninguém tinha errado nada, e mesmo assim o Júlio culpa o relatório do Raí enquanto o Raí culpa o checkout do Júlio. O pedido da Lena (o <strong>1054</strong>) e o status dele dividem o <strong>mesmo pool de 20 conexões</strong> ao banco do <code>pedidos</code> com o relatório do módulo 6. Cuidar do tempo e da falha de cada chamada (módulo 21) não resolve isso. Falta cuidar da <strong>fronteira</strong>.</p>
 
 <OneLiner>O <strong>bulkhead</strong> não evita que uma peça falhe: ele <strong>limita até onde a falha chega</strong>. Divide um recurso finito em <strong>compartimentos</strong>, e quando um enche, só ele alaga.</OneLiner>
 
@@ -99,7 +99,7 @@ import poolK6 from '../../../public/labs/bulkhead/lab/pool.js?raw';
   ]} />
 </Deep>
 
-<p class="gancho">A loja agora sabe que um pool compartilhado deixa o relatório derrubar quem não tem culpa, e que 16 + 4 resolve esse caso. Falta saber <strong>quais recursos</strong> dividir: só conexões, ou threads, filas, nós e zonas também? É a aula 2.</p>
+<p class="gancho">A briga acabou quando o Raí e o Júlio aceitaram dividir o pool em 16 + 4: o checkout do Júlio ficou protegido, e o preço foi do Raí, cujo job das 23:00 passou de 10 para 100 min. A loja agora sabe que um pool compartilhado deixa o relatório derrubar quem não tem culpa, e que 16 + 4 resolve esse caso. Falta saber <strong>quais recursos</strong> dividir: só conexões, ou threads, filas, nós e zonas também? É a aula 2.</p>
 
 <Flashcards cards={[
   { q: "O que o bulkhead faz?",

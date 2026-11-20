@@ -24,7 +24,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>The store wants the best for pedidos.db: <strong>4 disks of 1 TB</strong>.</li>
+  <li>Iara wants the best for pedidos.db: <strong>4 disks of 1 TB</strong>.</li>
   <li>They form <strong>2 mirrored pairs</strong> (RAID 1): D1+D2 and D3+D4. Each pair is a whole "disk".</li>
   <li>Blocks are striped (RAID 0) across the 2 pairs: A1 goes to pair 1 and is copied onto both of its disks, A2 goes to pair 2, also copied. Reads reach ~4x and writes ~2x.</li>
   <li>When D2 dies, D1 has A1 and A3, and the other pair doesn't even notice. The rebuild just <strong>copies D1</strong> to the new disk, with no calculation: it is fast and light.</li>

@@ -40,7 +40,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>O <strong>gateway</strong> é infraestrutura genérica: roteia, confere o JWT e limita o robô. Serve a todo mundo do mesmo jeito.</li>
-  <li>O <strong>BFF</strong> é código de produto: compõe, adapta e decide o fallback de <strong>uma</strong> tela. É do time do frontend.</li>
+  <li>O <strong>BFF</strong> é código de produto: compõe, adapta e decide o fallback de <strong>uma</strong> tela. É do time do frontend, que na loja é a Vitrine da Bruna.</li>
   <li>O caminho de uma chamada do app fica <code>app → gw-loja → bff-app → serviços</code>.</li>
   <li>O gateway olha para a porta de entrada, o BFF olha para a tela, e os serviços cuidam das regras.</li>
 </ol>
@@ -64,7 +64,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">Entre o BFF e os serviços, e entre os próprios serviços, cada chamada precisa de timeout, retry, criptografia e métrica, e cada time está escrevendo isso do seu jeito, em cada linguagem. Falta saber se dá para colocar isso na rede, uma vez só: é o assunto do módulo 10, Service Mesh.</p>
+<p class="gancho">A Bruna ganhou um backend por canal, e o preço apareceu fora dele. Entre o BFF e os serviços, e entre os próprios serviços, cada chamada precisa de timeout, retry, criptografia e métrica, e cada time está escrevendo isso do seu jeito, em cada linguagem. Falta saber se dá para colocar isso na rede, uma vez só: é o assunto do módulo 10, Service Mesh.</p>
 
 <Flashcards cards={[
   { q: "Quando vale usar BFF?",

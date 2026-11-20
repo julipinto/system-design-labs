@@ -113,7 +113,7 @@ queue.faturamento.prioritario 4 | queue.faturamento 56 | queue.faturamento.datal
   ]} />
 </Deep>
 
-<p class="gancho">A loja agora conversa de todos os jeitos: REST e gRPC entre serviços, eventos no Kafka, a posição do caminhão por MQTT e os e-mails no RabbitMQ. E a Black Friday mostrou algo que nenhum desses módulos mediu: o catálogo respondeu em <strong>2 s</strong> para parte dos clientes, e ninguém soube dizer quanto a loja aguenta. Quanto tempo leva de verdade, para quantos, e onde está o gargalo? Falta saber como <strong>medir</strong>: latência p50, p95 e p99, vazão e saturação. É o módulo 14, Performance, Capacidade e Escalabilidade.</p>
+<p class="gancho">A loja agora conversa de todos os jeitos: REST e gRPC entre serviços, eventos no Kafka, a posição do caminhão por MQTT e os e-mails no RabbitMQ. O Raí montou assim (fila para e-mail, tópico para eventos, MQTT no caminhão), e o preço é que a resposta à Lena já não diz se o estoque foi reservado. Agora o Téo agenda a newsletter da Black Friday para as 20:00, e nenhum desses módulos mediu quanto a loja aguenta. Quanto tempo leva de verdade, para quantos, e onde está o gargalo? Falta saber como <strong>medir</strong>: latência p50, p95 e p99, vazão e saturação. É o módulo 14, Performance, Capacidade e Escalabilidade.</p>
 
 <Flashcards cards={[
   { q: "O que cada laboratório RabbitMQ roteia?",

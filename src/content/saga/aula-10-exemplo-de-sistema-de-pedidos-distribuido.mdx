@@ -106,7 +106,7 @@ import estoqueMain from '../../lab-code/saga/estoque-main.go?raw';
   ]} />
 </Deep>
 
-<p class="gancho">A saga depende de comandos que se repetem, de eventos que chegam duas vezes e de serviços que demoram, e tudo isso quer <strong>idempotência, tempo-limite, <em>retry</em> e <em>circuit breaker</em></strong>. Antes, outra pergunta: e se o estado do pedido fosse <strong>só a lista dos eventos</strong>, e o que está na tabela fosse um resumo? O log de saga já é metade disso. Falta saber o que acontece quando o log vira a fonte: é o módulo 20, Event Sourcing.</p>
+<p class="gancho">A saga cancelou e estornou o 1057 do Davi em 45 s, e o preço é que ela depende de comandos que se repetem, de eventos que chegam duas vezes e de serviços que demoram: tudo isso quer <strong>idempotência, tempo-limite, <em>retry</em> e <em>circuit breaker</em></strong>. Antes disso, outra pergunta, que a Iara vai fazer na madrugada depois da noite: e se o estado do pedido fosse <strong>só a lista dos eventos</strong>, e o que está na tabela fosse um resumo? O log de saga já é metade disso. Falta saber o que acontece quando o log vira a fonte: é o módulo 20, Event Sourcing.</p>
 
 <Flashcards cards={[
   { q: "O que o laboratório do autor tem?",

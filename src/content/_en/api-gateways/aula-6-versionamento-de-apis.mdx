@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p class="ponte">In the last lesson the gateway learned to hold back the bot without blocking Lena, and the store was left with a different kind of problem: the API itself has to change. The orders team wants to return the total as an object, with value and currency, and Lena's old app, which reads the total as a number, can't break the day that goes live. In lesson 2, the contract swap was the "what if it goes wrong". Now it is the topic.</p>
+<p class="ponte">In the last lesson the gateway learned to hold back the bot without blocking Lena, and the store was left with a different kind of problem: the API itself has to change. Júlio's team, which owns <code>pedidos</code>, wants to return the total as an object, with value and currency, and Lena's old app, which reads the total as a number, can't break the day that goes live. In lesson 2, the contract swap was the "what if it goes wrong". Now it is the topic.</p>
 
 <OneLiner>Versioning means keeping the old and the new version of the API up at the same time, each on its own route; the gateway rewrites the path to the right service and can send a slice of the traffic (canary) to a new implementation.</OneLiner>
 

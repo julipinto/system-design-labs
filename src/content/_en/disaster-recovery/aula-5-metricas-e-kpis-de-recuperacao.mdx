@@ -87,7 +87,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <p>The damage continues after the order. Bia paid the Pix <code>c-7733</code> at <strong>20:40:20</strong>. Davi, five seconds after the map flipped, created an order in <code>celula-sp@rio</code> at 20:41:10: two blue mugs (39.80) and SP shipping (9.00), <strong>R$ 48.80</strong>, Pix <code>c-7734</code>. Rio's sequence stopped at 1060, so the number was <strong>1061, again</strong>. When the PSP resent the <code>c-7733</code> webhook (with <em>backoff</em>, module 12), it reached Rio at <strong>20:41:25</strong> and the store found a different 1061: the <code>cobranca_id</code> does not match, and the message goes to <strong>quarantine</strong> (the DLQ from module 13).</p>
 
-<p>There are three ways out:</p>
+<p>The next day Iara calls Bia and tells her what happened to her order. There are three ways out for it:</p>
 
 <ol class="flow steps">
   <li><strong>SP's disk comes back.</strong> In this example, at 23:40, three hours later: Bia's 1061 is <strong>recovered and renumbered to 1062</strong> (1061 stays with Davi).</li>
@@ -125,7 +125,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">The 30 s MTTD only existed because someone had set up probes to measure it. Before them, the shipping bug from module 22 took <strong>60 min</strong> to be noticed. What is left is how to <strong>see</strong>, in 30 s, what is happening inside the store, and why, order by order. That is module 28, Observability and Monitoring.</p>
+<p class="gancho">The 30 s MTTD only existed because someone had set up probes to measure it. Before them, the shipping bug from module 22 took <strong>60 min</strong> to be noticed. What is left is how to <strong>see</strong>, in 30 s, what is happening inside the store, and why, order by order, before Lena, a week later, receives a doubled mug order with every dashboard green. That is module 28, Observability and Monitoring.</p>
 
 <Flashcards cards={[
   { q: "Which are the measurements and which are the objectives?",

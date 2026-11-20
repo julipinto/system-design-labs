@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">Na aula passada, 3 shards prometeram 450 pedidos por segundo, e a promessa só vale se a carga se espalhar por igual. Quem decide como ela se espalha é a <strong>chave de sharding</strong>: a coluna que diz em qual shard cada linha mora. A tabela <code>pedidos</code> tem várias candidatas, e cada uma tem um número.</p>
+<p class="ponte">Na aula passada, 3 shards prometeram 450 pedidos por segundo, e a promessa só vale se a carga se espalhar por igual. Quem decide como ela se espalha é a <strong>chave de sharding</strong>, e a escolha é da Iara: a coluna que diz em qual shard cada linha mora. A tabela <code>pedidos</code> tem várias candidatas, e cada uma tem um número.</p>
 
 <OneLiner>A chave decide <strong>o que fica junto</strong> e <strong>onde esquenta</strong>: uma boa chave tem muitos valores diferentes (alta cardinalidade), aparece nas consultas e não concentra o tráfego num shard só.</OneLiner>
 

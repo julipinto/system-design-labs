@@ -148,7 +148,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
   const STEPS = {
     tcp: [
       { title: 'Lena is about to send the cat photo', dur: 0, ev: [],
-        story: 'Lena, in São Paulo, taps send: her phone is about to send the cat photo to her brother in Tokyo, through the app server (the messaging server that delivers the photo to him). The 313 KB become 215 slices, and TCP guarantees that all of them arrive whole and in order. Here we follow only the first 3 slices, 300 bytes. To fit on screen, the figure uses 100-byte slices; real ones are ~1,460 bytes. The seq and ack numbers are examples.',
+        story: 'Lena, in Recife, taps send: her phone is about to send the cat photo to Téo in Tokyo, through the app server (the messaging server that delivers the photo to him). The 313 KB become 215 slices, and TCP guarantees that all of them arrive whole and in order. Here we follow only the first 3 slices, 300 bytes. To fit on screen, the figure uses 100-byte slices; real ones are ~1,460 bytes. The seq and ack numbers are examples.',
         look: 'On the left, Lena\'s phone with the cat photo on screen; on the right, the app server. The top track carries the slices; the front one brings the replies. In front of the server, the receive buffer has 3 empty slots, one per slice.',
         key: 'TCP: Lena\'s photo arrives whole thanks to a connection, numbered bytes, confirmation and resend.' },
       { title: 'Handshake: SYN, SYN-ACK, ACK', dur: 7.6, ev: [[0, 0.3], [1, 2.6], [2, 5.3]],
@@ -192,13 +192,13 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
         look: 'Now the FIN comes from the server and the ACK goes back. Server: CLOSED. Phone: TIME_WAIT.',
         key: 'Four-way close: FIN, ACK, FIN, ACK.' },
       { title: 'Summary: 14 segments for 3 slices', dur: 1.2, ev: [], tw: 0.8,
-        story: 'To deliver the first 3 slices of the photo (300 bytes), TCP exchanged 14 segments: 3 to open, 7 of data and ACKs (counting the resend) and 4 to close. Everything arrived whole and in order, despite the loss: with all 215 slices it would be the same, and her brother would see the cat with no gaps. After TIME_WAIT (2 × MSL: seconds to a few minutes, depending on the system), the phone closes too.',
+        story: 'To deliver the first 3 slices of the photo (300 bytes), TCP exchanged 14 segments: 3 to open, 7 of data and ACKs (counting the resend) and 4 to close. Everything arrived whole and in order, despite the loss: with all 215 slices it would be the same, and Téo would see the cat with no gaps. After TIME_WAIT (2 × MSL: seconds to a few minutes, depending on the system), the phone closes too.',
         look: 'Both signs at CLOSED and the server app holding the 3 slices, 300 bytes. Switch to UDP in the panel to compare.',
         key: 'TCP trades speed for guarantees: order, confirmation and resend.', sum: true },
     ],
     udp: [
       { title: 'What if it were a video call?', dur: 0, ev: [],
-        story: 'What if, instead of a photo, Lena were on a video call with her brother? It is the call scenario from the OSI figure: video is born every instant and goes in pieces, here the same 3 pieces of 100 bytes, and the transport is UDP. There is no connection: no handshake, no state, no sequence number.',
+        story: 'What if, instead of a photo, Lena were on a video call with Téo? It is the call scenario from the OSI figure: video is born every instant and goes in pieces, here the same 3 pieces of 100 bytes, and the transport is UDP. There is no connection: no handshake, no state, no sequence number.',
         look: 'Lena\'s phone screen keeps sending. The signs show no state: with no connection, there is no state to show. The front track will stay empty.',
         key: 'UDP: send and forget.' },
       { title: 'Datagram #1, straight away', dur: 3.4, ev: [[0, 0.3]],
@@ -214,7 +214,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
         look: '#3 takes the last slot, lit. The middle one stays empty and without "waiting": nobody is waiting.',
         key: 'Each datagram is independent: it arrived, it is delivered.' },
       { title: 'End: 200 of 300 bytes (the video stutters for a moment)', dur: 0, ev: [],
-        story: 'The server ended up with #1 and #3: 200 bytes. Lena\'s phone thinks it sent everything. That was 3 messages, against 14 for TCP. On the call, her brother sees a small stutter and the call goes on: for voice, live video and games, losing a piece is better than waiting for it. For the cat photo, that would be a hole in the image. If the app needs guarantees, it implements them itself (QUIC does this on top of UDP).',
+        story: 'The server ended up with #1 and #3: 200 bytes. Lena\'s phone thinks it sent everything. That was 3 messages, against 14 for TCP. On the call, Téo sees a small stutter and the call goes on: for voice, live video and games, losing a piece is better than waiting for it. For the cat photo, that would be a hole in the image. If the app needs guarantees, it implements them itself (QUIC does this on top of UDP).',
         look: 'The middle slot empty forever and no ACK on the front track.',
         key: 'UDP is fast and light; the guarantee is left to the application.', sum: true },
     ],

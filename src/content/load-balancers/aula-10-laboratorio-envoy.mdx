@@ -241,7 +241,7 @@ reverse_proxy_cluster::172.29.77.7:8080::health_flags::healthy
   ]} />
 </Deep>
 
-<p>Os três proxies do laboratório limitam 10 pedidos por minuto cada um, e cada um conta sozinho: o mesmo cliente passa em um e é recusado no outro. Na loja, o <code>catalogo</code>, o <code>carrinho</code> e o <code>pedidos</code> também conferem o login, limitam abuso e mantêm as versões da API cada um por conta própria, o que repete o mesmo trabalho em todo serviço. Falta saber se esse trabalho pode ser feito uma só vez, na porta, antes de o pedido chegar a qualquer serviço.</p>
+<p>Na promoção do Téo, o round robin da Bruna custou caro: as buscas pesadas caíram numa réplica só, e o healthcheck tirou a <code>catalogo-2</code> do pool. Agora o app da Bruna e um parceiro do Téo vão chamar a loja direto. Os três proxies do laboratório limitam 10 pedidos por minuto cada um, e cada um conta sozinho: o mesmo cliente passa em um e é recusado no outro. Na loja, o <code>catalogo</code>, o <code>carrinho</code> e o <code>pedidos</code> também conferem o login, limitam abuso e mantêm as versões da API cada um por conta própria, o que repete o mesmo trabalho em todo serviço. Falta saber se esse trabalho pode ser feito uma só vez, na porta, antes de o pedido chegar a qualquer serviço.</p>
 
 <Flashcards cards={[
   { q: "Que papel cada Envoy tem no laboratório?",

@@ -40,7 +40,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>The <strong>gateway</strong> is generic infrastructure: it routes, checks the JWT and limits the bot. It serves everyone the same way.</li>
-  <li>The <strong>BFF</strong> is product code: it composes, adapts and decides the fallback for <strong>one</strong> screen. It belongs to the frontend team.</li>
+  <li>The <strong>BFF</strong> is product code: it composes, adapts and decides the fallback for <strong>one</strong> screen. It belongs to the frontend team, which in the store is Bruna's Storefront.</li>
   <li>The path of an app call is <code>app → gw-loja → bff-app → services</code>.</li>
   <li>The gateway looks at the front door, the BFF looks at the screen, and the services take care of the rules.</li>
 </ol>
@@ -64,7 +64,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">Between the BFF and the services, and between the services themselves, each call needs timeout, retry, encryption and metrics, and each team is writing that its own way, in every language. What's left is whether this can go into the network, once: that's the subject of module 10, Service Mesh.</p>
+<p class="gancho">Bruna got a backend per channel, and the price showed up outside it. Between the BFF and the services, and between the services themselves, each call needs timeout, retry, encryption and metrics, and each team is writing that its own way, in every language. What's left is whether this can go into the network, once: that's the subject of module 10, Service Mesh.</p>
 
 <Flashcards cards={[
   { q: "When is a BFF worth using?",

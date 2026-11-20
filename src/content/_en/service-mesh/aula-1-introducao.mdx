@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p class="ponte">Module 9 ended with <code>bff-app</code> assembling Lena's screen, with a timeout and a fallback for whatever failed. But that screen is only the front door. Behind it, the shop runs 30 pods that call each other all the time: <code>pedidos</code> calls <code>pagamentos</code> and <code>estoque</code>, <code>bff-app</code> calls <code>catalogo</code>. Each team wrote its own way to retry, wait, encrypt and measure inside its service. This module's problem is to take that out of the code and put it in the network, once, the same for everyone.</p>
+<p class="ponte">Module 9 ended with <code>bff-app</code> assembling Lena's screen, with a timeout and a fallback for whatever failed. But that screen is only the front door. Behind it, the shop runs 30 pods that call each other all the time: <code>pedidos</code> calls <code>pagamentos</code> and <code>estoque</code>, <code>bff-app</code> calls <code>catalogo</code>. Each team wrote its own way to retry, wait, encrypt and measure inside its service. In October Júlio and Raí fight over it: <code>pedidos</code> retries 5 times with no wait and takes <code>pagamentos</code> down. Iara decides to take retry, timeout and mTLS out of the code and put them in the network, once, the same for everyone.</p>
 
 <OneLiner>A service mesh is a network layer that handles the conversation between services, with a proxy next to each one, so that retry, timeout, TLS and metrics stop being each team's code.</OneLiner>
 
@@ -25,7 +25,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>Lena's order 1048, for 94.90, reaches <code>pedidos</code>. It has to charge, and it calls <code>pagamentos</code> the way any HTTP client would: <code>POST http://pagamentos:8080/cobrancas</code>, with the body <code>{`{ "pedido_id": 1048, "valor": 94.90 }`}</code>.</li>
-  <li><code>pagamentos</code> answers <strong>503</strong>. With no mesh, <code>pedidos</code> itself decides what to do, and its team chose to retry <strong>5 times, with no wait</strong> between attempts. If <code>pagamentos</code> was overloaded, it now receives 6 calls instead of 1.</li>
+  <li><code>pagamentos</code> answers <strong>503</strong>. With no mesh, <code>pedidos</code> itself decides what to do, and Júlio's team chose to retry <strong>5 times, with no wait</strong> between attempts. If <code>pagamentos</code> was overloaded, it now receives 6 calls instead of 1.</li>
   <li>Each other service solved its part differently. <code>estoque</code> does not use TLS, so what it receives and sends travels in plain text. <code>catalogo</code> measures nothing, so nobody knows how long it takes. And this repeats in Go, Node.js and Java, each with its own library.</li>
   <li>The idea of the mesh is to take that code out of the services. A <strong>proxy</strong> sits next to each app and intercepts the outgoing and the incoming call. The app keeps asking for <code>http://pagamentos:8080/cobrancas</code>, without knowing the proxy exists.</li>
   <li>Since retry, TLS and metrics now live in the proxies, the rule is written <strong>once</strong>, in one place, and applies to all 30 pods, whatever the language. That set of proxies and whatever drives them is the mesh.</li>

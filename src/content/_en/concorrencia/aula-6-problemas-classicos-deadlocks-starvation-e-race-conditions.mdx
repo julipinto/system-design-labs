@@ -58,7 +58,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 
 <h3 class="sec">Deadlock: reserve against cancel</h3>
 
-<p>To fix the race, the team adds a lock. But the store has more than one resource to lock. At 14:02:10.500 the payment for 1049 is confirmed and, at the same instant, Bia regrets it and clicks "cancel". Two operations start together: <code>reservar(1049)</code> locks <code>estoque:GATO-042</code> and then <code>pedido:1049</code>; <code>cancelar(1049)</code> locks <code>pedido:1049</code> and then <code>estoque:GATO-042</code>.</p>
+<p>To fix the race, Raí adds a lock. But the store has more than one resource to lock. At 14:02:10.500 the payment for 1049 is confirmed and, at the same instant, Bia regrets it and clicks "cancel". Two operations start together: <code>reservar(1049)</code> locks <code>estoque:GATO-042</code> and then <code>pedido:1049</code>; <code>cancelar(1049)</code> locks <code>pedido:1049</code> and then <code>estoque:GATO-042</code>.</p>
 
 <Widget name="deadlock" title="Reserve × cancel: in what order to lock?" hint="Choose the order in which each operation takes the two locks. With crossed orders, the cycle appears and nobody moves. Check 'global order' and the cycle goes away." />
 
@@ -75,7 +75,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 
 <h3 class="sec">Starvation: nobody locks, Caio just is never served</h3>
 
-<p><code>marketplace-xyz</code> (the partner from module 8) syncs the stock by calling <code>reservar</code> in a loop: 4 ms at a time, no pause. Caio tries to grab the lock <strong>every 50 ms</strong>. The lock, with no queue, is always taken when he arrives, and he gives up at <strong>10 s</strong>. There was no deadlock, nothing stopped: he just was never served. That is <em>starvation</em>, and it happens when the lock has no queue.</p>
+<p><code>marketplace-xyz</code> (MegaMercado, the partner from module 8) syncs the stock by calling <code>reservar</code> in a loop: 4 ms at a time, no pause. Caio tries to grab the lock <strong>every 50 ms</strong>. The lock, with no queue, is always taken when he arrives, and he gives up at <strong>10 s</strong>. There was no deadlock, nothing stopped: he just was never served. That is <em>starvation</em>, and it happens when the lock has no queue.</p>
 
 <p>Go's <code>sync.Mutex</code> avoids this. If a waiter goes past <strong>1 ms</strong>, the mutex enters <em>starvation mode</em> and starts handing the lock over in arrival order (FIFO). The lab's spinlock (lesson 9) takes no such care: in the article's log, among 10 friends, friend 6 was served last (order 10, 3, 5, 1, 9, 2, 8, 7, 4, 6).</p>
 

@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">In module 18 the store got one model to write and another to read, linked by events that don't get lost. But <strong>an order goes through several services, each with its own database</strong>, and module 6 left a debt: the payment is approved, the stock reservation fails, and there is no <code>ROLLBACK</code> left to undo everything. Someone has to <strong>compensate</strong> by refunding the payment. That design has a name: <strong>Saga</strong>.</p>
+<p class="ponte">In module 18 Bruna gave the store one model to write and another to read, linked by events that don't get lost. It is 20:15 on Black Friday, and <strong>an order goes through several services, each with its own database</strong>. Davi opens the order for the T-shirt (1057) to pay by Pix, Raí's Logistics team zeroes the stock because of damage at 20:15:10 and the Pix lands at 20:15:41: module 6 left this debt, the payment is approved, the stock reservation fails, and there is no <code>ROLLBACK</code> left to undo everything. Someone has to <strong>compensate</strong> by refunding the payment, and Júlio, who owns <code>pagamentos</code>, does not want money stuck. That design has a name: <strong>Saga</strong>.</p>
 
 <OneLiner>The <strong>Saga</strong> makes an operation that crosses services <strong>finish whole or be undone</strong>. It trades the atomicity of one transaction for <strong>local steps and compensations</strong>: each service does its piece, and if one fails, the ones that already went through are undone by new transactions.</OneLiner>
 

@@ -28,7 +28,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   <li>All three start <strong>cold</strong>. The first request that lands on each one is a miss, and each goes to the database on its own, 40 ms. That's 3 database reads for the same key. In 10 requests spread round-robin (A, B, C, A, B, C…), that's 3 misses and 7 hits: <strong>70%</strong>. With a single Redis, it would be 1 miss and 9 hits: <strong>90%</strong>.</li>
   <li>The price changes to 79.90 at t = 20 s. A stored its copy at t = 0 and B at t = 10, so both say <strong>89.90</strong>. C stored at t = 30, after the change, and says <strong>79.90</strong>. Lena reloads and the balancer sends her to A, then C, then B: 89.90, 79.90, 89.90.</li>
   <li>Deleting the key doesn't solve it alone. The replica that wrote the price deletes <code>produto:42</code> from <strong>its</strong> hashmap, and the other two don't even know it happened. All three would need to be told.</li>
-  <li>With a <strong>shared Redis</strong>, the three replicas read and write the same key. There is a single copy and one <code>DEL produto:42</code> applies to all. The cost is 1 ms per read (almost all of it network) and a new piece that can go down or become a bottleneck.</li>
+  <li>With the <strong>shared Redis</strong> Iara picks, the three replicas read and write the same key. There is a single copy and one <code>DEL produto:42</code> applies to all. The cost is 1 ms per read (almost all of it network) and a new piece that can go down or become a bottleneck.</li>
 </ol>
 </HowItWorks>
 

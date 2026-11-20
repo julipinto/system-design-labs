@@ -12,7 +12,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>Module 5 ended with a fast store: the plush cat (product 42) is in Redis, the photo is on the Recife CDN, and the price dropped to 79.90. But fast does not mean well divided. The whole store is still <strong>one program</strong>, the <code>loja</code> process, on an 8 vCPU server, with the <code>loja</code> database (the PostgreSQL from module 4). Seven modules live inside it: Catalog, Cart, Orders, Payments, Stock, Shipping and Reports. Three teams edit the same code, and two things started going wrong.</p>
+<p>Module 5 ended with a fast store: the plush cat (product 42) is in Redis, the photo is on the Recife CDN, and the price dropped to 79.90. But fast does not mean well divided. In June, Marta, an investor, put money into the store, and three leads arrived: Bruna (Storefront), Júlio (Checkout) and Raí (Logistics). Téo came back from Tokyo and opened the office in Recife. The whole store is still <strong>one program</strong>, the <code>loja</code> process, on an 8 vCPU server, with the <code>loja</code> database (the PostgreSQL from module 4). Seven modules live inside it: Catalog, Cart, Orders, Payments, Stock, Shipping and Reports. The three teams edit the same code, and two things started going wrong. Iara, the CTO, has to decide whether to split the program.</p>
 
 <OneLiner>A monolith is one program with everything inside; microservices are several small programs, each owning its own piece. Splitting is easy. Knowing when and where to cut is the hard part.</OneLiner>
 
@@ -24,7 +24,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>Lena, from Recife, buys <strong>another plush cat</strong> as a gift for her brother. It is <strong>order 1047</strong>: product 42, quantity 1, 79.90, shipping of 15.00, total of <strong>94.90</strong>.</li>
+  <li>Lena, from Recife, buys <strong>another plush cat</strong> as a welcome-back gift for her brother, Téo, who has just returned from Tokyo. It is <strong>order 1047</strong>: product 42, quantity 1, 79.90, shipping of 15.00, total of <strong>94.90</strong>.</li>
   <li>The <code>loja</code> process receives the checkout. The Cart module calls Orders, which calls Payments, which calls Stock, which calls Shipping. These are <strong>function calls</strong> inside the same process, about 0.01 ms each.</li>
   <li>Everything runs inside <strong>one transaction</strong> in the <code>loja</code> database: <code>BEGIN</code> at the start, <code>COMMIT</code> at the end (the ACID from module 3). When the order is paid, the cat's stock goes from <strong>3 to 2</strong>.</li>
   <li>The whole checkout takes <strong>180 ms</strong>. If the payment fails halfway, the <code>ROLLBACK</code> gives the stock back by itself.</li>

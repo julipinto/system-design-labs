@@ -24,7 +24,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Transacional.</strong> A Lena paga o gato de pelúcia: o pedido é gravado e o estoque diminui, tudo ou nada. Pede atomicidade, ACID e leitura imediata da última escrita. A escolha é um banco relacional com <strong>B-Tree</strong> em chaves e índices secundários. Quanto mais réplicas confirmam o commit, maior a latência. Escala vertical, ou NewSQL com consenso.</li>
+  <li><strong>Transacional.</strong> A Lena paga o gato de pelúcia: o pedido é gravado e o estoque diminui, tudo ou nada. Pede atomicidade, ACID e leitura imediata da última escrita. A escolha é um banco relacional com <strong>B-Tree</strong> em chaves e índices secundários: foi a decisão da Iara para os pedidos, o PostgreSQL. Quanto mais réplicas confirmam o commit, maior a latência. Escala vertical, ou NewSQL com consenso.</li>
   <li><strong>Escrita intensiva.</strong> Chegam milhões de eventos por segundo (cliques, logs, sensores), e nenhum pode se perder. A escolha é NoSQL com <strong>LSM</strong> (Cassandra, ScyllaDB) e replicação assíncrona. Aceita-se consistência eventual e réplicas atrasadas por um tempo.</li>
   <li><strong>Leitura intensiva.</strong> O catálogo e a lista de pedidos são lidos mil vezes mais do que gravados. A escolha é um banco primário consistente com <strong>réplicas de leitura</strong> e uma camada de <strong>cache</strong> (Redis, Memcached), que são chave-valor em memória.</li>
   <li>Quando as telas pedem outro formato do que o banco transacional guarda, usa-se o <strong>CQRS</strong>: o banco transacional grava os pedidos e uma cópia, num modelo feito para leitura (documentos, ou colunar para os relatórios), alimenta as telas. A fonte de verdade fica protegida dos picos de leitura.</li>
@@ -65,7 +65,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>A loja agora sabe qual banco usar para cada pergunta, mas um servidor só tem limite de disco, de memória e de falhas. Falta saber como dividir os dados entre vários servidores (sharding) e como copiá-los (replicação) sem perder a promessa de consistência que cada banco escolheu.</p>
+<p>A Iara agora sabe qual banco usar para cada pergunta, e o preço da escolha é que o PostgreSQL dos pedidos ainda é um servidor só, com limite de disco, de memória e de falhas. A Lena já acha o pedido 1042 num instante, mas a página do gato é outra história. Falta saber o que acontece com ela quando todo mundo abrir ao mesmo tempo.</p>
 
 <Flashcards cards={[
   { q: "O que pede um cenário transacional?",

@@ -37,7 +37,7 @@ import Figure3D from '../../components/Figure3D.astro';
 
 <Widget name="timeout" title="Timeout e fallback" hint="Escolha quanto o recomendacoes demora e se o BFF tem timeout de 100 ms. Veja o que a Lena vê e quanto a tela leva." />
 
-<p>E se der errado? Sem timeout, o <code>bff-app</code> espera o <code>recomendacoes</code> por 30 s. Enquanto isso, chegam mais telas, cada uma presa na mesma espera. As conexões se acumulam até o BFF cair, e a tela inicial inteira some. Um serviço que só enfeita a tela derrubou o app.</p>
+<p>E se der errado? Sem timeout, o <code>bff-app</code> espera o <code>recomendacoes</code> por 30 s. Enquanto isso, chegam mais telas, cada uma presa na mesma espera. As conexões se acumulam até o BFF cair, e a tela inicial inteira some. Um serviço que só enfeita a tela derrubou o app. Esse é o preço do desenho da Bruna: um backend por canal só protege o canal se cada BFF tiver timeout.</p>
 
 <p>Em código, o timeout de 100 ms e o fallback ficam juntos. Exemplo escrito para a aula (Go):</p>
 

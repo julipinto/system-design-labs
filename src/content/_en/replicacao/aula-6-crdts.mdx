@@ -79,7 +79,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">The store now copies data in every way: between databases, between services, by reading the log and by merging concurrent writes. And Lena's "my orders" screen still reads from the <strong>same table</strong> the checkout writes to. What is left is what changes if she reads from a <strong>copy built only for reading</strong>, fed by CDC: how to separate the write model from the read model. That is module 18, CQRS.</p>
+<p class="gancho">The store now copies data in every way: between databases, between services, by reading the log and by merging concurrent writes. The price is the delay: at 20:10 the Recife replica was 800 ms behind, and Lena did not see 1055 in "my orders". That screen still reads from the <strong>same table</strong> the checkout writes to. What is left is what changes if Bruna makes it read from a <strong>copy built only for reading</strong>, fed by CDC: how to separate the write model from the read model. That is module 18, CQRS.</p>
 
 <Flashcards cards={[
   { q: "What is a CRDT and why does it converge?",

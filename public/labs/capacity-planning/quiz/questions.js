@@ -53,7 +53,7 @@
     "De parceiros pela API, que vendem sem navegar no catálogo.",
     "Do cache, que reduz o custo por pedido."
   ], 2, "A tendência dos clientes dá 45. A meta de 200 só existe com parceiros pela API (o mkt-01 e outros 3), e por isso o catálogo continua em 950.");
-  choice("t1", 4, 3, "O time dimensiona o catálogo para o que já aconteceu: 640 req/s com 10 réplicas. Em 2027 a demanda é 950. O que acontece?", [
+  choice("t1", 4, 3, "Um plano dimensiona o catálogo para o que já aconteceu: 640 req/s com 10 réplicas. Em 2027 a demanda é 950. O que acontece?", [
     "Nada: 10 réplicas aguentam 1.000 req/s.",
     "As réplicas ficam a 95% e a resposta média vai a 210 ms.",
     "O HPA sobe réplicas antes de a demanda chegar.",
@@ -222,7 +222,7 @@
   choice("t8", 4, 3, "O entregas tem 3 partições de 40 eventos/s e recebe 200/s por 4 h. Qual é o lag ao fim do pico?", [
     "0 eventos.", "288.000 eventos.", "1.152.000 eventos.", "2.880.000 eventos."
   ], 2, "(200 − 120) × 14.400 s = 1.152.000. Com 8 partições (320/s) não há lag.");
-  choice("t8", 5, 3, "O time escala o estoque de 2 para 4 pods porque 'estoque é crítico'. O que muda na saída da cadeia?", [
+  choice("t8", 5, 3, "Alguém escala o estoque de 2 para 4 pods porque 'estoque é crítico'. O que muda na saída da cadeia?", [
     "Dobra.",
     "Nada: o gargalo é o pagamentos (40/s).",
     "Cai pela metade.",

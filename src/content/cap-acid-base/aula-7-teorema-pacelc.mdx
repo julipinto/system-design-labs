@@ -14,20 +14,20 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
-<p>A aula passada deixou uma lacuna: o CAP não diz nada sobre latência, e a rede passa quase todo o tempo boa. O PACELC preenche essa lacuna, e a venda #101 da Lena mostra o preço.</p>
+<p>A aula passada deixou uma lacuna: o CAP não diz nada sobre latência, e a rede passa quase todo o tempo boa. O PACELC preenche essa lacuna, e a venda #101 da Bia mostra o preço.</p>
 
 <OneLiner>PACELC completa o CAP: se há Partição, escolha entre Availability e Consistency; senão (Else), escolha entre Latency e Consistency, e o "senão" é o que acontece quase o tempo todo.</OneLiner>
 
 <DoIt>
-  <p>Na figura, faça a venda #101 em São Paulo no modo <strong>latência</strong> e no modo <strong>consistência</strong>. Compare os milissegundos até o "ok" da Lena e o que o irmão dela, lendo em Recife, enxerga nesse tempo.</p>
+  <p>Na figura, faça a venda #101 em São Paulo no modo <strong>latência</strong> e no modo <strong>consistência</strong>. Compare os milissegundos até o "ok" da Bia e o que a Lena, lendo em Recife, enxerga nesse tempo.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/cap-3d/?mode=pacelc-el" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Figura interativa: estoque replicado em SP, Rio e Recife, PACELC sem partição: latência x consistência" alt="Prévia da figura 3D: três bancos de dados com o cabo para Recife cortado, os nós mostrando 3 unidades enquanto o estoque real é 2" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque CP, AP, CA ou PACELC no painel" />
 
 <HowItWorks>
 <ol class="flow steps">
   <li>O CAP só olha para a falha. Com a rede funcionando também existe um preço: <strong>distância custa milissegundos</strong>. Há duas maneiras de pagá-lo.</li>
-  <li><strong>Escrita consistente (EC):</strong> primeiro, SP só responde "ok" depois que o Rio e o Recife confirmarem. A Lena espera <strong>~80 ms</strong>, e com a rede lenta (300 ms entre as cidades) a espera vira ~300 ms.</li>
-  <li><strong>Escrita rápida (EL):</strong> a outra opção é SP gravar e responder em <strong>~5 ms</strong>, mandando a cópia depois. Em compensação, se o irmão consulta o Recife logo em seguida, ele ainda vê <code>estoque 5</code> (v1) em vez de 4: uma leitura velha, por uns 80 ms.</li>
+  <li><strong>Escrita consistente (EC):</strong> primeiro, SP só responde "ok" depois que o Rio e o Recife confirmarem. A Bia espera <strong>~80 ms</strong>, e com a rede lenta (300 ms entre as cidades) a espera vira ~300 ms.</li>
+  <li><strong>Escrita rápida (EL):</strong> a outra opção é SP gravar e responder em <strong>~5 ms</strong>, mandando a cópia depois. Em compensação, se a Lena consulta o Recife logo em seguida, ela ainda vê <code>estoque 5</code> (v1) em vez de 4: uma leitura velha, por uns 80 ms.</li>
   <li><strong>Juntando as duas metades:</strong> "PA" ou "PC" diz o que o sistema faz na partição; "EL" ou "EC" diz o que faz sem partição. Daí PA/EL, PC/EL, PA/EC e PC/EC.</li>
   <li><strong>Na loja,</strong> cada operação escolhe a sua: carrinho em PA/EL (rápido e sempre no ar), saldo e transferência em PC/EC (certo, mesmo que mais lento).</li>
 </ol>
@@ -91,7 +91,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>Com a rede cortada ou boa, a pergunta é a mesma: esta operação prefere esperar ou arriscar? Quem desenha um sistema replicado responde isso operação por operação, antes da falha.</p>
+<p>Com a rede cortada ou boa, a pergunta é a mesma: esta operação prefere esperar ou arriscar? Quem desenha um sistema replicado responde isso operação por operação, antes da falha. A Iara respondeu: saldo e estoque esperam, carrinho arrisca, e o preço é a Bia esperar ~80 ms. Os servidores agora precisam de um banco que guarde tudo isso. Falta saber qual banco de dados serve a cada tipo de dado da loja.</p>
 
 <Flashcards cards={[
   { q: "O que significa PACELC?",

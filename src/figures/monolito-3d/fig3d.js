@@ -208,7 +208,7 @@ FIGS3D.push({ id: 'monolito', name: 'Monolito', mod: (() => {
           SVC.forEach((n, i) => { if (t > 0.4 + i * 0.3 && t < 0.4 + i * 0.3 + 0.9) o.on[n] = 1; });
           if (t > 2.8) { T(o, 'slab', '1 processo · 7 módulos', 'acc', 66); T(o, 'db', '1 banco: loja', 'hi', 24); } } },
       { id: 'chamadas', dur: 7.5, title: 'O checkout do 1047 atravessa as salas',
-        story: 'A Lena, em Recife, compra outro gato de pelúcia para o irmão: pedido 1047, 79.90 mais 15.00 de frete. O checkout passa por Carrinho, Pedidos, Pagamentos, Estoque e Entregas. Cada passagem é uma chamada de função dentro do mesmo processo e leva uns 0,01 ms.',
+        story: 'A Lena, em Recife, compra outro gato de pelúcia, presente de boas-vindas para o Téo: pedido 1047, 79.90 mais 15.00 de frete. O checkout passa por Carrinho, Pedidos, Pagamentos, Estoque e Entregas. Cada passagem é uma chamada de função dentro do mesmo processo e leva uns 0,01 ms.',
         look: 'A luz sai do Carrinho e anda pelo corredor entre as salas até Entregas; cada passagem leva o nome da função chamada.',
         key: 'No monolito, um módulo fala com o outro por chamada de função: não há rede no meio.',
         f(o, t) { o.cmdLab = 'chamadas no mesmo processo'; o.msLab = 'MS EM CHAMADAS LOCAIS'; o.ms = 0;

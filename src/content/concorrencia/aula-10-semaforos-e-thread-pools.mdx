@@ -121,7 +121,7 @@ import Figure3D from '../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p class="gancho">O <code>estoque</code> agora reserva o último gato sem vender duas vezes: uma trava por réplica, uma trava distribuída e um pool de 10 conexões. A Bia ficou com o pedido 1049, de 88.90. Falta saber como o <code>pedidos</code> diz ao <code>pagamentos</code> "cobre 88.90 do pedido 1049": essa chamada chega por uma conexão, num formato, com um número de bytes. Como ela é montada, em REST com JSON ou em gRPC com Protobuf, e quantos bytes viajam em cada um? É o tema do próximo módulo, Comunicação Síncrona.</p>
+<p class="gancho">O <code>estoque</code> agora reserva o último gato sem vender duas vezes: uma trava por réplica, a trava distribuída no Redis que o Raí escolheu e um pool de 10 conexões. O preço foi o deadlock entre reserva e estorno, que só a ordem das travas resolveu. A Bia ficou com o pedido 1049, de 88.90. Falta saber como o <code>pedidos</code> diz ao <code>pagamentos</code> "cobre 88.90 do pedido 1049": essa chamada chega por uma conexão, num formato, com um número de bytes. Como ela é montada, em REST com JSON ou em gRPC com Protobuf, e quantos bytes viajam em cada um? É o tema do próximo módulo, Comunicação Síncrona.</p>
 
 <Flashcards cards={[
   { q: "O que é um semáforo contador, e qual o do estoque?",

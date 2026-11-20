@@ -14,7 +14,7 @@ import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
 
-<p>Na aula passada, o banco de Recife recusou o pedido do irmão para não errar. Mas recusar só vale se o banco souber desfazer o que já começou. Antes de espalhar o dado por três cidades, veja o que um único banco promete quando a Lena transfere R$ 100 ao irmão.</p>
+<p>Na aula passada, o banco de Recife recusou o pedido da Lena para não errar. Mas recusar só vale se o banco souber desfazer o que já começou. Antes de espalhar o dado por três cidades, veja o que um único banco promete quando a Lena manda R$ 100 de crédito da carteira da loja para a Bia, de presente.</p>
 
 <OneLiner>ACID é a promessa de uma transação: acontece inteira ou não acontece (A), deixa o banco válido (C), não se mistura com as outras (I) e, depois de confirmada, não se perde (D).</OneLiner>
 
@@ -22,13 +22,13 @@ import Flashcards from '../../components/Flashcards.astro';
   <p>No simulador, escolha <strong>Lost update</strong> e <strong>Read Committed</strong>, avance até o fim e veja o saldo errado. Depois troque para <strong>Repeatable Read</strong> e compare.</p>
 </DoIt>
 <Figure3D path="labs/cap-acid-base/acid-3d/?mode=a" poster="labs/cap-acid-base/acid-3d-previa.webp" title="Figura interativa: a transferência da Lena e atomicidade" alt="Prévia da figura 3D: servidor de banco com a tabela de contas, o WAL e o disco, mostrando a transação desfeita com ROLLBACK" hint="Arraste para girar · Próximo passo ou ← → para avançar · troque A, C, I, D ou BASE no painel" />
-<Widget name="isolation" title="Simulador de níveis de isolamento" hint="Duas transações mexem na conta da Lena (saldo R$ 150): a transferência de R$ 100 ao irmão e o débito automático do aluguel, de R$ 40. Escolha a anomalia e o nível e avance passo a passo." />
+<Widget name="isolation" title="Simulador de níveis de isolamento" hint="Duas transações mexem na carteira da Lena (saldo R$ 150): a transferência de R$ 100 para a Bia e uma compra de R$ 40 paga com o mesmo saldo. Escolha a anomalia e o nível e avance passo a passo." />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>Atomicidade.</strong> A transferência de R$ 100 são duas escritas: debita a conta da Lena (150 → 50) e credita a do irmão (20 → 120). Se o servidor cair entre as duas, o <strong>rollback</strong> devolve tudo: 150 e 20. Nunca fica só metade.</li>
-  <li><strong>Consistência.</strong> Fazer tudo junto não basta: o resultado também precisa ser válido. As regras do banco valem antes e depois: <code>CHECK saldo &gt;= 0</code>, a soma das duas contas continua R$ 170, a chave estrangeira aponta para uma conta que existe. Se a Lena pedir R$ 200 por engano, a conta daria 150 − 200 = −50. O banco recusa e a transação inteira volta.</li>
-  <li><strong>Isolamento.</strong> Até aqui a Lena estava sozinha no banco. Só que o débito automático do aluguel (R$ 40) mexe na conta dela no mesmo instante, e as duas transações não podem se atrapalhar. Os níveis (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decidem quanto o banco protege. O simulador acima mostra as quatro anomalias.</li>
+  <li><strong>Atomicidade.</strong> A transferência de R$ 100 são duas escritas: debita a carteira da Lena (150 → 50) e credita a da Bia (20 → 120). Se o servidor cair entre as duas, o <strong>rollback</strong> devolve tudo: 150 e 20. Nunca fica só metade.</li>
+  <li><strong>Consistência.</strong> Fazer tudo junto não basta: o resultado também precisa ser válido. As regras do banco valem antes e depois: <code>CHECK saldo &gt;= 0</code>, a soma das duas carteiras continua R$ 170, a chave estrangeira aponta para uma carteira que existe. Se a Lena pedir R$ 200 por engano, a carteira daria 150 − 200 = −50. O banco recusa e a transação inteira volta.</li>
+  <li><strong>Isolamento.</strong> Até aqui a Lena estava sozinha no banco. Só que uma compra de R$ 40, paga com o mesmo saldo, mexe na carteira dela no mesmo instante, e as duas transações não podem se atrapalhar. Os níveis (Read Uncommitted, Read Committed, Repeatable Read, Serializable) decidem quanto o banco protege. O simulador acima mostra as quatro anomalias.</li>
   <li><strong>Durabilidade.</strong> Quando tudo deu certo, o <strong>commit</strong> só devolve "ok" depois que a mudança foi anotada no <strong>WAL</strong> (o diário do banco) em disco. Se a luz acabar um segundo depois, o banco relê o WAL ao ligar e a transferência continua lá.</li>
   <li>Cada garantia tem preço. Quanto mais isolamento, mais o banco trava ou refaz: <strong>Serializable</strong> é o mais seguro e o mais caro, e por isso muitos bancos usam um nível intermediário como padrão.</li>
 </ol>
@@ -49,8 +49,8 @@ import Flashcards from '../../components/Flashcards.astro';
   <h4 class="deep-h">As quatro anomalias, com os números do simulador</h4>
   <ul>
     <li><strong>Dirty read:</strong> T2 lê R$ 50 que T1 (a transferência) ainda não confirmou. T1 dá rollback: o saldo real era R$ 150.</li>
-    <li><strong>Non-repeatable read:</strong> T1 lê R$ 150, T2 (o aluguel) confirma R$ 110, T1 lê de novo e vê R$ 110.</li>
-    <li><strong>Phantom:</strong> a mesma consulta devolve 2 linhas (R$ 60 gastos) e depois 3 (R$ 100), porque T2 inseriu o lançamento do aluguel.</li>
+    <li><strong>Non-repeatable read:</strong> T1 lê R$ 150, T2 (a compra) confirma R$ 110, T1 lê de novo e vê R$ 110.</li>
+    <li><strong>Phantom:</strong> a mesma consulta devolve 2 linhas (R$ 60 gastos) e depois 3 (R$ 100), porque T2 inseriu o lançamento da compra.</li>
     <li><strong>Lost update:</strong> T1 e T2 partem de R$ 150, gravam 50 e 110. Certo seria 150 − 100 − 40 = R$ 10.</li>
   </ul>
   <h4 class="deep-h">Padrão SQL x motor real</h4>
@@ -75,7 +75,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <Flashcards cards={[
   { q: "O que significa ACID?",
     a: "Atomicity, Consistency, Isolation, Durability: as quatro garantias de uma transação." },
-  { q: "O que a atomicidade garante na transferência de R$ 100 da Lena ao irmão?",
+  { q: "O que a atomicidade garante na transferência de R$ 100 da Lena para a Bia?",
     a: "Débito e crédito acontecem juntos ou nenhum acontece (rollback)." },
   { q: "O C do ACID é o mesmo C do CAP?",
     a: "Não. No ACID é respeitar as regras do banco. No CAP é as réplicas parecerem uma cópia só." },

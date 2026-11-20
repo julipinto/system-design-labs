@@ -297,7 +297,7 @@ FIGS3D.push({ id: 'isolamento', name: 'Isolation', mod: (() => {
           o.res = [['the promise: 33.3% per shard', 'acc']]; } },
       { id: 'shard2', dur: 6, title: 'If it goes wrong: shard-2 takes 60% of the rows', yk: 'THE MATH WITH UNEVEN LOAD', act: ['Take down shard-2', 'where mkt-01 lives'],
         code: ['mkt-01: 40% of the rows (module 16)', 'shard-2 = 0.4 + 0.6 ÷ 3 = 60%', 'shard-0 = 0.6 ÷ 3 = 20%', 'shard-1 = 0.6 ÷ 3 = 20%', 'down: 1/3 of customers, 60% of rows'],
-        story: '<code>shard-2</code> stops. By the 1/N math, it would be a third. But that is where <code>mkt-01</code> lives, the partner marketplace that alone has <b>40%</b> of the <code>pedidos</code> rows (module 16). <code>shard-2</code> holds 0.4 + 0.6 ÷ 3 = <b>60% of the rows</b>, and the other two, 20% each. The failure affects 1/3 of the customers and 60% of the orders. The article assumes uniform load, and 1/N is only the best case.',
+        story: '<code>shard-2</code> stops. By the 1/N math, it would be a third. But that is where <code>mkt-01</code> lives, MegaMercado, the partner that alone has <b>40%</b> of the <code>pedidos</code> rows (module 16). <code>shard-2</code> holds 0.4 + 0.6 ÷ 3 = <b>60% of the rows</b>, and the other two, 20% each. The failure affects 1/3 of the customers and 60% of the orders. The article assumes uniform load, and 1/N is only the best case.',
         look: 'shard-2 turns red, and with it the checkout and orders of 1/3 of the customers, mkt-01 among them.',
         key: 'With uneven load, the radius of a shard is its weight, not 1/N.',
         f(o, t) { const d = t > 0.6; blastBase(o, d ? 's2' : ''); lit(o, 'tela');

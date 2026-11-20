@@ -37,11 +37,11 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p>O pedido da Lena passa por cinco serviços, e cada um escreve umas três linhas de INFO. Entre as cerca de 15 linhas do pedido, estas cinco, de três serviços (o <code>pedidos</code> escreve duas), contam a história, e o <code>trace_id</code> as junta. Em ordem de hora:</p>
 
-<pre><code>{`{"ts":"2026-12-03T15:30:07.412-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"POST /pedidos","cliente_id":"lena-77"}
-{"ts":"2026-12-03T15:30:07.422-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido aceito","itens":1,"total":74.70}
-{"ts":"2026-12-03T15:30:09.068-03:00","level":"WARN","servico":"estoque","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","span_id":"6d1f0a2b9e3c4a58","msg":"espera por lock","sku":"CANECA-007","lock_wait_ms":1620,"holder":"contagem-estoque","holder_pid":4412}
-{"ts":"2026-12-03T15:30:09.302-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido criado","total":74.70}
-{"ts":"2026-12-03T15:30:09.307-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"resposta","status":201,"duracao_ms":1895}`}</code></pre>
+<pre><code>{`{"ts":"2027-12-02T15:30:07.412-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"POST /pedidos","cliente_id":"lena-77"}
+{"ts":"2027-12-02T15:30:07.422-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido aceito","itens":1,"total":74.70}
+{"ts":"2027-12-02T15:30:09.068-03:00","level":"WARN","servico":"estoque","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","span_id":"6d1f0a2b9e3c4a58","msg":"espera por lock","sku":"CANECA-007","lock_wait_ms":1620,"holder":"contagem-estoque","holder_pid":4412}
+{"ts":"2027-12-02T15:30:09.302-03:00","level":"INFO","servico":"pedidos","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","pedido_id":1063,"msg":"pedido criado","total":74.70}
+{"ts":"2027-12-02T15:30:09.307-03:00","level":"INFO","servico":"gw-loja","celula":"recife","versao":"2.6.0","trace_id":"9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52","msg":"resposta","status":201,"duracao_ms":1895}`}</code></pre>
 
 <p>Leia pela ordem. A primeira linha é a entrada no <code>gw-loja</code>. A terceira é a que explica: o <code>estoque</code> esperou <strong>1.620 ms</strong> por um <em>lock</em> que a <code>contagem-estoque</code> (o <code>holder_pid</code> 4412) segurava na linha <code>CANECA-007</code>. A última fecha: <code>201</code>, <strong>1.895 ms</strong>. Nenhuma linha sozinha conta a história, e as cinco, com o mesmo <code>trace_id</code>, contam. O pedido 1047 do módulo 6 tinha 5 linhas juntas pelo <code>7f3a…</code>; é o mesmo mecanismo, e aquele id completo é <code>7f3a9c0e5b2d4186a9e3c7d1f0b84e26</code>.</p>
 

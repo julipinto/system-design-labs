@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>O módulo 5 terminou com a loja rápida: o gato de pelúcia (produto 42) está no Redis, a foto na CDN de Recife e o preço baixou para 79.90. Só que rápida não quer dizer bem dividida. A loja inteira ainda é <strong>um programa só</strong>, o processo <code>loja</code>, num servidor de 8 vCPU, com o banco <code>loja</code> (o PostgreSQL do módulo 4). Dentro dele moram sete módulos: Catálogo, Carrinho, Pedidos, Pagamentos, Estoque, Entregas e Relatórios. Três times mexem no mesmo código, e duas coisas começaram a dar errado.</p>
+<p>O módulo 5 terminou com a loja rápida: o gato de pelúcia (produto 42) está no Redis, a foto na CDN de Recife e o preço baixou para 79.90. Só que rápida não quer dizer bem dividida. Em junho a Marta, uma investidora, pôs dinheiro na loja, e chegaram três líderes: a Bruna (Vitrine), o Júlio (Checkout) e o Raí (Logística). O Téo voltou de Tóquio e abriu o escritório em Recife. A loja inteira ainda é <strong>um programa só</strong>, o processo <code>loja</code>, num servidor de 8 vCPU, com o banco <code>loja</code> (o PostgreSQL do módulo 4). Dentro dele moram sete módulos: Catálogo, Carrinho, Pedidos, Pagamentos, Estoque, Entregas e Relatórios. Os três times mexem no mesmo código, e duas coisas começaram a dar errado. A Iara, a CTO, precisa decidir se parte o programa.</p>
 
 <OneLiner>Um monolito é um programa só com tudo dentro; microsserviços são vários programas pequenos, cada um dono do seu pedaço. Partir é fácil, o difícil é saber quando e onde cortar.</OneLiner>
 
@@ -24,7 +24,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>A Lena, de Recife, compra <strong>outro gato de pelúcia</strong> como presente para o irmão. É o <strong>pedido 1047</strong>: produto 42, quantidade 1, 79.90, frete de 15.00, total de <strong>94.90</strong>.</li>
+  <li>A Lena, de Recife, compra <strong>outro gato de pelúcia</strong> como presente de boas-vindas para o irmão, o Téo, que acabou de voltar de Tóquio. É o <strong>pedido 1047</strong>: produto 42, quantidade 1, 79.90, frete de 15.00, total de <strong>94.90</strong>.</li>
   <li>O processo <code>loja</code> recebe o checkout. O módulo Carrinho chama Pedidos, que chama Pagamentos, que chama Estoque, que chama Entregas. São <strong>chamadas de função</strong> no mesmo processo, de cerca de 0,01 ms cada.</li>
   <li>Tudo corre dentro de <strong>uma transação</strong> só no banco <code>loja</code>: <code>BEGIN</code> no começo, <code>COMMIT</code> no fim (o ACID do módulo 3). Quando o pedido é pago, o estoque do gato vai de <strong>3 para 2</strong>.</li>
   <li>O checkout inteiro leva <strong>180 ms</strong>. Se o pagamento falhar no meio, o <code>ROLLBACK</code> devolve o estoque sozinho.</li>

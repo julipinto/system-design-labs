@@ -94,7 +94,7 @@ import murmurMod from '../../../lab-code/sharding/murmur-go.mod?raw';
   ]} />
 </Deep>
 
-<p class="gancho">The store now splits <code>pedidos</code> into 3 shards, and Lena's order 1054 lands on <code>shard-1</code>. But each shard is <strong>a single server</strong>: if <code>shard-1</code> goes down, Lena and Bia are left without orders, and sharding copies nothing. What is left is how to <strong>copy each shard</strong>: primary in SP, replicas in Rio and Recife. That is module 17, Data Replication.</p>
+<p class="gancho">The store now splits <code>pedidos</code> into 3 shards, and Lena's order 1054 lands on <code>shard-1</code>. The price of Iara's decision is that each shard is <strong>a single server</strong>: if <code>shard-1</code> goes down, Lena and Bia are left without orders, and sharding copies nothing. What is left is how to <strong>copy each shard</strong>: primary in SP, replicas in Rio and Recife, and what Lena sees when the Recife copy is behind. That is module 17, Data Replication.</p>
 
 <Flashcards cards={[
   { q: "Which of the author's programs run without a go.mod?",

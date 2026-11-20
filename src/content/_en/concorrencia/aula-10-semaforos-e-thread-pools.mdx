@@ -121,7 +121,7 @@ import Figure3D from '../../../components/Figure3D.astro';
   ]} />
 </Deep>
 
-<p class="gancho"><code>estoque</code> now reserves the last cat without selling it twice: one lock per replica, one distributed lock and a pool of 10 connections. Bia got order 1049, for 88.90. What's missing is how <code>pedidos</code> tells <code>pagamentos</code> "charge 88.90 for order 1049": that call arrives over a connection, in a format, with a number of bytes. How is it built, in REST with JSON or in gRPC with Protobuf, and how many bytes travel in each? That is the topic of the next module, Synchronous Communication.</p>
+<p class="gancho"><code>estoque</code> now reserves the last cat without selling it twice: one lock per replica, the distributed Redis lock Raí picked and a pool of 10 connections. The price was the deadlock between reservation and refund, which only lock ordering solved. Bia got order 1049, for 88.90. What's missing is how <code>pedidos</code> tells <code>pagamentos</code> "charge 88.90 for order 1049": that call arrives over a connection, in a format, with a number of bytes. How is it built, in REST with JSON or in gRPC with Protobuf, and how many bytes travel in each? That is the topic of the next module, Synchronous Communication.</p>
 
 <Flashcards cards={[
   { q: "What is a counting semaphore, and which one does estoque have?",

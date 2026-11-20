@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p class="ponte">In the last lesson, 3 shards promised 450 orders per second, and the promise only holds if the load spreads evenly. What decides how it spreads is the <strong>sharding key</strong>: the column that says which shard each row lives on. The <code>pedidos</code> table has several candidates, and each one has a number.</p>
+<p class="ponte">In the last lesson, 3 shards promised 450 orders per second, and the promise only holds if the load spreads evenly. What decides how it spreads is the <strong>sharding key</strong>, and picking it is Iara's call: the column that says which shard each row lives on. The <code>pedidos</code> table has several candidates, and each one has a number.</p>
 
 <OneLiner>The key decides <strong>what stays together</strong> and <strong>where it heats up</strong>: a good key has many different values (high cardinality), shows up in queries and does not concentrate traffic on a single shard.</OneLiner>
 

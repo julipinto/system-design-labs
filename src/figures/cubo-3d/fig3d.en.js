@@ -535,7 +535,7 @@ FIGS3D.push({ id: 'cubo', name: 'Scale Cube', mod: (() => {
           SLOT(o, 2, 0, 'service 270/s · DBs 450/s\noutput 200 of 200 (100%)');
           o.coord = [3, 1, 3]; o.npods = 9; o.vcpu = 9; o.extra = 'output 200 of 200/s (100%)'; o.cmd = ['min(9 × 30, 3 × 150) ≥ 200', '200 of 200 = 100%', 'each DB: 66.7 ÷ 150 = 44%']; } },
       { id: 'erro', dur: 8, title: 'What if it goes wrong: mkt-01 heats up shard-2',
-        story: 'The marketplace mkt-01, a partner from module 8, has 40% of the orders, and murmur3(\'mkt-01\') mod 3 = 2: it lands on shard-2. With the other customers\' share, shard-2 receives 60% of the orders: 120 of the 200 orders/s, 80% of the database, at the knee from module 14; the other two receive 40/s each. With 250 orders/s in total, shard-2 hits the 150/s ceiling, and the system uses 250 of the 450 nominal: 55.6%.',
+        story: 'MegaMercado (mkt-01), a partner from module 8, has 40% of the orders, and murmur3(\'mkt-01\') mod 3 = 2: it lands on shard-2. With the other customers\' share, shard-2 receives 60% of the orders: 120 of the 200 orders/s, 80% of the database, at the knee from module 14; the other two receive 40/s each. With 250 orders/s in total, shard-2 hits the 150/s ceiling, and the system uses 250 of the 450 nominal: 55.6%.',
         look: 'The shard-2 database lights up red with 120 of 150; the other two stay at 40.',
         key: 'Z solves the 200/s, but a hot key heats up a single shard.',
         f(o, t) { ghostAll(o, [2]); shards(o, ['soft', 'soft', 'bad']);

@@ -13,21 +13,21 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>Lena buys a plush cat in São Paulo. Her brother buys the same cat, at the same moment, in Recife. The store's stock is copied across three databases, and the cable to Recife just went down. What does the store do?</p>
+<p>March 2026. The burned disk taught Iara not to trust a single machine, and now the store has servers in São Paulo (near the factory), Rio and Recife. Bia buys the last cat of the shipment in São Paulo. Lena buys the same cat, at the same moment, in Recife. The stock is copied across three databases, and the cable to Recife just went down. The decision is Iara's: what does the store do?</p>
 
 <OneLiner>When the network between the databases breaks, a replicated system can only choose between always answering (available) or always answering with the newest data (consistent).</OneLiner>
 
 <DoIt>
-  <p>In the figure, cut the cable between Rio and Recife. Then make two purchases of the <strong>plush cat</strong> at the same time, Lena's in São Paulo and her brother's in Recife, and compare what each mode does.</p>
+  <p>In the figure, cut the cable between Rio and Recife. Then make two purchases of the <strong>plush cat</strong> at the same time, Bia's in São Paulo and Lena's in Recife, and compare what each mode does.</p>
 </DoIt>
 <Figure3D path="en/labs/cap-acid-base/cap-3d/?mode=cp" poster="labs/cap-acid-base/cap-3d-previa.webp" title="Interactive figure: stock replicated in SP, Rio and Recife, choosing consistency (CP)" alt="Preview of the 3D figure: three databases with the cable to Recife cut, the nodes showing 3 units while the real stock is 2" hint="Drag to rotate · Next step or ← → to move on · switch between CP, AP, CA or PACELC in the panel" />
 
 <HowItWorks>
 <ol class="flow steps">
-  <li>The store keeps the plush cat's stock in <strong>3 replicated databases</strong>: São Paulo, Rio and Recife. While the network is healthy, sale #101 (5 → 4) reaches all three and each ends up with the same row: <code>gato_pelucia: estoque 4, v2</code>. Lena buys in SP and her brother buys in Recife.</li>
+  <li>The store keeps the plush cat's stock in <strong>3 replicated databases</strong>: São Paulo, Rio and Recife. While the network is healthy, sale #101 (5 → 4) reaches all three and each ends up with the same row: <code>gato_pelucia: estoque 4, v2</code>. Bia buys in SP and Lena buys in Recife.</li>
   <li>Then the cable between Rio and Recife goes down. São Paulo and Rio can still talk, but <strong>Recife is isolated</strong>: this is a network partition.</li>
-  <li>Now two orders come in: Lena's #102 in São Paulo and her brother's #103 in Recife. Recife can't ask anyone anything, so all that's left is to choose what to do.</li>
-  <li><strong>Choice 1, consistent:</strong> SP writes 3 and Rio confirms. That's 2 of 3 nodes, so there is a quorum, and #102 goes through. Recife has no majority: it refuses after a 3,000 ms timeout (503 error). When the cable is back, her brother tries again, #103 goes through and the final stock is 2 (v4). Nobody got a false promise, but the brother waited a while with no answer.</li>
+  <li>Now two orders come in: Bia's #102 in São Paulo and Lena's #103 in Recife. Recife can't ask anyone anything, so all that's left is to choose what to do.</li>
+  <li><strong>Choice 1, consistent:</strong> SP writes 3 and Rio confirms. That's 2 of 3 nodes, so there is a quorum, and #102 goes through. Recife has no majority: it refuses after a 3,000 ms timeout (503 error). When the cable is back, Lena tries again, #103 goes through and the final stock is 2 (v4). Nobody got a false promise, but Lena waited a while with no answer.</li>
   <li><strong>Choice 2, available:</strong> this time Recife accepts and also writes 3, without knowing about #102. Both get an OK, but the real stock is 5 − 3 = 2 and the nodes show 3. The divergence only shows up when the cable is back.</li>
 </ol>
 </HowItWorks>
@@ -39,8 +39,8 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <WhyItMatters>
   <li>Partitions <strong>happen</strong>: a cable, a router, a bad deploy, a cloud with trouble in one zone. You can't decide "this won't occur".</li>
-  <li>Since they will happen, the design question is: <strong>what does each part of the store prefer, refusing or risking?</strong> Stock and payment call for one answer, cart and recommendations call for another.</li>
-  <li>And the answer has to come before the failure. If you don't decide, the database decides for you at the worst moment.</li>
+  <li>Since they will happen, the design question is: <strong>what does each part of the store prefer, refusing or risking?</strong> Iara answers. Stock and payment call for one answer, cart and recommendations call for another.</li>
+  <li>And the answer has to come before the failure. If Iara doesn't decide, the database decides for her at the worst moment.</li>
 </WhyItMatters>
 
 <Deep min={3}>
@@ -59,7 +59,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>Refusing the brother's order was a promise: "I won't let the data go wrong". What's left is to see what a database promises, inside a transaction, so that Lena's account is never left half done. That's ACID.</p>
+<p>Refusing Lena's order was a promise from Iara: "I won't let the data go wrong". The price was a patient customer zero with no answer for 3,000 ms. What's left is to see what a database promises, inside a transaction, so that Lena's wallet is never left half done. That's ACID.</p>
 
 <Flashcards cards={[
   { q: "What does the CAP theorem say?",

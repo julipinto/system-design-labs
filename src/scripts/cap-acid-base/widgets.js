@@ -19,7 +19,7 @@
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
 
   /* =============== AULA 2: níveis de isolamento ===============
-     Duas transações, T1 e T2, mexem na conta da Lena (saldo R$ 150): T1 é a transferência de R$ 100 ao irmão, T2 é o débito automático do aluguel (R$ 40).
+     Duas transações, T1 e T2, mexem na carteira da Lena (saldo R$ 150): T1 é a transferência de R$ 100 para a Bia, T2 é uma compra de R$ 40 paga com o mesmo saldo.
      Cada cenário mostra a pior intercalação que o nível PERMITE. */
   var LEVELS = ['Read Uncommitted', 'Read Committed', 'Repeatable Read', 'Serializable'];
   var SHORT = ['RU', 'RC', 'RR', 'SER'];
@@ -49,7 +49,7 @@
         ],
         bad: bad,
         msg: bad
-          ? 'Dirty read: T2 enxergou R$ 50, um saldo que nunca existiu de verdade. Se T2 tivesse recusado o aluguel por falta de saldo com esse número, estaria errado.'
+          ? 'Dirty read: T2 enxergou R$ 50, um saldo que nunca existiu de verdade. Se T2 tivesse recusado a compra por falta de saldo com esse número, estaria errado.'
           : 'Sem dirty read: T2 só enxerga o que já foi confirmado (COMMIT). O débito desfeito nunca apareceu para ele.'
       };
     },
@@ -58,7 +58,7 @@
       return {
         steps: [
           { w: 'T1', sql: "BEGIN;\nSELECT saldo FROM conta\n WHERE id = 'lena';", out: 'T1 lê R$ 150.', db: 'Banco (confirmado): ' + brl(150) },
-          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 40\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 confirma o aluguel: o saldo agora é R$ 110.', db: 'Banco (confirmado): ' + brl(110) },
+          { w: 'T2', sql: "BEGIN;\nUPDATE conta SET saldo = saldo - 40\n WHERE id = 'lena';\nCOMMIT;", out: 'T2 confirma a compra: o saldo agora é R$ 110.', db: 'Banco (confirmado): ' + brl(110) },
           { w: 'T1', sql: "SELECT saldo FROM conta\n WHERE id = 'lena';  -- de novo, na mesma transação",
             out: bad ? 'T1 lê R$ 110. A mesma consulta deu outro resultado.' : 'T1 lê R$ 150 outra vez: continua vendo a mesma "foto" de quando começou.',
             db: 'Banco (confirmado): ' + brl(110), flag: bad }
@@ -78,7 +78,7 @@
       return {
         steps: [
           { w: 'T1', sql: "BEGIN;\nSELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;", out: '2 linhas, total gasto R$ 60 (limite do dia: R$ 200).', db: 'Banco: saldo ' + brl(150) + ' · 2 lançamentos hoje' },
-          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lena', -40, hoje);\nCOMMIT;", out: 'T2 confirma um novo lançamento: o aluguel, de R$ 40.', db: 'Banco: saldo ' + brl(110) + ' · 3 lançamentos hoje' },
+          { w: 'T2', sql: "BEGIN;\nINSERT INTO lancamento (conta, valor, dia)\nVALUES ('lena', -40, hoje);\nCOMMIT;", out: 'T2 confirma um novo lançamento: a compra de R$ 40.', db: 'Banco: saldo ' + brl(110) + ' · 3 lançamentos hoje' },
           { w: 'T1', sql: "SELECT COUNT(*), SUM(-valor) FROM lancamento\n WHERE conta = 'lena' AND dia = hoje;  -- mesma consulta", out: third, db: 'Banco: saldo ' + brl(110) + ' · 3 lançamentos hoje', flag: bad }
         ],
         bad: bad,

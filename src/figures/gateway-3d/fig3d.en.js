@@ -239,7 +239,7 @@ FIGS3D.push({ id: 'gateway', name: 'API Gateway', mod: (() => {
           if (t > 3.9) o.rows.pag = svcRows('pagamentos.loja.com.br', 'login: token B', 'hi', 'bad');
           if (t > 5.2) T(o, LG(1), '3 login methods\nin one app', 'bad'); } },
       { id: 'parceiro', dur: 5.5, title: 'The partner needs the same 6 URLs',
-        story: 'The store opened an API for marketplace-xyz, which resells the plush cat. The partner has to keep the same six URLs and learn the three login methods. On the operations side that is 6 TLS certificates, 6 places to configure rules and 6 logs in different formats to join when something fails.',
+        story: 'The store opened an API for MegaMercado (marketplace-xyz in the keys and logs), which resells the plush cat. The partner has to keep the same six URLs and learn the three login methods. On the operations side that is 6 TLS certificates, 6 places to configure rules and 6 logs in different formats to join when something fails.',
         look: 'Six more lines leave the PARTNER and cross the APP\'s lines.',
         key: 'Every new client gets tied to the store\'s internal design.',
         f(o, t) { meters(o, ['URLS IN THE CLIENTS', t > 1 ? '2 × 6' : '6', 'bad'], ['TLS CERTIFICATES', '6', 'hi'], ['DIFFERENT LOGS', '6', 'hi']);

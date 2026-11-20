@@ -126,7 +126,7 @@ COMMIT 832`}</code></pre>
   ]} />
 </Deep>
 
-<p class="gancho">A loja agora tem um modelo para escrever e outro para ler, ligados por eventos que não se perdem. E quando <strong>um pedido atravessa vários serviços</strong> e um deles <strong>falha no meio</strong>: o pagamento passou e o estoque não? É a compensação deixada em aberto no módulo 6. Falta saber como desfazer o que já foi feito, passo a passo. É o módulo 19, Saga.</p>
+<p class="gancho">A loja agora tem um modelo para escrever e outro para ler, ligados por eventos que não se perdem. O preço da decisão da Bruna é mais uma coisa para manter e uma leitura que pode estar alguns milissegundos atrás. Às 20:15, porém, o Raí acha estoque avariado, e o <strong>pedido atravessa vários serviços</strong>: o Pix do Davi já foi aprovado e o estoque não existe mais. É a compensação deixada em aberto no módulo 6. Falta saber como desfazer o que já foi feito, passo a passo. É o módulo 19, Saga.</p>
 
 <Flashcards cards={[
   { q: "O que a outbox garante e como?",

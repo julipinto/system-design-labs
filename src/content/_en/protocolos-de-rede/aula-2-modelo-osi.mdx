@@ -19,13 +19,13 @@ import { withBase } from '../../../lib/url.js';
 <OneLiner>the OSI model splits communication into 7 layers, and each layer wraps the data from the level above with its own header, until it becomes bits.</OneLiner>
 
 <DoIt>
-  <p>In the figure below, click <strong>Next step</strong> and watch Lena's photo go down layer by layer, turn into bits on the cable and come back up on her brother's phone. Also try the <strong>Call · UDP</strong> button.</p>
+  <p>In the figure below, click <strong>Next step</strong> and watch Lena's photo go down layer by layer, turn into bits on the cable and come back up on Téo's phone. Also try the <strong>Call · UDP</strong> button.</p>
 </DoIt>
 
 <Figure3D path="en/labs/protocolos-de-rede/osi-3d/" poster="labs/protocolos-de-rede/osi-3d-previa.webp" title="Interactive 3D figure of the OSI model" alt="Preview of the 3D figure: the 7-layer stack with the data slice inside the TCP, IP and MAC boxes" hint="Drag to rotate · Next step or ← → to advance · click a layer to jump to it" />
 
 <HowItWorks>
-<p>Lena, in São Paulo, sends a photo from her phone to her brother in Tokyo. The photo goes down 7 layers, crosses a submarine cable and goes up 7 layers on his phone. In the figure, the 7.68 MB of the photo become 313 KB encrypted and then 215 slices.</p>
+<p>Lena, in Recife, sends a photo from her phone to Téo in Tokyo. The photo goes down 7 layers, crosses a submarine cable and goes up 7 layers on his phone. In the figure, the 7.68 MB of the photo become 313 KB encrypted and then 215 slices.</p>
 <ol class="flow steps">
   <li>At the top are <strong>7 Application, 6 Presentation and 5 Session</strong>: what the app says, in what format (or encrypted) and which conversation is open.</li>
   <li>Below, <strong>4 Transport</strong> cuts the result into slices and carries each one from one process to another, by <strong>port</strong>. TCP or UDP.</li>

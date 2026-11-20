@@ -5,7 +5,7 @@ const [L1, L2, L3, L4, L5, L6, L7] = ['aula-1-introducao-e-problemas-operacionai
 export const terms = [
   { term: 'API Gateway', aliases: ['API Gateway', 'gateway', 'gateways', 'gw-loja'], short: 'The single door of an architecture: it receives every outside request, applies the common rules (route, identity, limit, version) and hands it to the right service. In the store, gw-loja.', lesson: L1 },
   { term: 'Single entry point', aliases: ['single door', 'single URL'], short: 'One address for whoever calls from outside (api.loja.com.br), instead of one per service.', lesson: L1 },
-  { term: 'Partner', aliases: ['partner', 'marketplace-xyz'], short: 'An outside company that uses the store\'s API. marketplace-xyz resells the plush cat and identifies itself with an API key.', lesson: L1 },
+  { term: 'Partner', aliases: ['partner', 'marketplace-xyz'], short: 'An outside company that uses the store\'s API. marketplace-xyz (MegaMercado) resells the plush cat and identifies itself with an API key.', lesson: L1 },
   { term: 'Route', aliases: ['route', 'routes'], short: 'The rule that ties a method and a path to a service: GET /api/v1/produtos/* goes to the catalog.', lesson: L2 },
   { term: 'strip_path', aliases: ['strip_path'], short: 'The gateway removes the route prefix from the URL before handing it over: it receives /api/v1/produtos/42 and hands /produtos/42 to the catalog.', lesson: L2 },
   { term: 'Contract', aliases: ['contract', 'contracts'], short: 'What the client expects from the API: the routes, the methods and the response format. Changing the format (total from a number to an object) breaks the contract.', lesson: L2 },

@@ -216,7 +216,7 @@ FIGS3D.push({ id: 'dominio', name: 'Domains', mod: (() => {
   const STEPS = {
     contextos: [
       { id: 'catalogo', dur: 4, title: 'In Catalog, the plush cat is product 42',
-        story: 'Lena is going to buy another plush cat, a gift for her brother. On the storefront, the cat is product 42: name, a price of 79.90, photos and a description. That is all Catalog needs to show and sell it. The rest of the store has not entered the story yet.',
+        story: 'Lena is going to buy another plush cat, a welcome gift for Téo. On the storefront, the cat is product 42: name, a price of 79.90, photos and a description. That is all Catalog needs to show and sell it. The rest of the store has not entered the story yet.',
         look: 'The Catalog island lights up with its fence around it. On top, the 4 fields of product 42; the other islands do not know what the cat is called yet.',
         key: 'Bounded context: a boundary inside which every word has a single meaning.',
         f(o, t) { o.rows.cat = CAT; o.on.cat = 1; o.fences[0].on = true; JS(o, 'MODEL IN CATALOG', J.cat);

@@ -13,7 +13,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">No módulo passado a loja ganhou bulkheads por <strong>função</strong>, por <strong>cliente</strong> e por <strong>prioridade</strong> (o pool de 20 conexões em 16 + 4, o teto de 100 req/s do <code>mkt-01</code>, as lanes 12 · 6 · 2). Só que continua sendo <strong>uma pilha só</strong>: o <code>estoque</code>, o <code>pagamentos</code>, o Redis e o <code>lb-loja</code> são de todos, e uma única versão do <code>pedidos</code> atende a loja inteira. O que acontece quando <strong>um pedido</strong> derruba essa versão?</p>
+<p class="ponte">No módulo passado a loja ganhou bulkheads por <strong>função</strong>, por <strong>cliente</strong> e por <strong>prioridade</strong> (o pool de 20 conexões em 16 + 4, o teto de 100 req/s do <code>mkt-01</code>, as lanes 12 · 6 · 2). Só que continua sendo <strong>uma pilha só</strong>: o <code>estoque</code>, o <code>pagamentos</code>, o Redis e o <code>lb-loja</code> são de todos, e uma única versão do <code>pedidos</code> atende a loja inteira. A Iara decidiu dividir a pilha em células, e elas ficaram prontas uma semana antes da Noite da Black Friday de 2027 (sexta, 26/11/2027), com a Marta de olho no painel. Para ver o que as células compram, primeiro a mesma noite sem elas: o que acontece quando <strong>um pedido</strong> derruba essa versão?</p>
 
 <OneLiner>O <em>bulkhead</em> divide <strong>recursos</strong>. A <strong>célula</strong> divide a <strong>pilha inteira</strong>: uma cópia independente, com o seu banco, a sua fila e o seu cache, que atende uma <strong>parcela fixa</strong> dos clientes e <strong>não compartilha estado</strong> com as outras.</OneLiner>
 
@@ -25,7 +25,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <HowItWorks>
 <ol class="flow steps">
-  <li><strong>20:25:00.000.</strong> O robô do <code>mkt-01</code> envia um <code>POST /pedidos</code> com um item de <code>quantidade: 2147483648</code>. É 2³¹, um a mais do que cabe num <code>int32</code>.</li>
+  <li><strong>20:25:00.000.</strong> O robô do MegaMercado (<code>mkt-01</code>) envia um <code>POST /pedidos</code> com um item de <code>quantidade: 2147483648</code>. É 2³¹, um a mais do que cabe num <code>int32</code>.</li>
   <li><strong>O <code>panic</code>.</strong> A <code>pedidos</code> 2.6.0 soma o total, estoura o inteiro e cai.</li>
   <li><strong>O retry.</strong> O <code>gw-loja</code> tenta de novo (até 3 vezes, módulo 21) e o robô manda <code>Idempotency-Key</code>. A chave não ajuda: a queda acontece <strong>antes</strong> de qualquer deduplicação. A mesma requisição derruba os <strong>3 pods</strong> em ~150 ms (3 × ~50 ms).</li>
   <li><strong>A volta.</strong> Cada pod renasce em <strong>30 s</strong> (a conta do módulo 14), e o robô reenvia 1 vez por segundo. Cai de novo.</li>
@@ -39,7 +39,7 @@ import Flashcards from '../../components/Flashcards.astro';
 
 <p>Agora a loja é <strong>quatro cópias</strong> da pilha, e cada uma atende uma parcela dos clientes. O roteador lê o <code>cliente_id</code> no JWT (módulo 8) e manda o veneno do <code>mkt-01</code> à <code>celula-mkt</code>. Ela tem o <strong>piso</strong> de <strong>2 pods</strong> de <code>pedidos</code> e cai sozinha. O parceiro perde <strong>12 pedidos/s × 240 s = 2.880 tentativas</strong>, 40% do tráfego. Os <strong>1,5 milhão de clientes pessoa física</strong> perdem <strong>0</strong>.</p>
 
-<p>No mesmo instante, às 20:25:00.000, a Lena compra dois gatos de pelúcia de presente para as sobrinhas. O pedido cai na <code>celula-recife</code>, que não sabe que a <code>celula-mkt</code> existe: <strong>pedido 1060</strong>, 2 × 79,90 = 159,80 + frete Recife 15,00 = <strong>174,80</strong>, <code>201</code>. O estoque do gato vai de 19 para 17. Na pilha única, esse pedido entraria no <code>503</code> dos outros. Os números de pedido da história são didáticos: o 1060 é da noite da Black Friday, e o 1059 do módulo 22 é de uma terça depois dela.</p>
+<p>No mesmo instante, às 20:25:00.000, a Lena, em Recife, compra dois gatos de pelúcia para a sala de aula dela. O pedido cai na <code>celula-recife</code>, que não sabe que a <code>celula-mkt</code> existe: <strong>pedido 1060</strong>, 2 × 79,90 = 159,80 + frete Recife 15,00 = <strong>174,80</strong>, <code>201</code>. O estoque do gato vai de 19 para 17. Na pilha única, esse pedido entraria no <code>503</code> dos outros. Os números de pedido da história são didáticos: o 1060 é da noite da Black Friday de 2027, e o 1059 do módulo 22 é da terça depois da Black Friday de 2026.</p>
 
 <Widget name="veneno" title="Veneno: pilha única × células" hint="Número de células (1 a 10), a divisão do tráfego (uniforme, a da loja 40 · 33 · 15 · 12 ou editável), tentativas por segundo e minutos até o bloqueio. Mostra as tentativas perdidas (7.200 × 2.880), o raio por tipo de cliente e o que fica preso no tópico (24.000 × 9.600)." />
 
@@ -51,7 +51,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <table class="sr-table">
   <thead><tr><th>Célula</th><th>Quem atende</th><th>Fração</th><th>Pedidos/s</th><th>Primário em</th></tr></thead>
   <tbody>
-    <tr><th><code>celula-mkt</code></th><td>o parceiro <code>mkt-01</code></td><td><strong>40%</strong></td><td>12,0</td><td>Recife</td></tr>
+    <tr><th><code>celula-mkt</code></th><td>o MegaMercado, <code>mkt-01</code></td><td><strong>40%</strong></td><td>12,0</td><td>Recife</td></tr>
     <tr><th><code>celula-sp</code></th><td>pessoa física de SP (Bia, Davi)</td><td><strong>33%</strong> (55% × 60%)</td><td>9,9</td><td>SP</td></tr>
     <tr><th><code>celula-rio</code></th><td>pessoa física do Rio (Caio)</td><td><strong>15%</strong> (25% × 60%)</td><td>4,5</td><td>Rio</td></tr>
     <tr><th><code>celula-recife</code></th><td>pessoa física de Recife (Lena)</td><td><strong>12%</strong> (20% × 60%)</td><td>3,6</td><td>Recife</td></tr>

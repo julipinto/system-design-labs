@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p class="ponte">In the last lesson the <code>sync.Mutex</code> held Caio back for 2 ms and the cat went to Bia. But that was with one replica. Black Friday brings up <code>estoque-2</code>, the load balancer sends Bia to <code>estoque-1</code> and Caio to <code>estoque-2</code>, and each replica has its own mutex, in its own memory. Both read 1, both decrement, and the stock goes to −1 again. The local mutex only protects inside the process, and the lock has to start holding across processes.</p>
+<p class="ponte">In the last lesson the <code>sync.Mutex</code> held Caio back for 2 ms and the cat went to Bia. But that was with one replica, and Raí knows it is not enough. Black Friday brings up <code>estoque-2</code>, the load balancer sends Bia to <code>estoque-1</code> and Caio to <code>estoque-2</code>, and each replica has its own mutex, in its own memory. Both read 1, both decrement, and the stock goes to −1 again. The local mutex only protects inside the process, and the lock has to start holding across processes.</p>
 
 <OneLiner>A distributed lock is a lock kept in a place that all replicas can see (Redis, ZooKeeper); since it can expire on its own, whoever holds it can lose it without knowing, and that is why, for the last cat, the final check belongs to the database.</OneLiner>
 

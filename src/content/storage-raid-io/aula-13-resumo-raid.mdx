@@ -13,7 +13,7 @@ import Deep from '../../components/Deep.astro';
 import Sources from '../../components/Sources.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p>Agora existem cinco níveis de RAID, e a loja precisa de um para o pedidos.db. A escolha depende do que cada dado aceita perder: espaço, velocidade ou segurança. Esta aula põe os cinco lado a lado.</p>
+<p>Agora existem cinco níveis de RAID, e a Iara precisa escolher um para o pedidos.db. A escolha depende do que cada dado aceita perder: espaço, velocidade ou segurança. Esta aula põe os cinco lado a lado.</p>
 
 <OneLiner>cada RAID troca espaço, velocidade e segurança de um jeito: 0 só corre, 1 e 10 copiam, 5 e 6 usam paridade, e nenhum deles é backup.</OneLiner>
 
@@ -40,7 +40,7 @@ import Flashcards from '../../components/Flashcards.astro';
 <ol class="flow steps">
   <li><strong>Precisa de velocidade e o dado é refazível?</strong> RAID 0.</li>
   <li><strong>Pouco dado, crítico, simples?</strong> RAID 1.</li>
-  <li><strong>Banco com muita escrita e dado crítico?</strong> RAID 10. É o caso do pedidos.db.</li>
+  <li><strong>Banco com muita escrita e dado crítico?</strong> RAID 10. É o caso do pedidos.db, e foi a escolha da Iara.</li>
   <li><strong>Muito espaço, leitura pesada, orçamento curto?</strong> RAID 5. Com discos grandes e muitos deles: RAID 6.</li>
   <li>Em todos: <strong>RAID não é backup.</strong> Mantenha cópias fora do conjunto (objeto, outra região).</li>
 </ol>
@@ -81,7 +81,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>O gato.jpg está no object storage e o pedidos.db no RAID 10. Mas um RAID só protege contra disco, e a máquina inteira ainda pode cair. Falta saber como manter a loja no ar nesse caso. É o terreno da réplica e do sharding.</p>
+<p>O gato.jpg está no object storage e o pedidos.db no RAID 10. O preço da decisão da Iara é metade do espaço; o do RAID 0 do Téo foi o pedidos.db inteiro. Mas um RAID só protege contra disco, e a máquina inteira ainda pode cair. Com servidores em mais de uma cidade, falta saber quem tem a verdade quando eles discordam.</p>
 
 <Flashcards cards={[
   { q: "RAID 5, 6 e 10: capacidade e falhas?",

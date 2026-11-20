@@ -79,7 +79,7 @@ import Flashcards from '../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p class="gancho">A loja agora copia dado de todos os jeitos: entre bancos, entre serviços, lendo o log e juntando escritas concorrentes. E a tela "meus pedidos" da Lena ainda lê da <strong>mesma tabela</strong> em que o checkout escreve. Falta saber o que muda se ela ler de uma <strong>cópia montada só para leitura</strong>, alimentada por CDC: como separar o modelo de escrita do de leitura. É o módulo 18, CQRS.</p>
+<p class="gancho">A loja agora copia dado de todos os jeitos: entre bancos, entre serviços, lendo o log e juntando escritas concorrentes. O preço é o atraso: às 20:10 a réplica de Recife estava 800 ms atrás, e a Lena não viu o 1055 em "meus pedidos". Essa tela ainda lê da <strong>mesma tabela</strong> em que o checkout escreve. Falta saber o que muda se a Bruna a fizer ler de uma <strong>cópia montada só para leitura</strong>, alimentada por CDC: como separar o modelo de escrita do de leitura. É o módulo 18, CQRS.</p>
 
 <Flashcards cards={[
   { q: "O que é um CRDT e por que converge?",

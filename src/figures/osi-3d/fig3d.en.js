@@ -1,4 +1,4 @@
-// Figura OSI em 3D (iso-glow): duas pilhas explodidas de 7 placas (celular da Lena e do irmão).
+// Figura OSI em 3D (iso-glow): duas pilhas explodidas de 7 placas (celular da Lena e do Téo).
 // O dado aparece SOBRE a camada ativa e se transforma de verdade: foto → comprimida e cifrada →
 // quebrada em fatias (TCP) → quadro da fatia #1 [MAC][IP][TCP][dados][FCS] → bits no cabo → volta.
 // Usa OSI_STAGES e osiDataView, injetados pelo build.
@@ -55,7 +55,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
         const bx = 12, by = SD - 46, bw = 88, bh = 34, ink = C.inkHi, sub = C.ink;
         c.strokeStyle = ink; c.lineWidth = 0.5 * P; c.beginPath(); c.roundRect(bx * P, by * P, bw * P, bh * P, 3 * P); c.stroke();
         c.textAlign = 'left'; c.fillStyle = ink; c.font = `600 ${5.5 * P}px ${MONO3}`;
-        c.fillText(side === 'sp' ? 'Brother · Tokyo' : 'Lena · São Paulo', (bx + 4) * P, (by + 8) * P);
+        c.fillText(side === 'sp' ? 'Téo · Tokyo' : 'Lena · Recife', (bx + 4) * P, (by + 8) * P);
         c.fillStyle = sub; c.font = `${5 * P}px ${MONO3}`;
         if (chat === 'call') { c.fillText('video call · 00:03', (bx + 4) * P, (by + 15) * P); }
         else if (chat === 'recv') { c.fillText('Lena sent a photo', (bx + 4) * P, (by + 15) * P); drawCat(c, (bx + 60) * P, (by + 7) * P, 24 * P, A_, theme === 'light' ? '#fbfbfa' : '#141516'); }
@@ -68,7 +68,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   };
   for (const side of ['sp', 'tk']) {
     for (let L = 1; L <= 7; L++) slabs[side][L] = makeSlab(side, L);
-    label(side === 'sp' ? 'LENA · SÃO PAULO' : 'BROTHER · TOKYO', 150, 10, 7, onTop(SXS[side] + SW / 2, OY + SD + 22, 7), g0);
+    label(side === 'sp' ? 'LENA · RECIFE' : 'TÉO · TOKYO', 150, 10, 7, onTop(SXS[side] + SW / 2, OY + SD + 22, 7), g0);
   }
 
   // ── cabo no piso, 3 roteadores, vários pontos de luz para os bits ──
@@ -152,7 +152,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
   let s = 0, playing = false, dwell = 0, bitsT = -1, last = 0, mode = 'tcp', followT = 1.6;
 
   function readout() { if (active !== 'osi') return; const t = ST[s];
-    document.getElementById('read').textContent = `step ${s + 1}/16 · ` + (s === 0 ? 'start' : s === 8 ? 'routers' : (t.side === 'sp' ? 'lena' : 'brother') + ` · ${t.L} ${t.name.toLowerCase()}`); }
+    document.getElementById('read').textContent = `step ${s + 1}/16 · ` + (s === 0 ? 'start' : s === 8 ? 'routers' : (t.side === 'sp' ? 'lena' : 'téo') + ` · ${t.L} ${t.name.toLowerCase()}`); }
   const LOOK3D = [
     'Slab 7 (the chat screen) slid out of the stack; the cat is on top of it.',
     'A label for the HTTP request appeared above the photo.',
@@ -163,18 +163,18 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     'A third box around it: MAC. Three boxes, one inside the other.',
     'The cubes vanish from the drawer and the dots of light leave along the cable.',
     'Follow the dots of light on the cable; each router (R1, R2, R3) blinks as they pass.',
-    'Slab 1 of the brother slid out of the stack with the complete frame.',
+    'Slab 1 of Téo slid out of the stack with the complete frame.',
     'The outer box (MAC) is gone.',
     'The IP box is gone; only the TCP one is left.',
     'The last box is gone and the cubes merged back into the encrypted block.',
     'The session bridge lights up again between the layer 5 slabs: it is the same conversation.',
     'The noise turned back into a cat.',
-    'The photo landed in the brother\'s chat (slab 7).',
+    'The photo landed in Téo\'s chat (slab 7).',
   ];
 
   // the story, step by step (each step continues the previous one) and the concept to keep
   const STORY = [
-    ['São Paulo, 9 pm. Lena takes a photo of the cat and opens the chat with her brother, who lives in Tokyo. She taps send. From here the photo will go down the 7 layers of her phone, cross the planet and go up the 7 layers of his phone, in about 1 second.', 'Each layer does one job and hands the result to the layer below.'],
+    ['Recife, 9 pm. Lena takes a photo of the cat and opens the chat with Téo, who lives in Tokyo. She taps send. From here the photo will go down the 7 layers of her phone, cross the planet and go up the 7 layers of his phone, in about 1 second.', 'Each layer does one job and hands the result to the layer below.'],
     ['First the app has to say what it wants. It writes an HTTP request, "POST /v1/fotos", with the photo in the body. (A moment earlier, DNS had found the IP of the messaging server.)', 'Layer 7 is where the app speaks: HTTP, DNS, gRPC.'],
     ['Sending 7.68 MB would be slow, and anyone on the way could see the cat. So the photo is compressed to 313 KB and encrypted with TLS. To anyone intercepting it, it is now just noise.', 'Layer 6 handles format, compression and encryption.'],
     ['Before sending, both sides need to be in the same conversation. The session records who talks to whom and where to resume if the connection drops halfway.', 'Layer 5 opens, keeps and closes the conversation.'],
@@ -189,10 +189,10 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     ['TCP puts the 215 slices together by their numbers, asks again for the missing ones and confirms receipt to Lena. TCP comes off, and the encrypted block is whole again.', 'Layer 4 puts in order, completes and acknowledges.'],
     ['The session checks that this data belongs to the same conversation with Lena.', 'Layer 5 knows which conversation each piece of data belongs to.'],
     ['TLS decrypts and the image is decompressed: the noise becomes the cat again.', 'Layer 6 undoes the encryption and the compression.'],
-    ['The app shows the photo in the chat. It felt instant to the brother, but the photo went through 14 layers and several routers in about 1 second.', 'Each layer wrapped it in an envelope on the way out, and the same layer took it off on the way back.'],
+    ['The app shows the photo in the chat. It felt instant to Téo, but the photo went through 14 layers and several routers in about 1 second.', 'Each layer wrapped it in an envelope on the way out, and the same layer took it off on the way back.'],
   ];
   const UDP_TXT = {
-    0: ['Lena calls her brother (video call)', 'Now Lena is not sending a photo: she is calling her brother on video. The data is not ready, it is born every instant at the camera and microphone, dozens of pieces per second. In a live conversation, being late is worse than losing a little piece.', 'Slab 7 shows the call and, above it, the live video.', 'Live voice and video are in a hurry: arriving now is worth more than arriving complete.'],
+    0: ['Lena calls Téo (video call)', 'Now Lena is not sending a photo: she is calling Téo on video. The data is not ready, it is born every instant at the camera and microphone, dozens of pieces per second. In a live conversation, being late is worse than losing a little piece.', 'Slab 7 shows the call and, above it, the live video.', 'Live voice and video are in a hurry: arriving now is worth more than arriving complete.'],
     1: ['7 · Application: the app opens the call', 'The call app (WebRTC) does not make a request and wait for the answer. It opens a stream and keeps sending pieces of audio and video.', 'Layer 7 lit up: the media stream starts to go out.', 'Layer 7: the app decides what to send (here, a media stream).'],
     2: ['6 · Presentation: encode and encrypt', 'Each little piece goes through a codec (Opus for voice, VP8 for video), which compresses it, and through SRTP, which encrypts it. Each piece is small and independent of the others.', 'Layer 6: the video turns into encrypted noise (SRTP).', 'Layer 6: compression and encryption, now in real time.'],
     3: ['5 · Session: the call is open', 'The session here is the call itself: who is talking to whom, with which codec and for how long.', 'Layer 5: the session line (the call) lights up between the two sides.', 'Layer 5 keeps the conversation open.'],
@@ -200,7 +200,7 @@ FIGS3D.push({ id: 'osi', name: 'Modelo OSI', mod: (() => {
     8: ['Hop by hop: a piece gets lost', 'Along the way a piece gets lost (a full queue at a router, bad Wi-Fi). With UDP nobody warns and nobody resends. The others keep going.', 'One of the dots of light vanishes in the middle of the cable: that is the lost piece.', 'Losing packets is normal on the internet; UDP just keeps going.'],
     12: ['4 · Transport: goes on without the missing piece', 'Almost everything arrived. The piece that got lost is left out: the picture stutters for a few milliseconds and the call goes on. Waiting for a resend would put the conversation behind.', 'The slices join with a gap: one is missing. The call goes on anyway.', 'TCP waits for what was missing; UDP skips it and keeps going.'],
     14: ['6 · Presentation: decrypt and decode', 'SRTP decrypts and the codec rebuilds voice and picture, even with one little piece fewer.', 'Layer 6: the block is decrypted and the video is back.', 'Layer 6 undoes the encryption and the compression.'],
-    15: ['7 · Application: the call goes on', 'The brother sees and hears Lena live, with a stutter he did not even notice. That is why calls, games and live streams use UDP (or QUIC, which also runs on top of UDP).', 'Layer 7: the call shows up on the brother\'s screen.', 'Photo: TCP. Live call: UDP.'],
+    15: ['7 · Application: the call goes on', 'Téo sees and hears Lena live, with a stutter he did not even notice. That is why calls, games and live streams use UDP (or QUIC, which also runs on top of UDP).', 'Layer 7: the call shows up on Téo\'s screen.', 'Photo: TCP. Live call: UDP.'],
   };
   const cmpHtml = () => (s === 4 || s === 12) ? `<div class="dv-cmp"><div class="${mode === 'tcp' ? 'is-here' : ''}"><b>Photo · TCP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">#7?</span><span>#8</span></div>waits for #7 to arrive again (resend)</div><div class="${mode === 'udp' ? 'is-here' : ''}"><b>Call · UDP</b><div class="dv-chips"><span>#5</span><span>#6</span><span class="miss">–</span><span>#8</span></div>skips #7: a small stutter and it goes on</div></div>` : '';
   function panelHtml() {

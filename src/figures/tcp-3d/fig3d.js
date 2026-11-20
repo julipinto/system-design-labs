@@ -148,7 +148,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
   const STEPS = {
     tcp: [
       { title: 'A Lena vai mandar a foto do gato', dur: 0, ev: [],
-        story: 'A Lena, em São Paulo, aperta enviar: o celular dela vai mandar a foto do gato ao irmão, em Tóquio, passando pelo servidor do app (o servidor de mensagens que entrega a foto a ele). Os 313 KB viram 215 fatias, e o TCP garante que todas cheguem inteiras e em ordem. Aqui acompanhamos só as 3 primeiras fatias, 300 bytes. Para caber na tela, a figura usa fatias de 100 bytes; as reais têm ~1.460 bytes. Os números de seq e ack são de exemplo.',
+        story: 'A Lena, em Recife, aperta enviar: o celular dela vai mandar a foto do gato ao Téo, em Tóquio, passando pelo servidor do app (o servidor de mensagens que entrega a foto a ele). Os 313 KB viram 215 fatias, e o TCP garante que todas cheguem inteiras e em ordem. Aqui acompanhamos só as 3 primeiras fatias, 300 bytes. Para caber na tela, a figura usa fatias de 100 bytes; as reais têm ~1.460 bytes. Os números de seq e ack são de exemplo.',
         look: 'À esquerda o celular da Lena, com a foto do gato na tela; à direita o servidor do app. O trilho de cima leva as fatias; o da frente traz as respostas. Na frente do servidor, o buffer de recepção tem 3 vagas vazias, uma para cada fatia.',
         key: 'TCP: a foto da Lena chega inteira por conexão, bytes numerados, confirmação e reenvio.' },
       { title: 'Handshake: SYN, SYN-ACK, ACK', dur: 7.6, ev: [[0, 0.3], [1, 2.6], [2, 5.3]],
@@ -192,13 +192,13 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
         look: 'Agora o FIN vem do servidor e o ACK vai. Servidor: CLOSED. Celular: TIME_WAIT.',
         key: 'Four-way close: FIN, ACK, FIN, ACK.' },
       { title: 'Resumo: 14 segmentos para 3 fatias', dur: 1.2, ev: [], tw: 0.8,
-        story: 'Para entregar as 3 primeiras fatias da foto (300 bytes), o TCP trocou 14 segmentos: 3 para abrir, 7 de dados e ACKs (contando o reenvio) e 4 para fechar. Tudo chegou inteiro e em ordem, apesar da perda: com as 215 fatias seria o mesmo, e o irmão veria o gato sem buracos. Depois do TIME_WAIT (2 × MSL: de segundos a alguns minutos, depende do sistema), o celular também fecha.',
+        story: 'Para entregar as 3 primeiras fatias da foto (300 bytes), o TCP trocou 14 segmentos: 3 para abrir, 7 de dados e ACKs (contando o reenvio) e 4 para fechar. Tudo chegou inteiro e em ordem, apesar da perda: com as 215 fatias seria o mesmo, e o Téo veria o gato sem buracos. Depois do TIME_WAIT (2 × MSL: de segundos a alguns minutos, depende do sistema), o celular também fecha.',
         look: 'As duas placas em CLOSED e o app do servidor com as 3 fatias, 300 bytes. Troque para UDP no painel para comparar.',
         key: 'TCP troca velocidade por garantia: ordem, confirmação e reenvio.', sum: true },
     ],
     udp: [
       { title: 'E se fosse uma ligação de vídeo?', dur: 0, ev: [],
-        story: 'E se, em vez de uma foto, a Lena estivesse numa ligação de vídeo com o irmão? É o cenário de ligação da figura OSI: o vídeo nasce a cada instante e vai em pedaços, aqui os mesmos 3 pedaços de 100 bytes, e o transporte é UDP. Não existe conexão: nada de handshake, nada de estado, nada de número de sequência.',
+        story: 'E se, em vez de uma foto, a Lena estivesse numa ligação de vídeo com o Téo? É o cenário de ligação da figura OSI: o vídeo nasce a cada instante e vai em pedaços, aqui os mesmos 3 pedaços de 100 bytes, e o transporte é UDP. Não existe conexão: nada de handshake, nada de estado, nada de número de sequência.',
         look: 'A tela do celular da Lena segue enviando. As placas não mostram estado: sem conexão, não há estado para mostrar. O trilho da frente vai ficar vazio.',
         key: 'UDP: manda e esquece.' },
       { title: 'Datagrama #1, direto', dur: 3.4, ev: [[0, 0.3]],
@@ -214,7 +214,7 @@ FIGS3D.push({ id: 'tcp', name: 'TCP · UDP', mod: (() => {
         look: 'O #3 ocupa a última vaga, aceso. A do meio fica vazia e sem "esperando": ninguém está esperando.',
         key: 'Cada datagrama é independente: chegou, entregou.' },
       { title: 'Fim: 200 de 300 bytes (o vídeo trava um instante)', dur: 0, ev: [],
-        story: 'O servidor ficou com o #1 e o #3: 200 bytes. O celular da Lena acha que mandou tudo. Foram 3 mensagens, contra 14 do TCP. Na ligação, o irmão vê uma travadinha e a chamada segue: para voz, vídeo ao vivo e jogos, perder um pedaço é melhor do que esperar por ele. Para a foto do gato, isso seria um buraco na imagem. Se o app precisar de garantia, ele mesmo implementa (o QUIC faz isso em cima do UDP).',
+        story: 'O servidor ficou com o #1 e o #3: 200 bytes. O celular da Lena acha que mandou tudo. Foram 3 mensagens, contra 14 do TCP. Na ligação, o Téo vê uma travadinha e a chamada segue: para voz, vídeo ao vivo e jogos, perder um pedaço é melhor do que esperar por ele. Para a foto do gato, isso seria um buraco na imagem. Se o app precisar de garantia, ele mesmo implementa (o QUIC faz isso em cima do UDP).',
         look: 'A vaga do meio vazia para sempre e nenhum ACK no trilho da frente.',
         key: 'UDP é rápido e leve; a garantia fica com a aplicação.', sum: true },
     ],

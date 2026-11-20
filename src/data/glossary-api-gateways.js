@@ -5,7 +5,7 @@ const [L1, L2, L3, L4, L5, L6, L7] = ['aula-1-introducao-e-problemas-operacionai
 export const apiGateways = [
   { term: 'API Gateway', aliases: ['API Gateway', 'gateway', 'gateways', 'gw-loja'], short: 'A porta única de uma arquitetura: recebe todo pedido de fora, aplica as regras comuns (rota, identidade, limite, versão) e entrega ao serviço certo. Na loja, o gw-loja.', lesson: L1 },
   { term: 'Ponto de entrada único', aliases: ['ponto de entrada único', 'porta única'], short: 'Um endereço só para quem chama de fora (api.loja.com.br), em vez de um por serviço.', lesson: L1 },
-  { term: 'Parceiro', aliases: ['parceiro', 'marketplace-xyz'], short: 'Uma empresa de fora que usa a API da loja. O marketplace-xyz revende o gato de pelúcia e se identifica com uma chave de API.', lesson: L1 },
+  { term: 'Parceiro', aliases: ['parceiro', 'marketplace-xyz'], short: 'Uma empresa de fora que usa a API da loja. O marketplace-xyz (o MegaMercado) revende o gato de pelúcia e se identifica com uma chave de API.', lesson: L1 },
   { term: 'Rota', aliases: ['rota', 'rotas'], short: 'A regra que liga um método e um caminho a um serviço: GET /api/v1/produtos/* vai para o catálogo.', lesson: L2 },
   { term: 'strip_path', aliases: ['strip_path'], short: 'O gateway tira da URL o prefixo da rota antes de entregar: recebe /api/v1/produtos/42 e entrega /produtos/42 ao catálogo.', lesson: L2 },
   { term: 'Contrato', aliases: ['contrato', 'contratos'], short: 'O que o cliente espera da API: as rotas, os métodos e o formato das respostas. Mudar o formato (total de número para objeto) quebra o contrato.', lesson: L2 },

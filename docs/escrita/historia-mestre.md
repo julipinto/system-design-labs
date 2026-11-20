@@ -1,16 +1,18 @@
-# História-mestre do SDLabs (a loja da Lena, do módulo 1 ao 29)
+# História-mestre do SDLabs (a loja do Téo, do módulo 1 ao 29)
+
+> Quem é quem e por quê está em `serie.md` (a bíblia da série). Este arquivo guarda os números: pedidos, constantes e capítulos.
 
 Cada módulo é um capítulo do mesmo problema: **a loja que vende o gato de pelúcia cresce, e cada crescimento quebra alguma coisa**. Este arquivo é a espinha. Todo brief novo parte daqui e, quando um módulo muda um número que outro usa, este arquivo é atualizado junto (PREMISSAS 8 e 15b).
 
 ## Elenco e constantes
-- **Lena** (Recife), a cliente-estrela; **Bia** (SP), **Caio** (Rio), **Davi** (SP), outros clientes; cidades SP, Rio, Recife.
+- **Lena** (Recife), a cliente zero, irmã do Téo (fundador); **Bia** (SP), **Caio** (Rio), **Davi** (SP), outros clientes; cidades SP, Rio, Recife. Fundadores e time em `serie.md`: Téo, Iara (CTO), Bruna, Júlio, Raí; investidora Marta.
 - **A loja**: `loja.com.br`. Produto-estrela: **gato de pelúcia, produto 42** (preço 89.90 até o módulo 5; **79.90** a partir da promoção do módulo 5). Caneca azul é o produto 7 (19.90).
 - Banco: PostgreSQL `loja` (módulo 4), tabela `pedidos`. Redis (módulo 5). CDN com edge em Recife (módulo 5).
 - Times (módulo 6): **Vitrine** (catálogo, busca), **Checkout** (carrinho, pedidos, pagamentos), **Logística** (estoque, entregas).
 - Serviços (módulo 6): `catalogo`, `carrinho`, `pedidos`, `pagamentos`, `estoque`, `entregas`, `relatorios` (+ `recomendacoes`, `clientes`, BFFs a partir dos módulos 8–9).
 - Porta de entrada (módulos 7–8): `lb-loja` (203.0.113.10), `gw-loja` (`api.loja.com.br`).
 - Frete padrão para Recife: **15.00**. Frete SP **9.00** (módulo 11). Frete Rio **12.00** (módulo 15).
-- Clientes (`cliente_id`): `lena-77` (módulo 8), `davi-12` (módulo 8), `bia-31`, `caio-58` e `mkt-01` (o marketplace parceiro do módulo 8; 40% da tabela `pedidos`) a partir dos módulos 15–16.
+- Clientes (`cliente_id`): `lena-77` (módulo 8), `davi-12` (módulo 8), `bia-31`, `caio-58` e `mkt-01` (o MegaMercado, o marketplace parceiro do módulo 8, que nos módulos 8–10 aparece como `marketplace-xyz`; 40% da tabela `pedidos`) a partir dos módulos 15–16.
 - Números de capacidade (módulos 14–16): catálogo **100 req/s por réplica** (10 ms de CPU + 10 ms de espera); checkout em pedidos/s: `pedidos` 90, `pagamentos` 40, `estoque` 1.000, banco do `pedidos` **150**; Black Friday dia comum 5 pedidos/s e pico 30/s; pico do catálogo **640 req/s**; meta p95 ≤ 300 ms.
 - Rede entre sites (módulos 14 e 17): RTT SP–Rio **10 ms**, SP–Recife **80 ms** (o "~80 ms síncrona" do módulo 3); commit local **2 ms**; servidores `pg-sp`, `pg-rio`, `pg-recife`.
 - A tabela `pedidos` do módulo 16: **50 milhões de linhas** (2 KB cada), 3 shards por `cliente_id` com murmur3 (`shard-0..2`).
@@ -36,10 +38,10 @@ Cada módulo é um capítulo do mesmo problema: **a loja que vende o gato de pel
 | (nenhum) | 23 | planejamento, sem pedido |
 | (nenhum) | 24 | pedidos do k6 são sintéticos, não consomem número |
 | (nenhum) | 25 | reusa o 1054 (status da Lena) |
-| 1060 | 26 | Lena, 20:25:00.000, na `celula-recife`: 2 gatos 159.80 + frete Recife 15.00 = **174.80** (gato 19 → 17; a alocação da célula `REC-1` vai de 2 a 0); a *poison pill* do `mkt-01` derruba só a `celula-mkt` |
-| 1061 | 27 | **Bia**, SP, 20:39:59.950: 1 gato 79.90 + 1 caneca azul 19.90 + frete SP 9.00 = **108.80**, Pix `c-7733` (gato 17 → 16, caneca 32 → 31); **perdido no RPO** (a região de SP cai às 20:40:00.150); o número **1061 é reutilizado** pelo Davi às 20:41:10 (2 canecas azuis 39.80 + frete SP 9.00 = **48.80**, Pix `c-7734`) |
+| 1060 | 26 | Lena, Black Friday 2027 (sex 26/11/2027), 20:25:00.000, dois gatos para a sala de aula dela, na `celula-recife`: 2 gatos 159.80 + frete Recife 15.00 = **174.80** (gato 19 → 17; a alocação da célula `REC-1` vai de 2 a 0); a *poison pill* do `mkt-01` derruba só a `celula-mkt` |
+| 1061 | 27 | **Bia**, SP, Black Friday 2027, 20:39:59.950: 1 gato 79.90 + 1 caneca azul 19.90 + frete SP 9.00 = **108.80**, Pix `c-7733` (gato 17 → 16, caneca 32 → 31); **perdido no RPO** (a região de SP cai às 20:40:00.150); o número **1061 é reutilizado** pelo Davi às 20:41:10 (2 canecas azuis 39.80 + frete SP 9.00 = **48.80**, Pix `c-7734`) |
 | 1062 | 27 | o **mesmo** pedido da Bia, recuperado do disco de SP às 23:40 e **renumerado** (o 1061 fica com o Davi) |
-| 1063 | 28 | Lena, quinta 03/12/2026, 15:30:07.412 ("caneca em dobro"): 3 canecas azuis 59.70 + frete Recife 15.00 = **74.70** (caneca 29 → 26); **1,9 s** (normal 275 ms) por uma espera de *lock* de 1.620 ms no `estoque`; `trace_id` `9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52` |
+| 1063 | 28 | Lena, quinta 02/12/2027, 15:30:07.412 ("caneca em dobro"): 3 canecas azuis 59.70 + frete Recife 15.00 = **74.70** (caneca 29 → 26); **1,9 s** (normal 275 ms) por uma espera de *lock* de 1.620 ms no `estoque`; `trace_id` `9c1e5a7b3d8f4a2e8b6c0d4f7a1e3b52` |
 | (1060) | 29 | o módulo 29 **reusa o 1060** (os 14 saltos pelo mapa); **não consome número** |
 | 1064+ | depois do 29 | um novo por módulo, registrado aqui |
 

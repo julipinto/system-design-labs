@@ -268,7 +268,7 @@
     "Um nome de 40 caracteres, começando com f34b9897…",
     "cache/1."
   ], 2, "O SHA-1 de GET/gato.jpg é f34b98978ea8b0b6b5e489a03cd1f067ec7a3ffa.");
-  choice("t7", 3, 3, "O dono da loja troca o gato.jpg na origem, mas a Lena continua vendo a foto velha no proxy do laboratório. Por quê?", [
+  choice("t7", 3, 3, "O Téo troca o gato.jpg na origem, mas a Lena continua vendo a foto velha no proxy do laboratório. Por quê?", [
     "O proxy do laboratório não tem TTL: o arquivo existe, então todo pedido é hit.",
     "A origem esqueceu de salvar a foto nova.",
     "A foto nova ficou pesada demais.",

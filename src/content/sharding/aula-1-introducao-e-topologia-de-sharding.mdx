@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">O módulo 15 terminou com o cubo de escala e um eixo que a loja nunca usou: o <strong>Z</strong>, partir por cliente. O motivo está no módulo 14. O banco do <code>pedidos</code> aguenta <strong>150 pedidos por segundo</strong>, e mais réplicas do serviço não mexem nesse teto. Só que o banco também ficou grande: a tabela <code>pedidos</code>, que no módulo 4 tinha 6 linhas (1041 a 1046), tem agora <strong>50 milhões</strong>. O problema deste módulo é <strong>partir a tabela entre servidores</strong>: por qual chave, onde cada linha cai e o que acontece quando as coisas mudam.</p>
+<p class="ponte">O módulo 15 terminou com a lousa da Iara e um eixo que a loja nunca usou: o <strong>Z</strong>, partir por cliente. São 20:08 da Black Friday, e o motivo está no módulo 14. O banco do <code>pedidos</code> aguenta <strong>150 pedidos por segundo</strong>, e mais réplicas do serviço não mexem nesse teto. Só que o banco também ficou grande: a tabela <code>pedidos</code>, que no módulo 4 tinha 6 linhas (1041 a 1046), tem agora <strong>50 milhões</strong>, e 40% delas são do MegaMercado, que o Téo trouxe. A Lena acabou de comprar (1054), e a Iara precisa decidir como <strong>partir a tabela entre servidores</strong>: por qual chave, onde cada linha cai e o que acontece quando as coisas mudam.</p>
 
 <OneLiner>Sharding é partir os dados de uma tabela entre vários <strong>servidores</strong>, cada um com um pedaço (um <strong>shard</strong>), e dar a cada linha um endereço calculado a partir de uma <strong>chave</strong>.</OneLiner>
 

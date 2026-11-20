@@ -15,7 +15,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 import checkoutJs from '../../../../public/en/labs/testes-de-carga/lab/checkout.js?raw';
 import lojaSimJs from '../../../../public/en/labs/testes-de-carga/lab/loja-sim.js?raw';
 
-<p class="ponte">Module 23 ended with a <strong>plan</strong> for Black Friday on 11/26/2027: 200 orders per second, 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. The math says <strong>300/s nominal</strong> and <strong>210/s sustainable</strong>. But nobody measured the connection pool, the PSP, the customer mix, or the gap between nominal and what the store really does.</p>
+<p class="ponte">Module 23 ended with a <strong>plan</strong> for Black Friday on 11/26/2027: 200 orders per second, 10 pods on <code>pedidos</code>, 15 on <code>pagamentos</code>, 4 shards and 8 partitions. The math says <strong>300/s nominal</strong> and <strong>210/s sustainable</strong>. But nobody measured the connection pool, the PSP, the customer mix, or the gap between nominal and what the store really does. Téo has already promised the 200/s to the sales team; Iara decides the promise only holds after a test, and picks k6 to run it.</p>
 
 <OneLiner>A plan without a test is a <strong>hypothesis</strong>. A load test is how you <strong>refute it</strong> with a number, a measuring point and a target, before Black Friday does it for you.</OneLiner>
 

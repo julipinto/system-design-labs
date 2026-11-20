@@ -13,7 +13,7 @@ import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 import Figure3D from '../../../components/Figure3D.astro';
 
-<p>In the last lesson the copy of <code>produto:42</code> went into the cache with the price 89.90. But the plush cat's price can change in the database, and the cache doesn't find out. Bia opens the page right after the change and sees 89.90, while the database already says 79.90. Who checks the cache's price against the database's?</p>
+<p>In the last lesson the copy of <code>produto:42</code> went into the cache with the price 89.90. But Téo is about to lower the plush cat's price for the promotion, and the cache doesn't find out. Bia opens the page right after the change and sees 89.90, while the database already says 79.90. Who checks the cache's price against the database's?</p>
 
 <OneLiner>The cache can be out of date, and the TTL is the deadline that limits for how long; when the data can't wait for the deadline, whoever writes to the database also deletes the key.</OneLiner>
 
@@ -28,7 +28,7 @@ import Figure3D from '../../../components/Figure3D.astro';
 <HowItWorks>
 <ol class="flow steps">
   <li>At <strong>t = 0 s</strong>, the first request is a miss. The app reads the database (89.90) and writes <code>produto:42</code> to the cache with a <strong>60 s TTL</strong>. The key's clock starts counting.</li>
-  <li>At <strong>t = 20 s</strong>, the store owner lowers the price to <strong>79.90</strong>. The write goes to the database, and the database doesn't tell the cache.</li>
+  <li>At <strong>t = 20 s</strong>, Téo lowers the price to <strong>79.90</strong>, for the promotion. The write goes to the database, and the database doesn't tell the cache.</li>
   <li>At <strong>t = 30 s</strong>, Bia opens the page. The cache has the key, so it's a hit, in 1 ms, with <strong>89.90</strong>. The database already says 79.90. This is <strong>stale data</strong>: the cache didn't break, it just fell behind.</li>
   <li>At <strong>t = 60 s</strong>, the TTL expires and the key disappears. The next request is a miss, reads 79.90 from the database and writes it again, with another 60 s. The stale data lasted <strong>40 s</strong>, from t = 20 to t = 60.</li>
   <li>Had the owner changed the price at t = 1 s, the stale data would last 59 s. The <strong>worst case is the whole TTL</strong>. To get zero seconds of stale data, the app that writes 79.90 to the database also sends <code>DEL produto:42</code>: the next request is already a miss and brings the new price.</li>

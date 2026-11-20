@@ -13,7 +13,7 @@ import Deep from '../../../components/Deep.astro';
 import Sources from '../../../components/Sources.astro';
 import Flashcards from '../../../components/Flashcards.astro';
 
-<p>There are five RAID levels now, and the store needs one for pedidos.db. The choice depends on what each piece of data can afford to lose: space, speed or safety. This lesson puts the five side by side.</p>
+<p>There are five RAID levels now, and Iara has to pick one for pedidos.db. The choice depends on what each piece of data can afford to lose: space, speed or safety. This lesson puts the five side by side.</p>
 
 <OneLiner>each RAID trades space, speed and safety in its own way: 0 only runs fast, 1 and 10 copy, 5 and 6 use parity, and none of them is a backup.</OneLiner>
 
@@ -40,7 +40,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 <ol class="flow steps">
   <li><strong>Need speed and the data can be rebuilt?</strong> RAID 0.</li>
   <li><strong>Little data, critical, simple?</strong> RAID 1.</li>
-  <li><strong>Write-heavy database with critical data?</strong> RAID 10. That is the case of pedidos.db.</li>
+  <li><strong>Write-heavy database with critical data?</strong> RAID 10. That is the case of pedidos.db, and it was Iara's pick.</li>
   <li><strong>Lots of space, read-heavy, tight budget?</strong> RAID 5. With large disks and many of them: RAID 6.</li>
   <li>In all of them: <strong>RAID is not a backup.</strong> Keep copies outside the set (object storage, another region).</li>
 </ol>
@@ -81,7 +81,7 @@ import Flashcards from '../../../components/Flashcards.astro';
   ]} />
 </Deep>
 
-<p>gato.jpg is in object storage and pedidos.db is on RAID 10. But a RAID only protects against a disk failure, and the whole machine can still go down. Next, how to keep the store up in that case. That is the ground of replicas and sharding.</p>
+<p>gato.jpg is in object storage and pedidos.db is on RAID 10. The price of Iara's decision is half the space; the price of Téo's RAID 0 was the whole pedidos.db. But a RAID only protects against a disk failure, and the whole machine can still go down. With servers in more than one city, what's left is who holds the truth when they disagree.</p>
 
 <Flashcards cards={[
   { q: "RAID 5, 6 and 10: capacity and failures?",

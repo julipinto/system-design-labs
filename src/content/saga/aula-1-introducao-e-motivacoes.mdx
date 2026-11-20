@@ -12,7 +12,7 @@ import Sources from '../../components/Sources.astro';
 import Figure3D from '../../components/Figure3D.astro';
 import Flashcards from '../../components/Flashcards.astro';
 
-<p class="ponte">No módulo 18 a loja ganhou um modelo para escrever e outro para ler, ligados por eventos que não se perdem. Mas <strong>um pedido passa por vários serviços, cada um com o seu banco</strong>, e o módulo 6 deixou uma dívida: o pagamento é aprovado, a reserva de estoque falha, e não existe mais um <code>ROLLBACK</code> que desfaça tudo. Alguém precisa <strong>compensar</strong>, estornando o pagamento. Esse desenho tem nome: <strong>Saga</strong>.</p>
+<p class="ponte">No módulo 18 a Bruna deu à loja um modelo para escrever e outro para ler, ligados por eventos que não se perdem. São 20:15 da Black Friday, e <strong>um pedido passa por vários serviços, cada um com o seu banco</strong>. O Davi abre o pedido da camiseta (1057) para pagar no Pix, a Logística do Raí zera o estoque por avaria às 20:15:10 e o Pix cai às 20:15:41: o módulo 6 deixou essa dívida, o pagamento é aprovado, a reserva de estoque falha, e não existe mais um <code>ROLLBACK</code> que desfaça tudo. Alguém precisa <strong>compensar</strong>, estornando o pagamento, e o Júlio, dono do <code>pagamentos</code>, não quer dinheiro preso. Esse desenho tem nome: <strong>Saga</strong>.</p>
 
 <OneLiner>A <strong>Saga</strong> faz uma operação que atravessa serviços <strong>terminar inteira ou ser desfeita</strong>. Ela troca a atomicidade de uma transação por <strong>passos locais e compensações</strong>: cada serviço faz o seu pedaço, e se um deles falha, os que já passaram são desfeitos por novas transações.</OneLiner>
 

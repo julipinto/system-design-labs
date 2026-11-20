@@ -39,7 +39,7 @@ import Flashcards from '../../../components/Flashcards.astro';
 
 <p>It is 20:05, the peak is at 640 req/s and a zone failure takes down <strong>4</strong> of the 10 replicas. 6 are left, with capacity of 600 req/s, and demand is 640: <strong>40 req/s</strong> are missing. Those 40 per second become a queue, <strong>2,400 per minute</strong>, and the responses go past 2 s and get a <code>504</code>. With 7 replicas alive the catalog still held (91.4%, 126.7 ms).</p>
 
-<p>If the store had scaled up to a single 8 vCPU replica, the outage would be worse: with no other replica, the 640 req/s meet a capacity of <strong>zero</strong>. Vertical is simpler to operate, and it concentrates the risk in a single unit.</p>
+<p>If Iara had scaled up to a single 8 vCPU replica, the outage would be worse: with no other replica, the 640 req/s meet a capacity of <strong>zero</strong>. Vertical is simpler to operate, and it concentrates the risk in a single unit.</p>
 
 <WhyItMatters>
   <li><strong>The two ways answer different limits.</strong> Vertical hits the machine's ceiling and the restart; horizontal asks for state outside the process and a load balancer.</li>
