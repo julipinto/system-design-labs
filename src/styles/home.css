@@ -37,7 +37,7 @@ a.mod-link:focus-visible{outline:2px solid var(--accent-fill);outline-offset:4px
   .mod-link{grid-template-columns:64px 1fr 220px;align-items:start}
   .mod-n{font-size:20px;line-height:1.4}
   .mod-fig{display:block;position:relative;border:var(--hair) solid var(--line);border-radius:var(--r-2);overflow:hidden;background:var(--plate);aspect-ratio:8/5;transition:border-color var(--dur-2),box-shadow var(--dur-3) var(--ease-out)}
-  .mod-fig img{display:block;width:100%;height:100%;object-fit:cover;opacity:.82;transform-origin:50% 50%;transition:opacity var(--dur-3) var(--ease-out),transform 520ms var(--ease-out)}
+  .mod-fig img{display:block;width:100%;height:100%;object-fit:cover;opacity:1;transform-origin:50% 50%;transition:opacity var(--dur-3) var(--ease-out),transform 520ms var(--ease-out)}
   a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img{transform:scale(1.035)}
   a.mod-link:hover .mod-fig,a.mod-link:focus-visible .mod-fig{border-color:var(--line-strong)}
   a.mod-link:hover .mod-fig img,a.mod-link:focus-visible .mod-fig img{opacity:1}
