@@ -112,30 +112,39 @@ FIGS.push({
   },
 });
 
-// Bulkhead: a hull split into compartments; one is flooded (lit), the others stay dry.
+// Bulkhead: a hull in cutaway; its long front face shows four compartments split by bulkheads.
+// One compartment is flooded (lit water with a wavy top); the others stay dry with their cargo.
 FIGS.push({
-  id: 'bulkhead', name: 'Bulkhead', aria: 'Casco com compartimentos, um alagado.',
+  id: 'bulkhead', name: 'Bulkhead', aria: 'Casco em corte com quatro compartimentos; um alagado, os outros secos.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [360, 0, 0], [0, 240, 0], [360, 240, 0], [30, 30, 120]]);
-    const { P, TOP, FRONT, SIDE, box } = K;
-    let s = box(0, 0, 0, 360, 240, 10, 16);
-    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="340" height="220" rx="10"/></g>`;
-    // Open-top hull: 4 compartments along x; back and left walls first, low front wall last so the inside shows.
-    const x0 = 30, y0 = 40, W = 300, D = 140, H = 64, n = 4, cw = W / n, FLOOD = 2;
-    s += box(x0, y0, 10, W, 10, H, 4);
-    s += box(x0, y0 + 10, 10, 8, D - 20, H, 2);
-    for (let i = 0; i < n; i++) {
-      const cx = x0 + i * cw, f = i === FLOOD;
-      s += `<g transform="${TOP(cx, y0 + 10, 20)}"><rect class="face recess" x="8" y="4" width="${cw - 16}" height="${D - 24}" rx="4"/></g>`;
-      if (f) {
-        s += `<g transform="${TOP(cx, y0 + 10, 46)}"><rect class="halo hot" filter="url(#bloom)" x="-10" y="-6" width="${cw + 20}" height="${D - 8}" rx="30"/><rect class="lit" filter="url(#glow)" x="8" y="4" width="${cw - 16}" height="${D - 24}" rx="4"/><rect class="glass hot" x="22" y="30" width="${cw - 44}" height="40" rx="6"/></g>`;
+    const W = 400, D = 200, HX = 30, HY = 70, HW = 340, HD = 70, HH = 110, N = 4, WET = 2;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [HX + 40, HY + 10, 10 + HH + 46]]);
+    const { TOP, FRONT, SIDE, box } = K;
+    let s = box(0, 0, 0, W, D, 10, 16);
+    s += `<g transform="${TOP(0, 0, 10)}"><rect class="detail" x="10" y="10" width="${W - 20}" height="${D - 20}" rx="10"/></g>`;
+    s += box(HX, HY, 10, HW, HD, HH, 10);                                   // hull
+    s += `<g transform="${TOP(HX, HY, 10 + HH)}">${api.iso.slits(90, HW - 20, 12, 12, HD - 12)}</g>`;
+    s += box(HX + 30, HY + 12, 10 + HH, 54, 44, 40, 5);                     // bridge on deck
+    s += `<g transform="${FRONT(HX + 30, HY + 56, 10 + HH + 40)}">${[0, 1, 2].map(i => `<rect class="face recess" x="${8 + i * 14}" y="10" width="10" height="9" rx="1.5"/>`).join('')}</g>`;
+    s += `<g transform="${SIDE(HX + HW, HY + HD, 10 + HH)}">${api.iso.slits(10, HD - 10, 8, 14, HH - 14)}</g>`;
+    // Cutaway on the front face (local u along x, v down from the deck line).
+    const M = 12, CW = (HW - 2 * M) / N, T = 16, B = HH - 12;
+    let f = `<rect class="face recess" x="${M}" y="${T}" width="${HW - 2 * M}" height="${B - T}" rx="4"/>`;
+    for (let i = 0; i < N; i++) {
+      const x0 = M + i * CW;
+      if (i === WET) {
+        const top = T + 30, wav = Array.from({ length: 5 }, (_, k) => `Q ${x0 + 6 + k * (CW - 12) / 5 + (CW - 12) / 10} ${top + (k % 2 ? 7 : -7)} ${x0 + 6 + (k + 1) * (CW - 12) / 5} ${top}`).join(' ');
+        f += `<rect class="halo hot" filter="url(#bloom)" x="${x0 - 6}" y="${top - 14}" width="${CW + 12}" height="${B - top + 20}" rx="14"/>`;
+        f += `<path class="lit" filter="url(#glow)" d="M${x0 + 6} ${top} ${wav} L${x0 + CW - 6} ${B - 6} L${x0 + 6} ${B - 6} Z"/>`;
+      } else {
+        f += `<rect class="face" x="${x0 + 12}" y="${B - 30}" width="26" height="24" rx="2"/><rect class="face" x="${x0 + 42}" y="${B - 20}" width="22" height="14" rx="2"/>`;
       }
-      if (i < n - 1) s += box(cx + cw - 4, y0 + 10, 10, 8, D - 10, H, 2);
+      if (i > 0) f += `<rect class="face top" x="${x0 - 4}" y="${T - 4}" width="8" height="${B - T + 8}" rx="2"/>`;   // bulkhead
     }
-    s += box(x0 + W - 8, y0 + 10, 10, 8, D - 20, H, 2);
-    s += box(x0, y0 + D - 10, 10, W, 10, 40, 4);
-    s += `<g transform="${FRONT(x0, y0 + D, 50)}">${[0, 1, 2, 3].map(i => `<circle class="${i === FLOOD ? 'lit' : 'led'}" ${i === FLOOD ? 'filter="url(#glow)"' : ''} cx="${cw / 2 + i * cw}" cy="20" r="8"/>`).join('')}</g>`;
-    stage.setAttribute('viewBox', cover(K)); stage.innerHTML = s;
+    // Waterline LEDs along the hull: lit only under the flooded compartment.
+    for (let i = 0; i < N; i++) f += `<circle class="led ${i === WET ? 'hot' : ''}" cx="${M + i * CW + CW / 2}" cy="${T - 8}" r="3"/>`;
+    s += `<g transform="${FRONT(HX, HY + HD, 10 + HH)}">${f}</g>`;
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });
