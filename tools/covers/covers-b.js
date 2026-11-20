@@ -66,25 +66,39 @@ FIGS.push({
   },
 });
 
-// 6 · Scale Cube: a gridded cube whose three axes (x, y, z) are lit bars with lit tips, leaving one corner.
+// 6 · Scale Cube: a 3x3x3 cube of blocks; the three rows meeting at the front corner are lit
+// (x: clone, y: split by function, z: split by data), each continuing as a lit axis with a lit tip.
 FIGS.push({
-  id: 'scale-cube', name: 'Scale Cube', aria: 'Um cubo com os três eixos acesos.',
+  id: 'scale-cube', name: 'Scale Cube', aria: 'Um cubo de 27 blocos; as três fileiras do canto da frente acesas, uma por eixo.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [320, 0, 0], [0, 280, 0], [320, 280, 0], [130, 130, 270]]);
+    const N = 3, U = 50, G = 8, O = 70, Z0 = 10, E = N * (U + G) - G;    // cell, gap, origin, cube edge
+    const W = O * 2 + E + 40;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, W, 0], [W, W, 0], [O, O, Z0 + E + 50]]);
     const { P, TOP, FRONT, SIDE, box } = K;
-    let s = plateB(K, 320, 280);
-    s += box(100, 100, 10, 140, 140, 140, 8);
-    // Dark gridded faces with slits.
-    const g = n => `<path class="detail" d="${[1, 2, 3].map(i => `M${i * 35} 0 V140 M0 ${i * 35} H140`).join(' ')}"/>`;
-    s += `<g transform="${TOP(100, 100, 150)}">${g()}</g><g transform="${FRONT(100, 240, 150)}">${g()}</g><g transform="${SIDE(240, 240, 150)}">${g()}</g>`;
-    // Axes from the front-bottom corner (240,240,10): x runs left, y runs back, z runs up; lit tip on each.
-    s += litBoxB(K, 40, 232, 10, 210, 32, 26, 3);
-    s += litBoxB(K, 232, 40, 10, 32, 210, 26, 3);
-    s += litBoxB(K, 232, 232, 36, 32, 32, 194, 3);
-    s += litBoxB(K, 16, 222, 6, 48, 52, 44, 3);
-    s += litBoxB(K, 222, 16, 6, 52, 48, 44, 3);
-    s += litBoxB(K, 222, 222, 226, 52, 52, 44, 3);
-    stage.setAttribute('viewBox', cover(K, -0.04)); stage.innerHTML = s;
+    let s = plateB(K, W, W);
+    const cells = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) cells.push([i, j, k]);
+    cells.sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]) || a[2] - b[2]);   // iso depth for equal cubes
+    const F = N - 1;
+    for (const [i, j, k] of cells) {
+      const lit = (j === F && k === 0) || (i === F && k === 0) || (i === F && j === F);
+      const x = O + i * (U + G), y = O + j * (U + G), z = Z0 + k * (U + G);
+      s += box(x, y, z, U, U, U, 3);
+      if (lit) {
+        s += `<g transform="${FRONT(x, y + U, z + U)}"><rect class="lit" filter="url(#glow)" x="6" y="6" width="${U - 12}" height="${U - 12}" rx="3"/></g>`;
+        s += `<g transform="${SIDE(x + U, y + U, z + U)}"><rect class="lit" opacity=".75" x="6" y="6" width="${U - 12}" height="${U - 12}" rx="3"/></g>`;
+        s += `<g transform="${TOP(x, y, z + U)}"><rect class="glass hot" x="6" y="6" width="${U - 12}" height="${U - 12}" rx="3"/></g>`;
+      } else {
+        s += `<g transform="${TOP(x, y, z + U)}"><rect class="face recess" x="8" y="8" width="${U - 16}" height="${U - 16}" rx="2"/></g>`;
+      }
+    }
+    // Axes continue past the cube from the lit rows, each ending in a lit tip.
+    const X1 = O + E, Y1 = O + E, ZT = Z0 + E;
+    const axis = (a, b) => `<path class="wire hot" filter="url(#soft)" d="M${P(...a)} L${P(...b)}"/><g transform="${TOP(b[0] - 6, b[1] - 6, b[2])}"><circle class="lit" filter="url(#glow)" cx="6" cy="6" r="6"/></g>`;
+    s += axis([X1 + 6, Y1 - U / 2, Z0 + U / 2], [X1 + 50, Y1 - U / 2, Z0 + U / 2]);   // x: clones
+    s += axis([X1 - U / 2, Y1 + 6, Z0 + U / 2], [X1 - U / 2, Y1 + 50, Z0 + U / 2]);   // y: functions
+    s += axis([X1 - U / 2, Y1 - U / 2, ZT + 6], [X1 - U / 2, Y1 - U / 2, ZT + 46]);   // z: data
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });
