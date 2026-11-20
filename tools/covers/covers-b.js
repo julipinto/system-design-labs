@@ -38,30 +38,34 @@ FIGS.push({
   },
 });
 
-// 5 · Performance: a dial gauge with a lit needle swung into the upper range.
+// 5 · Performance: a console with a big half-dial; the segment band is lit up to the high range
+// and the needle points into it.
 FIGS.push({
-  id: 'performance', name: 'Performance', aria: 'Um manômetro com o ponteiro aceso.',
+  id: 'performance', name: 'Performance', aria: 'Painel com um mostrador; a faixa acesa vai até a zona alta e o ponteiro aponta para ela.',
   mount(stage, api) {
-    const K = api.iso.frame([[0, 0, 0], [300, 0, 0], [0, 200, 0], [300, 200, 0], [60, 60, 210]]);
+    const W = 340, D = 220, BX = 50, BY = 60, BW = 240, BD = 70, BH = 170;
+    const K = api.iso.frame([[0, 0, 0], [W, 0, 0], [0, D, 0], [W, D, 0], [BX, BY, 10 + BH]]);
     const { TOP, FRONT, SIDE, box } = K;
-    let s = plateB(K, 300, 200);
-    s += box(60, 60, 10, 190, 80, 200, 12);
-    s += `<g transform="${SIDE(250, 140, 210)}">${api.iso.slits(10, 70, 8, 20, 170)}</g>`;
-    s += `<g transform="${TOP(60, 60, 210)}"><rect class="face recess" x="10" y="10" width="170" height="60" rx="6"/></g>`;
-    const cx = 95, cy = 105, R = 74;
-    const pt = (deg, r) => { const a = deg * Math.PI / 180; return [cx + Math.cos(a) * r, cy - Math.sin(a) * r]; };
-    let f = `<rect class="halo hot" filter="url(#bloom)" x="0" y="0" width="190" height="200" rx="40"/>`;
-    f += `<circle class="face recess" cx="${cx}" cy="${cy}" r="${R + 8}"/><circle class="glass" cx="${cx}" cy="${cy}" r="${R}"/>`;
-    for (let i = 0; i <= 10; i++) { const d = 225 - i * 27, a = pt(d, R - 4), b = pt(d, R - (i % 5 === 0 ? 20 : 12)); f += `<path class="${i >= 7 ? 'wire hot' : 'detail'}" d="M${a} L${b}"/>`; }
-    // Lit arc over the high range.
-    const a0 = pt(225 - 7 * 27, R - 6), a1 = pt(-45, R - 6);
-    f += `<path class="wire hot" filter="url(#glow)" d="M${a0} A${R - 6} ${R - 6} 0 0 1 ${a1}"/>`;
-    // Needle pointing into the lit range.
-    const tip = pt(225 - 8.4 * 27, R - 14), l = pt(225 - 8.4 * 27 + 90, 17), r = pt(225 - 8.4 * 27 - 90, 17);
-    f += `<polygon class="lit" filter="url(#glow)" points="${tip} ${l} ${pt(225 - 8.4 * 27 + 180, 22)} ${r}"/>`;
-    f += `<circle class="face" cx="${cx}" cy="${cy}" r="11"/><circle class="led hot" cx="${cx}" cy="${cy}" r="4"/>`;
-    s += `<g transform="${FRONT(60, 140, 210)}">${f}</g>`;
-    stage.setAttribute('viewBox', cover(K, -0.04)); stage.innerHTML = s;
+    let s = plateB(K, W, D);
+    s += box(BX, BY, 10, BW, BD, BH, 8);
+    s += `<g transform="${TOP(BX, BY, 10 + BH)}">${api.iso.slits(20, BW - 20, 10, 16, BD - 16)}</g>`;
+    s += `<g transform="${SIDE(BX + BW, BY + BD, 10 + BH)}">${api.iso.slits(10, BD - 10, 7, 14, BH - 14)}</g>`;
+    // Dial on the front face (local units: u along x, v down from the top edge).
+    const cx = BW / 2, cy = 118, r1 = 74, r2 = 96, N = 12, LIT = 9;
+    const pt = (r, t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
+    let f = `<rect class="face recess" x="14" y="12" width="${BW - 28}" height="${BH - 24}" rx="10"/>`;
+    for (let i = 0; i < N; i++) {
+      const t0 = Math.PI + (i + 0.08) * Math.PI / N, t1 = Math.PI + (i + 0.92) * Math.PI / N, on = i < LIT;
+      f += `<path class="${on ? 'lit' : 'face'}" ${on ? 'filter="url(#glow)"' : ''} d="M${pt(r1, t0)} L${pt(r2, t0)} A${r2} ${r2} 0 0 1 ${pt(r2, t1)} L${pt(r1, t1)} A${r1} ${r1} 0 0 0 ${pt(r1, t0)} Z"/>`;
+    }
+    // Needle: a slim lit wedge from the hub toward the end of the lit band.
+    const tn = Math.PI + (LIT - 0.5) * Math.PI / N, w = 0.09;
+    f += `<path class="lit" filter="url(#glow)" d="M${pt(66, tn)} L${pt(10, tn + Math.PI / 2 + w)} L${pt(10, tn - Math.PI / 2 - w)} Z"/>`;
+    f += `<circle class="lit" filter="url(#glow)" cx="${cx}" cy="${cy}" r="11"/><circle class="face recess" cx="${cx}" cy="${cy}" r="4"/>`;
+    // Status LEDs under the dial.
+    for (let i = 0; i < 4; i++) f += `<circle class="led ${i < 3 ? 'hot' : ''}" cx="${cx - 36 + i * 24}" cy="${cy + 22}" r="3.5"/>`;
+    s += `<g transform="${FRONT(BX, BY + BD, 10 + BH)}">${f}</g>`;
+    stage.setAttribute('viewBox', cover(K, -0.02)); stage.innerHTML = s;
     return {};
   },
 });
